@@ -24,11 +24,11 @@ from jax import numpy as jnp
 import numpy as np
 from paxml import base_experiment
 from paxml import checkpoint_pb2
+from paxml import learners
 from paxml import tasks_lib
 from praxis import base_input
 from praxis import base_layer
 from praxis import base_model
-from praxis import learners
 from praxis import optimizers
 from praxis import py_utils
 from praxis import pytypes
