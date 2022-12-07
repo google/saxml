@@ -25,6 +25,7 @@ from paxml import base_task
 from paxml import checkpoint_pb2
 from praxis import base_layer
 from praxis import base_model
+from praxis import pax_fiddle
 from praxis import py_utils
 from praxis import pytypes
 from saxml.server.pax import servable_model
@@ -196,7 +197,7 @@ class VisionModelParams(VisionModelParamsBase):
 class TextToImageModelParams(VisionModelParamsBase):
   """Model params for text-to-image task."""
 
-  def serving_tokenizer(self) -> base_layer.BaseLayer.HParams:
+  def serving_tokenizer(self) -> pax_fiddle.Config[base_layer.FiddleBaseLayer]:
     """Specifies the tokenizer."""
     raise NotImplementedError()
 

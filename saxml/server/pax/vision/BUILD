@@ -30,6 +30,7 @@ pytype_strict_library(
         "//third_party/py/paxml:checkpoint_py_pb2",
         "//third_party/py/praxis:base_layer",
         "//third_party/py/praxis:base_model",
+        "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis:pytypes",
         "//third_party/py/tensorflow:tensorflow_no_contrib",

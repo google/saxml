@@ -41,7 +41,6 @@ ready.
 import functools
 from typing import cast
 import fiddle as fdl
-from praxis import base_layer
 from praxis import layers
 from praxis.layers import quantization
 from praxis.layers.quantization import quantization_hparams
@@ -157,8 +156,6 @@ def find_target_tpl(config, target):
     if isinstance(param, target):
       target_tpl.append(param)
       continue
-    if isinstance(param, base_layer.BaseLayer.HParams):
-      to_process.extend(vars(param).values())
     if isinstance(param, fdl.Config):
       to_process.extend(fdl.ordered_arguments(param).values())
   return target_tpl
