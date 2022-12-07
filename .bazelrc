@@ -1,0 +1,3 @@
+# Required by @org_tensorflow
+build --experimental_repo_remote_exec
+build --action_env=BAZEL_CXXOPTS="-std=c++17"

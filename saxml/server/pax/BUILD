@@ -1,0 +1,121 @@
+# PAX implementation of servable model.
+
+load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_library")
+
+licenses(["notice"])
+
+package(
+    default_visibility = ["//saxml:internal"],
+)
+
+pytype_strict_library(
+    name = "all_imports",
+    srcs = ["all_imports.py"],
+    srcs_version = "PY3",
+    tags = ["keep_dep"],
+    deps = [
+        "//saxml/server:servable_model_registry",
+        "//saxml/server/pax/lm:all_imports",
+        "//saxml/server/pax/vision:all_imports",
+    ],
+)
+
+pytype_strict_library(
+    name = "branch_selection",
+    srcs = ["branch_selection.py"],
+    srcs_version = "PY3",
+    visibility = [
+        "//learning/multipod/sax/server/vision:__pkg__",
+        "//saxml:internal",
+        "//saxml/server/pax:__pkg__",
+    ],
+    deps = [
+        "//third_party/py/numpy",
+    ],
+)
+
+py_strict_test(
+    name = "branch_selection_test",
+    srcs = ["branch_selection_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    visibility = [
+        "//saxml:internal",
+        "//saxml/server/pax:__pkg__",
+    ],
+    deps = [
+        ":branch_selection",
+        "//third_party/py/absl-py/testing:absltest",
+    ],
+)
+
+pytype_strict_library(
+    name = "servable_model_params",
+    srcs = ["servable_model_params.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//saxml/server:servable_model_params",
+        "//saxml/server:utils",
+        "//third_party/py/jax:mesh_utils",
+        "//third_party/py/paxml:base_experiment",
+        "//third_party/py/paxml:checkpoint_py_pb2",
+        "//third_party/py/praxis:base_hyperparams",
+        "//third_party/py/praxis:py_utils",
+    ],
+)
+
+pytype_strict_library(
+    name = "servable_model",
+    srcs = ["servable_model.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":branch_selection",
+        ":servable_model_params",
+        "//saxml/server/jax:servable_model",
+        "//third_party/py/absl-py/logging",
+        "//third_party/py/etils/epath",
+        "//third_party/py/jax",
+        "//third_party/py/jax:mesh_utils",
+        "//third_party/py/numpy",
+        "//third_party/py/paxml:base_task",
+        "//third_party/py/paxml:checkpoint_py_pb2",
+        "//third_party/py/paxml:checkpoints",
+        "//third_party/py/paxml:trainer_lib",
+        "//third_party/py/praxis:base_layer",
+        "//third_party/py/praxis:base_model",
+        "//third_party/py/praxis:py_utils",
+        "//third_party/py/praxis:pytypes",
+        "//third_party/py/praxis:train_states",
+    ],
+)
+
+pytype_strict_library(
+    name = "quantization",
+    srcs = ["quantization.py"],
+    deps = [
+        "//third_party/py/fiddle",
+        "//third_party/py/praxis:base_hyperparams",
+        "//third_party/py/praxis:base_layer",
+        "//third_party/py/praxis:py_utils",
+        "//third_party/py/praxis:pytypes",
+        "//third_party/py/praxis/layers",
+        "//third_party/py/praxis/layers/quantization:layers",
+        "//third_party/py/praxis/layers/quantization:quantization_hparams",
+    ],
+)
+
+py_strict_test(
+    name = "quantization_test",
+    srcs = ["quantization_test.py"],
+    deps = [
+        ":quantization",
+        "//saxml/server/pax/lm/params:lm_cloud",
+        "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/absl-py/testing:parameterized",
+        "//third_party/py/praxis:base_layer",
+        "//third_party/py/praxis:test_utils",
+        "//third_party/py/praxis/layers",
+        "//third_party/py/praxis/layers/quantization:layers",
+        "//third_party/py/praxis/layers/quantization:quantization_hparams",
+    ],
+)

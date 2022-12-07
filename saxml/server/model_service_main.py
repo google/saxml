@@ -1,0 +1,143 @@
+# Copyright 2022 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""The main module of model services."""
+
+from typing import Optional, Sequence
+
+from absl import app
+from absl import flags
+from absl import logging
+import grpc
+import jax
+from paxml import setup_jax
+from saxml.protobuf import modelet_pb2
+from saxml.protobuf import modelet_pb2_grpc
+from saxml.server import model_service_base
+from saxml.server import spmd_backend
+
+_SAX_CELL = flags.DEFINE_string(
+    'sax_cell', None, 'Optional SAX cell of the admin server. '
+    'If set, heartbeat is enabled.')
+
+_PORT = flags.DEFINE_integer(
+    'port', None, 'Port for the RPC service.', required=True)
+_PLATFORM_CHIP = flags.DEFINE_string('platform_chip', None,
+                                     'Optional chip name.')
+_PLATFORM_TOPOLOGY = flags.DEFINE_string('platform_topology', None,
+                                         'Optional topology description.')
+_JAX_PROFILER_PORT = flags.DEFINE_integer(
+    'jax_profiler_port', None,
+    'If set, the jax.profiler port to use. Only needed for profiling in open source.'
+)
+
+# Internal tuning knobs. Consult sax-dev@ before tweaking these.
+_MODELS = flags.DEFINE_list('models', [],
+                            'Optional model paths to load at startup time.')
+_MODEL_KEYS = flags.DEFINE_list(
+    'model_keys', [],
+    'Optional keys to identify loaded models at startup time.')
+_CHECKPOINTS = flags.DEFINE_list(
+    'checkpoints', [], 'Optional model checkpoints to load at startup time.')
+_DETERMINISTIC_RNG = flags.DEFINE_bool(
+    'deterministic_rng', False,
+    'Whether to use a fixed RNG seed for all models.')
+_HOST_ORDINAL = flags.DEFINE_integer(
+    'host_ordinal', None, 'Ordinal of the current host in a multi-host setup. '
+    'Host 0 is the worker server that handles requests, and others will run '
+    'the secondary worker loop.')
+
+
+@flags.multi_flags_validator(
+    ['models', 'model_keys', 'checkpoints'],
+    message='models, model_keys, and checkpoints must have the same length')
+def _check_model_checkpoint_flags(flags_dict):
+  return len(flags_dict['models']) == len(flags_dict['checkpoints']) and (len(
+      flags_dict['models']) == len(flags_dict['model_keys']))
+
+
+def _load_static_model(
+    port, model: str, model_key: str, checkpoint: str,
+    channel_creds: Optional[grpc.ChannelCredentials]) -> None:
+  """Loads statically specified model to a started service."""
+  logging.info('Loading key %s, model %s, checkpoint %s.', model_key, model,
+               checkpoint)
+  if channel_creds is None:
+    channel = grpc.insecure_channel(f'localhost:{port}')
+  else:
+    channel = grpc.secure_channel(f'localhost:{port}', channel_creds)
+  with channel:
+    grpc.channel_ready_future(channel).result(timeout=10)
+    stub = modelet_pb2_grpc.ModeletStub(channel)
+    req = modelet_pb2.LoadRequest(
+        model_key=model_key, model_path=model, checkpoint_path=checkpoint)
+    stub.Load(req)
+
+
+def set_up():
+  """Sets up the server."""
+  setup_jax.setup_jax(
+      globally_use_hardware_rng=True,
+      jax_backend_target=flags.FLAGS.jax_backend_target,
+      jax_xla_backend=flags.FLAGS.jax_xla_backend,
+      jax_enable_checks=flags.FLAGS.jax_enable_checks,
+      jax_array=True)
+
+
+def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
+  """Runs the server until it is stopped."""
+  set_up()
+  if _HOST_ORDINAL.value is None:
+    is_primary = jax.process_index() == 0
+  else:
+    is_primary = _HOST_ORDINAL.value == 0
+  seed = 1234 if _DETERMINISTIC_RNG.value else None
+
+  if jax.process_count() > 1:
+    from saxml.server.jax import jax_spmd_backend  # pylint: disable=g-import-not-at-top
+    spmd_bknd = jax_spmd_backend.JaxSPMDBackend()
+  else:
+    spmd_bknd = spmd_backend.SingleHostBackend()
+
+  runner = model_service_base.ModelServicesRunner(
+      is_primary_process=is_primary,
+      port=_PORT.value,
+      deterministic_prng_seed=seed,
+      sax_cell=_SAX_CELL.value,
+      platform_chip=_PLATFORM_CHIP.value,
+      platform_topology=_PLATFORM_TOPOLOGY.value,
+      spmd_backend=spmd_bknd)
+  # Start jax.profiler for TensorBoard and profiling in open source.
+  if _JAX_PROFILER_PORT.value:
+    jax.profiler.start_server(_JAX_PROFILER_PORT.value)
+  try:
+    logging.info('Starting runner %d.', jax.process_index())
+    runner.start()
+    if is_primary:
+      for model, key, ckpt in zip(_MODELS.value, _MODEL_KEYS.value,
+                                  _CHECKPOINTS.value):
+        _load_static_model(_PORT.value, model, key, ckpt, channel_creds)
+    runner.wait()
+  finally:
+    runner.stop()
+
+
+def main(argv: Sequence[str]) -> None:
+  del argv
+  # TODO(sax-dev): Add secure channel for OSS.
+  run(None)
+
+
+if __name__ == '__main__':
+  jax.config.config_with_absl()
+  app.run(main)

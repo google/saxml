@@ -1,0 +1,684 @@
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package testutil provides helper functions to set up test environments.
+package testutil
+
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"net"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	log "github.com/golang/glog"
+	// unused internal test dependency
+	"saxml/common/cell"
+	"saxml/common/config"
+	"saxml/common/errors"
+	"saxml/common/location"
+	"saxml/common/naming"
+	"saxml/common/platform/env"
+	"saxml/common/watchable"
+
+	apb "saxml/protobuf/admin_go_proto_grpc"
+	agrpc "saxml/protobuf/admin_go_proto_grpc"
+	ampb "saxml/protobuf/audio_go_proto_grpc"
+	amgrpc "saxml/protobuf/audio_go_proto_grpc"
+	cpb "saxml/protobuf/common_go_proto"
+	cmpb "saxml/protobuf/custom_go_proto_grpc"
+	cmgrpc "saxml/protobuf/custom_go_proto_grpc"
+	lmpb "saxml/protobuf/lm_go_proto_grpc"
+	lmgrpc "saxml/protobuf/lm_go_proto_grpc"
+	mpb "saxml/protobuf/modelet_go_proto_grpc"
+	mgrpc "saxml/protobuf/modelet_go_proto_grpc"
+	vmpb "saxml/protobuf/vision_go_proto_grpc"
+	vmgrpc "saxml/protobuf/vision_go_proto_grpc"
+)
+
+func setUp(ctx context.Context, saxCell string, fsRoot string) error {
+	if err := env.Get().CreateDir(ctx, cell.Sax(ctx), ""); err != nil {
+		return err
+	}
+	if _, err := naming.SaxCellToCell(saxCell); err != nil {
+		return err
+	}
+	if err := cell.Create(ctx, saxCell, ""); err != nil {
+		return err
+	}
+	if err := config.Create(ctx, saxCell, fsRoot, ""); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetUp creates the necessary environment for a given Sax cell name.
+//
+// Tests in the same process should use different Sax cells.
+func SetUp(ctx context.Context, t *testing.T, saxCell string) {
+	t.Helper()
+	fsRoot := t.TempDir()
+	if err := setUp(ctx, saxCell, fsRoot); err != nil {
+		t.Fatalf("SetUp(%v, %v) failed: %v", saxCell, fsRoot, err)
+	}
+}
+
+type stubAdminServer struct {
+	saxCell        string
+	modelAddresses *watchable.Watchable
+}
+
+func (s *stubAdminServer) Publish(ctx context.Context, in *apb.PublishRequest) (*apb.PublishResponse, error) {
+	return &apb.PublishResponse{}, nil
+}
+
+func (s *stubAdminServer) Update(ctx context.Context, in *apb.UpdateRequest) (*apb.UpdateResponse, error) {
+	return &apb.UpdateResponse{}, nil
+}
+
+func (s *stubAdminServer) Unpublish(ctx context.Context, in *apb.UnpublishRequest) (*apb.UnpublishResponse, error) {
+	return &apb.UnpublishResponse{}, nil
+}
+
+func (s *stubAdminServer) List(ctx context.Context, in *apb.ListRequest) (*apb.ListResponse, error) {
+	addresses := s.modelAddressesList(ctx)
+	if in.GetModelId() == "" {
+		// This is "listall".
+		return &apb.ListResponse{}, nil
+	}
+	// This is "list". Echo the queried model name.
+	fullName, err := naming.NewModelFullName(in.GetModelId())
+	if err != nil {
+		return nil, err
+	}
+	if fullName.CellFullName() != s.saxCell {
+		return nil, fmt.Errorf("Want %v, got %v: %w", s.saxCell, fullName.CellFullName(), errors.ErrInvalidArgument)
+	}
+	out := &apb.ListResponse{
+		PublishedModels: []*apb.PublishedModel{
+			&apb.PublishedModel{
+				Model: &apb.Model{
+					ModelId:              in.GetModelId(),
+					ModelPath:            "/sax/models/xyz",
+					CheckpointPath:       "/tmp/abc",
+					RequestedNumReplicas: 1,
+				},
+				ModeletAddresses: []string{addresses[0]},
+			},
+		},
+	}
+	return out, nil
+}
+
+func (s *stubAdminServer) modelAddressesList(ctx context.Context) []string {
+	result, err := s.modelAddresses.Watch(ctx, 0)
+	if err != nil {
+		log.Fatalf("Unexpected modelAddressesList error: %v", err)
+	}
+	dataset := result.Data
+	if dataset == nil {
+		dataset = watchable.NewDataSet()
+	}
+	dataset.Apply(result.Log)
+	return dataset.ToList()
+}
+
+func (s *stubAdminServer) FindLoc(ctx context.Context, in *apb.FindLocRequest) (*apb.FindLocResponse, error) {
+	out := &apb.FindLocResponse{}
+	addresses := s.modelAddressesList(ctx)
+	have := len(addresses)
+	if have == 0 {
+		return out, nil
+	}
+	request := int(in.GetUpTo())
+	if request <= 1 {
+		request = 1
+	}
+	if request > have {
+		request = have
+	}
+	// Random selection. Mimics Admin implementation.
+	idx := rand.Intn(have)
+	picked := make([]string, request)
+	for i := 0; i < request; i++ {
+		picked[i] = addresses[idx]
+		idx = idx + 1
+		if idx == have {
+			idx = 0
+		}
+	}
+	out.ModeletAddresses = picked
+	return out, nil
+}
+
+func (s *stubAdminServer) WatchLoc(ctx context.Context, in *apb.WatchLocRequest) (*apb.WatchLocResponse, error) {
+	result, err := s.modelAddresses.Watch(ctx, in.GetSeqno())
+	if err != nil {
+		return nil, err
+	}
+	return &apb.WatchLocResponse{
+		AdminServerId: "localhost:12345_01234567789abcdef",
+		Result:        result.ToProto(),
+	}, nil
+}
+
+func (s *stubAdminServer) Join(ctx context.Context, in *apb.JoinRequest) (*apb.JoinResponse, error) {
+	addr := in.GetAddress()
+	if !strings.HasPrefix(addr, "localhost:") {
+		return nil, fmt.Errorf("Model address %q should start with \"localhost:\"", addr)
+	}
+	s.modelAddresses.Add(addr)
+	return &apb.JoinResponse{}, nil
+}
+
+func startStubAdminServer(adminPort int, modelPorts []int, saxCell string) (chan struct{}, error) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", adminPort))
+	if err != nil {
+		return nil, err
+	}
+
+	gRPCServer, err := env.Get().NewServer()
+	if err != nil {
+		return nil, err
+	}
+
+	addresses := watchable.New()
+	for _, port := range modelPorts {
+		addresses.Add(fmt.Sprintf("localhost:%d", port))
+	}
+	adminServer := &stubAdminServer{
+		saxCell:        saxCell,
+		modelAddresses: addresses,
+	}
+	agrpc.RegisterAdminServer(gRPCServer.GRPCServer(), adminServer)
+
+	c, err := location.SetAddr(context.Background(), adminPort, saxCell)
+	if err != nil {
+		return nil, err
+	}
+
+	go gRPCServer.Serve(lis)
+	closer := make(chan struct{})
+	go func() {
+		<-closer
+		gRPCServer.Stop()
+		close(c)
+	}()
+
+	return closer, nil
+}
+
+// StartStubAdminServer starts a new admin server with stub implementations.
+// It is automatically closed when the test ends.
+func StartStubAdminServer(t *testing.T, adminPort int, modelPorts []int, saxCell string) {
+	t.Helper()
+	ch, err := startStubAdminServer(adminPort, modelPorts, saxCell)
+	if err != nil {
+		t.Fatalf("StartStubAdminServer failed: %v", err)
+	}
+	t.Cleanup(func() { close(ch) })
+}
+
+// CallAdminServer calls a gRPC method on the admin server for saxCell and returns the result.
+func CallAdminServer(ctx context.Context, saxCell string, req any) (resp any, err error) {
+	addr, err := location.FetchAddr(ctx, saxCell)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := env.Get().DialContext(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := agrpc.NewAdminClient(conn)
+
+	switch req := req.(type) {
+	case *apb.FindLocRequest:
+		return client.FindLoc(ctx, req)
+	default:
+		return nil, fmt.Errorf("Unknown request type %T", req)
+	}
+}
+
+type stubModeletServer struct {
+	mu           sync.Mutex
+	loadedModels map[string]bool // model key as key
+}
+
+func (s *stubModeletServer) Load(ctx context.Context, in *mpb.LoadRequest) (*mpb.LoadResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.loadedModels[in.GetModelKey()] = true
+	return &mpb.LoadResponse{}, nil
+}
+
+func (s *stubModeletServer) Unload(ctx context.Context, in *mpb.UnloadRequest) (*mpb.UnloadResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.loadedModels, in.GetModelKey())
+	return &mpb.UnloadResponse{}, nil
+}
+
+func (s *stubModeletServer) Export(ctx context.Context, in *mpb.ExportRequest) (*mpb.ExportResponse, error) {
+	return nil, errors.ErrUnimplemented
+}
+
+func (s *stubModeletServer) GetStatus(ctx context.Context, in *mpb.GetStatusRequest) (*mpb.GetStatusResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var models []*mpb.GetStatusResponse_ModelWithStatus
+	for key := range s.loadedModels {
+		model := &mpb.GetStatusResponse_ModelWithStatus{
+			ModelKey:    key,
+			ModelStatus: cpb.ModelStatus_LOADED,
+		}
+		models = append(models, model)
+	}
+	return &mpb.GetStatusResponse{Models: models}, nil
+}
+
+type stubLanguageModelServer struct {
+	scoreDelay       time.Duration
+	unavailableModel string
+}
+
+func (s *stubLanguageModelServer) Score(ctx context.Context, in *lmpb.ScoreRequest) (*lmpb.ScoreResponse, error) {
+	prefix := in.GetPrefix()
+	suffixes := in.GetSuffix()
+	time.Sleep(s.scoreDelay)
+	var logP []float64
+	for _, suffix := range suffixes {
+		logP = append(logP, float64(len(prefix)+len(suffix))*0.1)
+	}
+	return &lmpb.ScoreResponse{
+		Logp: logP,
+	}, nil
+}
+
+func (s *stubLanguageModelServer) Generate(ctx context.Context, in *lmpb.GenerateRequest) (*lmpb.GenerateResponse, error) {
+	if in.GetModelKey() == s.unavailableModel {
+		return nil, errors.ErrNotFound
+	}
+	text := in.GetText()
+	if text == "bad-input" {
+		return nil, fmt.Errorf("bad input %w", errors.ErrInvalidArgument)
+	}
+	extra := in.GetExtraInputs().GetItems()
+	temperature := 1.0
+	if val, found := extra["temperature"]; found {
+		temperature = float64(val)
+	}
+	return &lmpb.GenerateResponse{
+		Texts: []*lmpb.DecodedText{
+			&lmpb.DecodedText{
+				Text:  text + "_0",
+				Score: float64(len(text)) * 0.1 * temperature,
+			},
+			&lmpb.DecodedText{
+				Text:  text + "_1",
+				Score: float64(len(text)) * 0.2 * temperature,
+			},
+		},
+	}, nil
+}
+
+func (s *stubLanguageModelServer) Embed(ctx context.Context, in *lmpb.EmbedRequest) (*lmpb.EmbedResponse, error) {
+	value := float64(len(in.GetText()))
+	return &lmpb.EmbedResponse{
+		Embedding: []float64{
+			value * 0.6,
+			value * 0.5,
+			value * 0.3,
+			value * 0.4,
+		},
+	}, nil
+}
+
+type stubVisionModelServer struct{}
+
+func (s *stubVisionModelServer) Classify(ctx context.Context, in *vmpb.ClassifyRequest) (*vmpb.ClassifyResponse, error) {
+	text := string(in.GetImageBytes())
+	return &vmpb.ClassifyResponse{
+		Texts: []*vmpb.DecodedText{
+			&vmpb.DecodedText{
+				Text:  text + "_0",
+				Score: float64(len(text)) * 0.1,
+			},
+			&vmpb.DecodedText{
+				Text:  text + "_1",
+				Score: float64(len(text)) * 0.2,
+			},
+		},
+	}, nil
+}
+
+func (s *stubVisionModelServer) TextToImage(ctx context.Context, in *vmpb.TextToImageRequest) (*vmpb.TextToImageResponse, error) {
+	text := in.GetText()
+	return &vmpb.TextToImageResponse{
+		Images: []*vmpb.ImageGenerations{
+			&vmpb.ImageGenerations{
+				Image: []byte(text + "_3"),
+				Score: float64(len(text)) * 0.3,
+			},
+			&vmpb.ImageGenerations{
+				Image: []byte(text + "_4"),
+				Score: float64(len(text)) * 0.4,
+			},
+		},
+	}, nil
+}
+
+func (s *stubVisionModelServer) Embed(ctx context.Context, in *vmpb.EmbedRequest) (*vmpb.EmbedResponse, error) {
+	value := float64(len(in.GetImageBytes()))
+	return &vmpb.EmbedResponse{
+		Embedding: []float64{
+			value * 0.5,
+			value * 0.6,
+			value * 0.1,
+			value * 0.2,
+		},
+	}, nil
+}
+
+func (s *stubVisionModelServer) Detect(ctx context.Context, in *vmpb.DetectRequest) (*vmpb.DetectResponse, error) {
+	imageBytes := string(in.GetImageBytes())
+	text := in.GetText()
+
+	// Use the last entry of the text argument and add it to Text output, if it exists.
+	var txt string
+	if len(text) == 0 {
+		txt = ""
+	} else {
+		txt = text[len(text)-1]
+	}
+
+	return &vmpb.DetectResponse{
+		BoundingBoxes: []*vmpb.BoundingBox{
+			&vmpb.BoundingBox{
+				Cx:    0.3,
+				Cy:    0.4,
+				W:     0.5,
+				H:     0.6,
+				Text:  imageBytes + "_0" + txt,
+				Score: float64(len(imageBytes)) * 0.1,
+			},
+		},
+	}, nil
+}
+
+func (s *stubVisionModelServer) ImageToText(ctx context.Context, in *vmpb.ImageToTextRequest) (*vmpb.ImageToTextResponse, error) {
+	text := string(in.GetImageBytes())
+	prefix := string(in.GetText())
+	return &vmpb.ImageToTextResponse{
+		Texts: []*vmpb.DecodedText{
+			&vmpb.DecodedText{
+				Text:  text + prefix + "_2",
+				Score: float64(len(text)) * 0.15,
+			},
+			&vmpb.DecodedText{
+				Text:  text + prefix + "_3",
+				Score: float64(len(text)) * 0.30,
+			},
+		},
+	}, nil
+}
+
+func (s *stubVisionModelServer) VideoToText(ctx context.Context, in *vmpb.VideoToTextRequest) (*vmpb.VideoToTextResponse, error) {
+	text := ""
+	for _, frame := range in.GetImageFrames() {
+		text = text + string(frame)
+	}
+	prefix := string(in.GetText())
+	return &vmpb.VideoToTextResponse{
+		Texts: []*vmpb.DecodedText{
+			&vmpb.DecodedText{
+				Text:  text + prefix + "_2",
+				Score: float64(len(text)) * 0.15,
+			},
+			&vmpb.DecodedText{
+				Text:  text + prefix + "_3",
+				Score: float64(len(text)) * 0.30,
+			},
+		},
+	}, nil
+}
+
+type stubAudioModelServer struct{}
+
+func (s *stubAudioModelServer) Recognize(ctx context.Context, in *ampb.AsrRequest) (*ampb.AsrResponse, error) {
+	text := string(in.GetAudioBytes())
+	return &ampb.AsrResponse{
+		Hyps: []*ampb.AsrHypothesis{
+			&ampb.AsrHypothesis{
+				Text:  text + "_0",
+				Score: float64(len(text)) * 0.1,
+			},
+			&ampb.AsrHypothesis{
+				Text:  text + "_1",
+				Score: float64(len(text)) * 0.2,
+			},
+		},
+	}, nil
+}
+
+type stubCustomModelServer struct{}
+
+func (s *stubCustomModelServer) Custom(ctx context.Context, in *cmpb.CustomRequest) (*cmpb.CustomResponse, error) {
+	text := in.GetRequest()
+	return &cmpb.CustomResponse{
+		Response: text + "_1",
+	}, nil
+}
+
+func startStubModelServer(modelType ModelType, modelPort int, scoreDelay time.Duration, unavailableModel string) (chan struct{}, error) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", modelPort))
+	if err != nil {
+		return nil, err
+	}
+
+	gRPCServer, err := env.Get().NewServer()
+	if err != nil {
+		return nil, err
+	}
+
+	switch modelType {
+	case Language:
+		lmgrpc.RegisterLMServiceServer(gRPCServer.GRPCServer(), &stubLanguageModelServer{
+			scoreDelay:       scoreDelay,
+			unavailableModel: unavailableModel,
+		})
+	case Vision:
+		vmgrpc.RegisterVisionServiceServer(gRPCServer.GRPCServer(), &stubVisionModelServer{})
+	case Audio:
+		amgrpc.RegisterAudioServiceServer(gRPCServer.GRPCServer(), &stubAudioModelServer{})
+	case Custom:
+		cmgrpc.RegisterCustomServiceServer(gRPCServer.GRPCServer(), &stubCustomModelServer{})
+	}
+
+	modeletServer := &stubModeletServer{loadedModels: make(map[string]bool)}
+	mgrpc.RegisterModeletServer(gRPCServer.GRPCServer(), modeletServer)
+
+	go gRPCServer.Serve(lis)
+	closer := make(chan struct{})
+	go func() {
+		<-closer
+		gRPCServer.Stop()
+	}()
+
+	return closer, nil
+}
+
+// StartStubModelServer starts a new model server of a given type with stub implementations, which
+// also runs a modelet service.
+// It is automatically closed when the test ends.
+func StartStubModelServer(t *testing.T, port int) {
+	t.Helper()
+	ch, err := startStubModelServer(Language, port, 0, "")
+	if err != nil {
+		t.Fatalf("StartStubModelServer failed: %v")
+	}
+	t.Cleanup(func() { close(ch) })
+}
+
+// CallModeletServer calls a modelet gRPC method on the model server at addr and returns the result.
+func CallModeletServer(ctx context.Context, addr string, req any) (resp any, err error) {
+	conn, err := env.Get().DialContext(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := mgrpc.NewModeletClient(conn)
+
+	switch req := req.(type) {
+	case *mpb.LoadRequest:
+		return client.Load(ctx, req)
+	case *mpb.UnloadRequest:
+		return client.Unload(ctx, req)
+	case *mpb.GetStatusRequest:
+		return client.GetStatus(ctx, req)
+	default:
+		return nil, fmt.Errorf("Unknown request type %T", req)
+	}
+}
+
+// ModelType represents the type of models a model server supports.
+type ModelType int
+
+// ModelType values.
+const (
+	Language ModelType = iota
+	Vision
+	Audio
+	Custom
+)
+
+// Cluster is a test cluster with a stub admin server and one or many stub model server(s).
+type Cluster struct {
+	// Required.
+	saxCell string
+
+	// Optional.
+	fsRoot            string          // default: automatically create a temp dir
+	adminPort         int             // default: automatically pick one
+	numberModelets    int             // default: 1
+	modelType         ModelType       // default: language
+	scoreDelays       []time.Duration // A list of delays for language servers.
+	unavailableModels []string        // A list of unavailable modles for language servers.
+}
+
+// SetAdminPort sets the admin server port of a test cluster.
+func (c *Cluster) SetAdminPort(port int) *Cluster {
+	c.adminPort = port
+	return c
+}
+
+// SetFsRoot sets the file system root parameter of a test cluster.
+func (c *Cluster) SetFsRoot(fsRoot string) *Cluster {
+	c.fsRoot = fsRoot
+	return c
+}
+
+// SetNumberModelets creates the desired number of modelets. Defaults to 1.
+func (c *Cluster) SetNumberModelets(number int) *Cluster {
+	c.numberModelets = number
+	return c
+}
+
+// SetModelType sets the model type for the model servers.
+func (c *Cluster) SetModelType(mt ModelType) *Cluster {
+	c.modelType = mt
+	return c
+}
+
+// SetScoreDelay sets the score delay parameter of a test cluster.
+// Each delay applies to it corresponding modelet server.
+func (c *Cluster) SetScoreDelay(delays []time.Duration) *Cluster {
+	c.scoreDelays = delays
+	return c
+}
+
+// SetUnavailableModels sets the unavailable modle parameter of a test cluster.
+// An unavailable model simulates a model being loaded or unloaded. Using it returns an error.
+func (c *Cluster) SetUnavailableModels(unavailable []string) *Cluster {
+	c.unavailableModels = unavailable
+	return c
+}
+
+// StartInternal is exported for the C wrapper.
+func (c *Cluster) StartInternal(ctx context.Context) (closers []chan struct{}, err error) {
+	if err := setUp(ctx, c.saxCell, c.fsRoot); err != nil {
+		return nil, err
+	}
+
+	var modelPorts []int
+	for i := 0; i < c.numberModelets; i++ {
+		modelPort, err := env.Get().PickUnusedPort()
+		if err != nil {
+			return nil, fmt.Errorf("start failed: pick model port error: %w", err)
+		}
+		var delay time.Duration
+		if i < len(c.scoreDelays) {
+			delay = c.scoreDelays[i]
+		}
+		var unavailable string
+		if i < len(c.unavailableModels) {
+			unavailable = c.unavailableModels[i]
+		}
+		closer, err := startStubModelServer(c.modelType, modelPort, delay, unavailable)
+		if err != nil {
+			return nil, fmt.Errorf("start failed: start model server error: %w", err)
+		}
+		closers = append(closers, closer)
+		modelPorts = append(modelPorts, modelPort)
+	}
+
+	if c.adminPort == 0 {
+		adminPort, err := env.Get().PickUnusedPort()
+		if err != nil {
+			return nil, fmt.Errorf("start failed: pick admin port error: %w", err)
+		}
+		c.adminPort = adminPort
+	}
+	closer, err := startStubAdminServer(c.adminPort, modelPorts, c.saxCell)
+	if err != nil {
+		return nil, fmt.Errorf("start failed: start admin server error: %w", err)
+	}
+	return append(closers, closer), nil
+}
+
+// Start starts a test cluster with a stub admin server and a stub model server.
+// They are automatically closed when the test ends.
+func (c *Cluster) Start(ctx context.Context, t *testing.T) {
+	t.Helper()
+	if c.fsRoot == "" {
+		c.fsRoot = t.TempDir()
+	}
+	closers, err := c.StartInternal(ctx)
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	t.Cleanup(func() {
+		for _, c := range closers {
+			close(c)
+		}
+	})
+}
+
+// NewCluster creates a test cluster with default parameter values.
+func NewCluster(saxCell string) *Cluster {
+	return &Cluster{saxCell: saxCell, numberModelets: 1}
+}

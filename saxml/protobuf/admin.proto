@@ -1,0 +1,270 @@
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Protobuf definitions for the Sax admin service. This API is experimental.
+
+syntax = "proto3";
+
+package sax;
+
+import "saxml/protobuf/common.proto";
+
+message Location {
+  string location = 1;  // e.g. IP:port
+}
+
+message Config {
+  // The file system root under which all Sax cell states are stored, e.g.,
+  //   gs://sax-data/
+  string fs_root = 1;
+  // ACL protecting admin methods running in this cell, including publish,
+  // update, and unpublish.
+  //
+  // The content is up to the implementation to interpret, but in general it is
+  // a group name.
+  string admin_acl = 2;
+}
+
+message State {
+  repeated Model models = 1;
+  int32 last_generation = 2 [deprecated = true];
+}
+
+// The model server binary needs to link a model registry in Sax. Then,
+// it can be started on a TPU slice.
+//
+// To use the service, the client needs to:
+//
+// 1) Publish a model, specifying a model path in the registry, a checkpoint
+//    path, the number of replicas, and a model ID to publish under.
+// 2) Use the List method to find model server addresses.
+// 3) Call data methods (Score, SamplingDecode, etc.) to run inference on the
+//    model, specifying a model server address.
+// 4) Unpublish a model using model ID.
+
+// The configuration of a model.
+message Model {
+  // An ID to identify the model. Must be globally unique, e.g.,
+  //   /sax/bar/lm_cloud_spmd_1024b
+  string model_id = 1;
+
+  // Path to a model in Sax's model registry linked in the server binary, e.g.,
+  //   lingvo.lm.lm_cloud.LmCloudSpmd1024B
+  string model_path = 2;
+
+  // Path to a checkpoint, e.g.,
+  //   /cns/mf-d/model/path/checkpoints/checkpoint_00050000
+  string checkpoint_path = 3;
+
+  // The number of model servers to serve this model on.
+  // The admin server periodically examines active/available model servers
+  // and tries its best to keep these many replicas active for this model.
+  int32 requested_num_replicas = 4;
+
+  // ACLs protecting data methods supported by this model.
+  AccessControlLists acls = 5;
+
+  // ACL protecting admin methods running on this model, including update and
+  // unpublish.
+  //
+  // The content is up to the implementation to interpret, but in general it is
+  // a group name.
+  string admin_acl = 6;
+}
+
+// The state of a published model.
+message PublishedModel {
+  Model model = 1;
+  repeated string modelet_addresses = 2;
+}
+
+// The capabilities of a model server.
+message ModelServer {
+  enum ChipType {
+    CHIP_TYPE_UNKNOWN = 0;
+    CHIP_TYPE_TPU_V2 = 2;
+    CHIP_TYPE_TPU_V3 = 4;
+    CHIP_TYPE_TPU_V4 = 6;
+    CHIP_TYPE_TPU_V4I = 5;
+    reserved 7;
+    reserved 8;
+    CHIP_TYPE_GPU_P100 = 9;
+    CHIP_TYPE_GPU_V100 = 10;
+    CHIP_TYPE_GPU_A100 = 11;
+    CHIP_TYPE_CPU = 12;
+  }
+  ChipType chip_type = 1;
+
+  enum ChipTopology {
+    CHIP_TOPOLOGY_UNKNOWN = 0;
+    CHIP_TOPOLOGY_1 = 22;
+    CHIP_TOPOLOGY_2 = 24;
+    CHIP_TOPOLOGY_4 = 23;
+    CHIP_TOPOLOGY_8 = 25;
+    CHIP_TOPOLOGY_16 = 26;
+    CHIP_TOPOLOGY_1X1 = 1;
+    CHIP_TOPOLOGY_2X2 = 2;
+    CHIP_TOPOLOGY_4X2 = 21;
+    CHIP_TOPOLOGY_4X4 = 3;
+    CHIP_TOPOLOGY_4X8 = 4;
+    CHIP_TOPOLOGY_8X8 = 5;
+    CHIP_TOPOLOGY_8X16 = 6;
+    CHIP_TOPOLOGY_16X16 = 7;
+    CHIP_TOPOLOGY_16X32 = 8;
+    CHIP_TOPOLOGY_32X32 = 9;
+    CHIP_TOPOLOGY_1X1X1 = 10;
+    CHIP_TOPOLOGY_1X2X1 = 11;
+    CHIP_TOPOLOGY_2X2X1 = 12;
+    CHIP_TOPOLOGY_2X2X2 = 13;
+    CHIP_TOPOLOGY_2X2X4 = 14;
+    CHIP_TOPOLOGY_2X4X4 = 15;
+    CHIP_TOPOLOGY_4X4X4 = 16;
+    CHIP_TOPOLOGY_4X4X8 = 17;
+    CHIP_TOPOLOGY_4X4X16 = 18;
+    CHIP_TOPOLOGY_4X8X8 = 19;
+    CHIP_TOPOLOGY_8X8X12 = 20;
+    CHIP_TOPOLOGY_8X8X8 = 27;
+  }
+  ChipTopology chip_topology = 2;
+
+  repeated string servable_model_paths = 3;  // e.g. ["lingvo.lm.glam_8b", ...]
+}
+
+// The state of a joined model server.
+message JoinedModelServer {
+  ModelServer model_server = 1;
+  string address = 2;
+  int64 last_join_ms = 3;                      // milliseconds since Unix epoch
+  map<string, ModelStatus> loaded_models = 4;  // model ID: status
+  map<string, string> failure_reasons = 5;     // model ID: error message
+}
+
+message PublishRequest {
+  Model model = 2;
+}
+
+message PublishResponse {}
+
+message UnpublishRequest {
+  string model_id = 1;
+}
+
+message UnpublishResponse {}
+
+message UpdateRequest {
+  Model model = 1;
+}
+
+message UpdateResponse {}
+
+message ListRequest {
+  // If empty, lists all actively serving models in the system.
+  string model_id = 1;
+}
+
+message ListResponse {
+  repeated PublishedModel published_models = 1;
+}
+
+message FindLocRequest {
+  string model_id = 1;
+  // Number of model server addresses requested. Admin server will return
+  // [0, up_to] of addresses based on availability/workload/status etc.
+  int32 up_to = 2;
+}
+
+message FindLocResponse {
+  repeated string modelet_addresses = 1;
+}
+
+message WatchLocRequest {
+  // An ID to identify the model. Must be globally unique, e.g.,
+  //   /sax/bar/lm_cloud_spmd_1024b
+  string model_id = 1;
+
+  // Identifier of the admin server incarnation. If does not match the current
+  // admin server's id, the server will send back a full set and the current
+  // admin server's id.
+  string admin_server_id = 3;
+
+  // The client has synchronized its local state about addresses of servers
+  // serving this model right before 'seqno'.
+  int32 seqno = 2;
+}
+
+message WatchResult {
+  // The seqno the client should use for the next Watch call.
+  int32 next_seqno = 1;
+
+  // If has_fullset is true, the server sends back the complete set in 'values'
+  // together with a sequence of changes in 'changelog'.
+  //
+  // If has_fullset is false, 'changelog' contains mutations
+  // within [req.seqno .. next_seqno).
+  bool has_fullset = 2;
+  repeated string values = 3;
+  message Mutation {
+    oneof kind {
+      string addition = 1;
+      string deletion = 2;
+    }
+  }
+  repeated Mutation changelog = 4;
+}
+
+message WatchLocResponse {
+  string admin_server_id = 2;
+  WatchResult result = 1;
+}
+
+message JoinRequest {
+  // The network address and port identifying a model server, e.g.,
+  //   [1::2]:8888
+  string address = 1;
+  ModelServer model_server = 2;
+}
+
+message JoinResponse {}
+
+service Admin {
+  ////////////////////////////////
+  // Called by clients.
+  ////////////////////////////////
+
+  // Starts serving a model on N model servers.
+  rpc Publish(PublishRequest) returns (PublishResponse);
+
+  // Updates a published model.
+  rpc Update(UpdateRequest) returns (UpdateResponse);
+
+  // Stops serving a model.
+  rpc Unpublish(UnpublishRequest) returns (UnpublishResponse);
+
+  // Lists actively serving models.
+  rpc List(ListRequest) returns (ListResponse);
+
+  // Finds model server address(es) for a given model.
+  rpc FindLoc(FindLocRequest) returns (FindLocResponse);
+
+  // Watches for changes of model server address(es) for a given model.
+  rpc WatchLoc(WatchLocRequest) returns (WatchLocResponse);
+
+  ////////////////////////////////
+  // Called by model servers.
+  ////////////////////////////////
+
+  // Periodically called by a model server to tell the admin server it has
+  // come/is online. The admin server keeps track of healthy model servers.
+  rpc Join(JoinRequest) returns (JoinResponse);
+}

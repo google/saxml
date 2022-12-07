@@ -1,0 +1,744 @@
+# Copyright 2022 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Wraps a model with LMService APIs."""
+
+import abc
+from typing import Any, List, Optional, Tuple, Union
+
+from absl import logging
+import jax
+from jax import numpy as jnp
+import numpy as np
+from paxml import base_task
+from paxml import checkpoint_pb2
+from praxis import base_model
+from praxis import decoder_hparams
+from praxis import py_utils
+from praxis import pytypes
+from saxml.server.jax import np_tf_sess_wrapper
+from saxml.server.pax import servable_model
+from saxml.server.pax import servable_model_params
+import tensorflow as tf
+
+CheckpointType = checkpoint_pb2.CheckpointType
+JTensor = pytypes.JTensor
+NestedJTensor = pytypes.NestedJTensor
+NestedNpTensor = pytypes.NestedNpTensor
+PRNGKey = pytypes.PRNGKey
+NestedMap = py_utils.NestedMap
+NestedPartitionSpec = pytypes.NestedPartitionSpec
+NestedTfTensor = pytypes.Nested[tf.Tensor]
+NestedNpOrTfTensor = Union[NestedNpTensor, NestedTfTensor]
+
+
+class LMMethodName:
+  SCORE = 'lm.score'
+  GENERATE = 'lm.generate'
+  EMBED = 'lm.embed'
+
+
+class ScoreHParams(servable_model_params.ServableMethodParams):
+  """HParameters for LM score method.
+
+  Attributes:
+    max_input_seq_len: static sequence length dimension size. Inputs are padded
+      or truncated to this size.
+    include_eos_score: whether to add EOS score to the result.
+  """
+  max_input_seq_len: int = 0
+  include_eos_score: bool = False
+
+
+class DecodeHParams(servable_model_params.ServableMethodParams):
+  """HParameters for LM sample decode method.
+
+  Attributes:
+    max_input_seq_len: static sequence length dimension size. Inputs are padded
+      or truncated to this size.
+    decoder: decoder params.
+    include_prefix_in_result: whether to include the input prefix in the result.
+    encoder_decoder_model: whether this is an encoder decoder model.
+  """
+  max_input_seq_len: int = 0
+  decoder: decoder_hparams.DecoderHParams = decoder_hparams.DecoderHParams()
+  include_prefix_in_result: bool = False
+  encoder_decoder_model: bool = False
+
+
+class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
+  """HParameters for TextToEmbedding method.
+
+  Attributes:
+    max_input_seq_len: static sequence length dimension size. Inputs are padded
+      or truncated to this size.
+    output_embedding_name: The name of the embedding to use from the model's
+      outputs.  Required.
+  """
+  max_input_seq_len: int = 0
+  output_embedding_name: Optional[str] = None
+
+
+@servable_model_params.create_service_id_for_model_type
+class ServableLMModelParams(
+    servable_model_params.ServableModelParams, metaclass=abc.ABCMeta):
+  """A base class that each LM model config needs to implement for serving."""
+
+  @abc.abstractmethod
+  def serving_tokenizer(self):
+    """Tokenizer params used by serving."""
+
+  def score(self) -> Optional[ScoreHParams]:
+    """Returns the params for the score method."""
+    return None
+
+  def generate(self) -> Optional[DecodeHParams]:
+    """Returns the params for the decode method."""
+    return None
+
+  def text_to_embedding(self) -> Optional[TextToEmbeddingHParams]:
+    return None
+
+  def set_serving_params(self, task_p: base_task.BaseTask.HParams) -> None:
+    return None
+
+  def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
+           prng_key: int) -> 'ServableLMModel':
+    return load_model(self, checkpoint_path, primary_process_id,
+                      self.get_checkpoint_type(), jax.random.PRNGKey(prng_key))
+
+
+class ServableLMMethod(servable_model.ServableMethod):
+  """Implements common method of LM."""
+
+  def _get_longest_seqlen(self, inputs: NestedNpTensor) -> int:
+    """Gets the longest sequence length in a batch."""
+    if 'paddings' in inputs:
+      prefix_lengths = np.sum(
+          1.0 - inputs['paddings'], axis=-1).astype(np.int32)  # pytype: disable=attribute-error
+      return np.max(prefix_lengths).item()
+    return inputs['ids'].shape[1]
+
+  def get_unpadded_branch_key(self, inputs: NestedNpTensor) -> int:
+    return self._get_longest_seqlen(inputs)
+
+  def get_branch_inputs(self, inputs: NestedJTensor,
+                        branch_key: int) -> NestedJTensor:
+    """Returns the inputs for a branch key.
+
+    Args:
+      inputs: inputs with padded sequence lengths.
+      branch_key: branch_key is seqlen.
+
+    Returns:
+      Tensors sliced at sequence length dimension.
+    """
+    seqlen = branch_key
+
+    def _slice_fn(x):
+      """The function to slice at sequence dimension."""
+      if not isinstance(x, JTensor):
+        return x
+      if len(x.shape) == 2 and x.shape[1] >= seqlen:
+        return jax.lax.slice(x, [0, 0], [x.shape[0], seqlen])
+      return x
+
+    return jax.tree_util.tree_map(_slice_fn, inputs)
+
+  def get_maxlen(self) -> int:
+    """Gets the max input sequence lengths."""
+    raise NotImplementedError('get_maxlen not implemented')
+
+  def output_seq_dim(self) -> int:
+    """Gets the sequence dim in the output result."""
+    raise NotImplementedError('output_seq_dim not implemented')
+
+  def extra_pad_result(self, result: NestedJTensor,
+                       branch_key: int) -> NestedJTensor:
+    """Special paddings for some tensors."""
+    return result
+
+  def pad_result(self, result: NestedJTensor, pad_len: int,
+                 seq_dim: int) -> NestedJTensor:
+    """Pads the result at sequence dimension."""
+
+    def _pad_fn(x):
+      if not isinstance(x, JTensor) or len(x.shape) < seq_dim + 1:
+        return x
+      paddings = [[0, 0]] * len(x.shape)
+      paddings[seq_dim] = [0, max(0, pad_len)]
+      padded = jnp.pad(x, paddings)
+      return padded
+
+    return jax.tree_map(_pad_fn, result)
+
+  def post_process_branch_outputs(self, outputs: NestedJTensor,
+                                  branch_key: int) -> NestedJTensor:
+    """Post process branch outputs."""
+    seqlen = branch_key
+    maxlen = self.get_maxlen()
+    result, state = outputs
+    padded_result = self.pad_result(result, maxlen - seqlen,
+                                    self.output_seq_dim())
+    padded_result = self.extra_pad_result(padded_result, branch_key)
+    padded_state = self.pad_result(state, maxlen - seqlen, 1)
+    return padded_result, padded_state
+
+
+class LMScoreMethod(ServableLMMethod):
+  """Implements the score method of an LM."""
+
+  def __init__(self,
+               model: base_model.BaseModel,
+               model_state: servable_model.ServableModelState,
+               prng_key: PRNGKey,
+               score_params: ScoreHParams,
+               tokenizer_p: Any,
+               exportable: bool = False):
+    self._tokenizer = tokenizer_p.Instantiate()
+    self._score_params = score_params
+    dummy_input_sample = ('', [''])
+    logging.info('Using np_tf_sess_wrapper on LMScoreMethod.tf_pre_processing')
+    self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
+        self.tf_pre_processing)
+    super().__init__(
+        model,
+        'compute_predictions',
+        model_state,
+        score_params,
+        prng_key,
+        dummy_input_sample,
+        exportable=exportable)
+
+  def fetch_output(self, model_fn_outputs: NestedJTensor,
+                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+    # per_token_xent or per_example_xnent is -logprobs. We return the negative
+    # value so that higher score is better.
+    if 'per_token_xent' not in model_fn_outputs[0]:
+      assert 'per_example_xent' in model_fn_outputs[0]
+      assert model_fn_outputs[0].per_example_xent.ndim == 1
+      return -model_fn_outputs[0].per_example_xent
+
+    if 'scores' in model_fn_outputs[0]:
+      return model_fn_outputs[0].scores
+    seqlen = self._score_params.max_input_seq_len
+    assert model_fn_outputs[0].per_token_xent.shape[1:] == (seqlen,)
+    per_token_logprobs = -model_fn_outputs[0].per_token_xent
+    non_paddings = 1.0 - model_fn_inputs.paddings
+    if (not self._score_params.include_eos_score and
+        self._tokenizer.hparams.append_eos):
+      non_paddings = jnp.pad(non_paddings[:, 1:], [[0, 0], [0, 1]])
+    return jnp.sum(
+        per_token_logprobs * model_fn_inputs.score_masks * non_paddings,
+        axis=-1,
+        keepdims=True)
+
+  def get_maxlen(self) -> int:
+    return self._score_params.max_input_seq_len
+
+  def output_seq_dim(self) -> int:
+    return 1
+
+  def _tf_tokenize_inputs(
+      self, prefixes: tf.Tensor, suffixes: tf.Tensor
+  ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+    seqlen = self._score_params.max_input_seq_len
+    shape = [None, seqlen]
+    pfx_ids, pfx_labels, pfx_paddings = self._tokenizer.StringsToIds(
+        prefixes, max_length=seqlen)
+    (pfx_ids, pfx_labels, pfx_paddings) = (tf.ensure_shape(pfx_ids, shape),
+                                           tf.ensure_shape(pfx_labels, shape),
+                                           tf.ensure_shape(pfx_paddings, shape))
+    sfx_ids, sfx_labels, sfx_paddings = self._tokenizer.StringsToIds(
+        suffixes, max_length=seqlen)
+    (sfx_ids, sfx_labels, sfx_paddings) = (tf.ensure_shape(sfx_ids, shape),
+                                           tf.ensure_shape(sfx_labels, shape),
+                                           tf.ensure_shape(sfx_paddings, shape))
+    # Lengths are with EOS in labels, and SOS in ids (will be adjusted if not).
+    pfx_lengths = seqlen - tf.cast(
+        tf.reduce_sum(pfx_paddings, 1), dtype=tf.int32)
+    sfx_lengths = seqlen - tf.cast(
+        tf.reduce_sum(sfx_paddings, 1), dtype=tf.int32)
+
+    score_masks = pfx_paddings
+    if self._tokenizer.hparams.append_eos:
+      # Left-shift to exclude prefix EOS.
+      score_masks = tf.pad(
+          score_masks[:, 1:], [[0, 0], [0, 1]], constant_values=1.0)
+      full_lengths = pfx_lengths + sfx_lengths - 1
+    else:
+      # pfx_ids are not complete. Reconstruct by appending SOS to labels.
+      pfx_ids = tf.concat([pfx_ids[:, :1], pfx_labels[:, :-1]], axis=1)
+      full_lengths = pfx_lengths + sfx_lengths + 1
+      pfx_lengths += 1
+      sfx_lengths += 1
+      assert not self._score_params.include_eos_score, (
+          'tokenizer cannot append EOS')
+
+    # Remove SOS from suffix
+    sfx_ids = sfx_labels
+
+    def _combine(pfx, pfx_lens, sfx, sfx_lens):
+      r_pfx = tf.RaggedTensor.from_tensor(pfx, pfx_lens)
+      r_sfx = tf.RaggedTensor.from_tensor(sfx, sfx_lens)
+      return tf.concat([r_pfx, r_sfx], axis=1).to_tensor(shape=pfx.shape)
+
+    # Do not include suffix EOS in ids.
+    ids = _combine(pfx_ids, pfx_lengths, sfx_ids, sfx_lengths - 1)
+    # Do not include prefix EOS in ids.
+    labels = _combine(pfx_labels, pfx_lengths - 1, sfx_labels, sfx_lengths)
+
+    paddings = tf.cast(
+        tf.greater_equal(
+            tf.range(seqlen, dtype=tf.int32), full_lengths[:, tf.newaxis]),
+        pfx_paddings.dtype)
+    inputs_indicator = tf.cast(
+        tf.less(tf.range(seqlen, dtype=tf.int32), pfx_lengths[:, tf.newaxis]),
+        tf.int32)
+    weights = 1.0 - paddings
+    return ids, labels, paddings, weights, score_masks, inputs_indicator
+
+  def pre_processing(self,
+                     raw_inputs: List[Tuple[str, List[str]]]) -> NestedNpTensor:
+    prefixes = np.array([prefix for prefix, _ in raw_inputs])
+    for _, suffix in raw_inputs:
+      assert len(suffix) <= 1, (
+          'Only one suffix score is supported in lm.score')
+    suffixes = np.array([suffix[0] for _, suffix in raw_inputs])
+    return self._tf_sess_pre_processing(prefixes, suffixes)
+
+  def post_processing(self, compute_outputs: NestedNpTensor) -> List[float]:
+    assert isinstance(compute_outputs, pytypes.NpTensor)
+    scores = list(compute_outputs.astype(float))
+    return scores
+
+  def tf_pre_processing(self, prefixes: NestedNpOrTfTensor,
+                        suffixes: NestedNpOrTfTensor) -> NestedTfTensor:
+    """Tokenizes `prefixes` and `suffixes` using TF ops.
+
+    This also implements `ExportableToSavedModel.tf_pre_processing`.
+
+    Args:
+      prefixes: the prefix text batch of shape [batch_size].
+      suffixes: the suffix text batch of shape [batch_size].
+
+    Returns:
+      A NestedMap of preprocessed tensors.
+    """
+    (ids, labels, paddings, weights, score_masks,
+     inputs_indicator) = self._tf_tokenize_inputs(prefixes, suffixes)
+
+    return py_utils.NestedMap(
+        ids=ids,
+        labels=labels,
+        paddings=paddings,
+        weights=weights,
+        score_masks=score_masks,
+        inputs_indicator=inputs_indicator)
+
+  def tf_post_processing(
+      self, compute_outputs: NestedNpOrTfTensor) -> NestedNpOrTfTensor:
+    """Implements `ExportableToSavedModel.tf_post_processing`."""
+    return {'scores': compute_outputs}
+
+  def input_signature(self, batch_size: Optional[int]) -> list[tf.TensorSpec]:
+    """Implements `ExportableToSavedModel.input_signature`."""
+    return [
+        tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),
+        tf.TensorSpec([batch_size], dtype=tf.string, name='suffixes')
+    ]
+
+  @property
+  def extra_trackables(self) -> Any:
+    """Implements `ExportableToSavedModel.extra_trackables`."""
+    return None
+
+
+class LMDecodeMethod(ServableLMMethod):
+  """Base decode method of an LM."""
+
+  def __init__(self,
+               model: base_model.BaseModel,
+               model_state: servable_model.ServableModelState,
+               prng_key: PRNGKey,
+               method_hparams: DecodeHParams,
+               tokenizer_p: Any,
+               exportable: bool = False):
+    self._tokenizer = tokenizer_p.Instantiate()
+    self._method_hparams = method_hparams
+    dummy_input_sample = ''
+    if isinstance(method_hparams, DecodeHParams):
+      self._include_prefix_in_result = method_hparams.include_prefix_in_result
+    logging.info('Using np_tf_sess_wrapper on LMDecodeMethod.tf_pre_processing')
+    self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
+        self.tf_pre_processing)
+    logging.info(
+        'Using np_tf_sess_wrapper on LMDecodeMethod.tf_post_processing')
+    self._tf_sess_post_processing = np_tf_sess_wrapper.wrap_tf_session(
+        self.tf_post_processing)
+    super().__init__(
+        model,
+        'decode',
+        model_state,
+        method_hparams,
+        prng_key,
+        dummy_input_sample,
+        exportable=exportable)
+
+  def fetch_output(self, model_fn_outputs: NestedJTensor,
+                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+    assert len(model_fn_outputs[0]) == 3
+    # Extract the per example outputs and discard weighted scalars and metrics.
+    _, result, _ = model_fn_outputs[0]
+    output_ids = result.output_ids  # [batch_size, num_samples, seqlen].
+    scores = self.get_scores(result)
+
+    if self._method_hparams.encoder_decoder_model:
+      decode_lengths = None
+      prefix_lengths = None
+    else:
+      # [batch_size, num_samples]
+      decode_lengths = result.decode_lengths
+      # [batch_size]
+      prefix_lengths = model_fn_inputs.prefix_lengths
+
+    return NestedMap(
+        output_ids=output_ids,
+        decode_lengths=decode_lengths,
+        prefix_lengths=prefix_lengths,
+        scores=scores,
+    )
+
+  def _tf_tokenize_inputs(
+      self, texts: tf.Tensor
+  ) -> Tuple[tf.Tensor, Optional[tf.Tensor], Optional[tf.Tensor],
+             Optional[tf.Tensor]]:
+    ids, labels, paddings = self._tokenizer.StringsToIds(
+        texts, self._method_hparams.max_input_seq_len)
+
+    if self._method_hparams.encoder_decoder_model:
+      # TODO(wangtao): consider change behavior of tokenizer. Encoder-decoder
+      # model needs EOS at the end of the sequence, BOS is not needed at the
+      # beginning of the sequence.
+      return labels, None, None, None
+
+    # weights, prefix_lengths computation is specific for decoder model.
+    weights = 1.0 - paddings
+    prefix_lengths = tf.reduce_sum(1.0 - paddings, axis=-1)
+    if (hasattr(self._tokenizer, 'hparams') and
+        not self._tokenizer.hparams.append_eos):
+      # Use labels prepended with SOS as IDs.
+      ids = tf.concat([ids[:, 0:1], labels[:, :-1]], axis=1)
+      prefix_lengths += 1
+    return ids, paddings, prefix_lengths, weights
+
+  def pre_processing(self, raw_inputs: List[str]) -> NestedNpTensor:
+    texts = np.array(raw_inputs)
+    return self._tf_sess_pre_processing(texts)
+
+  def get_maxlen(self) -> int:
+    return self._method_hparams.max_input_seq_len
+
+  def output_seq_dim(self) -> int:
+    return 2
+
+  def extra_pad_result(self, result: NestedJTensor,
+                       branch_key: int) -> NestedJTensor:
+    """Extra pad result from decoding."""
+    seqlen = branch_key
+
+    def _pad_fn(sub_result):
+      paddings = [[0, 0], [0, self.get_maxlen() - seqlen]]
+      for key in {'paddings', 'weights', 'ids'}:
+        if key in sub_result:
+          sub_result[key] = jnp.pad(sub_result[key], paddings)
+      return sub_result
+
+    return tuple([_pad_fn(sub_result) for sub_result in result])
+
+  def post_processing(
+      self,
+      compute_outputs: NestedNpTensor) -> List[Tuple[List[str], List[float]]]:
+    # A list of results for the inputs. Each element has multiple samples from
+    # the decoding algorithm, which has a list of strings and a list of scores.
+    post_processed = self._tf_sess_post_processing(compute_outputs)
+    batched_decoded = post_processed['topk_decoded']
+    batched_scores = post_processed['topk_scores']
+    return [([d.decode()
+              for d in decoded], list(scores))
+            for decoded, scores in zip(batched_decoded, batched_scores)]
+
+  def get_scores(self, result: NestedMap):
+    """Get scores from decoding results."""
+    if self._method_hparams.encoder_decoder_model:
+      return result.logprobs
+
+    if hasattr(result, 'scores'):
+      return result.scores
+
+    if 'suffix_prompt_lengths' in result and 'suffix_lengths' in result:
+      # Get scores for suffix rating ids.
+      is_valid_output = jnp.logical_and(
+          jnp.arange(result.output_ids.shape[-1]) >=
+          result.decode_lengths[:, :, None] +
+          result.suffix_prompt_lengths[:, :, None] - 1,
+          jnp.arange(
+              result.output_ids.shape[-1]) < result.decode_lengths[:, :, None] +
+          result.suffix_lengths[:, :, None] - 1)
+    else:
+      is_valid_output = jnp.logical_and(
+          jnp.arange(result.output_ids.shape[-1]) >=
+          result.prefix_lengths[:, None, None],
+          jnp.arange(result.output_ids.shape[-1]) < result.decode_lengths[:, :,
+                                                                          None])
+    # [batch_size, num_samples, seqlen]
+    scores = jnp.where(is_valid_output, result.logprobs,
+                       jnp.zeros_like(result.logprobs))
+    # Scores are computed by excluding the prefix and padding.
+    # [batch_size, num_samples]
+    return jnp.sum(scores, axis=-1)
+
+  def tf_pre_processing(
+      self,
+      texts: NestedNpOrTfTensor,
+      temperature: Optional[NestedNpOrTfTensor] = None) -> NestedTfTensor:
+    """Tokenizes `texts` using TF ops.
+
+    This also implements `ExportableToSavedModel.tf_pre_processing`. If the
+    TensorSpec of `temperature` is provided in the input signature, the exported
+    method will take a batched temperature tensor too. See also the
+    `input_signature` method of this class.
+
+    Args:
+      texts: the input text of shape [batch_size].
+      temperature: optional temperature parameter shape [batch_size] for
+        sampling decoding.
+
+    Returns:
+      A NestedMap of preprocessed tensors.
+    """
+    ids, paddings, prefix_lengths, weights = self._tf_tokenize_inputs(texts)
+
+    if self._method_hparams.encoder_decoder_model:
+      # Preprocess for the encoder decoder model.
+      batch_size = tf.shape(ids)[0]
+      target_length = self._method_hparams.decoder.seqlen
+      preprocessed = py_utils.NestedMap(
+          encoder_input_tokens=ids,
+          decoder_input_tokens=tf.ones((batch_size, target_length)))
+    else:
+      preprocessed = py_utils.NestedMap(
+          ids=ids,
+          paddings=paddings,
+          prefix_lengths=tf.cast(prefix_lengths, tf.int32),
+          weights=weights)
+
+    if temperature is not None:
+      preprocessed['temperature'] = temperature
+    return preprocessed
+
+  def tf_post_processing(
+      self, compute_outputs: NestedNpOrTfTensor) -> NestedNpOrTfTensor:
+    """Post-process the outputs using TF ops.
+
+    This also implements `ExportableToSavedModel.tf_post_processing`.
+
+    Args:
+      compute_outputs: the outputs of the model function.
+
+    Returns:
+      A mapping that contains the decoded tensors, scores and ids of the topk
+      results.
+    """
+    assert isinstance(compute_outputs, py_utils.NestedMap)
+    if self._method_hparams.encoder_decoder_model:
+      # Post process for the encoder decoder model.
+      # output_ids: [b, seqlen]
+      # scores: [b]
+      decoded = tf.map_fn(
+          self._tokenizer.IdsToStrings,
+          compute_outputs.output_ids,
+          fn_output_signature=tf.string)
+      decoded = tf.expand_dims(decoded, axis=-1)
+      output_ids = tf.expand_dims(compute_outputs.output_ids, axis=-1)
+      scores = tf.expand_dims(compute_outputs.scores, axis=-1)
+    else:
+      # prefix_lengths: [b]
+      # decode_lengths: [b, num_samples]
+      # output_ids: [b, num_samples, seqlen]
+      # scores: [b, num_samples]
+      if self._include_prefix_in_result:
+        output_ids = compute_outputs.output_ids
+        decode_lengths = compute_outputs.decode_lengths
+      else:
+
+        def remove_prefix(ids_and_prefix_length):
+          ids, prefix_length = ids_and_prefix_length
+          return tf.pad(ids[:, prefix_length:], [[0, 0], [0, prefix_length]])
+
+        output_ids = tf.map_fn(
+            remove_prefix,
+            (compute_outputs.output_ids, compute_outputs.prefix_lengths),
+            fn_output_signature=tf.int32,
+        )
+        decode_lengths = compute_outputs.decode_lengths - tf.expand_dims(
+            compute_outputs.prefix_lengths, axis=-1)
+
+      def decode(ids_and_lens):
+        ids, lens = ids_and_lens
+        return self._tokenizer.IdsToStrings(
+            tf.RaggedTensor.from_tensor(ids, lens), lens)
+
+      decoded = tf.map_fn(
+          decode, (output_ids, decode_lengths), fn_output_signature=tf.string)
+      scores = compute_outputs.scores
+    return {
+        'topk_decoded': decoded,
+        'topk_scores': scores,
+        'topk_ids': output_ids
+    }
+
+  def input_signature(self, batch_size: Optional[int]) -> list[tf.TensorSpec]:
+    """Implements `ExportableToSavedModel.input_signature`."""
+    if self._extra_inputs and 'temperature' in self._extra_inputs:
+      return [
+          tf.TensorSpec([batch_size], dtype=tf.string, name='text'),
+          tf.TensorSpec([batch_size], dtype=tf.float32, name='temperature')
+      ]
+    return [tf.TensorSpec([batch_size], dtype=tf.string, name='text')]
+
+  @property
+  def extra_trackables(self) -> Any:
+    """Implements `ExportableToSavedModel.extra_trackables`."""
+    return None
+
+
+class TextToEmbedding(servable_model.ServableMethod):
+  """Implements text embedding method."""
+
+  def __init__(self, model: base_model.BaseModel, model_fn_name: str,
+               model_state: servable_model.ServableModelState,
+               method_hparams: TextToEmbeddingHParams, prng_key: PRNGKey,
+               dummy_input_sample: Any, model_config: Any):
+    self._model_config = model_config
+    self._model_config.init_for_serving()
+    self._max_length = method_hparams.max_input_seq_len
+    self._embedding_name = method_hparams.output_embedding_name
+    super().__init__(model, model_fn_name, model_state, method_hparams,
+                     prng_key, dummy_input_sample)
+
+  def fetch_output(self, model_fn_outputs: NestedJTensor,
+                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+    """Fetches useful output tensors from the model function outputs."""
+    return py_utils.NestedMap(
+        text_embedding=model_fn_outputs[0][self._embedding_name],)
+
+  def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
+    """Preprocesses an unpadded batch of data into host numpy arrays."""
+    ids, labels, weights, paddings = self._model_config.tokenize(
+        np.array(raw_inputs), self._max_length)
+    return py_utils.NestedMap(
+        ids=np.array(ids),
+        labels=np.array(labels),
+        weights=np.array(weights),
+        paddings=np.array(paddings))
+
+  def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
+    """Postprocesses the output numpy arrays to final host output."""
+    return list(compute_outputs['text_embedding'])
+
+
+class ServableLMModel(servable_model.ServableModel):
+  """Represents an implementation for the LM service, backed by a model.
+
+  This class is responsible for model loading, batch padding, etc.
+  """
+
+  def __init__(self,
+               model_config: ServableLMModelParams,
+               primary_process_id: int,
+               ckpt_type: CheckpointType,
+               test_mode: bool = False):
+    methods = []
+    self._score_params = model_config.score()
+    if self._score_params is not None:
+      methods.append(LMMethodName.SCORE)
+    self._decode_params = model_config.generate()
+    if self._decode_params is not None:
+      methods.append(LMMethodName.GENERATE)
+    self._text_to_embedding_params = model_config.text_to_embedding()
+    if self._text_to_embedding_params is not None:
+      methods.append(LMMethodName.EMBED)
+
+    super().__init__(model_config, primary_process_id, methods, ckpt_type,
+                     test_mode)
+    if self._decode_params is not None and hasattr(self.task_p.model,
+                                                   'decoder_tpl'):  # pytype: disable=attribute-error
+      # Make the decode method use the specified parameters.
+      self.task_p.model.decoder_tpl = self._decode_params.decoder  # pytype: disable=attribute-error  # enable-nested-classes
+
+    # TODO(vrv,sax-dev): Move this to specific model configs.
+    # Disable packed input for online inference.
+    # What's a better check for this?  This assumes too much of the
+    # underlying model.
+    if (self._text_to_embedding_params is None and
+        hasattr(self.task_p, 'model') and hasattr(self.task_p.model, 'lm_tpl')):
+      self.task_p.model.lm_tpl.packed_input = False  # pytype: disable=attribute-error  # enable-nested-classes
+
+    model_config.set_serving_params(self.task_p)
+
+  def init_method(self, method: str, model: base_model.BaseModel,
+                  model_state: servable_model.ServableModelState,
+                  prng_key: PRNGKey) -> servable_model.ServableMethod:
+    tokenizer_p = self.model_config.serving_tokenizer()
+    if method == LMMethodName.SCORE:
+      assert self._score_params is not None
+      return LMScoreMethod(
+          model,
+          model_state,
+          prng_key,
+          self._score_params,
+          tokenizer_p,
+          exportable=True)
+    elif method == LMMethodName.GENERATE:
+      assert self._decode_params is not None
+      return LMDecodeMethod(
+          model,
+          model_state,
+          prng_key,
+          self._decode_params,
+          tokenizer_p,
+          exportable=True)
+    elif method == LMMethodName.EMBED:
+      assert self._text_to_embedding_params is not None
+      assert self._text_to_embedding_params.output_embedding_name is not None
+      return TextToEmbedding(
+          model,
+          'compute_text_embedding',
+          model_state,
+          self._text_to_embedding_params,
+          prng_key=prng_key,
+          dummy_input_sample='test',
+          model_config=self.model_config)
+    else:
+      raise NotImplementedError(f'method {method} not implemented')
+
+
+def load_model(model_config: ServableLMModelParams, checkpoint_path: str,
+               primary_process_id: int, ckpt_type: CheckpointType,
+               prng_key: PRNGKey) -> ServableLMModel:
+  """Initializes a ServableLMModel based on the model and checkpoint paths."""
+  model = ServableLMModel(model_config, primary_process_id, ckpt_type)
+  model.load(checkpoint_path, prng_key)
+  return model

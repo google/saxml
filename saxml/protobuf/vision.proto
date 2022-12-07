@@ -1,0 +1,150 @@
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// This API is experimental and under-development.
+
+syntax = "proto3";
+
+package sax.server.vision;
+
+import "saxml/protobuf/common.proto";
+
+message ClassifyRequest {
+  string model_key = 1;
+  bytes image_bytes = 2;
+  .sax.ExtraInputs extra_inputs = 3;
+}
+
+message DecodedText {
+  // The label of the classified object.
+  string text = 1;
+
+  // The score of the classified object.
+  double score = 2;
+}
+
+message ClassifyResponse {
+  repeated DecodedText texts = 1;
+}
+
+message TextToImageRequest {
+  string model_key = 1;
+  string text = 2;
+  .sax.ExtraInputs extra_inputs = 3;
+}
+
+message ImageGenerations {
+  // The generated image in byte array format.
+  // TODO(jianlijianli): decide on a image encoding format; Currently PNG.
+  bytes image = 1;
+  // The score for the generated image.
+  double score = 2;
+}
+
+message TextToImageResponse {
+  repeated ImageGenerations images = 2;
+}
+
+message EmbedRequest {
+  string model_key = 1;
+  bytes image_bytes = 2;
+  .sax.ExtraInputs extra_inputs = 3;
+}
+
+message EmbedResponse {
+  repeated double embedding = 1 [packed = true];
+}
+
+message BoundingBox {
+  // Coordinates are in pixel space.
+  // Upper left corner of the image represents (0.0, 0.0)
+  // Bottom right corner of the image represents (image_width, image_height)
+  double cx = 1;
+  double cy = 2;
+  double w = 3;
+  double h = 4;
+
+  // A label for the bounding box object.
+  string text = 5;
+
+  // A positive number which represents the ranking (the higher the better)
+  // of the bounding boxes. The semantic meaning of the score is left for
+  // each model to define.
+  double score = 6;
+}
+
+message DetectRequest {
+  string model_key = 1;
+  bytes image_bytes = 2;
+
+  // For open-set detection models, one can pass specified sets here.
+  // Elements in `text` describe concepts in the image that should be
+  // detected; it is up to the detection model to interpret these texts.
+  // Some detection models may interpret the text to be object names, and
+  // the corresponding response.bounding_boxes.text must be one of the
+  // given text elements.
+  repeated string text = 4;
+
+  .sax.ExtraInputs extra_inputs = 3;
+}
+
+message DetectResponse {
+  // A list of bounding boxes.  The bounding boxes have no explicit order.
+  repeated BoundingBox bounding_boxes = 1;
+}
+
+message ImageToTextRequest {
+  string model_key = 1;
+  bytes image_bytes = 2;
+  // Optional prefix text.
+  string text = 3;
+  .sax.ExtraInputs extra_inputs = 4;
+}
+
+message ImageToTextResponse {
+  repeated DecodedText texts = 1;
+}
+
+message VideoToTextRequest {
+  string model_key = 1;
+  repeated bytes image_frames = 2;
+  // Optional prefix text.
+  string text = 3;
+  .sax.ExtraInputs extra_inputs = 4;
+}
+
+message VideoToTextResponse {
+  repeated DecodedText texts = 1;
+}
+
+service VisionService {
+  // Returns the score (e.g., log pplx) given the text.
+  rpc Classify(ClassifyRequest) returns (ClassifyResponse);
+
+  // Returns image generation results given the text.
+  rpc TextToImage(TextToImageRequest) returns (TextToImageResponse);
+
+  // Returns an image embedding given an image.
+  rpc Embed(EmbedRequest) returns (EmbedResponse);
+
+  // Returns bounding box, label, and the score of objects detected given an
+  // image.
+  rpc Detect(DetectRequest) returns (DetectResponse);
+
+  // Returns text generation results given image_bytes.
+  rpc ImageToText(ImageToTextRequest) returns (ImageToTextResponse);
+
+  // Returns text generation results given video.
+  rpc VideoToText(VideoToTextRequest) returns (VideoToTextResponse);
+}

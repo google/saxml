@@ -1,0 +1,116 @@
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Protobuf definitions for the Sax model service. This API is experimental.
+
+syntax = "proto3";
+
+package sax;
+
+import "saxml/protobuf/common.proto";
+
+// TODO(yuanzx): Add a way to override static model parameters.
+message LoadRequest {
+  // Key identifying the model to load.
+  string model_key = 1;
+
+  // Path of the model in Sax's model registry linked in the server binary.
+  // This is the name used to locate a model in Sax, e.g.,
+  //   lingvo.lm.lm_cloud.LmCloudSpmd1024B
+  string model_path = 2;
+
+  // Path to checkpoint, e.g.,
+  //   gs://model/path/checkpoints/checkpoint_00050000
+  string checkpoint_path = 3;
+
+  // ACLs protecting data methods supported by this model.
+  AccessControlLists acls = 4;
+}
+
+message LoadResponse {}
+
+message UnloadRequest {
+  string model_key = 1;
+}
+
+message UnloadResponse {}
+
+message ExportRequest {
+  enum SerializedModelFormat {
+    SERIALIZED_MODEL_FORMAT_UNKNOWN = 0;  // Invalid.
+    TF_SAVEDMODEL_V0 = 1;                 // The TensorFlow SavedModel format.
+  }
+
+  enum RngSeedMode {
+    // If this is left unspecified, it is up to Sax to determine a mode that
+    // matches its native serving behavior. Currently, the native serving
+    // behavior is STATEFUL.
+    RNG_SEED_MODE_UNSPECIFIED = 0;
+    // The exported method takes a uint32 tensor of shape `[batch_size]` and
+    // named `rng_seed`. `rng_seed[0]` will be used as the seed for the whole
+    // batch and other entries in `rng_seed` are ignored.
+    STATELESS = 1;
+    // # The exported method uses an in-graph tf.random.uniform internally to
+    // generate the rng seed.
+    STATEFUL = 2;
+  }
+
+  // Key identifying the model to export.
+  string model_key = 1;
+
+  // The name of the method to export.
+  string method_name = 2;
+
+  // Path in which to save the exported model.
+  string export_path = 3;
+
+  // The format of the serialized model.
+  SerializedModelFormat serialized_model_format = 4;
+
+  // The RNG seed mode.
+  RngSeedMode rng_seed_mode = 5;
+}
+
+message ExportResponse {}
+
+message GetStatusRequest {
+  bool include_failure_reasons = 1;
+}
+
+// TODO(jiawenhao): Add MemoryStats and LoadStats.
+// MemoryStats: Per-device/total used, free, etc.
+// LoadStats: Per-model/method RPCs minute/hour/total.
+message GetStatusResponse {
+  message ModelWithStatus {
+    string model_key = 1;
+    ModelStatus model_status = 2;
+    string failure_reason = 3;  // only filled in if requested
+  }
+
+  repeated ModelWithStatus models = 1;
+}
+
+service Modelet {
+  // Loads a model onto the model server.
+  rpc Load(LoadRequest) returns (LoadResponse);
+
+  // Unloads a model from the model server.
+  rpc Unload(UnloadRequest) returns (UnloadResponse);
+
+  // Exports a method of a model.
+  rpc Export(ExportRequest) returns (ExportResponse);
+
+  // Reports server status such as models loaded.
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+}

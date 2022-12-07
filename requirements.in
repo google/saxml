@@ -1,0 +1,12 @@
+--find-links https://storage.googleapis.com/jax-releases/libtpu_releases.html
+
+importlib-metadata
+absl-py
+grpcio
+grpcio-reflection
+portpicker
+numpy
+jax[tpu]
+paxml>=0.2.1
+praxis>=0.2.1
+orbax>=0.0.18
