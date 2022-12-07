@@ -27,6 +27,10 @@ import (
 
 import "C"
 
+const (
+	fsRootPattern = "sax-test-fsroot-"
+)
+
 var (
 	mu         sync.Mutex
 	allClosers map[string][]chan struct{} = make(map[string][]chan struct{}) // saxCell as key
@@ -34,7 +38,7 @@ var (
 )
 
 func startLocalTestCluster(saxCell string, modelType testutil.ModelType, adminPort int) {
-	fsRoot, err := os.MkdirTemp("", "sax-test-fsroot-")
+	fsRoot, err := os.MkdirTemp("", fsRootPattern)
 	if err != nil {
 		log.Fatalf("startLocalTestCluster failed: %v", err)
 	}
@@ -79,6 +83,19 @@ func stopLocalTestCluster(saxCell string) {
 
 	if err := os.RemoveAll(fsRoot); err != nil {
 		log.Fatalf("stopLocalTestCluster failed: %v", err)
+	}
+}
+
+//export sax_set_up
+func sax_set_up(saxCellStr *C.char, saxCellSize C.int) {
+	saxCell := C.GoStringN(saxCellStr, saxCellSize)
+	fsRoot, err := os.MkdirTemp("", fsRootPattern)
+	if err != nil {
+		log.Fatalf("sax_set_up failed: %v", err)
+	}
+	ctx := context.Background()
+	if err := testutil.SetUpInternal(ctx, saxCell, fsRoot); err != nil {
+		log.Fatalf("sax_set_up failed: %v", err)
 	}
 }
 

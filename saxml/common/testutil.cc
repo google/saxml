@@ -21,13 +21,17 @@
 
 namespace sax {
 
-void StartLocalTestCluster(std::string sax_cell, ModelType model_type,
+void SetUp(const std::string& sax_cell) {
+  sax_set_up(const_cast<char*>(sax_cell.data()), sax_cell.size());
+}
+
+void StartLocalTestCluster(const std::string& sax_cell, ModelType model_type,
                            int admin_port) {
   sax_start_local_test_cluster(const_cast<char*>(sax_cell.data()),
                                sax_cell.size(), (int)model_type, admin_port);
 }
 
-void StopLocalTestCluster(std::string sax_cell) {
+void StopLocalTestCluster(const std::string& sax_cell) {
   sax_stop_local_test_cluster(const_cast<char*>(sax_cell.data()),
                               sax_cell.size());
 }

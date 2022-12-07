@@ -17,17 +17,15 @@ package location
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/proto"
+	"saxml/admin/admin"
+	"saxml/common/addr"
 	"saxml/common/cell"
 	"saxml/common/errors"
-	"saxml/common/ipaddr"
 	"saxml/common/platform/env"
 	"saxml/common/retrier"
 
@@ -36,10 +34,6 @@ import (
 )
 
 const (
-	// locationFile is the name of the file storing the admin server location in the
-	// <root>/sax/<cell> directory.
-	locationFile = "location.proto"
-
 	// Join RPC dial timeout.
 	dialTimeout = time.Second * 10
 
@@ -55,42 +49,6 @@ const (
 	// Retry Join calls for this much time to allow the model server to become ready.
 	retryTimeout = time.Minute * 2
 )
-
-// parseAddr reads the admin server address from bytes.
-func parseAddr(bytes []byte) (string, error) {
-	location := &pb.Location{}
-	if err := proto.Unmarshal(bytes, location); err != nil {
-		return "", err
-	}
-	addr := location.GetLocation()
-	if addr == "" {
-		return "", fmt.Errorf("got an empty location: %w", errors.ErrFailedPrecondition)
-	}
-	return addr, nil
-}
-
-// FetchAddr fetches the admin server address for a Sax cell.
-func FetchAddr(ctx context.Context, saxCell string) (string, error) {
-	if err := cell.Exists(ctx, saxCell); err != nil {
-		return "", err
-	}
-	path, err := cell.Path(ctx, saxCell)
-	if err != nil {
-		return "", err
-	}
-	fname := filepath.Join(path, locationFile)
-
-	bytes, err := env.Get().ReadCachedFile(ctx, fname)
-	if err != nil {
-		return "", err
-	}
-	addr, err := parseAddr(bytes)
-	if err != nil {
-		return "", err
-	}
-	log.Infof("FetchAddr %s %q", fname, addr)
-	return addr, nil
-}
 
 // join makes a Join RPC call to an admin server address.
 func join(ctx context.Context, addr string, ipPort string, specs *pb.ModelServer) error {
@@ -118,7 +76,9 @@ func join(ctx context.Context, addr string, ipPort string, specs *pb.ModelServer
 //
 // A background address watcher starts running indefinitely on successful calls. This address
 // watcher will attempt to rejoin periodically.
-func Join(ctx context.Context, saxCell string, ipPort string, specs *pb.ModelServer) error {
+//
+// If admin_port is not 0, start an admin server for sax_cell at the given port in the background.
+func Join(ctx context.Context, saxCell string, ipPort string, specs *pb.ModelServer, adminPort int) error {
 	if err := cell.Exists(ctx, saxCell); err != nil {
 		return err
 	}
@@ -126,7 +86,23 @@ func Join(ctx context.Context, saxCell string, ipPort string, specs *pb.ModelSer
 	if err != nil {
 		return err
 	}
-	fname := filepath.Join(path, locationFile)
+	fname := filepath.Join(path, addr.LocationFile)
+
+	// If multiple model servers call Join with non-zero admin port values, all but one model server
+	// will be stuck at leader election. Put the admin server start call in a goroutine so Join calls
+	// aren't blocked.
+	go func() {
+		if adminPort == 0 {
+			return
+		}
+		adminServer := admin.NewServer(saxCell, adminPort)
+		log.Infof("Starting admin server at :%v", adminPort)
+		if err := adminServer.Start(ctx); err != nil {
+			log.Errorf("Failed to start admin server at :%v: %v", adminPort, err)
+			return
+		}
+		log.Infof("Started admin server at :%v", adminPort)
+	}()
 
 	// If the platform supports it, subscribe to ongoing admin server address updates.
 	var updates <-chan []byte
@@ -153,7 +129,7 @@ func Join(ctx context.Context, saxCell string, ipPort string, specs *pb.ModelSer
 			select {
 			// Call Join every time the admin address changes.
 			case bytes := <-updates:
-				addr, err := parseAddr(bytes)
+				addr, err := addr.ParseAddr(bytes)
 				if err != nil {
 					log.Errorf("Failed to get admin address to rejoin, retrying later: %v", err)
 				} else {
@@ -162,7 +138,7 @@ func Join(ctx context.Context, saxCell string, ipPort string, specs *pb.ModelSer
 				timer.Reset(joinPeriod)
 			// Call Join at least every `joinPeriod` regardless of address change updates.
 			case <-timer.C:
-				addr, err := FetchAddr(ctx, saxCell)
+				addr, err := addr.FetchAddr(ctx, saxCell)
 				if err != nil {
 					log.Errorf("Failed to get admin address to rejoin, retrying later: %v", err)
 				} else {
@@ -174,37 +150,4 @@ func Join(ctx context.Context, saxCell string, ipPort string, specs *pb.ModelSer
 	}()
 
 	return nil
-}
-
-// SetAddr makes this task the admin server for a Sax cell. This function blocks until it
-// successfully becomes the leader or encounters an error. On success, callers can close the
-// returned channel to safely release the address lock.
-//
-// In tests, users should arrange to call SetAddr (directly or by creating an admin server) before
-// FetchAddr is called anywhere.
-func SetAddr(ctx context.Context, port int, saxCell string) (chan<- struct{}, error) {
-	if err := cell.Exists(ctx, saxCell); err != nil {
-		return nil, err
-	}
-	path, err := cell.Path(ctx, saxCell)
-	if err != nil {
-		return nil, err
-	}
-	fname := filepath.Join(path, locationFile)
-
-	addr := net.JoinHostPort(ipaddr.MyIPAddr().String(), strconv.Itoa(port))
-	location := &pb.Location{Location: addr}
-	content, err := proto.Marshal(location)
-	if err != nil {
-		return nil, err
-	}
-
-	// If the platform supports it, block until this process becomes the leader.
-	closer, err := env.Get().Lead(ctx, fname)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Infof("SetAddr %s %q", fname, addr)
-	return closer, env.Get().WriteFile(ctx, fname, content)
 }

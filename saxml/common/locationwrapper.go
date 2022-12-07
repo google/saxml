@@ -31,16 +31,16 @@ import (
 )
 
 // join calls Join with a background context.
-func join(saxCell string, ipPort string, specs *pb.ModelServer) error {
+func join(saxCell string, ipPort string, specs *pb.ModelServer, adminPort int) error {
 	// The caller on the C++ side is expected to call Join in a local, non-RPC thread on model server
 	// start (as opposed to in an RPC request handler), so there isn't a C++ context to pass in and
 	// transport here through RegisterContextTransport. For simplicity, we can create a Go background
 	// context here instead of creating an empty C++ context and passing it in.
-	return location.Join(context.Background(), saxCell, ipPort, specs)
+	return location.Join(context.Background(), saxCell, ipPort, specs, adminPort)
 }
 
 //export sax_join
-func sax_join(saxCellPtr *C.char, saxCellSize C.int, ipPortPtr *C.char, ipPortSize C.int, specsPtr unsafe.Pointer, specsSize C.int) *C.char {
+func sax_join(saxCellPtr *C.char, saxCellSize C.int, ipPortPtr *C.char, ipPortSize C.int, specsPtr unsafe.Pointer, specsSize C.int, adminPort int) *C.char {
 	saxCell := C.GoStringN(saxCellPtr, saxCellSize)
 	ipPort := C.GoStringN(ipPortPtr, ipPortSize)
 	serializedSpecs := C.GoBytes(specsPtr, specsSize)
@@ -48,7 +48,7 @@ func sax_join(saxCellPtr *C.char, saxCellSize C.int, ipPortPtr *C.char, ipPortSi
 	if err := proto.Unmarshal(serializedSpecs, specs); err != nil {
 		return C.CString("invalid input serialized specs: " + err.Error())
 	}
-	if err := join(saxCell, ipPort, specs); err != nil {
+	if err := join(saxCell, ipPort, specs, adminPort); err != nil {
 		return C.CString(err.Error())
 	}
 	return C.CString("")

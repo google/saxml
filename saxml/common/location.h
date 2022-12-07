@@ -29,8 +29,11 @@ namespace sax {
 // This address watcher will attempt to join initially after a small delay
 // and then periodically, as well as whenever the admin server address changes
 // if the platform supports address watching.
+//
+// If admin_port is not 0, this process will start an admin server for sax_cell.
+// in the background.
 std::string Join(std::string sax_cell, std::string ip_port,
-                 std::string serialized_specs);
+                 std::string serialized_specs, int admin_port = 0);
 
 }  // namespace sax
 

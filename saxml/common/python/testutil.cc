@@ -26,6 +26,7 @@ PYBIND11_MODULE(testutil, m) {
       .value("Custom", ModelType::Custom)
       .export_values();
 
+  m.def("SetUp", &SetUp, "Set up a Sax test environment");
   m.def("StartLocalTestCluster", &StartLocalTestCluster,
         "Set up and start a Sax test environment", pybind11::arg("sax_cell"),
         pybind11::arg("model_type") = ModelType::Language,

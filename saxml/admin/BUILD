@@ -83,9 +83,9 @@ go_library(
     deps = [
         ":mgr",
         ":validator",
+        "//saxml/common:addr",
         "//saxml/common:config",
         "//saxml/common:ipaddr",
-        "//saxml/common:location",
         "//saxml/common:naming",
         "//saxml/common:state",
         "//saxml/common/platform:env",

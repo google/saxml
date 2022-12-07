@@ -14,10 +14,15 @@
 
 """Admin location API."""
 
+from typing import Optional
+
 from saxml.common.python import pybind_location
 
 
-def Join(sax_cell: str, ip_port: str, specs: bytes) -> None:
+def Join(sax_cell: str,
+         ip_port: str,
+         specs: bytes,
+         admin_port: Optional[int] = None) -> None:
   """Join is called by model servers to join the admin server in a SAX cell.
 
   A background address watcher starts running indefinitely on successful calls.
@@ -29,10 +34,13 @@ def Join(sax_cell: str, ip_port: str, specs: bytes) -> None:
     sax_cell: The Sax cell to join, e.g. /sax/test.
     ip_port: The IP:port of the joining model server.
     specs: Serialized ModelServer proto.
+    admin_port: If set, this process will start an admin server on the given
+      port for sax_cell in the background.
 
   Raises:
     RuntimeError: The caller failed to join the admin server.
   """
-  result: str = pybind_location.Join(sax_cell, ip_port, specs)
+  result: str = pybind_location.Join(
+      sax_cell, ip_port, specs, admin_port if admin_port is not None else 0)
   if result:
     raise RuntimeError(result)

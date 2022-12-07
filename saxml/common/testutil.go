@@ -27,10 +27,10 @@ import (
 
 	log "github.com/golang/glog"
 	// unused internal test dependency
+	"saxml/common/addr"
 	"saxml/common/cell"
 	"saxml/common/config"
 	"saxml/common/errors"
-	"saxml/common/location"
 	"saxml/common/naming"
 	"saxml/common/platform/env"
 	"saxml/common/watchable"
@@ -50,7 +50,8 @@ import (
 	vmgrpc "saxml/protobuf/vision_go_proto_grpc"
 )
 
-func setUp(ctx context.Context, saxCell string, fsRoot string) error {
+// SetUpInternal is exported for the C wrapper.
+func SetUpInternal(ctx context.Context, saxCell string, fsRoot string) error {
 	if err := env.Get().CreateDir(ctx, cell.Sax(ctx), ""); err != nil {
 		return err
 	}
@@ -72,7 +73,7 @@ func setUp(ctx context.Context, saxCell string, fsRoot string) error {
 func SetUp(ctx context.Context, t *testing.T, saxCell string) {
 	t.Helper()
 	fsRoot := t.TempDir()
-	if err := setUp(ctx, saxCell, fsRoot); err != nil {
+	if err := SetUpInternal(ctx, saxCell, fsRoot); err != nil {
 		t.Fatalf("SetUp(%v, %v) failed: %v", saxCell, fsRoot, err)
 	}
 }
@@ -206,7 +207,7 @@ func startStubAdminServer(adminPort int, modelPorts []int, saxCell string) (chan
 	}
 	agrpc.RegisterAdminServer(gRPCServer.GRPCServer(), adminServer)
 
-	c, err := location.SetAddr(context.Background(), adminPort, saxCell)
+	c, err := addr.SetAddr(context.Background(), adminPort, saxCell)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +236,7 @@ func StartStubAdminServer(t *testing.T, adminPort int, modelPorts []int, saxCell
 
 // CallAdminServer calls a gRPC method on the admin server for saxCell and returns the result.
 func CallAdminServer(ctx context.Context, saxCell string, req any) (resp any, err error) {
-	addr, err := location.FetchAddr(ctx, saxCell)
+	addr, err := addr.FetchAddr(ctx, saxCell)
 	if err != nil {
 		return nil, err
 	}
@@ -620,7 +621,7 @@ func (c *Cluster) SetUnavailableModels(unavailable []string) *Cluster {
 
 // StartInternal is exported for the C wrapper.
 func (c *Cluster) StartInternal(ctx context.Context) (closers []chan struct{}, err error) {
-	if err := setUp(ctx, c.saxCell, c.fsRoot); err != nil {
+	if err := SetUpInternal(ctx, c.saxCell, c.fsRoot); err != nil {
 		return nil, err
 	}
 

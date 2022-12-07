@@ -542,8 +542,8 @@ class ModeletService:
 
   def __init__(self, service_port: int, batcher: PerMethodBatcher,
                loader: LoadedModelManager, sax_cell: Optional[str],
-               platform_chip: Optional[str], platform_topology: Optional[str],
-               *args, **kwargs):
+               admin_port: Optional[int], platform_chip: Optional[str],
+               platform_topology: Optional[str], *args, **kwargs):
     self._services = {}
     self._batcher = batcher
     self._loader = loader
@@ -561,6 +561,7 @@ class ModeletService:
     self._platform_chip = proto_util.to_chip_type(platform_chip)
     self._platform_topology = proto_util.to_chip_topology(platform_topology)
     logging.info('Sax cell %s', sax_cell)
+    logging.info('Admin port %s', admin_port)
     logging.info('Platform chip %s, %s', platform_chip, self._platform_chip)
     logging.info('Platform topology %s, %s', platform_topology,
                  self._platform_topology)
@@ -572,10 +573,12 @@ class ModeletService:
     # If self._sax_cell is set to not None below, loadable model paths will get
     # imported, and location.Join will be called after the server starts.
     self._sax_cell = None
+    self._admin_port = None
     if sax_cell is not None:
       if not sax_cell.startswith(_SAX_PREFIX):
         raise ValueError(f'Invalid sax_cell {sax_cell}, should be /sax/<cell>')
       self._sax_cell = sax_cell
+      self._admin_port = admin_port
 
     self._loadable_model_paths = []
     if self._sax_cell is not None:
@@ -615,7 +618,8 @@ class ModeletService:
           servable_model_paths=list(self._loadable_model_paths),
       )
       try:
-        location.Join(self._sax_cell, self._ipport, specs.SerializeToString())
+        location.Join(self._sax_cell, self._ipport, specs.SerializeToString(),
+                      self._admin_port)
       except RuntimeError as e:
         logging.exception('location.Join failed')
         raise e
@@ -740,6 +744,7 @@ class ModelServicesRunner:
                port: int = 0,
                deterministic_prng_seed: Optional[int] = None,
                sax_cell: Optional[str] = None,
+               admin_port: Optional[int] = None,
                platform_chip: Optional[str] = None,
                platform_topology: Optional[str] = None,
                spmd_backend: Optional[SPMDBackend] = None):
@@ -793,6 +798,7 @@ class ModelServicesRunner:
         batcher=self._batcher,
         loader=self._loaded_models,
         sax_cell=sax_cell,
+        admin_port=admin_port,
         platform_chip=platform_chip,
         platform_topology=platform_topology)
     all_grpc_services = [self._modelet_service]

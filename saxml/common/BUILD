@@ -53,13 +53,28 @@ go_library(
 )
 
 go_library(
-    name = "location",
-    srcs = ["location.go"],
+    name = "addr",
+    srcs = ["addr.go"],
     deps = [
         ":cell",
         ":errors",
         ":ipaddr",
+        "//saxml/common/platform:env",
+        "//saxml/protobuf:admin_go_proto_grpc",
+        "@com_github_golang_glog//:go_default_library",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_library(
+    name = "location",
+    srcs = ["location.go"],
+    deps = [
+        ":addr",
+        ":cell",
+        ":errors",
         ":retrier",
+        "//saxml/admin",
         "//saxml/common/platform:env",
         "//saxml/protobuf:admin_go_proto_grpc",
         # unused internal admin gRPC dependency,
@@ -72,6 +87,7 @@ go_test(
     name = "location_test",
     srcs = ["location_test.go"],
     deps = [
+        ":addr",
         ":location",
         ":testutil",
         "//saxml/common/platform:cloud",
@@ -181,10 +197,10 @@ go_library(
     testonly = True,
     srcs = ["testutil.go"],
     deps = [
+        ":addr",
         "//saxml/common:cell",
         "//saxml/common:config",
         "//saxml/common:errors",
-        "//saxml/common:location",
         "//saxml/common:naming",
         "//saxml/common:watchable",
         "//saxml/common/platform:env",

@@ -81,8 +81,8 @@ go_library(
     name = "saxadmin",
     srcs = ["admin.go"],
     deps = [
+        "//saxml/common:addr",
         "//saxml/common:errors",
-        "//saxml/common:location",
         "//saxml/common:retrier",
         "//saxml/common:watchable",
         "//saxml/common/platform:env",

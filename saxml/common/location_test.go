@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"saxml/common/addr"
 	"saxml/common/location"
 	"saxml/common/platform/env"
 	_ "saxml/common/platform/cloud" // registers a platform
@@ -38,13 +39,13 @@ func TestSetFetchAddr(t *testing.T) {
 	testutil.SetUp(ctx, t, saxCell)
 
 	port := 10000
-	c, err := location.SetAddr(ctx, port, saxCell)
+	c, err := addr.SetAddr(ctx, port, saxCell)
 	if err != nil {
 		t.Fatalf("SetAddr(%v, %s) error %v, want no error", port, saxCell, err)
 	}
 	defer close(c)
 
-	got, err := location.FetchAddr(ctx, saxCell)
+	got, err := addr.FetchAddr(ctx, saxCell)
 	wantSuffix := strconv.Itoa(port)
 	if err != nil {
 		t.Errorf("FetchAddr(%s) error %v, want no error", saxCell, err)
@@ -72,7 +73,7 @@ func TestJoin(t *testing.T) {
 		ChipType:     pb.ModelServer_CHIP_TYPE_TPU_V4,
 		ChipTopology: pb.ModelServer_CHIP_TOPOLOGY_2X2,
 	}
-	if err := location.Join(ctx, saxCell, modelAddr, specs); err != nil {
+	if err := location.Join(ctx, saxCell, modelAddr, specs, 0); err != nil {
 		t.Fatalf("Join(%s) error %v, want no error", saxCell, err)
 	}
 
@@ -104,7 +105,7 @@ func TestJoinEmptyCell(t *testing.T) {
 	// Join returns an error only for serious problems such as the Sax cell isn't created.
 	// Even if the admin server momentarily disappears or has never existed, the Join call doesn't
 	// return any error but the best-effort background watcher will print log warnings.
-	if err := location.Join(ctx, saxCell, modelAddr, specs); err != nil {
+	if err := location.Join(ctx, saxCell, modelAddr, specs, 0); err != nil {
 		t.Errorf("Join(%s) error %v, want no error", err, saxCell)
 	}
 }
@@ -128,7 +129,7 @@ func TestLeaderElection(t *testing.T) {
 			port := rand.Intn(10000)
 
 			// Wait until this participant becomes the leader.
-			c, err := location.SetAddr(ctx, port, saxCell)
+			c, err := addr.SetAddr(ctx, port, saxCell)
 			if err != nil {
 				t.Errorf("SetAddr(%v, %s) error %v, want no error", port, saxCell, err)
 			}

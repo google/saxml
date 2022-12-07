@@ -28,9 +28,9 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"saxml/admin/mgr"
 	"saxml/admin/validator"
+	"saxml/common/addr"
 	"saxml/common/config"
 	"saxml/common/ipaddr"
-	"saxml/common/location"
 	"saxml/common/naming"
 	"saxml/common/platform/env"
 	"saxml/common/state"
@@ -273,9 +273,9 @@ func (s *Server) Start(ctx context.Context) error {
 	pbgrpc.RegisterAdminServer(gRPCServer.GRPCServer(), s)
 
 	// Set the admin address for this cell. Block until done.
-	s.addrCloser, err = location.SetAddr(ctx, s.port, s.saxCell)
+	s.addrCloser, err = addr.SetAddr(ctx, s.port, s.saxCell)
 	if err != nil {
-		return fmt.Errorf("location.SetAddr error: %w", err)
+		return fmt.Errorf("addr.SetAddr error: %w", err)
 	}
 
 	// Start the manager.

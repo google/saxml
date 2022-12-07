@@ -51,9 +51,27 @@ class LocationTest(absltest.TestCase):
 
     testutil.StopLocalTestCluster(sax_cell)
 
+  def test_join_start_admin(self):
+    sax_cell = '/sax/test-join-start-admin-py'
+    port = portpicker.pick_unused_port()
+    testutil.SetUp(sax_cell)
+
+    model_addr = 'localhost:10000'
+    specs = admin_pb2.ModelServer()
+    location.Join(sax_cell, model_addr, specs.SerializeToString(), port)
+
+    time.sleep(3)  # wait for the initial Join to happen
+    admin_addr = 'localhost:' + str(port)
+    with env.create_grpc_channel(admin_addr) as channel:
+      grpc.channel_ready_future(channel).result()
+      stub = admin_pb2_grpc.AdminStub(channel)
+      req = admin_pb2.ListRequest()
+      # Make sure the newly started admin can respond to List.
+      stub.List(req)
+
   def test_join_fail(self):
     with self.assertRaises(RuntimeError):
-      location.Join('/sax/test', 'localhost:10000', '')
+      location.Join('/sax/test-join-fail-py', 'localhost:10000', '')
 
 
 if __name__ == '__main__':

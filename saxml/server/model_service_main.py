@@ -29,6 +29,8 @@ from saxml.server import spmd_backend
 _SAX_CELL = flags.DEFINE_string(
     'sax_cell', None, 'Optional SAX cell of the admin server. '
     'If set, heartbeat is enabled.')
+_ADMIN_PORT = flags.DEFINE_integer(
+    'admin_port', None, 'Optional port for the built-in admin server.')
 
 _PORT = flags.DEFINE_integer(
     'port', None, 'Port for the RPC service.', required=True)
@@ -114,6 +116,7 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
       port=_PORT.value,
       deterministic_prng_seed=seed,
       sax_cell=_SAX_CELL.value,
+      admin_port=_ADMIN_PORT.value,
       platform_chip=_PLATFORM_CHIP.value,
       platform_topology=_PLATFORM_TOPOLOGY.value,
       spmd_backend=spmd_bknd)

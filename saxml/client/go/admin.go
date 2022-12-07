@@ -24,8 +24,8 @@ import (
 
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
+	"saxml/common/addr"
 	"saxml/common/errors"
-	"saxml/common/location"
 	"saxml/common/platform/env"
 	"saxml/common/retrier"
 	"saxml/common/watchable"
@@ -93,7 +93,7 @@ func (a *Admin) getAdminClient(ctx context.Context) (pbgrpc.AdminClient, error) 
 		a.dialing = false
 	}()
 
-	addr, err := location.FetchAddr(ctx, a.saxCell)
+	addr, err := addr.FetchAddr(ctx, a.saxCell)
 	if err != nil {
 		return nil, err
 	}

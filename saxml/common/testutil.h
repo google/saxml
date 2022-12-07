@@ -24,16 +24,19 @@ namespace sax {
 enum ModelType { Language, Vision, Audio, Custom };
 
 // Sets up and starts a Sax testing environment.
+void SetUp(const std::string& sax_cell);
+
+// Sets up and starts a Sax testing environment.
 //
 // It starts one stub admin server and one stub model server of the given type.
 //
 // model_type defaults to Language is unspecified.
 // admin_port is automatically picked if unspecified.
-void StartLocalTestCluster(std::string sax_cell,
+void StartLocalTestCluster(const std::string& sax_cell,
                            ModelType model_type = Language, int admin_port = 0);
 
 // Stops and cleans up a running Sax testing environment.
-void StopLocalTestCluster(std::string sax_cell);
+void StopLocalTestCluster(const std::string& sax_cell);
 
 }  // namespace sax
 
