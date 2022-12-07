@@ -16,6 +16,7 @@
 package cloud
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -58,8 +59,18 @@ var (
 	projectID string
 	gcsClient *storage.Client
 
+	// How often to check for file content change in a background Watch goroutine.
+	watchPeriod = 5 * time.Second
+
+	// We don't support cross-process, file lock-based leader election yet.
+	// This in-process implementation makes the unit test pass.
 	muLeader sync.Mutex
 )
+
+// SetOptionsForTesting updates watchPeriod so that during tests, file changes are detected sooner.
+func SetOptionsForTesting(watch time.Duration) {
+	watchPeriod = watch
+}
 
 func init() {
 	env.Register(new(Env))
@@ -303,15 +314,31 @@ func (e *Env) DirExists(ctx context.Context, path string) (bool, error) {
 
 // Watch watches for content changes in a file and sends the new content on the returned channel.
 func (e *Env) Watch(ctx context.Context, path string) (<-chan []byte, error) {
-	// Return a no-op channel because we don't support watching address changes yet.
-	return make(<-chan []byte), nil
+	prev, err := e.ReadCachedFile(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file %v in Watch: %w", path, err)
+	}
+
+	updates := make(chan []byte)
+	// TODO(jiawenhao): Shut down the goroutine properly when the returned channel is closed.
+	go func() {
+		ticker := time.NewTicker(watchPeriod)
+		for range ticker.C {
+			curr, err := e.ReadCachedFile(ctx, path)
+			if err != nil {
+				log.Errorf("Watch error, retrying later: %v", err)
+			} else if !bytes.Equal(prev, curr) {
+				prev = curr
+				updates <- curr
+			}
+		}
+	}()
+	return updates, nil
 }
 
 // Lead blocks until it acquires exclusive access to a file. The caller should arrange calling
 // close() on the returned channel to release the exclusive lock.
 func (e *Env) Lead(ctx context.Context, path string) (chan<- struct{}, error) {
-	// We don't support cross-process, file lock-based leader election yet.
-	// This in-process implementation makes the unit test pass.
 	muLeader.Lock()
 	closer := make(chan struct{})
 	go func() {

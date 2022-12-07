@@ -15,11 +15,13 @@
 package cloud_test
 
 import (
+	"bytes"
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
-	_ "saxml/common/platform/cloud" // registers a platform
+	"saxml/common/platform/cloud" // registers a platform
 	"saxml/common/platform/env"
 )
 
@@ -41,5 +43,30 @@ func TestFileOps(t *testing.T) {
 		t.Fatalf("ReadFile got error %v, expect no error", err)
 	} else if len(bytes) != 0 {
 		t.Errorf("ReadFile got %v, expect empty content", bytes)
+	}
+}
+
+func TestWatch(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	fname := "foo"
+	path := filepath.Join(dir, fname)
+
+	cloud.SetOptionsForTesting(200 * time.Millisecond)
+
+	if err := env.Get().WriteFile(ctx, path, nil); err != nil {
+		t.Fatalf("WriteFile got error %v, expect no error", err)
+	}
+	ch, err := env.Get().Watch(ctx, path)
+	if err != nil {
+		t.Fatalf("Watch got error %v, expect no error", err)
+	}
+	has := []byte("bar")
+	if err := env.Get().WriteFile(ctx, path, has); err != nil {
+		t.Fatalf("WriteFile got error %v, expect no error", err)
+	}
+	got := <-ch
+	if !bytes.Equal(got, has) {
+		t.Errorf("Watch got %v, expect %v", got, has)
 	}
 }
