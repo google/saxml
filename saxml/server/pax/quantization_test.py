@@ -15,35 +15,13 @@
 """Tests for quantization methods."""
 
 from absl.testing import absltest
-from absl.testing import parameterized
 
-from praxis import layers
 from praxis import test_utils
 from praxis.layers import quantization as qlayer
 from praxis.layers.quantization import quantization_hparams
 
 from saxml.server.pax import quantization
 from saxml.server.pax.lm.params.lm_cloud import LmCloudSpmd2B
-
-
-class QuantizationTest(test_utils.TestCase):
-
-  @parameterized.named_parameters(
-      ('combine_qkv', True, qlayer.attentions.CombinedQKVProjectionLayer),
-      ('separate_qkv', False, layers.attentions.CombinedQKVProjectionLayer),
-  )
-  def test_update_transformer(self, use_combine_qkv, qkv_cls):
-    p = layers.transformers.Transformer.HParams(
-        name='jax_transformer_layer', input_dims=12, hidden_dims=4, num_heads=8)
-    p.tr_atten_tpl.combine_qkv = use_combine_qkv
-    quantization.quantize_transformer_layer_weights(
-        p, quantization_hparams.QuantizationType.PTQ,
-        quantization_hparams.QuantizationMode.MATERIALIZE)
-    self.assertEqual(p.tr_fflayer_tpl.fflayer_tpl.linear_tpl.cls,
-                     qlayer.linears.Linear)
-    self.assertEqual(p.tr_atten_tpl.proj_tpl.cls,
-                     qlayer.attentions.AttentionProjection)
-    self.assertEqual(p.tr_atten_tpl.combined_qkv_proj_tpl.cls, qkv_cls)
 
 
 @quantization.for_transformer()
