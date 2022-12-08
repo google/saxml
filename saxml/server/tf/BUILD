@@ -58,9 +58,9 @@ cc_library(
     hdrs = ["np_conversions.h"],
     deps = [
         ":numpy_headers",
-        "@pybind11//:pybind11",  # buildcleaner: keep
         "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:protos_all_cc",
+        "@pybind11",  # buildcleaner: keep
     ],
 )
 

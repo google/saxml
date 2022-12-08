@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "saxml/common/location.h"
-#include <pybind11/pybind11.h>
+#include "pybind11/pybind11.h"
 
 namespace sax {
 namespace {

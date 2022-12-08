@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "saxml/client/python/wrapper.h"
-#include <pybind11/pybind11.h>
-#include <pybind11/pytypes.h>
+#include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 #include "pybind11_abseil/absl_casters.h"    // IWYU pragma: keep
 #include "pybind11_abseil/status_casters.h"  // IWYU pragma: keep
 

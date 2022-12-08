@@ -14,7 +14,7 @@
 
 #include "saxml/common/testutil.h"
 
-#include <pybind11/pybind11.h>
+#include "pybind11/pybind11.h"
 
 namespace sax {
 
