@@ -326,7 +326,6 @@ class ServableModel(servable_model.ServableModel):
 
     self._task_p = model_config.task()
     self._methods_to_load = methods
-    self.service_id = model_config.service_id()
     self._mesh_shape = model_config.serving_mesh_shape()
     self._model_config = model_config
 

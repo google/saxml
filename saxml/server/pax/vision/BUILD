@@ -21,6 +21,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
+        ":vision_service",
         "//saxml/server/pax:servable_model",
         "//saxml/server/pax:servable_model_params",
         "//third_party/py/jax",
@@ -52,7 +53,6 @@ pytype_strict_library(
     srcs = ["vision_service.py"],
     srcs_version = "PY3",
     deps = [
-        ":servable_vision_model",
         "//saxml/protobuf:vision_py_pb2",
         "//saxml/protobuf:vision_py_pb2_grpc",
         "//saxml/server:model_service_base",

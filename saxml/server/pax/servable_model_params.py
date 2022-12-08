@@ -109,6 +109,3 @@ class ServableMethodParams(base_hyperparams.BaseHyperParams,
 
   def get_default_extra_inputs(self) -> Optional[Dict[str, float]]:
     return self.extra_inputs
-
-
-create_service_id_for_model_type = servable_model_params.create_service_id_for_model_type

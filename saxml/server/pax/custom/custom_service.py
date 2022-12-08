@@ -30,7 +30,8 @@ from typing import Any
 from saxml.protobuf import custom_pb2
 from saxml.protobuf import custom_pb2_grpc
 from saxml.server import model_service_base
-from saxml.server.pax.custom.servable_custom_model import ServableCustomModelParams
+
+SERVICE_ID = 'custom'
 
 
 class CustomService(model_service_base.ModelService):
@@ -45,7 +46,7 @@ class CustomService(model_service_base.ModelService):
     return
 
 
-@model_service_base.register_service(ServableCustomModelParams)
+@model_service_base.register_service(SERVICE_ID)
 class CustomServiceGRPC(model_service_base.ModelServiceGRPC, CustomService,
                         custom_pb2_grpc.CustomServiceServicer):
   """CustomService gRPC service."""

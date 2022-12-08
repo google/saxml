@@ -30,6 +30,7 @@ from praxis import pytypes
 from saxml.server.jax import np_tf_sess_wrapper
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
+from saxml.server.pax.lm import lm_service
 import tensorflow as tf
 
 CheckpointType = checkpoint_pb2.CheckpointType
@@ -41,12 +42,7 @@ NestedMap = py_utils.NestedMap
 NestedPartitionSpec = pytypes.NestedPartitionSpec
 NestedTfTensor = pytypes.Nested[tf.Tensor]
 NestedNpOrTfTensor = Union[NestedNpTensor, NestedTfTensor]
-
-
-class LMMethodName:
-  SCORE = 'lm.score'
-  GENERATE = 'lm.generate'
-  EMBED = 'lm.embed'
+LMMethodName = lm_service.LMMethodName
 
 
 class ScoreHParams(servable_model_params.ServableMethodParams):
@@ -90,7 +86,6 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
   output_embedding_name: Optional[str] = None
 
 
-@servable_model_params.create_service_id_for_model_type
 class ServableLMModelParams(
     servable_model_params.ServableModelParams, metaclass=abc.ABCMeta):
   """A base class that each LM model config needs to implement for serving."""
@@ -121,6 +116,10 @@ class ServableLMModelParams(
 
 class ServableLMMethod(servable_model.ServableMethod):
   """Implements common method of LM."""
+
+  @classmethod
+  def service_id(cls) -> str:
+    return lm_service.SERVICE_ID
 
   def _get_longest_seqlen(self, inputs: NestedNpTensor) -> int:
     """Gets the longest sequence length in a batch."""
@@ -637,6 +636,10 @@ class TextToEmbedding(servable_model.ServableMethod):
     self._embedding_name = method_hparams.output_embedding_name
     super().__init__(model, model_fn_name, model_state, method_hparams,
                      prng_key, dummy_input_sample)
+
+  @classmethod
+  def service_id(cls) -> str:
+    return lm_service.SERVICE_ID
 
   def fetch_output(self, model_fn_outputs: NestedJTensor,
                    model_fn_inputs: NestedJTensor) -> NestedJTensor:

@@ -14,7 +14,7 @@
 """Wraps a model with custom service APIs."""
 
 import abc
-from typing import Any, Callable, Optional, List, Dict
+from typing import Any, Callable, Dict, List, Optional
 
 import jax
 from paxml import checkpoint_pb2
@@ -23,6 +23,7 @@ from praxis import py_utils
 from praxis import pytypes
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
+from saxml.server.pax.custom import custom_service
 
 CheckpointType = checkpoint_pb2.CheckpointType
 JTensor = pytypes.JTensor
@@ -58,7 +59,6 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
   post_process_fn: PostProcessingFn = None
 
 
-@servable_model_params.create_service_id_for_model_type
 class ServableCustomModelParams(
     servable_model_params.ServableModelParams, metaclass=abc.ABCMeta):
   """A base class that each Custom model config needs to implement for serving.
@@ -95,6 +95,10 @@ class ServableCustomMethod(servable_model.ServableMethod):
         method_hparams.dummy_input_sample,
         exportable=False)
 
+  @classmethod
+  def service_id(cls) -> str:
+    return custom_service.SERVICE_ID
+
   def fetch_output(self, model_fn_outputs: NestedJTensor,
                    model_fn_inputs: NestedJTensor) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
@@ -122,10 +126,13 @@ class ServableCustomModel(servable_model.ServableModel):
                ckpt_type: CheckpointType,
                test_mode: bool = False):
     self._model_config = model_config
-    self._custom_call_params = model_config.custom_calls()
+    params = model_config.custom_calls()
+    assert params is not None
+    self._custom_call_params: Dict[str, CustomCallHParams] = params
 
     super().__init__(model_config, primary_process_id,
-                     self._custom_call_params.keys(), ckpt_type, test_mode)
+                     list(self._custom_call_params.keys()), ckpt_type,
+                     test_mode)
 
   def init_method(self, method: str, model: base_model.BaseModel,
                   model_state: servable_model.ServableModelState,

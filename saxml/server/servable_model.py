@@ -39,6 +39,11 @@ class ServableMethod(abc.ABC):
     self._max_live_batches = method_params.get_max_live_batches()
     self._extra_inputs = method_params.get_default_extra_inputs()
 
+  @classmethod
+  @abc.abstractmethod
+  def service_id(cls) -> str:
+    """Unique ID for the model service that supports this model."""
+
   @property
   def sorted_batch_sizes(self) -> List[int]:
     """A list of sorted supported (ascending order) batch sizes."""
@@ -144,7 +149,6 @@ class ServableMethod(abc.ABC):
 class ServableModel(abc.ABC):
   """Base class for service implementation, backed by a model."""
 
-  service_id: str
   methods: Dict[str, ServableMethod] = {}
   _acls: Dict[str, str] = {}
 

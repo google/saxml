@@ -29,6 +29,8 @@ from saxml.server.pax.lm import servable_lm_model
 
 # Unused internal library
 
+# pytype: disable=attribute-error
+
 
 class ServingTemplate(servable_lm_model.ServableLMModelParams):
   # pylint: disable=line-too-long

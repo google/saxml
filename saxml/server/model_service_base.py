@@ -367,9 +367,8 @@ class LoadedModelManager:
     self._errors = {}
     self._primary_process_id = primary_process_id
 
-  def load(self, key: str, model_path: str, ckpt_path: str, acls: Dict[str,
-                                                                       str],
-           prng_key: int) -> Tuple[servable_model.ServableModel, str]:
+  def load(self, key: str, model_path: str, ckpt_path: str,
+           acls: Dict[str, str], prng_key: int) -> servable_model.ServableModel:
     """Loads and initializes a model.
 
     Args:
@@ -380,7 +379,7 @@ class LoadedModelManager:
       prng_key: PRNG key for this model.
 
     Returns:
-      The loaded model object and the service_id for it.
+      The loaded model object.
     """
     if key in self._models:
       raise ValueError(f'Model {key} is already loaded, cannot load.')
@@ -392,7 +391,6 @@ class LoadedModelManager:
         raise ValueError(f'Could not find servable model `{model_path}`.')
       if not issubclass(model_class, servable_model_params.ServableModelParams):
         raise ValueError(f'{model_path} is not a ServableModelParams')
-      service_id = model_class.service_id()
       # pytype: disable=not-instantiable
       loaded = model_class().load(key, ckpt_path, self._primary_process_id,
                                   prng_key)
@@ -407,7 +405,7 @@ class LoadedModelManager:
 
     self._status[key] = common_pb2.ModelStatus.LOADED
     self._models[key] = loaded
-    return loaded, service_id
+    return loaded
 
   def unload(self, key: str) -> None:
     """Unloads a model."""
@@ -522,12 +520,10 @@ class ModelServiceGRPC(ModelService):
 
 
 def register_service(
-    model_params_base_class: Type[servable_model_params.ServableModelParams]
-) -> Callable[[Type[ModelService]], Type[ModelService]]:
-  """Returns a decorator to register a service for `model_params_base_class`."""
+    service_id: str) -> Callable[[Type[ModelService]], Type[ModelService]]:
+  """Returns a decorator to register a service with a given service_id."""
 
   def _register(service_class: Type[ModelService]) -> Type[ModelService]:
-    service_id = model_params_base_class.service_id()
     if service_id not in _SERVICE_REGISTRY:
       _SERVICE_REGISTRY[service_id] = []
     logging.info('Registering service %s for %s', service_class, service_id)
@@ -585,19 +581,14 @@ class ModeletService:
       for k, v in servable_model_registry.get_all().items():
         if not issubclass(v, servable_model_params.ServableModelParams):
           continue
-        if v.service_id() not in _SERVICE_REGISTRY.keys():
-          logging.info('Skipping model %s, service_id %s not supported', k,
-                       v.service_id())
-          continue
         status = v.check_serving_platform()
         if not status.ok():
           logging.info('Skipping unsupported model %s, %s', k, status.details)
           continue
-        logging.info('Servable model %s, service_id %s', k, v.service_id())
+        logging.info('Servable model %s', k)
         self._loadable_model_paths.append(k)
         for alias in servable_model_registry.get_aliases(k):
-          logging.info('Servable model alias %s, service_id %s', alias,
-                       v.service_id())
+          logging.info('Servable model alias %s for %s', alias, k)
           self._loadable_model_paths.append(alias)
 
     self._ipport = ipaddr.Join(ipaddr.MyIPAddr(), service_port)
@@ -655,7 +646,8 @@ class ModeletService:
       model = self._loader.get_model(req.model_key)
       for method_name in model.methods:
         self._batcher.unregister_method(
-            MethodKey(method_name, model.service_id, req.model_key))
+            MethodKey(method_name,
+                      model.method(method_name).service_id(), req.model_key))
 
     self._batcher.add_item(
         MethodKey(_UNLOAD_METHOD_KEY), rpc_context, req, resp, done_with_status)
@@ -938,16 +930,17 @@ class ModelServicesRunner:
     """Loads a model and initializes its methods."""
     if self._loaded_models.contains(model_key):
       return
-    model, service_id = self._loaded_models.load(model_key, model_path,
-                                                 checkpoint_path, acls,
-                                                 prng_key)
-    service = self._model_services[service_id]
+    model = self._loaded_models.load(model_key, model_path, checkpoint_path,
+                                     acls, prng_key)
     for method_name in model.methods:
       method = model.method(method_name)
+      service_id = method.service_id()
+      service = self._model_services[service_id]
 
       def _pre_process_inputs(rpc_tasks,
                               method=method,
-                              method_name=method_name):
+                              method_name=method_name,
+                              service=service):
         utils.traceprint_all(rpc_tasks, 'Before pre_processing')
         inputs = method.pre_processing([
             service.ParseMethodRPCRequest(method_name, t.request)

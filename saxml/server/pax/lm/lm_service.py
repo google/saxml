@@ -20,8 +20,14 @@ import numpy as np
 from saxml.protobuf import lm_pb2
 from saxml.protobuf import lm_pb2_grpc
 from saxml.server import model_service_base
-from saxml.server.pax.lm.servable_lm_model import LMMethodName
-from saxml.server.pax.lm.servable_lm_model import ServableLMModelParams
+
+SERVICE_ID = 'lm'
+
+
+class LMMethodName:
+  SCORE = 'lm.score'
+  GENERATE = 'lm.generate'
+  EMBED = 'lm.embed'
 
 
 class LmService(model_service_base.ModelService):
@@ -58,7 +64,7 @@ class LmService(model_service_base.ModelService):
     raise NotImplementedError(f'Method {method_name} unimplemented.')
 
 
-@model_service_base.register_service(ServableLMModelParams)
+@model_service_base.register_service(SERVICE_ID)
 class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
                     lm_pb2_grpc.LMServiceServicer):
   """LmService gRPC service."""

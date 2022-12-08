@@ -27,7 +27,6 @@ pytype_strict_library(
     srcs = ["lm_service.py"],
     srcs_version = "PY3",
     deps = [
-        ":servable_lm_model",
         "//saxml/protobuf:lm_py_pb2",
         "//saxml/protobuf:lm_py_pb2_grpc",
         "//saxml/server:model_service_base",
@@ -43,6 +42,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
+        ":lm_service",
         "//saxml/server/jax:np_tf_sess_wrapper",
         "//saxml/server/pax:servable_model",
         "//saxml/server/pax:servable_model_params",

@@ -25,11 +25,6 @@ class ServableModelParams(metaclass=abc.ABCMeta):
 
   @classmethod
   @abc.abstractmethod
-  def service_id(cls) -> str:
-    """Unique ID for the model service that supports this model."""
-
-  @classmethod
-  @abc.abstractmethod
   def check_serving_platform(cls) -> utils.Status:
     """Returns OK status if the current platform supports this model."""
 
@@ -61,21 +56,3 @@ class ServableMethodParams(metaclass=abc.ABCMeta):
 
 
 ServableModelParamsT = Type[ServableModelParams]
-
-
-def create_service_id_for_model_type(model_params_base_class):
-  """Decorator to create a unique service ID for `model_params_base_class`."""
-  # This is used only for a base class to be registered with a service. All
-  # subclasses will share the same service_id.
-
-  unique_id = (
-      model_params_base_class.__module__ + '.' +
-      model_params_base_class.__name__)
-
-  class _WithID(model_params_base_class):
-
-    @classmethod
-    def service_id(cls) -> str:
-      return unique_id
-
-  return _WithID
