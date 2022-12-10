@@ -214,7 +214,7 @@ class VisionModelParams(VisionModelParamsBase):
 class TextToImageModelParams(VisionModelParamsBase):
   """Model params for text-to-image task."""
 
-  def serving_tokenizer(self) -> pax_fiddle.Config[base_layer.FiddleBaseLayer]:
+  def serving_tokenizer(self) -> pax_fiddle.Config[base_layer.BaseLayer]:
     """Specifies the tokenizer."""
     raise NotImplementedError()
 
