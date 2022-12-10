@@ -15,7 +15,7 @@
 """Wraps a model with VisionService APIs."""
 
 import copy
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import jax
 from jax import numpy as jnp
@@ -139,6 +139,31 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
   def serving_batch_size(self):
     """The static batch size to use for serving."""
     raise NotImplementedError()
+
+  def methods(self) -> Dict[str, servable_model_params.ServableMethodParams]:
+    methods = {}
+
+    # pylint: disable=assignment-from-none
+    classify_params = self.classify()
+    if classify_params is not None:
+      methods[VisionMethodName.CLASSIFY] = classify_params
+    text_to_image_params = self.text_to_image()
+    if text_to_image_params is not None:
+      methods[VisionMethodName.TEXT_TO_IMAGE] = text_to_image_params
+    embed_params = self.embed()
+    if embed_params is not None:
+      methods[VisionMethodName.EMBED] = embed_params
+    detect_params = self.detect()
+    if detect_params is not None:
+      methods[VisionMethodName.DETECT] = detect_params
+    image_to_text_params = self.image_to_text()
+    if image_to_text_params is not None:
+      methods[VisionMethodName.IMAGE_TO_TEXT] = image_to_text_params
+    video_to_text_params = self.video_to_text()
+    if video_to_text_params is not None:
+      methods[VisionMethodName.VIDEO_TO_TEXT] = video_to_text_params
+    # pylint: enable=assignment-from-none
+    return methods
 
   def task(self) -> base_task.BaseTask.HParams:
     p = super().task()
@@ -565,113 +590,86 @@ class VideoBytesToText(ImageBytesToText):
 class VisionModel(servable_model.ServableModel):
   """Model for vision tasks."""
 
-  def __init__(self,
-               model_config: VisionModelParamsBase,
-               primary_process_id: int,
-               ckpt_type: CheckpointType,
-               test_mode: bool = False):
-    methods = []
-
-    self._classify_params = model_config.classify()
-    if self._classify_params is not None:
-      methods.append(VisionMethodName.CLASSIFY)
-    self._text_to_image_params = model_config.text_to_image()
-    if self._text_to_image_params is not None:
-      methods.append(VisionMethodName.TEXT_TO_IMAGE)
-    self._embed_params = model_config.embed()
-    if self._embed_params is not None:
-      methods.append(VisionMethodName.EMBED)
-    self._detect_params = model_config.detect()
-    if self._detect_params is not None:
-      methods.append(VisionMethodName.DETECT)
-    self._image_to_text_params = model_config.image_to_text()
-    if self._image_to_text_params is not None:
-      methods.append(VisionMethodName.IMAGE_TO_TEXT)
-    self._video_to_text_params = model_config.video_to_text()
-    if self._video_to_text_params is not None:
-      methods.append(VisionMethodName.VIDEO_TO_TEXT)
-    super().__init__(model_config, primary_process_id, methods, ckpt_type,
-                     test_mode)
-
   def init_method(self, method: str, model: base_model.BaseModel,
                   model_state: servable_model.ServableModelState,
-                  prng_key: PRNGKey):
+                  method_params: servable_model_params.ServableMethodParams,
+                  prng_key: PRNGKey) -> servable_model.ServableMethod:
     if method == VisionMethodName.CLASSIFY:
+      assert isinstance(method_params, ClassifyHParams)
       # Create dummy encoded jpeg of all ones.
-      assert self._classify_params is not None
       image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
       dummy_input = py_utils.NestedMap(image_bytes=image_bytes)
       return ImageBytesToLabelScorePairs(
           model,
           'predict',
           model_state,
-          self._classify_params,
+          method_params,
           prng_key=prng_key,
           dummy_input_sample=dummy_input,
           model_config=self.model_config)
     elif method == VisionMethodName.TEXT_TO_IMAGE:
-      assert self._text_to_image_params is not None
+      assert isinstance(method_params, TextToImageHParams)
       return TextToImageMethod(
           model,
           'text_to_image',
           model_state,
-          self._text_to_image_params,
+          method_params,
           prng_key=prng_key,
           dummy_input_sample='',
           model_config=self.model_config)
     elif method == VisionMethodName.EMBED:
-      assert self._embed_params is not None
-      if self._embed_params.model_method_name is None:
+      assert isinstance(method_params, EmbedHParams)
+      if method_params.model_method_name is None:
         raise ValueError('Must specify `model_method_name` in EmbedHParams.')
-      if self._embed_params.output_embedding_name is None:
+      if method_params.output_embedding_name is None:
         raise ValueError(
             'Must specify `output_embedding_name` in EmbedHParams.')
       image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
       dummy_input = py_utils.NestedMap(image_bytes=image_bytes)
       return ImageBytesToEmbedding(
           model,
-          self._embed_params.model_method_name,
+          method_params.model_method_name,
           model_state,
-          self._embed_params,
+          method_params,
           prng_key=prng_key,
           dummy_input_sample=dummy_input,
           model_config=self.model_config)
     elif method == VisionMethodName.DETECT:
+      assert isinstance(method_params, DetectHParams)
       image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
       dummy_input = py_utils.NestedMap(image_bytes=image_bytes)
-      assert self._detect_params is not None
-      if self._detect_params.is_open_set:
+      if method_params.is_open_set:
         dummy_input.text = ['dummy']
       return ImageBytesToDetect(
           model,
           'compute_predictions',
           model_state,
-          self._detect_params,
+          method_params,
           prng_key=prng_key,
           dummy_input_sample=dummy_input,
           model_config=self.model_config)
     elif method == VisionMethodName.IMAGE_TO_TEXT:
+      assert isinstance(method_params, ImageToTextHParams)
       image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
       dummy_input = py_utils.NestedMap(image_bytes=image_bytes, text='')
-      assert self._image_to_text_params is not None
       return ImageBytesToText(
           model,
           '_decode_generation',
           model_state,
-          self._image_to_text_params,
+          method_params,
           prng_key=prng_key,
           dummy_input_sample=dummy_input,
           model_config=self.model_config)
     elif method == VisionMethodName.VIDEO_TO_TEXT:
+      assert isinstance(method_params, VideoToTextHParams)
       image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
       dummy_input = py_utils.NestedMap(
           image_frames=[image_bytes, image_bytes], text='dummy')
-      assert self._video_to_text_params is not None
       return VideoBytesToText(
           model,
           '_decode_generation',
           model_state,
-          self._video_to_text_params,
+          method_params,
           prng_key=prng_key,
           dummy_input_sample=dummy_input,
           model_config=self.model_config)

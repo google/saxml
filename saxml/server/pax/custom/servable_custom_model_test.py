@@ -146,7 +146,7 @@ class TestServableModel(TestExpt,
   def serving_mesh_shape(cls):
     return cls.ICI_MESH_SHAPE
 
-  def custom_calls(self):
+  def methods(self):
     custom_call_wrapper = TestCustomCall()
     custom_call_hparams = servable_custom_model.CustomCallHParams(
         batch_size=self.BATCH_SIZE,

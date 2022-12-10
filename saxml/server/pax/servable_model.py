@@ -14,7 +14,7 @@
 """Wraps a model with service APIs."""
 
 import dataclasses
-from typing import Any, Dict, List, Optional, Sequence, Callable
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from absl import logging
 from etils import epath
@@ -24,7 +24,6 @@ from jax.experimental import maps
 from jax.experimental import mesh_utils
 from jax.experimental import pjit
 import numpy as np
-from paxml import base_task
 from paxml import checkpoint_pb2
 from paxml import checkpoints
 from paxml import trainer_lib
@@ -315,7 +314,6 @@ class ServableModel(servable_model.ServableModel):
   def __init__(self,
                model_config: servable_model_params.ServableModelParams,
                primary_process_id: int,
-               methods: Sequence[str],
                ckpt_type: CheckpointType,
                test_mode: bool = False):
     self._test_mode = test_mode
@@ -323,25 +321,29 @@ class ServableModel(servable_model.ServableModel):
     assert ckpt_type in (CheckpointType.CHECKPOINT_GDA,
                          CheckpointType.CHECKPOINT_PERSISTENCE)
     self._ckpt_type = ckpt_type
-
     self._task_p = model_config.task()
-    self._methods_to_load = methods
     self._mesh_shape = model_config.serving_mesh_shape()
     self._model_config = model_config
 
   @property
-  def task_p(self) -> base_task.BaseTask.HParams:
-    return self._task_p
-
-  @property
-  def model_config(self) -> Any:
+  def model_config(self) -> servable_model_params.ServableModelParams:
     return self._model_config
 
   def load(self,
            checkpoint_path: Optional[str],
            prng_key: PRNGKey,
            precompile: bool = True) -> None:
-    """Initializes the model."""
+    prng_key, init_key = jax.random.split(prng_key)
+    model, model_state = self.load_state(checkpoint_path, init_key, precompile)
+    self.load_methods(model, model_state, prng_key)
+
+  def load_state(
+      self,
+      checkpoint_path: Optional[str],
+      prng_key: PRNGKey,
+      precompile: bool = True
+  ) -> Tuple[base_model.BaseModel, ServableModelState]:
+    """Initializes the model state."""
     jax_task = self._task_p.Instantiate()
     model_p = self._task_p.model  # pytype: disable=attribute-error  # enable-nested-classes
     device_mesh = mesh_utils.create_device_mesh(self._mesh_shape)
@@ -498,19 +500,27 @@ class ServableModel(servable_model.ServableModel):
           mdl_var_unpadded_shapes=mdl_var_unpadded_shapes,
           input_prefetch=self._ckpt_type == CheckpointType.CHECKPOINT_GDA,
           precompile=precompile)
+      return model, model_state
 
-      try:
-        for method in sorted(self._methods_to_load):
-          prng_key, method_prng_key = jax.random.split(prng_key)
-          self.add_method(
-              method,
-              self.init_method(method, model, model_state, method_prng_key))
-      except Exception as e:
-        self.unload()
-        raise e
-      logging.info('loading completed.')
+  def load_methods(self, model: base_model.BaseModel,
+                   model_state: ServableModelState, prng_key: PRNGKey) -> None:
+    try:
+      method_params = self.model_config.methods()
+      for method in sorted(method_params.keys()):
+        prng_key, method_prng_key = jax.random.split(prng_key)
+        params = method_params[method]
+        assert isinstance(params, servable_model_params.ServableMethodParams)
+        self.add_method(
+            method,
+            self.init_method(method, model, model_state, params,
+                             method_prng_key))
+    except Exception as e:
+      self.unload()
+      raise e
+    logging.info('loading completed.')
 
   def init_method(self, method: str, model: base_model.BaseModel,
                   model_state: ServableModelState,
+                  method_params: servable_model_params.ServableMethodParams,
                   prng_key: PRNGKey) -> ServableMethod:
     raise NotImplementedError(f'method {method} not implemented')

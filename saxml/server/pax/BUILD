@@ -77,7 +77,6 @@ pytype_strict_library(
         "//third_party/py/jax",
         "//third_party/py/jax:mesh_utils",
         "//third_party/py/numpy",
-        "//third_party/py/paxml:base_task",
         "//third_party/py/paxml:checkpoint_py_pb2",
         "//third_party/py/paxml:checkpoints",
         "//third_party/py/paxml:trainer_lib",

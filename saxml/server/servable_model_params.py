@@ -20,20 +20,6 @@ from typing import Any, Dict, List, Optional, Union, Type
 from saxml.server import utils
 
 
-class ServableModelParams(metaclass=abc.ABCMeta):
-  """A base class that each model config needs to implement for serving."""
-
-  @classmethod
-  @abc.abstractmethod
-  def check_serving_platform(cls) -> utils.Status:
-    """Returns OK status if the current platform supports this model."""
-
-  @abc.abstractmethod
-  def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
-           prng_key: int) -> Any:
-    """Loads and returns the ServableModel."""
-
-
 class ServableMethodParams(metaclass=abc.ABCMeta):
   """A base config class for a method."""
 
@@ -53,6 +39,24 @@ class ServableMethodParams(metaclass=abc.ABCMeta):
     function is a NestedMap. The `key` in `extra_inputs` can be one of the key
     in the input. The `default_value` is the default value for input[key].
     """
+
+
+class ServableModelParams(metaclass=abc.ABCMeta):
+  """A base class that each model config needs to implement for serving."""
+
+  @classmethod
+  @abc.abstractmethod
+  def check_serving_platform(cls) -> utils.Status:
+    """Returns OK status if the current platform supports this model."""
+
+  @abc.abstractmethod
+  def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
+           prng_key: int) -> Any:
+    """Loads and returns the ServableModel."""
+
+  @abc.abstractmethod
+  def methods(self) -> Dict[str, ServableMethodParams]:
+    """Returns a dict of {name, method params}."""
 
 
 ServableModelParamsT = Type[ServableModelParams]

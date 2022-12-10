@@ -15,7 +15,7 @@
 """Wraps a model with LMService APIs."""
 
 import abc
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from absl import logging
 import jax
@@ -94,6 +94,19 @@ class ServableLMModelParams(
   def serving_tokenizer(self):
     """Tokenizer params used by serving."""
 
+  def methods(self) -> Dict[str, servable_model_params.ServableMethodParams]:
+    methods = {}
+    score = self.score()  # pylint: disable=assignment-from-none
+    if score is not None:
+      methods[LMMethodName.SCORE] = score
+    generate = self.generate()  # pylint: disable=assignment-from-none
+    if generate is not None:
+      methods[LMMethodName.GENERATE] = generate
+    text_to_embedding = self.text_to_embedding()  # pylint: disable=assignment-from-none
+    if text_to_embedding is not None:
+      methods[LMMethodName.EMBED] = text_to_embedding
+    return methods
+
   def score(self) -> Optional[ScoreHParams]:
     """Returns the params for the score method."""
     return None
@@ -106,7 +119,8 @@ class ServableLMModelParams(
     return None
 
   def set_serving_params(self, task_p: base_task.BaseTask.HParams) -> None:
-    return None
+    """Optional overrideds to task_p."""
+    pass
 
   def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
            prng_key: int) -> 'ServableLMModel':
@@ -673,64 +687,69 @@ class ServableLMModel(servable_model.ServableModel):
                primary_process_id: int,
                ckpt_type: CheckpointType,
                test_mode: bool = False):
-    methods = []
-    self._score_params = model_config.score()
-    if self._score_params is not None:
-      methods.append(LMMethodName.SCORE)
-    self._decode_params = model_config.generate()
-    if self._decode_params is not None:
-      methods.append(LMMethodName.GENERATE)
-    self._text_to_embedding_params = model_config.text_to_embedding()
-    if self._text_to_embedding_params is not None:
-      methods.append(LMMethodName.EMBED)
+    methods = model_config.methods()
 
-    super().__init__(model_config, primary_process_id, methods, ckpt_type,
+    # TODO(sax-dev): Move this to model configs.
+    class _OverrideWrapper(type(model_config)):
+      """Wrapper to override some configs."""
+
+      def task(self):
+        task_p = model_config.task()
+        if not hasattr(task_p, 'model'):
+          return task_p
+        # pytype: disable=attribute-error
+        if LMMethodName.GENERATE in methods and hasattr(task_p.model,
+                                                        'decoder_tpl'):
+          # Make the decode method use the specified parameters.
+          task_p.model.decoder_tpl = methods[LMMethodName.GENERATE].decoder
+
+        # TODO(vrv,sax-dev): Move this to specific model configs.
+        # Disable packed input for online inference.
+        # What's a better check for this?  This assumes too much of the
+        # underlying model.
+        if (LMMethodName.EMBED not in methods and
+            hasattr(task_p.model, 'lm_tpl')):
+          task_p.model.lm_tpl.packed_input = False
+        model_config.set_serving_params(task_p)
+        # pytype: enable=attribute-error
+        return task_p
+
+    # pytype: disable=not-instantiable
+    super().__init__(_OverrideWrapper(), primary_process_id, ckpt_type,
                      test_mode)
-    if self._decode_params is not None and hasattr(self.task_p.model,
-                                                   'decoder_tpl'):  # pytype: disable=attribute-error
-      # Make the decode method use the specified parameters.
-      self.task_p.model.decoder_tpl = self._decode_params.decoder  # pytype: disable=attribute-error  # enable-nested-classes
-
-    # TODO(vrv,sax-dev): Move this to specific model configs.
-    # Disable packed input for online inference.
-    # What's a better check for this?  This assumes too much of the
-    # underlying model.
-    if (self._text_to_embedding_params is None and
-        hasattr(self.task_p, 'model') and hasattr(self.task_p.model, 'lm_tpl')):
-      self.task_p.model.lm_tpl.packed_input = False  # pytype: disable=attribute-error  # enable-nested-classes
-
-    model_config.set_serving_params(self.task_p)
+    # pytype: enable=not-instantiable
 
   def init_method(self, method: str, model: base_model.BaseModel,
                   model_state: servable_model.ServableModelState,
+                  method_params: servable_model_params.ServableMethodParams,
                   prng_key: PRNGKey) -> servable_model.ServableMethod:
     tokenizer_p = self.model_config.serving_tokenizer()
     if method == LMMethodName.SCORE:
-      assert self._score_params is not None
+      assert isinstance(method_params, ScoreHParams)
       return LMScoreMethod(
           model,
           model_state,
           prng_key,
-          self._score_params,
+          method_params,
           tokenizer_p,
           exportable=True)
     elif method == LMMethodName.GENERATE:
-      assert self._decode_params is not None
+      assert isinstance(method_params, DecodeHParams)
       return LMDecodeMethod(
           model,
           model_state,
           prng_key,
-          self._decode_params,
+          method_params,
           tokenizer_p,
           exportable=True)
     elif method == LMMethodName.EMBED:
-      assert self._text_to_embedding_params is not None
-      assert self._text_to_embedding_params.output_embedding_name is not None
+      assert isinstance(method_params, TextToEmbeddingHParams)
+      assert method_params.output_embedding_name is not None
       return TextToEmbedding(
           model,
           'compute_text_embedding',
           model_state,
-          self._text_to_embedding_params,
+          method_params,
           prng_key=prng_key,
           dummy_input_sample='test',
           model_config=self.model_config)

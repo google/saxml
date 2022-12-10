@@ -14,7 +14,7 @@
 """Wraps a model with custom service APIs."""
 
 import abc
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 import jax
 from paxml import checkpoint_pb2
@@ -64,9 +64,8 @@ class ServableCustomModelParams(
   """A base class that each Custom model config needs to implement for serving.
   """
 
-  def custom_calls(self) -> Optional[Dict[str, CustomCallHParams]]:
-    """Returns the params for the custom method."""
-    return None
+  def methods(self) -> Dict[str, CustomCallHParams]:
+    return {}
 
   def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
            prng_key: int) -> 'ServableCustomModel':
@@ -120,25 +119,10 @@ class ServableCustomModel(servable_model.ServableModel):
   This class is responsible for model loading, batch padding, etc.
   """
 
-  def __init__(self,
-               model_config: ServableCustomModelParams,
-               primary_process_id: int,
-               ckpt_type: CheckpointType,
-               test_mode: bool = False):
-    self._model_config = model_config
-    params = model_config.custom_calls()
-    assert params is not None
-    self._custom_call_params: Dict[str, CustomCallHParams] = params
-
-    super().__init__(model_config, primary_process_id,
-                     list(self._custom_call_params.keys()), ckpt_type,
-                     test_mode)
-
   def init_method(self, method: str, model: base_model.BaseModel,
                   model_state: servable_model.ServableModelState,
+                  method_params: servable_model_params.ServableMethodParams,
                   prng_key: PRNGKey) -> servable_model.ServableMethod:
-    if method not in self._custom_call_params:
-      raise NotImplementedError(f'method {method} not implemented')
-    return ServableCustomMethod(model, model_state,
-                                self._custom_call_params.get(method), prng_key,
+    assert isinstance(method_params, CustomCallHParams)
+    return ServableCustomMethod(model, model_state, method_params, prng_key,
                                 self._model_config)
