@@ -22,6 +22,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -384,6 +385,11 @@ func (s *Server) CheckACLs(ctx context.Context, acls []string) error {
 		return nil
 	}
 	return fmt.Errorf("ACL check is not supported: %w", errors.ErrUnimplemented)
+}
+
+// WriteStatusPage writes the status page of an admin server.
+func (s *Server) WriteStatusPage(w http.ResponseWriter, data *env.StatusPageData) error {
+	return fmt.Errorf("WriteStatusPage is not supported: %w", errors.ErrUnimplemented)
 }
 
 // NewServer creates a gRPC server.

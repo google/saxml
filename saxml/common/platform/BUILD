@@ -25,6 +25,7 @@ go_library(
     name = "env",
     srcs = ["env.go"],
     deps = [
+        "//saxml/protobuf:admin_go_proto_grpc",
         "@com_github_golang_glog//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],

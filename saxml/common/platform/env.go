@@ -18,12 +18,33 @@ package env
 import (
 	"context"
 	"net"
+	"net/http"
 
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
+
+	pb "saxml/protobuf/admin_go_proto_grpc"
 )
 
 var globalEnv Env
+
+// StatusPageKind defines the kinds of server status pages.
+type StatusPageKind int
+
+// StatusPageKind value definitions.
+const (
+	RootStatusPage StatusPageKind = iota
+	ModelStatusPage
+	ServerStatusPage
+)
+
+// StatusPageData contains data needed for generating a server status page.
+type StatusPageData struct {
+	Kind    StatusPageKind
+	SaxCell string
+	Models  []*pb.PublishedModel
+	Servers []*pb.JoinedModelServer
+}
 
 // Server defines methods every platform's server type must support.
 type Server interface {
@@ -31,6 +52,10 @@ type Server interface {
 	GRPCServer() *grpc.Server
 	// CheckACLs returns nil iff the principal extracted from ctx passes an ACL check.
 	CheckACLs(ctx context.Context, acls []string) error
+
+	// WriteStatusPage writes the status page of an admin server.
+	WriteStatusPage(w http.ResponseWriter, data *StatusPageData) error
+
 	// Serve starts serving.
 	Serve(lis net.Listener) error
 	// Stop stops serving.
@@ -74,7 +99,7 @@ type Env interface {
 	DialContext(ctx context.Context, target string) (*grpc.ClientConn, error)
 	// RequiredACLNamePrefix returns the string required to prefix all ACL names.
 	RequiredACLNamePrefix() string
-	// NewServer creates a server
+	// NewServer creates a server.
 	NewServer() (Server, error)
 }
 

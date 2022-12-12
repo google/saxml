@@ -401,8 +401,8 @@ func (m *Mgr) makeJoinedModeletLocked(maddr modelAddr, modelet *state.State, add
 	}, nil
 }
 
-// GetStatus returns full information about one joined modelet.
-func (m *Mgr) GetStatus(ctx context.Context, addr string) (*mpb.GetStatusResponse, error) {
+// GetStatus returns information about one joined modelet.
+func (m *Mgr) GetStatus(ctx context.Context, addr string, full bool) (*mpb.GetStatusResponse, error) {
 	m.mu.RLock()
 	maddr := modelAddr(addr)
 	modelet, ok := m.modelets[maddr]
@@ -411,7 +411,7 @@ func (m *Mgr) GetStatus(ctx context.Context, addr string) (*mpb.GetStatusRespons
 	if !ok {
 		return nil, fmt.Errorf("modelet %v not found: %w", maddr, errors.ErrNotFound)
 	}
-	return modelet.GetStatus(ctx)
+	return modelet.GetStatus(ctx, full)
 }
 
 // Locate returns information about one joined modelet.

@@ -248,14 +248,14 @@ func (s *State) act(a *action) {
 	}
 }
 
-// GetStatus returns full information about a server.
-func (s *State) GetStatus(ctx context.Context) (*mpb.GetStatusResponse, error) {
+// GetStatus returns information about a server.
+func (s *State) GetStatus(ctx context.Context, full bool) (*mpb.GetStatusResponse, error) {
 	if s.client == nil {
 		return nil, fmt.Errorf("no model server client: %w", errors.ErrFailedPrecondition)
 	}
 	ctx, cancel := context.WithTimeout(ctx, getStatusTimeout)
 	defer cancel()
-	return s.client.GetStatus(ctx, &mpb.GetStatusRequest{IncludeFailureReasons: true})
+	return s.client.GetStatus(ctx, &mpb.GetStatusRequest{IncludeFailureReasons: full})
 }
 
 // getStatus calls GetStatus on the server and returns the response in an internal format.
