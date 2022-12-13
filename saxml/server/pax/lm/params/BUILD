@@ -16,6 +16,7 @@ pytype_strict_library(
     srcs = ["template.py"],
     srcs_version = "PY3",
     deps = [
+        "//saxml/server:servable_model_registry",
         "//saxml/server/pax/lm:lm_tokenizer",
         "//saxml/server/pax/lm:servable_lm_model",
         "//third_party/py/absl-py/flags",

@@ -682,47 +682,11 @@ class ServableLMModel(servable_model.ServableModel):
   This class is responsible for model loading, batch padding, etc.
   """
 
-  def __init__(self,
-               model_config: ServableLMModelParams,
-               primary_process_id: int,
-               ckpt_type: CheckpointType,
-               test_mode: bool = False):
-    methods = model_config.methods()
-
-    # TODO(sax-dev): Move this to model configs.
-    class _OverrideWrapper(type(model_config)):
-      """Wrapper to override some configs."""
-
-      def task(self):
-        task_p = model_config.task()
-        if not hasattr(task_p, 'model'):
-          return task_p
-        # pytype: disable=attribute-error
-        if LMMethodName.GENERATE in methods and hasattr(task_p.model,
-                                                        'decoder_tpl'):
-          # Make the decode method use the specified parameters.
-          task_p.model.decoder_tpl = methods[LMMethodName.GENERATE].decoder
-
-        # TODO(vrv,sax-dev): Move this to specific model configs.
-        # Disable packed input for online inference.
-        # What's a better check for this?  This assumes too much of the
-        # underlying model.
-        if (LMMethodName.EMBED not in methods and
-            hasattr(task_p.model, 'lm_tpl')):
-          task_p.model.lm_tpl.packed_input = False
-        model_config.set_serving_params(task_p)
-        # pytype: enable=attribute-error
-        return task_p
-
-    # pytype: disable=not-instantiable
-    super().__init__(_OverrideWrapper(), primary_process_id, ckpt_type,
-                     test_mode)
-    # pytype: enable=not-instantiable
-
   def init_method(self, method: str, model: base_model.BaseModel,
                   model_state: servable_model.ServableModelState,
                   method_params: servable_model_params.ServableMethodParams,
                   prng_key: PRNGKey) -> servable_model.ServableMethod:
+    assert isinstance(self.model_config, ServableLMModelParams)
     tokenizer_p = self.model_config.serving_tokenizer()
     if method == LMMethodName.SCORE:
       assert isinstance(method_params, ScoreHParams)

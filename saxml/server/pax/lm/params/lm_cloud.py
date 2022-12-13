@@ -20,7 +20,8 @@ from saxml.server.pax.lm.params import template
 
 
 @servable_model_registry.register
-class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B, template.ServingTemplate):
+@template.make_servable()
+class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B):
   # pylint: disable=line-too-long
   """Servable config on 1x1x8.
 

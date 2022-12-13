@@ -58,5 +58,10 @@ class ServableModelParams(metaclass=abc.ABCMeta):
   def methods(self) -> Dict[str, ServableMethodParams]:
     """Returns a dict of {name, method params}."""
 
+  @classmethod
+  def sax_registration_name(cls) -> Optional[str]:
+    """Custom registration name for the model."""
+    return None
+
 
 ServableModelParamsT = Type[ServableModelParams]

@@ -34,6 +34,7 @@ it will have an alias `foo.FooExpABC`.
 
 from typing import List, Mapping, Optional
 
+from saxml.server.servable_model_params import ServableModelParams
 from saxml.server.servable_model_params import ServableModelParamsT
 
 # Root prefix path for the modules of servable params. Can be overwritten before
@@ -55,9 +56,18 @@ def get_aliases(full_model_name: str) -> List[str]:
   return paths
 
 
+def full_registration_name(model_class) -> str:
+  """Returns the full registration name for a class."""
+  if issubclass(model_class, ServableModelParams):
+    custom_name = model_class.sax_registration_name()
+    if custom_name is not None:
+      return custom_name
+  return model_class.__module__ + '.' + model_class.__name__
+
+
 def register(model_class):
   """Registers a model."""
-  full_name = model_class.__module__ + '.' + model_class.__name__
+  full_name = full_registration_name(model_class)
   _registry[full_name] = model_class
   return model_class
 

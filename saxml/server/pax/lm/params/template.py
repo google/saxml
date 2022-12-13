@@ -24,6 +24,7 @@ from praxis import decoder_hparams
 from praxis import py_utils
 from praxis.layers import attentions
 from praxis.layers import transformers
+from saxml.server import servable_model_registry
 from saxml.server.pax.lm import lm_tokenizer
 from saxml.server.pax.lm import servable_lm_model
 
@@ -46,7 +47,6 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   TOP_K = 40
   BEAM_SIZE = 4
   FPROP_FOR_PREFIX = False
-  SPM = None
   VOCAB_SIZE = 32000
   LENGTH_NORM_ALPHA = 0.8
   SCORE_ONLY = False
@@ -129,26 +129,88 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         max_live_batches=self.MAX_LIVE_BATCHES,
         extra_inputs=self.EXTRA_INPUTS)
 
-  def set_serving_params(self, task_p: base_task.BaseTask.HParams) -> None:
-    # Override attention with lazy prefix broadcast.
-    lazy_prefix_broadcast = False
-    decode_params = self.generate()
-    if decode_params is not None:
-      if decode_params.decoder.lazy_prefix_broadcast:
-        assert decode_params.decoder.num_samples > 1  # pytype: disable=attribute-error
-        lazy_prefix_broadcast = True
 
-    if lazy_prefix_broadcast:
-      xformer = task_p.model.lm_tpl.stacked_transformer_tpl  # pytype: disable=attribute-error  # enable-nested-classes
-      if xformer.cls == transformers.StackedTransformerRepeated:
-        xformer = xformer.block
-      assert xformer.cls == transformers.StackedTransformer
-      layer_p = xformer.transformer_layer_params_tpl
-      lbp_tr_atten_tpl = attentions.DotProductAttentionWithLPB.HParams()
-      if layer_p.tr_atten_tpl.cls == attentions.DotProductAttention:
-        lbp_tr_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
-        layer_p.tr_atten_tpl = lbp_tr_atten_tpl
-      else:
-        assert (layer_p.tr_atten_tpl.cls == lbp_tr_atten_tpl.cls), (
-            f'Attention layer does not support lazy prefix broadcast '
-            f'{layer_p.tr_atten_tpl.cls}.')
+def make_servable(servable_class=ServingTemplate):
+  """Returns a class decorator that wraps a PAX experiment to a servable.
+
+  It is a tool to create multi-inheritance and common serving params overrides
+  on Praxis LanguageModel:
+    - Disable packed inputs.
+    - Efficient multi-sample decoding with lazy prefix broadcast.
+    - Decoder params override. We will remove this when we can directly specify
+      it outside the model params.
+
+  If you don't need the overrides, you can use multi-inheritance directly
+  without this decorator.
+
+  One benefit of using this decorator is that you only need to apply it to a
+  base class. Subclasses of the wrapped base class do not need to be wrapped
+  again, and they can directly override members in the servable_class like
+  BATCH_SIZE.
+
+  Args:
+    servable_class: The class the implements ServableLMModelParams.
+
+  Returns:
+    A decorator that generates a subclass that inherits both a Pax experiment
+    and servable_class.
+  """
+
+  def _decorator(pax_exp_class):
+
+    # pax_exp_class comes before servable_class so that overrides in
+    # pax_exp_class are used.
+    class Wrapped(pax_exp_class, servable_class):
+      """A wrapper that uses the template and overrides some common LM configs.
+      """
+
+      @classmethod
+      def sax_registration_name(cls) -> Optional[str]:
+        # Do not change the registration path for servable_class.
+        if cls == Wrapped:
+          return servable_model_registry.full_registration_name(pax_exp_class)
+        # cls is a subclass of sax_registration_name defined somewhere else.
+        return None
+
+      def task(self) -> base_task.BaseTask.HParams:
+        task_p = super().task()
+
+        if not hasattr(task_p, 'model'):
+          return task_p
+        # pytype: disable=attribute-error
+        generate_p = self.generate()
+        if generate_p is not None and hasattr(task_p.model, 'decoder_tpl'):
+          # Make the decode method use the specified parameters.
+          task_p.model.decoder_tpl = generate_p.decoder
+
+        if not hasattr(task_p.model, 'lm_tpl'):
+          return task_p
+        # Disable packed input for online inference.
+        task_p.model.lm_tpl.packed_input = False
+        # Override attention with lazy prefix broadcast.
+        lazy_prefix_broadcast = False
+        decode_params = self.generate()
+        if decode_params is not None:
+          if decode_params.decoder.lazy_prefix_broadcast:
+            assert decode_params.decoder.num_samples > 1  # pytype: disable=attribute-error
+            lazy_prefix_broadcast = True
+
+        if lazy_prefix_broadcast:
+          xformer = task_p.model.lm_tpl.stacked_transformer_tpl  # pytype: disable=attribute-error  # enable-nested-classes
+          if xformer.cls == transformers.StackedTransformerRepeated:
+            xformer = xformer.block
+          assert xformer.cls == transformers.StackedTransformer
+          layer_p = xformer.transformer_layer_params_tpl
+          lbp_tr_atten_tpl = attentions.DotProductAttentionWithLPB.HParams()
+          if layer_p.tr_atten_tpl.cls == attentions.DotProductAttention:
+            lbp_tr_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
+            layer_p.tr_atten_tpl = lbp_tr_atten_tpl
+          else:
+            assert (layer_p.tr_atten_tpl.cls == lbp_tr_atten_tpl.cls), (
+                f'Attention layer does not support lazy prefix broadcast '
+                f'{layer_p.tr_atten_tpl.cls}.')
+        return task_p
+
+    return Wrapped
+
+  return _decorator
