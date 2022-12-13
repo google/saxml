@@ -160,6 +160,12 @@ func (m *Mgr) Publish(model *apb.Model) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if _, ok := m.models[fullName]; ok {
+		return fmt.Errorf("model %s already exists: %w", fullName, errors.ErrAlreadyExists)
+	}
+	if _, ok := m.pendingUnpublished[fullName]; ok {
+		return fmt.Errorf("model %s is being unpublished, please retry later: %w", fullName, errors.ErrAlreadyExists)
+	}
 	m.models[fullName] = &modelState{
 		spec:        proto.Clone(model).(*apb.Model),
 		addrWatcher: watchable.New(),
