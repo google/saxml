@@ -75,9 +75,9 @@ def for_transformer(quantize_on_the_fly=True):
       def task(self):
         config = super(Wrapper, self)
         if quantize_on_the_fly:
-          mode = quantization_hparams.QuantizationMode.MATERIALIZE.value
+          mode = quantization_hparams.QuantizationMode.MATERIALIZE
         else:
-          mode = quantization_hparams.QuantizationMode.INFERENCE.value
+          mode = quantization_hparams.QuantizationMode.INFERENCE
         config.set_quant_mode(mode)
         task_p = config.task()
 
@@ -86,7 +86,7 @@ def for_transformer(quantize_on_the_fly=True):
             quantization_type_str)
         quantize.set_quantization(
             task_p.model,
-            layers.transformers.Transformer.HParams,
+            layers.transformers.Transformer,
             quantization_type,
             mode=mode)
         return task_p
