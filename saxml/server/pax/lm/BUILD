@@ -51,7 +51,6 @@ pytype_strict_library(
         "//third_party/py/jax",
         "//third_party/py/lingvo/core:tokenizers",  # buildcleaner: keep
         "//third_party/py/numpy",
-        "//third_party/py/paxml:base_task",
         "//third_party/py/paxml:checkpoint_py_pb2",
         "//third_party/py/praxis:base_layer",
         "//third_party/py/praxis:base_model",

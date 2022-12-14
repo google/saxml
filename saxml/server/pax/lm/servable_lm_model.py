@@ -21,7 +21,6 @@ from absl import logging
 import jax
 from jax import numpy as jnp
 import numpy as np
-from paxml import base_task
 from paxml import checkpoint_pb2
 from praxis import base_layer
 from praxis import base_model
@@ -126,10 +125,6 @@ class ServableLMModelParams(
 
   def text_to_embedding(self) -> Optional[TextToEmbeddingHParams]:
     return None
-
-  def set_serving_params(self, task_p: base_task.BaseTask.HParams) -> None:
-    """Optional overrideds to task_p."""
-    pass
 
   def create_model(self, primary_process_id: int) -> 'ServableLMModel':
     return ServableLMModel(self, primary_process_id, self.get_checkpoint_type())
