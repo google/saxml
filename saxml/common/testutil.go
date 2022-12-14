@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -342,28 +343,27 @@ func (s *stubLanguageModelServer) GenerateStream(in *lmpb.GenerateRequest, strea
 		return errors.ErrNotFound
 	}
 	text := in.GetText()
-	if text == "bad-input" {
-		return fmt.Errorf("bad input %w", errors.ErrInvalidArgument)
-	}
 	extra := in.GetExtraInputs().GetItems()
 	temperature := 1.0
 	if val, found := extra["temperature"]; found {
 		temperature = float64(val)
 	}
-	response := &lmpb.GenerateResponse{
-		Texts: []*lmpb.DecodedText{
-			&lmpb.DecodedText{
-				Text:  text + "_0",
-				Score: float64(len(text)) * 0.1 * temperature,
+	for i := 0; i < 10; i++ {
+		response := &lmpb.GenerateResponse{
+			Texts: []*lmpb.DecodedText{
+				&lmpb.DecodedText{
+					Text:  text + "_0_" + strconv.Itoa(i),
+					Score: float64(len(text)) * 0.1 * temperature,
+				},
+				&lmpb.DecodedText{
+					Text:  text + "_1_" + strconv.Itoa(i),
+					Score: float64(len(text)) * 0.2 * temperature,
+				},
 			},
-			&lmpb.DecodedText{
-				Text:  text + "_1",
-				Score: float64(len(text)) * 0.2 * temperature,
-			},
-		},
-	}
-	if err := stream.Send(response); err != nil {
-		return err
+		}
+		if err := stream.Send(response); err != nil {
+			return err
+		}
 	}
 	return nil
 }

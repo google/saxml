@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"google.golang.org/grpc"
+	"saxml/common/retrier"
 
 	pb "saxml/protobuf/lm_go_proto_grpc"
 	pbgrpc "saxml/protobuf/lm_go_proto_grpc"
@@ -89,6 +90,47 @@ func (l *LanguageModel) Generate(ctx context.Context, text string, options ...Mo
 	}
 	res := extractGenerateResponse(resp)
 	return res, nil
+}
+
+// StreamResult is the result for streaming generate.
+type StreamResult struct {
+	// Err is the error for current channel call.
+	//   nil means no error;
+	//   EOF means success;
+	//   other error means failed streaming attempt.
+	Err    error
+	Result []GenerateResult
+}
+
+// GenerateStream performs streaming sampling decoding for `text` on a language model.
+func (l *LanguageModel) GenerateStream(ctx context.Context, text string, options ...ModelOptionSetter) chan StreamResult {
+	req := &pb.GenerateRequest{
+		ModelKey:    l.model.modelID,
+		Text:        text,
+		ExtraInputs: NewModelOptions(options...).ExtraInputs(),
+	}
+
+	res := make(chan StreamResult)
+	go l.model.runGRPC(ctx, "generateStream", func(conn *grpc.ClientConn) error {
+		client := pbgrpc.NewLMServiceClient(conn)
+		stream, err := client.GenerateStream(ctx, req)
+		if err != nil {
+			return err
+		}
+		for {
+			resp, err := stream.Recv()
+			if err == nil {
+				res <- StreamResult{Result: extractGenerateResponse(resp)}
+				continue
+			}
+			// Pass both EOF and general errors to channel.
+			res <- StreamResult{Err: err}
+			// Explicitly use permanent error to skip retrier once streaming has started.
+			return retrier.CreatePermanentError(err)
+		}
+	})
+
+	return res
 }
 
 // Embed performs embedding for a text.

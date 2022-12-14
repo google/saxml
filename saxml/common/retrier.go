@@ -84,3 +84,8 @@ func (q queryRetrier) Do(ctx context.Context, query Closure, retriable IsRetriab
 func Do(ctx context.Context, query Closure, retriable IsRetriable) error {
 	return queryRetrier{retryCount: 0}.Do(ctx, query, retriable)
 }
+
+// CreatePermanentError creates permanent error so client code can inform retrier explicitly.
+func CreatePermanentError(err error) error {
+	return backoff.Permanent(err)
+}
