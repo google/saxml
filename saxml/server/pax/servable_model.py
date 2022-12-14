@@ -316,14 +316,18 @@ class ServableModel(servable_model.ServableModel):
                primary_process_id: int,
                ckpt_type: CheckpointType,
                test_mode: bool = False):
+    super().__init__()
     self._test_mode = test_mode
-    self._receiving_process_id = primary_process_id
+    self._primary_process_id = primary_process_id
     assert ckpt_type in (CheckpointType.CHECKPOINT_GDA,
                          CheckpointType.CHECKPOINT_PERSISTENCE)
     self._ckpt_type = ckpt_type
-    self._task_p = model_config.task()
     self._mesh_shape = model_config.serving_mesh_shape()
     self._model_config = model_config
+
+  @property
+  def primary_process_id(self) -> int:
+    return self._primary_process_id
 
   @property
   def model_config(self) -> servable_model_params.ServableModelParams:
@@ -344,8 +348,9 @@ class ServableModel(servable_model.ServableModel):
       precompile: bool = True
   ) -> Tuple[base_model.BaseModel, ServableModelState]:
     """Initializes the model state."""
-    jax_task = self._task_p.Instantiate()
-    model_p = self._task_p.model  # pytype: disable=attribute-error  # enable-nested-classes
+    task_p = self._model_config.task()
+    jax_task = task_p.Instantiate()
+    model_p = task_p.model  # pytype: disable=attribute-error  # enable-nested-classes
     device_mesh = mesh_utils.create_device_mesh(self._mesh_shape)
 
     prng_key, init_key = jax.random.split(prng_key)
@@ -481,7 +486,7 @@ class ServableModel(servable_model.ServableModel):
         new_task_p = self._model_config.task()
         new_jax_task = new_task_p.Instantiate()
         model = new_jax_task.model
-        self._task_p = new_task_p
+        task_p = new_task_p
         # TODO(jianlijianli): Get unpadded_shapes properly.
         mdl_var_unpadded_shapes = jax.tree_map(lambda x: x.shape, mdl_vars)
         mdl_var_unpadded_types = jax.tree_map(lambda x: x.dtype, mdl_vars)
@@ -493,7 +498,7 @@ class ServableModel(servable_model.ServableModel):
 
       # load model.
       model_state = ServableModelState(
-          is_primary_host=jax.process_index() == self._receiving_process_id,
+          is_primary_host=jax.process_index() == self._primary_process_id,
           global_mesh=self._global_mesh,
           mdl_vars=mdl_vars,
           mdl_var_pspecs=mdl_var_pspecs,

@@ -15,8 +15,9 @@
 """Base class for servable model configs."""
 
 import abc
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Union, Tuple, Type
 
+import jax
 from jax.experimental import mesh_utils
 from paxml import base_experiment
 from paxml import checkpoint_pb2
@@ -81,10 +82,19 @@ class ServableModelParams(base_experiment.BaseExperiment,
   def get_checkpoint_type(cls) -> checkpoint_pb2.CheckpointType:
     return get_pax_checkpoint_type()
 
-  @abc.abstractmethod
   def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
            prng_key: int) -> Any:
     """Loads and returns the ServableModel."""
+    model = self.create_model(primary_process_id)
+    model.load(checkpoint_path, jax.random.PRNGKey(prng_key))
+    return model
+
+  @abc.abstractmethod
+  def create_model(self, primary_process_id: int) -> Any:
+    """Creates the model to be loaded."""
+
+
+ServableModelParamsT = Type[ServableModelParams]
 
 
 class ServableMethodParams(base_hyperparams.BaseHyperParams,

@@ -122,10 +122,8 @@ class ServableLMModelParams(
     """Optional overrideds to task_p."""
     pass
 
-  def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
-           prng_key: int) -> 'ServableLMModel':
-    return load_model(self, checkpoint_path, primary_process_id,
-                      self.get_checkpoint_type(), jax.random.PRNGKey(prng_key))
+  def create_model(self, primary_process_id: int) -> 'ServableLMModel':
+    return ServableLMModel(self, primary_process_id, self.get_checkpoint_type())
 
 
 class ServableLMMethod(servable_model.ServableMethod):
@@ -719,12 +717,3 @@ class ServableLMModel(servable_model.ServableModel):
           model_config=self.model_config)
     else:
       raise NotImplementedError(f'method {method} not implemented')
-
-
-def load_model(model_config: ServableLMModelParams, checkpoint_path: str,
-               primary_process_id: int, ckpt_type: CheckpointType,
-               prng_key: PRNGKey) -> ServableLMModel:
-  """Initializes a ServableLMModel based on the model and checkpoint paths."""
-  model = ServableLMModel(model_config, primary_process_id, ckpt_type)
-  model.load(checkpoint_path, prng_key)
-  return model

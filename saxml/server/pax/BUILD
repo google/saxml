@@ -56,6 +56,7 @@ pytype_strict_library(
     deps = [
         "//saxml/server:servable_model_params",
         "//saxml/server:utils",
+        "//third_party/py/jax",
         "//third_party/py/jax:mesh_utils",
         "//third_party/py/paxml:base_experiment",
         "//third_party/py/paxml:checkpoint_py_pb2",
@@ -114,5 +115,23 @@ py_strict_test(
         "//third_party/py/praxis/layers",
         "//third_party/py/praxis/layers/quantization:layers",
         "//third_party/py/praxis/layers/quantization:quantization_hparams",
+    ],
+)
+
+pytype_strict_library(
+    name = "union_model",
+    srcs = ["union_model.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//saxml/server/pax:servable_model",
+        "//saxml/server/pax:servable_model_params",
+        "//third_party/py/absl-py/logging",
+        "//third_party/py/jax",
+        "//third_party/py/paxml:base_task",
+        "//third_party/py/paxml:checkpoint_py_pb2",
+        "//third_party/py/praxis:base_input",
+        "//third_party/py/praxis:base_model",
+        "//third_party/py/praxis:py_utils",
+        "//third_party/py/praxis:pytypes",
     ],
 )

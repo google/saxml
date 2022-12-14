@@ -149,22 +149,27 @@ class ServableMethod(abc.ABC):
 class ServableModel(abc.ABC):
   """Base class for service implementation, backed by a model."""
 
-  methods: Dict[str, ServableMethod] = {}
-  _acls: Dict[str, str] = {}
+  def __init__(self):
+    self._methods: Dict[str, ServableMethod] = {}
+    self._acls: Dict[str, str] = {}
+
+  @property
+  def methods(self) -> Dict[str, ServableMethod]:
+    return self._methods
 
   def method(self, method: str) -> ServableMethod:
     """Gets a method with the given name."""
-    return self.methods[method]
+    return self._methods[method]
 
   def unload(self) -> None:
     """Clears references held by this model."""
-    for method in self.methods.values():
+    for method in self._methods.values():
       method.unload()
-    self.methods = {}
+    self._methods = {}
 
   def add_method(self, key: str, method: ServableMethod) -> None:
     """Adds an initialized method."""
-    self.methods[key] = method
+    self._methods[key] = method
 
   def set_acls(self, acls: Dict[str, str]):
     """Sets the ACLs for this model.

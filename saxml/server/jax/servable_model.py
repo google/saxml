@@ -47,8 +47,9 @@ def remove_padding(x: jnp.ndarray, shape: Sequence[int]) -> jnp.ndarray:
 class StepCounter:
   """A thread-safe counter to increment the step number."""
 
-  _mu: threading.Lock = threading.Lock()
-  _value: int = 0
+  def __init__(self):
+    self._mu: threading.Lock = threading.Lock()
+    self._value: int = 0
 
   def next(self) -> int:
     with self._mu:

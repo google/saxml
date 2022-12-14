@@ -16,7 +16,6 @@
 import abc
 from typing import Any, Callable, Dict, List
 
-import jax
 from paxml import checkpoint_pb2
 from praxis import base_model
 from praxis import py_utils
@@ -67,13 +66,9 @@ class ServableCustomModelParams(
   def methods(self) -> Dict[str, CustomCallHParams]:
     return {}
 
-  def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
-           prng_key: int) -> 'ServableCustomModel':
-    """Loads and initializes the model."""
-    model = ServableCustomModel(self, primary_process_id,
-                                self.get_checkpoint_type())
-    model.load(checkpoint_path, jax.random.PRNGKey(prng_key))
-    return model
+  def create_model(self, primary_process_id: int) -> 'ServableCustomModel':
+    return ServableCustomModel(self, primary_process_id,
+                               self.get_checkpoint_type())
 
 
 class ServableCustomMethod(servable_model.ServableMethod):

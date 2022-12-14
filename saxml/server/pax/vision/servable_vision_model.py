@@ -17,7 +17,6 @@
 import copy
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import jax
 from jax import numpy as jnp
 from lingvo.core import cluster_factory
 import numpy as np
@@ -192,11 +191,8 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
   def video_to_text(self) -> Optional[VideoToTextHParams]:
     return None
 
-  def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
-           prng_key: int) -> 'VisionModel':
-    model = VisionModel(self, primary_process_id, self.get_checkpoint_type())
-    model.load(checkpoint_path, jax.random.PRNGKey(prng_key))
-    return model
+  def create_model(self, primary_process_id: int) -> 'VisionModel':
+    return VisionModel(self, primary_process_id, self.get_checkpoint_type())
 
 
 class VisionModelParams(VisionModelParamsBase):
