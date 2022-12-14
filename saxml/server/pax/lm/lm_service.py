@@ -11,11 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """RPC service LM inference."""
 
 from typing import Any
 
+from absl import logging
 import numpy as np
 from saxml.protobuf import lm_pb2
 from saxml.protobuf import lm_pb2_grpc
@@ -27,6 +27,7 @@ SERVICE_ID = 'lm'
 class LMMethodName:
   SCORE = 'lm.score'
   GENERATE = 'lm.generate'
+  GENERATE_STREAM = 'lm.generate_stream'
   EMBED = 'lm.embed'
 
 
@@ -38,6 +39,8 @@ class LmService(model_service_base.ModelService):
       return (request.prefix or '', request.suffix or [''])
     if method_name == LMMethodName.GENERATE:
       return request.text
+    if method_name == LMMethodName.GENERATE_STREAM:
+      return request.text
     if method_name == LMMethodName.EMBED:
       return request.text
     raise NotImplementedError(f'Method {method_name} unimplemented.')
@@ -48,6 +51,11 @@ class LmService(model_service_base.ModelService):
       response.logp.extend(method_outputs)
       return
     if method_name == LMMethodName.GENERATE:
+      texts, scores = method_outputs
+      for text, score in zip(texts, scores):
+        response.texts.append(lm_pb2.DecodedText(text=text, score=score))
+      return
+    if method_name == LMMethodName.GENERATE_STREAM:
       texts, scores = method_outputs
       for text, score in zip(texts, scores):
         response.texts.append(lm_pb2.DecodedText(text=text, score=score))
@@ -83,6 +91,19 @@ class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
     await self.EnqueueRequest(LMMethodName.GENERATE, request.model_key, context,
                               request, resp)
     return resp
+
+  async def GenerateStream(self, request, context):
+    resp = lm_pb2.GenerateResponse()
+    q = self.EnqueueStreamRequest(LMMethodName.GENERATE_STREAM,
+                                  request.model_key, context, request, resp)
+    while True:
+      logging.info('Waiting on queue.')
+      msg = await q.get()
+      logging.info('Dequeued message: %s', msg)
+      if msg is None:
+        break
+      yield msg
+    yield resp
 
   async def Embed(self, request, context):
     resp = lm_pb2.EmbedResponse()

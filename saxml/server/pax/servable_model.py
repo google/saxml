@@ -137,6 +137,18 @@ class ServableMethod(servable_model.ServableMethod):
   def batch_option(self) -> BatchOption:
     return self._batch_option
 
+  @property
+  def streamable(self) -> bool:
+    return False
+
+  def dequeue_stream_output(self) -> Tuple[NestedNpTensor, bool]:
+    """Dequeue streamed tensors. Blocking if empty."""
+    raise NotImplementedError('dequeue_stream_output not implemented')
+
+  def enqueue_stream_output(self, stream_outputs: NestedMap) -> None:
+    """Enqueue streamed tensors from device."""
+    raise NotImplementedError('enqueue_stream_output not implemented')
+
   def get_unpadded_branch_key(self, inputs: NestedNpTensor) -> int:
     """Returns the bucket key (before padding) used for inputs."""
     del inputs
@@ -180,6 +192,27 @@ class ServableMethod(servable_model.ServableMethod):
       input_batch[k] = v
     return input_batch
 
+  def call_model_function(self,
+                          inputs: NestedJTensor,
+                          mdl_vars: NestedJTensor,
+                          prng_key: PRNGKey) -> NestedJTensor:
+    k1, k2 = prng_key
+    outputs = self._model.apply(
+        mdl_vars,
+        inputs,
+        method=getattr(self._model, self._model_fn_name),
+        mutable=[
+            base_layer.NON_TRAINABLE,
+            base_layer.DECODE_CACHE,
+            base_layer.PREFIX_DECODE_CACHE,
+        ],
+        rngs={
+            base_layer.PARAMS: k1,
+            base_layer.RANDOM: k2,
+        },
+    )
+    return outputs
+
   def jax_func(self, mdl_vars: NestedJTensor, prng_key: PRNGKey,
                batched_inputs: NestedJTensor,
                non_batched_inputs: NestedJTensor) -> NestedJTensor:
@@ -194,19 +227,7 @@ class ServableMethod(servable_model.ServableMethod):
     with base_layer.JaxContext.new_context(hparams=context_p):
 
       def _model_fn(inputs):
-        outputs = self._model.apply(
-            mdl_vars,
-            inputs,
-            mutable=[
-                base_layer.NON_TRAINABLE,
-                base_layer.DECODE_CACHE,
-                base_layer.PREFIX_DECODE_CACHE,
-            ],
-            method=getattr(self._model, self._model_fn_name),
-            rngs={
-                base_layer.PARAMS: k1,
-                base_layer.RANDOM: k2,
-            })
+        outputs = self.call_model_function(inputs, mdl_vars, [k1, k2])
         # DECODE_CACHE are not read by caller. But they can be large. Tell XLA
         # to remove it from output. Note MLP decoder don't have DECODE_CACHE.
         updated_vars = outputs[1]

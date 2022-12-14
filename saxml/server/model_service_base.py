@@ -11,11 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """RPC service model inference."""
 
 import abc
 import asyncio
+import copy
 import dataclasses
 import queue
 import threading
@@ -49,7 +49,7 @@ from google.protobuf import message
 
 DeviceTensors = servable_model.DeviceTensors
 Closure = Callable[[], None]
-StatusCallback = Callable[[utils.Status], None]
+StatusCallback = Callable[..., None]
 
 # TODO(zhifengc): Convert these an enum to enforce stronger typing.
 _LOAD_METHOD_KEY = '_internal_load'
@@ -299,10 +299,10 @@ class PerMethodBatcher:
                optional_done: Optional[StatusCallback] = None):
     """Adds an item to the method's queue."""
 
-    def done(status):
+    def done(status, *args):
       """Helper to run the done callback if it's not None."""
       if optional_done:
-        optional_done(status)
+        optional_done(status, *args)
 
     method: Method = self._per_method_queues[key]
 
@@ -337,8 +337,8 @@ class PerMethodBatcher:
           utils.resource_exhausted(
               f'Too many requests: {key} {method.limit()}'))
 
-    def _done(status: utils.Status):
-      done(status)
+    def _done(status: utils.Status, *args):
+      done(status, *args)
       method.admissioner.release()
 
     method.queue.send(rpc, req, resp, _done, tc)
@@ -517,6 +517,29 @@ class ModelServiceGRPC(ModelService):
                                  utils.RPCContextGRPC(context), req, resp,
                                  _done)
     return fut
+
+  def EnqueueStreamRequest(self, method: str, model_key: str,
+                           context: grpc.ServicerContext, req: message.Message,
+                           resp: message.Message) -> asyncio.Queue:
+    """Enqueues a streaming request, and returns a done future."""
+    # TODO(changlan): Validate the method supports streaming.
+    loop = asyncio.get_running_loop()
+    q = asyncio.Queue()
+
+    def _done(status: utils.Status, resp: Optional[message.Message] = None):
+      if not status.ok():
+        context.set_code(status.code)
+        context.set_details(status.details)
+      if resp is not None:
+        loop.call_soon_threadsafe(q.put_nowait, copy.deepcopy(resp))
+      else:
+        loop.call_soon_threadsafe(q.put_nowait, None)
+
+    self._EnqueueRequestInternal(method, model_key,
+                                 utils.RPCContextGRPC(context), req, resp,
+                                 _done)
+
+    return q
 
 
 def register_service(
@@ -973,10 +996,15 @@ class ModelServicesRunner:
     self._multihost_sync.send(self._encode_message(*msgs), skip_host_sync)
 
   def _postprocess_async(self, model: servable_model.ServableModel,
-                         batch: Batch, out_tensors: DeviceTensors) -> None:
+                         batch: Batch, out_tensors: DeviceTensors,
+                         streaming_done: Optional[utils.Notification]) -> None:
     """Runs post processing and RPC dones asynchronously."""
 
     def _postprocess():
+      if streaming_done is not None:
+        logging.info('Waiting for streaming to finish.')
+        streaming_done.wait()
+        logging.info('Streaming finished. Processing final results.')
       with batch:
         done_rpcs = 0
         try:
@@ -1008,6 +1036,49 @@ class ModelServicesRunner:
             error_msg = f'Postprocessing error: {e}\n{traceback.format_exc()}'
             for task in batch.rpc_tasks[done_rpcs:]:
               task.done(utils.internal_error(error_msg))
+
+    self._pool.run(_postprocess)
+
+  def _postprocess_stream_async(self, model: servable_model.ServableModel,
+                                batch: Batch,
+                                streaming_done: utils.Notification):
+    """Runs post processing and RPC dones on streamed tensors asynchronously."""
+
+    def _postprocess():
+      done = False
+      while not done:
+        method_obj = model.method(batch.method.name)
+        logging.info('Method %s: dequeue_stream_output', batch.method.name)
+        host_tensors, done = method_obj.dequeue_stream_output()
+
+        logging.info('host_tensors %s', host_tensors)
+        logging.info('done %s', done)
+
+        if done:
+          break
+
+        host_tensors = method_obj.output_to_host(
+            host_tensors, len(batch.rpc_tasks), device_to_host=False)
+        done_rpcs = 0
+
+        if batch.input_tensors is not None:
+          try:
+            outputs = method_obj.post_processing(host_tensors)
+            for out, task in zip(outputs, batch.rpc_tasks):
+              self._model_services[batch.method.service_id].FillRPCResponse(
+                  batch.method.name, out, task.response)
+              task.done(utils.ok(), task.response)
+              done_rpcs += 1
+          except Exception as e:  # pylint: disable=broad-except
+            logging.exception(
+                'Postprocessing error. model_key: %s, method: %s, error: %s',
+                batch.method.model_key, batch.method.name, e)
+            error_msg = f'Postprocessing error: {e}\n{traceback.format_exc()}'
+            for task in batch.rpc_tasks[done_rpcs:]:
+              task.done(utils.internal_error(error_msg))
+            # Terminate the thread early if any exceptions were thrown.
+            done = True
+      streaming_done.notify()
 
     self._pool.run(_postprocess)
 
@@ -1109,24 +1180,35 @@ class ModelServicesRunner:
           batch.wait_for_ready()
           utils.traceprint_all(batch.rpc_tasks,
                                f'Before device compute {batch.method}')
+          method_obj = model.method(batch.method.name)
+
+          streaming_done = None
           if batch.input_tensors is None:
             # Failed preprosessing. Since we have already informed secondary
             # hosts, we need to compute on tensors.
             if self._spmd_backend.spmd_host_count() > 1:
-              result = model.method(batch.method.name).compute_with_dummy_data(
+              result = method_obj.compute_with_dummy_data(
                   unpadded_batch_size=unpadded_batch_size)
+              if method_obj.streamable:
+                streaming_done = utils.Notification()
+                self._postprocess_stream_async(model, batch, streaming_done)
             else:
               result = None
           else:
-            result = model.method(batch.method.name).device_compute(
+            result = method_obj.device_compute(
                 input_batch=batch.input_tensors,
                 unpadded_batch_size=unpadded_batch_size)
+
+            if method_obj.streamable:
+              streaming_done = utils.Notification()
+              self._postprocess_stream_async(model, batch, streaming_done)
           utils.traceprint_all(batch.rpc_tasks,
                                f'After device compute {batch.method}')
+
           if result is None:
             batch.finish()
           else:
-            self._postprocess_async(model, batch, result)
+            self._postprocess_async(model, batch, result, streaming_done)
         except Exception as e:  # pylint: disable=broad-except
           self._worker_thread_exception = e
           batch.finish()

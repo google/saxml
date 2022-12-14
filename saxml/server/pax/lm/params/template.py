@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Serving template params."""
 
 import os
@@ -58,6 +57,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   BUCKET_KEYS = None
   INCLUDE_PREFIX_IN_RESULT = False
   MAX_LIVE_BATCHES = 4
+  ENABLE_GENERATE = True
+  ENABLE_GENERATE_STREAM = False
 
   def input_for_model_init(self):
     batch_size = self.BATCH_SIZE
@@ -97,6 +98,9 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         slice_left=self.SLICE_LEFT)
 
   def generate(self) -> Optional[servable_lm_model.DecodeHParams]:
+    if not self.ENABLE_GENERATE:
+      return None
+
     if self.SCORE_ONLY:
       return None
 
@@ -129,6 +133,36 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         max_live_batches=self.MAX_LIVE_BATCHES,
         extra_inputs=self.EXTRA_INPUTS)
 
+  def generate_stream(self) -> Optional[servable_lm_model.DecodeHParams]:
+    if not self.ENABLE_GENERATE_STREAM:
+      return None
+
+    if self.SCORE_ONLY:
+      return None
+
+    if self.USE_BEAM_SEARCH:
+      return None
+
+    generate_hparams = decoder_hparams.SampleDecoderHParams(
+        fprop_for_prefix=self.FPROP_FOR_PREFIX,
+        # Use LPB for whenever FPROP_FOR_PREFIX is enabled.
+        lazy_prefix_broadcast=(self.FPROP_FOR_PREFIX and self.NUM_SAMPLES > 1),
+        max_decode_steps=self.MAX_DECODE_STEPS,
+        seqlen=self.INPUT_SEQ_LEN + self.MAX_DECODE_STEPS,
+        num_samples=self.NUM_SAMPLES,
+        temperature=None,
+        eos_id=self.EOS_ID,
+        k=self.TOP_K)
+
+    return servable_lm_model.DecodeHParams(
+        batch_size=self.BATCH_SIZE,
+        max_input_seq_len=self.INPUT_SEQ_LEN,
+        bucket_keys=self.BUCKET_KEYS,
+        decoder=generate_hparams,
+        include_prefix_in_result=self.INCLUDE_PREFIX_IN_RESULT,
+        max_live_batches=self.MAX_LIVE_BATCHES,
+        extra_inputs=self.EXTRA_INPUTS)
+
 
 def make_servable(servable_class=ServingTemplate):
   """Returns a class decorator that wraps a PAX experiment to a servable.
@@ -137,8 +171,6 @@ def make_servable(servable_class=ServingTemplate):
   on Praxis LanguageModel:
     - Disable packed inputs.
     - Efficient multi-sample decoding with lazy prefix broadcast.
-    - Decoder params override. We will remove this when we can directly specify
-      it outside the model params.
 
   If you don't need the overrides, you can use multi-inheritance directly
   without this decorator.
@@ -177,11 +209,6 @@ def make_servable(servable_class=ServingTemplate):
 
         if not hasattr(task_p, 'model'):
           return task_p
-        # pytype: disable=attribute-error
-        generate_p = self.generate()
-        if generate_p is not None and hasattr(task_p.model, 'decoder_tpl'):
-          # Make the decode method use the specified parameters.
-          task_p.model.decoder_tpl = generate_p.decoder
 
         if not hasattr(task_p.model, 'lm_tpl'):
           return task_p

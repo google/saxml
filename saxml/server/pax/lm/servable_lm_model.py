@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Wraps a model with LMService APIs."""
 
 import abc
+import queue
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from absl import logging
@@ -23,8 +23,10 @@ from jax import numpy as jnp
 import numpy as np
 from paxml import base_task
 from paxml import checkpoint_pb2
+from praxis import base_layer
 from praxis import base_model
 from praxis import decoder_hparams
+from praxis import decoder_utils
 from praxis import py_utils
 from praxis import pytypes
 from saxml.server.jax import np_tf_sess_wrapper
@@ -102,6 +104,9 @@ class ServableLMModelParams(
     generate = self.generate()  # pylint: disable=assignment-from-none
     if generate is not None:
       methods[LMMethodName.GENERATE] = generate
+    generate_stream = self.generate_stream()  # pylint: disable=assignment-from-none
+    if generate_stream is not None:
+      methods[LMMethodName.GENERATE_STREAM] = generate_stream
     text_to_embedding = self.text_to_embedding()  # pylint: disable=assignment-from-none
     if text_to_embedding is not None:
       methods[LMMethodName.EMBED] = text_to_embedding
@@ -112,6 +117,10 @@ class ServableLMModelParams(
     return None
 
   def generate(self) -> Optional[DecodeHParams]:
+    """Returns the params for the decode method."""
+    return None
+
+  def generate_stream(self) -> Optional[DecodeHParams]:
     """Returns the params for the decode method."""
     return None
 
@@ -385,7 +394,8 @@ class LMDecodeMethod(ServableLMMethod):
                prng_key: PRNGKey,
                method_hparams: DecodeHParams,
                tokenizer_p: Any,
-               exportable: bool = False):
+               exportable: bool = False,
+               streamable: bool = False):
     self._tokenizer = tokenizer_p.Instantiate()
     self._method_hparams = method_hparams
     dummy_input_sample = ''
@@ -397,7 +407,12 @@ class LMDecodeMethod(ServableLMMethod):
     logging.info(
         'Using np_tf_sess_wrapper on LMDecodeMethod.tf_post_processing')
     self._tf_sess_post_processing = np_tf_sess_wrapper.wrap_tf_session(
-        self.tf_post_processing)
+        self.tf_post_processing, False)
+    self._stream_queue: queue.SimpleQueue[Tuple[NestedNpTensor,
+                                                bool]] = queue.SimpleQueue()
+    self._streamable = streamable
+    logging.info('Initialize LMDecodeMethod to be streamable=%s.', streamable)
+
     super().__init__(
         model,
         'decode',
@@ -406,6 +421,57 @@ class LMDecodeMethod(ServableLMMethod):
         prng_key,
         dummy_input_sample,
         exportable=exportable)
+
+  def call_model_function(self, inputs, mdl_vars, prng_key):
+    k1, k2 = prng_key
+
+    kwargs = {}
+    if self.streamable:
+      if self.model_state.is_primary_host:
+
+        def callback_fn(x, _):
+          logging.info('Primary host: host_callback on %s', x)
+          self.enqueue_stream_output(x)
+      else:
+
+        def callback_fn(x, _):
+          logging.info('Secondary host: host_callback on %s', x)
+
+      kwargs['host_callback'] = decoder_utils.DecodingHostCallback(
+          callback_fn, interval_steps=1)
+
+    outputs = self._model.apply(
+        mdl_vars,
+        input_batch=inputs,
+        method=self._model.decode_with_params,
+        mutable=[
+            base_layer.NON_TRAINABLE,
+            base_layer.DECODE_CACHE,
+            base_layer.PREFIX_DECODE_CACHE,
+        ],
+        rngs={
+            base_layer.PARAMS: k1,
+            base_layer.RANDOM: k2,
+        },
+        decoder_params=self._method_hparams.decoder,
+        **kwargs,
+    )
+    return outputs
+
+  @property
+  def streamable(self) -> bool:
+    return self._streamable
+
+  def dequeue_stream_output(self) -> Tuple[NestedNpTensor, bool]:
+    """Dequeue streamed tensors. Blocking if empty."""
+    output_tensors, done = self._stream_queue.get()
+    return output_tensors, done
+
+  def enqueue_stream_output(self, stream_outputs: NestedMap) -> None:
+    """Enqueue streamed tensors from device."""
+    done = stream_outputs.done
+    del stream_outputs.done
+    self._stream_queue.put((stream_outputs, done))
 
   def fetch_output(self, model_fn_outputs: NestedJTensor,
                    model_fn_inputs: NestedJTensor) -> NestedJTensor:
@@ -484,13 +550,14 @@ class LMDecodeMethod(ServableLMMethod):
     # A list of results for the inputs. Each element has multiple samples from
     # the decoding algorithm, which has a list of strings and a list of scores.
     post_processed = self._tf_sess_post_processing(compute_outputs)
+    # post_processed = self.tf_post_processing(compute_outputs)
     batched_decoded = post_processed['topk_decoded']
     batched_scores = post_processed['topk_scores']
     return [([d.decode()
               for d in decoded], list(scores))
             for decoded, scores in zip(batched_decoded, batched_scores)]
 
-  def get_scores(self, result: NestedMap):
+  def get_scores(self, result: NestedMap, host=False):
     """Get scores from decoding results."""
     if self._method_hparams.encoder_decoder_model:
       return result.logprobs
@@ -498,27 +565,29 @@ class LMDecodeMethod(ServableLMMethod):
     if hasattr(result, 'scores'):
       return result.scores
 
+    np_op = np if host else jnp
+
     if 'suffix_prompt_lengths' in result and 'suffix_lengths' in result:
       # Get scores for suffix rating ids.
-      is_valid_output = jnp.logical_and(
-          jnp.arange(result.output_ids.shape[-1]) >=
+      is_valid_output = np_op.logical_and(
+          np_op.arange(result.output_ids.shape[-1]) >=
           result.decode_lengths[:, :, None] +
           result.suffix_prompt_lengths[:, :, None] - 1,
-          jnp.arange(
+          np_op.arange(
               result.output_ids.shape[-1]) < result.decode_lengths[:, :, None] +
           result.suffix_lengths[:, :, None] - 1)
     else:
-      is_valid_output = jnp.logical_and(
-          jnp.arange(result.output_ids.shape[-1]) >=
+      is_valid_output = np_op.logical_and(
+          np_op.arange(result.output_ids.shape[-1]) >=
           result.prefix_lengths[:, None, None],
-          jnp.arange(result.output_ids.shape[-1]) < result.decode_lengths[:, :,
-                                                                          None])
+          np_op.arange(
+              result.output_ids.shape[-1]) < result.decode_lengths[:, :, None])
     # [batch_size, num_samples, seqlen]
-    scores = jnp.where(is_valid_output, result.logprobs,
-                       jnp.zeros_like(result.logprobs))
+    scores = np_op.where(is_valid_output, result.logprobs,
+                         np_op.zeros_like(result.logprobs))
     # Scores are computed by excluding the prefix and padding.
     # [batch_size, num_samples]
-    return jnp.sum(scores, axis=-1)
+    return np_op.sum(scores, axis=-1)
 
   def tf_pre_processing(
       self,
@@ -704,6 +773,16 @@ class ServableLMModel(servable_model.ServableModel):
           method_params,
           tokenizer_p,
           exportable=True)
+    elif method == LMMethodName.GENERATE_STREAM:
+      assert isinstance(method_params, DecodeHParams)
+      return LMDecodeMethod(
+          model,
+          model_state,
+          prng_key,
+          method_params,
+          tokenizer_p,
+          exportable=False,
+          streamable=True)
     elif method == LMMethodName.EMBED:
       assert isinstance(method_params, TextToEmbeddingHParams)
       assert method_params.output_embedding_name is not None

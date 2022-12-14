@@ -11,11 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Wraps a model with service APIs."""
 
 import abc
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from saxml.server import servable_model_params
 
@@ -64,8 +63,10 @@ class ServableMethod(abc.ABC):
     """Transfers input data to device. Pads incomplete batches."""
 
   @abc.abstractmethod
-  def output_to_host(self, output_tensors: DeviceTensors,
-                     unpadded_batch_size: int) -> HostTensors:
+  def output_to_host(self,
+                     output_tensors: Union[HostTensors, DeviceTensors],
+                     unpadded_batch_size: int,
+                     device_to_host: bool = True) -> HostTensors:
     """Fetches device outputs to host. Removes batch padding."""
 
   @property
@@ -114,6 +115,19 @@ class ServableMethod(abc.ABC):
   def device_compute(self, input_batch: DeviceTensors,
                      unpadded_batch_size: int) -> DeviceTensors:
     """Executes the device computation."""
+
+  @property
+  @abc.abstractmethod
+  def streamable(self) -> bool:
+    """Whether this method supports streaming."""
+
+  @abc.abstractmethod
+  def dequeue_stream_output(self) -> Tuple[HostTensors, bool]:
+    """Dequeue streamed tensors. Blocking if empty."""
+
+  @abc.abstractmethod
+  def enqueue_stream_output(self, stream_outputs: HostTensors) -> None:
+    """Enqueue streamed tensors from device."""
 
   def get_padded_batch_size(self, unpadded_batch_size: int) -> int:
     for bs in self.sorted_batch_sizes:

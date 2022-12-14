@@ -82,8 +82,11 @@ service LMService {
   // Returns the score (e.g., log pplx) given the text.
   rpc Score(ScoreRequest) returns (ScoreResponse);
 
-  // Returns generated texts usinig the text prefix in the request.
+  // Returns generated texts using the text prefix in the request.
   rpc Generate(GenerateRequest) returns (GenerateResponse);
+
+  // Returns generated text stream using the test prefix.
+  rpc GenerateStream(GenerateRequest) returns (stream GenerateResponse);
 
   // Returns a text embedding given the text.
   rpc Embed(EmbedRequest) returns (EmbedResponse);

@@ -337,6 +337,37 @@ func (s *stubLanguageModelServer) Generate(ctx context.Context, in *lmpb.Generat
 	}, nil
 }
 
+func (s *stubLanguageModelServer) GenerateStream(in *lmpb.GenerateRequest, stream lmgrpc.LMService_GenerateStreamServer) error {
+	if in.GetModelKey() == s.unavailableModel {
+		return errors.ErrNotFound
+	}
+	text := in.GetText()
+	if text == "bad-input" {
+		return fmt.Errorf("bad input %w", errors.ErrInvalidArgument)
+	}
+	extra := in.GetExtraInputs().GetItems()
+	temperature := 1.0
+	if val, found := extra["temperature"]; found {
+		temperature = float64(val)
+	}
+	response := &lmpb.GenerateResponse{
+		Texts: []*lmpb.DecodedText{
+			&lmpb.DecodedText{
+				Text:  text + "_0",
+				Score: float64(len(text)) * 0.1 * temperature,
+			},
+			&lmpb.DecodedText{
+				Text:  text + "_1",
+				Score: float64(len(text)) * 0.2 * temperature,
+			},
+		},
+	}
+	if err := stream.Send(response); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *stubLanguageModelServer) Embed(ctx context.Context, in *lmpb.EmbedRequest) (*lmpb.EmbedResponse, error) {
 	value := float64(len(in.GetText()))
 	return &lmpb.EmbedResponse{
