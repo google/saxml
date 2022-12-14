@@ -240,6 +240,13 @@ go_repository(
         version = "v0.0.7",
 )
 
+go_repository(
+        name = "com_github_google_safehtml",
+        importpath = "github.com/google/safehtml",
+        sum = "h1:EwLKo8qawTKfsi0orxcQAZzu07cICaBeFMegAU9eaT8=",
+        version = "v0.1.0",
+)
+
 go_rules_dependencies()
 
 go_register_toolchains(version = "1.19.2")

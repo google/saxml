@@ -48,7 +48,7 @@ func main() {
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	adminServer := admin.NewServer(*saxCell, *port)
-	// adminServer.EnableStatusPages()
+	adminServer.EnableStatusPages()
 	if err := adminServer.Start(ctx); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

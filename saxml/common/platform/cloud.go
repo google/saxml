@@ -39,6 +39,9 @@ import (
 	"golang.org/x/oauth2/google"
 	"saxml/common/errors"
 	"saxml/common/platform/env"
+	"github.com/google/safehtml/template"
+
+	pb "saxml/protobuf/admin_go_proto_grpc"
 )
 
 const (
@@ -51,6 +54,9 @@ const (
 	// Because GCS has no real directories, put an empty placeholder file in the innermost
 	// subdirectory to achieve the effect of a directory.
 	metadataFile = "METADATA"
+
+	// Status page HTTP server port.
+	httpPort = 8080
 )
 
 var (
@@ -66,7 +72,74 @@ var (
 	// We don't support cross-process, file lock-based leader election yet.
 	// This in-process implementation makes the unit test pass.
 	muLeader sync.Mutex
+
+	tmplStatus = template.Must(template.New("Status").Parse(`
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>{{.SaxCell}}</title>
+	</head>
+	<body>
+    <h1>{{.PageHeader}}</h1>
+    <h2>{{.ModelTableHeader}}</h2>
+		<table border="1">
+			<tr>
+				<th>Name</th>
+				<th>Max</th>
+				<th>Active</th>
+				<th>Path</th>
+				<th>Checkpoint</th>
+			</tr>
+		{{range .ModelTableRows}}
+		  <tr>
+			  <td>{{.Name}}</td>
+			  <td>{{.Max}}</td>
+			  <td>{{.Active}}</td>
+			  <td>{{.Path}}</td>
+			  <td>{{.Checkpoint}}</td>
+			</tr>
+		{{end}}
+		</table>
+    <h2>{{.ServerTableHeader}}</h2>
+		<table border="1">
+			<tr>
+				<th>Addr</th>
+				<th>Chip</th>
+				<th>Topo</th>
+				<th>Lag (s)</th>
+				<th>Status</th>
+			</tr>
+		{{range .ServerTableRows}}
+			<tr>
+				<td>{{.Addr}}</td>
+				<td>{{.Chip}}</td>
+				<td>{{.Topo}}</td>
+				<td>{{.Lag}}</td>
+				<td>{{.Status}}</td>
+			</tr>
+		{{end}}
+		</table>
+	</body>
+</html>
+`))
 )
+
+type tmplModelTableRow struct {
+	Name, Max, Active, Path, Checkpoint string
+}
+
+type tmplServerTableRow struct {
+	Addr, Chip, Topo, Lag, Status string
+}
+
+type tmplData struct {
+	SaxCell           string
+	PageHeader        string
+	ModelTableHeader  string
+	ModelTableRows    []tmplModelTableRow
+	ServerTableHeader string
+	ServerTableRows   []tmplServerTableRow
+}
 
 // SetOptionsForTesting updates watchPeriod so that during tests, file changes are detected sooner.
 func SetOptionsForTesting(watch time.Duration) {
@@ -82,14 +155,14 @@ func init() {
 
 	credentials, err := google.FindDefaultCredentials(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error retrieving Google Cloud credentials, can only access local files from now on: %v", err)
+		fmt.Fprintln(os.Stderr, "Error retrieving Google Cloud credentials, can only access local files from now on: ", err)
 		return
 	}
 	projectID = credentials.ProjectID
 
 	gcsClient, err = storage.NewClient(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating a Google Cloud Storage client, further access will fail: %v", err)
+		fmt.Fprintln(os.Stderr, "Error creating a Google Cloud Storage client, further access will fail: ", err)
 		return
 	}
 }
@@ -374,6 +447,13 @@ type Server struct {
 	*grpc.Server
 }
 
+// Serve starts serving.
+func (s *Server) Serve(lis net.Listener) error {
+	log.Infof("Starting the HTTP server on port %v", httpPort)
+	go http.ListenAndServe(fmt.Sprintf("localhost:%v", httpPort), nil)
+	return s.Server.Serve(lis)
+}
+
 // GRPCServer returns the underlying gRPC server.
 func (s *Server) GRPCServer() *grpc.Server {
 	return s.Server
@@ -381,15 +461,76 @@ func (s *Server) GRPCServer() *grpc.Server {
 
 // CheckACLs returns nil iff the principal extracted from ctx passes an ACL check.
 func (s *Server) CheckACLs(ctx context.Context, acls []string) error {
-	if len(acls) == 0 {
-		return nil
+	for _, acl := range acls {
+		if acl != "" {
+			return fmt.Errorf("ACL check is not supported: %w", errors.ErrUnimplemented)
+		}
 	}
-	return fmt.Errorf("ACL check is not supported: %w", errors.ErrUnimplemented)
+	return nil
+}
+
+func modelTableRows(models []*pb.PublishedModel) []tmplModelTableRow {
+	var items []tmplModelTableRow
+	for _, model := range models {
+		id := model.GetModel().GetModelId()
+		path := model.GetModel().GetModelPath()
+		ckpt := model.GetModel().GetCheckpointPath()
+		requested := fmt.Sprintf("%v", model.GetModel().GetRequestedNumReplicas())
+		assigned := fmt.Sprintf("%v", len(model.GetModeletAddresses()))
+		items = append(items, tmplModelTableRow{id, path, ckpt, requested, assigned})
+	}
+	return items
+}
+
+func serverTableRows(servers []*pb.JoinedModelServer) []tmplServerTableRow {
+	var items []tmplServerTableRow
+	for _, server := range servers {
+		addr := server.GetAddress()
+		chip := server.GetModelServer().GetChipType().String()
+		topo := server.GetModelServer().GetChipTopology().String()
+		lag := fmt.Sprintf("%.3f", time.Now().Sub(time.UnixMilli(server.GetLastJoinMs())).Seconds())
+		var statuses []string
+		loaded := server.GetLoadedModels()
+		for model, status := range loaded {
+			statuses = append(statuses, fmt.Sprintf("%s: %s", model, status))
+		}
+		status := "Idle"
+		if len(statuses) > 0 {
+			status = strings.Join(statuses, ", ")
+		}
+		items = append(items, tmplServerTableRow{addr, chip, topo, lag, status})
+	}
+	return items
 }
 
 // WriteStatusPage writes the status page of an admin server.
 func (s *Server) WriteStatusPage(w http.ResponseWriter, data *env.StatusPageData) error {
-	return fmt.Errorf("WriteStatusPage is not supported: %w", errors.ErrUnimplemented)
+	tmplData := tmplData{
+		SaxCell: data.SaxCell,
+	}
+	switch data.Kind {
+	case env.RootStatusPage:
+		tmplData.PageHeader = data.SaxCell + " Cell Status"
+		tmplData.ModelTableHeader = "Models"
+		tmplData.ServerTableHeader = "Servers"
+	case env.ModelStatusPage:
+		tmplData.PageHeader = data.SaxCell + " Model Status"
+		if len(data.Models) != 1 {
+			return fmt.Errorf("want 1 model, got %v", len(data.Models))
+		}
+		tmplData.ModelTableHeader = "Model " + data.Models[0].GetModel().GetModelId()
+		tmplData.ServerTableHeader = "Servers"
+	case env.ServerStatusPage:
+		tmplData.PageHeader = data.SaxCell + " Server Status"
+		tmplData.ModelTableHeader = "Models"
+		if len(data.Servers) != 1 {
+			return fmt.Errorf("want 1 server, got %v", len(data.Servers))
+		}
+		tmplData.ServerTableHeader = "Server " + data.Servers[0].GetAddress()
+	}
+	tmplData.ModelTableRows = modelTableRows(data.Models)
+	tmplData.ServerTableRows = serverTableRows(data.Servers)
+	return tmplStatus.Execute(w, tmplData)
 }
 
 // NewServer creates a gRPC server.

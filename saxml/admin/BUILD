@@ -79,7 +79,10 @@ go_library(
 
 go_library(
     name = "admin",
-    srcs = ["admin.go"],
+    srcs = [
+        "admin.go",
+        "admin_status.go",
+    ],
     deps = [
         ":mgr",
         ":validator",
