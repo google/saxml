@@ -53,7 +53,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleModel(w http.ResponseWriter, r *http.Request) {
 	modelName := r.URL.Path[len(modelHandlerPattern):]
-	modelFullName, err := naming.NewModelFullName(s.saxCell + "/" + modelName)
+	modelFullName, err := naming.NewModelFullName("/" + modelName)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid model name %q: %v", modelName, err), http.StatusInternalServerError)
 		return
@@ -114,7 +114,7 @@ func (s *Server) handleServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := &env.StatusPageData{Kind: env.ModelStatusPage, SaxCell: s.saxCell, Models: models, Servers: []*apb.JoinedModelServer{server}}
+	data := &env.StatusPageData{Kind: env.ServerStatusPage, SaxCell: s.saxCell, Models: models, Servers: []*apb.JoinedModelServer{server}}
 	if err := s.gRPCServer.WriteStatusPage(w, data); err != nil {
 		http.Error(w, fmt.Sprintf("Page generation failed: %v", err), http.StatusInternalServerError)
 		return
@@ -129,6 +129,6 @@ func (s *Server) handleServer(w http.ResponseWriter, r *http.Request) {
 // the second time. Do not call this function in tests.
 func (s *Server) EnableStatusPages() {
 	http.HandleFunc("/", s.handleRoot)
-	http.HandleFunc("/model/", s.handleModel)
-	http.HandleFunc("/server/", s.handleServer)
+	http.HandleFunc(modelHandlerPattern, s.handleModel)
+	http.HandleFunc(serverHandlerPattern, s.handleServer)
 }
