@@ -35,8 +35,8 @@ import (
 )
 
 var (
-	// The interval between consecutive refresh calls, including GetStatus calls to the model server.
-	// This should be shorter than pingTimeout in the mgr package.
+	// The interval between consecutive Refresh calls, which call GetStatus on the model server.
+	// This should be shorter than pruneTimeout in the mgr package.
 	refreshPeriod = time.Second * 10
 
 	// Various RPC timeout thresholds.

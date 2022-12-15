@@ -99,8 +99,13 @@ func (s *Server) handleServer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	modelFullNames := []string{}
-	for modelFullName := range server.GetLoadedModels() {
+	modelFullNames := []naming.ModelFullName{}
+	for fullName := range server.GetLoadedModels() {
+		modelFullName, err := naming.NewModelFullName(fullName)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid model name %q: %v", fullName, err), http.StatusInternalServerError)
+			return
+		}
 		modelFullNames = append(modelFullNames, modelFullName)
 	}
 	models, err := s.Mgr.ListSome(modelFullNames)
