@@ -39,6 +39,7 @@ go_library(
         "saxutil_cmd_am.go",
         "saxutil_cmd_export.go",
         "saxutil_cmd_lm.go",
+        "saxutil_cmd_save.go",
         "saxutil_cmd_util.go",
         "saxutil_cmd_vm.go",
     ],

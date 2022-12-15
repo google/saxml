@@ -18,14 +18,17 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from absl import logging
 from etils import epath
+from flax.training import checkpoints as flax_checkpoints
 import jax
 from jax import numpy as jnp
 from jax.experimental import maps
 from jax.experimental import mesh_utils
 from jax.experimental import pjit
+from jax.experimental.gda_serialization.serialization import GlobalAsyncCheckpointManager
 import numpy as np
 from paxml import checkpoint_pb2
 from paxml import checkpoints
+from paxml import train_states
 from paxml import trainer_lib
 from praxis import base_layer
 from praxis import base_model
@@ -34,6 +37,8 @@ from praxis import pytypes
 from saxml.server.jax import servable_model
 from saxml.server.pax import branch_selection
 from saxml.server.pax import servable_model_params
+
+# pytype: disable=attribute-error
 
 ServableModelState = servable_model.ServableModelState
 StepCounter = servable_model.StepCounter
@@ -362,6 +367,35 @@ class ServableModel(servable_model.ServableModel):
     model, model_state = self.load_state(checkpoint_path, init_key, precompile)
     self.load_methods(model, model_state, prng_key)
 
+  def save(self, checkpoint_path: Optional[str]) -> None:
+    model_state = list(self.methods.values())[0].model_state
+    # TODO(b/262297404): Handles padded shapes.
+    train_state = train_states.TrainState(
+        step=jnp.asarray(model_state.step),
+        mdl_vars=model_state.mdl_vars,
+        opt_states={})
+
+    if jax.process_count() > 1:
+      # TODO(b/262297404): Make saved multiprocess checkpoint format to
+      # be the same as PAX.
+      gdam = GlobalAsyncCheckpointManager(timeout_secs=50)
+      flax_checkpoints.save_checkpoint_multiprocess(
+          checkpoint_path,
+          train_state,
+          model_state.step,
+          prefix='checkpoint_',
+          keep=1,
+          gda_manager=gdam)
+
+      gdam.wait_until_finished()
+
+    else:
+      checkpoints.save_checkpoint(
+          train_state,
+          checkpoint_path,
+          overwrite=True,
+          checkpoint_type=self._ckpt_type)
+
   def load_state(
       self,
       checkpoint_path: Optional[str],
@@ -430,6 +464,7 @@ class ServableModel(servable_model.ServableModel):
                 init_key,
                 sample_input_for_init,
                 global_mesh=global_mesh))
+        step = 0
       assert partitioned_train_state is not None
       mdl_vars = partitioned_train_state.mdl_vars
       del partitioned_train_state
@@ -525,7 +560,8 @@ class ServableModel(servable_model.ServableModel):
           mdl_var_pspecs=mdl_var_pspecs,
           mdl_var_unpadded_shapes=mdl_var_unpadded_shapes,
           input_prefetch=self._ckpt_type == CheckpointType.CHECKPOINT_GDA,
-          precompile=precompile)
+          precompile=precompile,
+          step=step)
       return model, model_state
 
   def load_methods(self, model: base_model.BaseModel,

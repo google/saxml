@@ -279,6 +279,10 @@ func (s *stubModeletServer) Export(ctx context.Context, in *mpb.ExportRequest) (
 	return nil, errors.ErrUnimplemented
 }
 
+func (s *stubModeletServer) Save(ctx context.Context, in *mpb.SaveRequest) (*mpb.SaveResponse, error) {
+	return nil, errors.ErrUnimplemented
+}
+
 func (s *stubModeletServer) GetStatus(ctx context.Context, in *mpb.GetStatusRequest) (*mpb.GetStatusResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

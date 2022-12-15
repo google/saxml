@@ -181,6 +181,9 @@ class ServableModel(abc.ABC):
       method.unload()
     self._methods = {}
 
+  def save(self, checkpoint_path: Optional[str]) -> None:
+    raise NotImplementedError('Save model not implemented')
+
   def add_method(self, key: str, method: ServableMethod) -> None:
     """Adds an initialized method."""
     self._methods[key] = method

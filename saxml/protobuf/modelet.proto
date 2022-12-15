@@ -84,6 +84,17 @@ message ExportRequest {
 
 message ExportResponse {}
 
+message SaveRequest {
+  // Key identifying the model to save.
+  string model_key = 1;
+
+  // Path to checkpoint, e.g.,
+  //   gs://model/path/checkpoints/checkpoint_00050000
+  string checkpoint_path = 2;
+}
+
+message SaveResponse {}
+
 message GetStatusRequest {
   bool include_failure_reasons = 1;
 }
@@ -113,4 +124,7 @@ service Modelet {
 
   // Reports server status such as models loaded.
   rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+
+  // Saves checkpoint of a model.
+  rpc Save(SaveRequest) returns (SaveResponse);
 }

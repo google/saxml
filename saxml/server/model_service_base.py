@@ -57,6 +57,7 @@ _UNLOAD_METHOD_KEY = '_internal_unload'
 _EXPORT_METHOD_KEY = '_internal_export'
 _TERMINATE_METHOD_KEY = '_internal_terminate'
 _KEEP_DEVICES_WARM_METHOD_KEY = '_internal_keep_devices_warm'
+_SAVE_MODEL_KEY = '_internal_save'
 
 # Global variable for the service registry: mapping {key: list_of_services}.
 # The value is a list because we allow both gRPC and Stubby services registered.
@@ -576,6 +577,8 @@ class ModeletService:
         None, MethodKey(_UNLOAD_METHOD_KEY), batch_size=1, max_live_batches=4)
     self._batcher.register_method(
         None, MethodKey(_EXPORT_METHOD_KEY), batch_size=1, max_live_batches=1)
+    self._batcher.register_method(
+        None, MethodKey(_SAVE_MODEL_KEY), batch_size=1, max_live_batches=1)
 
     self._platform_chip = proto_util.to_chip_type(platform_chip)
     self._platform_topology = proto_util.to_chip_topology(platform_topology)
@@ -684,6 +687,13 @@ class ModeletService:
     self._batcher.add_item(
         MethodKey(_EXPORT_METHOD_KEY), rpc_context, req, resp, done_with_status)
 
+  def save(self, rpc_context: utils.RPCContext, req: modelet_pb2.SaveRequest,
+           resp: modelet_pb2.SaveResponse,
+           done_with_status: StatusCallback) -> None:
+    """Save a model."""
+    self._batcher.add_item(
+        MethodKey(_SAVE_MODEL_KEY), rpc_context, req, resp, done_with_status)
+
   def get_status(self, req: modelet_pb2.GetStatusRequest,
                  resp: modelet_pb2.GetStatusResponse) -> None:
     """Retrieves the server status."""
@@ -733,6 +743,13 @@ class ModeletServiceGRPC(ModeletService, modelet_pb2_grpc.ModeletServicer):
     resp = modelet_pb2.ExportResponse()
     fut, done = self._future_and_done_cb(context)
     self.export(utils.RPCContextGRPC(context), request, resp, done)
+    await fut
+    return resp
+
+  async def Save(self, request, context):
+    resp = modelet_pb2.SaveResponse()
+    fut, done = self._future_and_done_cb(context)
+    self.save(utils.RPCContextGRPC(context), request, resp, done)
     await fut
     return resp
 
@@ -992,6 +1009,13 @@ class ModelServicesRunner:
     """Exports a method of a model."""
     raise NotImplementedError()
 
+  def _save_model(self, model_key: str, checkpoint_path: str):
+    """Saves a model checkpoint."""
+    if not self._loaded_models.contains(model_key):
+      logging.warning('Model %s is not loaded.', model_key)
+      return
+    self._loaded_models.get_model(model_key).save(checkpoint_path)
+
   def _inform_secondary_hosts(self, *msgs: str, skip_host_sync=True) -> None:
     self._multihost_sync.send(self._encode_message(*msgs), skip_host_sync)
 
@@ -1156,6 +1180,25 @@ class ModelServicesRunner:
                 'method_name %s, error: %s', request.model_key,
                 request.method_name, e)
             task.done(utils.internal_error(f'Exporting error: {e}'))
+      elif batch.method.name == _SAVE_MODEL_KEY:
+        with batch:
+          assert len(batch.rpc_tasks) == 1
+          task = batch.rpc_tasks[0]
+          request = typing.cast(modelet_pb2.SaveRequest, task.request)
+          try:
+            self._inform_secondary_hosts(batch.method.name, request.model_key,
+                                         request.checkpoint_path)
+            self._save_model(request.model_key, request.checkpoint_path)
+            task.done(utils.ok())
+          except ValueError as e:
+            logging.exception('Invalid save request. model_key %s, error: %s, ',
+                              request.model_key, e)
+            task.done(utils.invalid_arg(f'Save checkpoint error: {e}'))
+          except Exception as e:  # pylint: disable=broad-except
+            logging.exception(
+                'Internal error during Saving checkpoint. model_key: %s, '
+                'error: %s', request.model_key, e)
+            task.done(utils.internal_error(f'Saving checkpoint error: {e}'))
       elif batch.method.name == _TERMINATE_METHOD_KEY:
         with batch:
           assert batch.method.model_key is None
@@ -1248,6 +1291,14 @@ class ModelServicesRunner:
         break
       elif method == _KEEP_DEVICES_WARM_METHOD_KEY:
         continue
+      elif method == _SAVE_MODEL_KEY:
+        model_key, ckpt_path = msgs
+        logging.info('Received save: %s', model_key)
+        try:
+          self._save_model(model_key, ckpt_path)
+        except Exception as e:  # pylint: disable=broad-except
+          logging.exception('Error occurred during save: %s, error: %s',
+                            model_key, e)
       else:
         # Model methods at secondary hosts are simply invoking a device program
         # with pre-defined dummy inputs, so we do not expect any known exception

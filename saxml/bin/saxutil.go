@@ -49,6 +49,9 @@ func main() {
 	// export commands.
 	subcommands.Register(&saxcommand.ExportCmd{}, "")
 
+	// save commands.
+	subcommands.Register(&saxcommand.SaveCmd{}, "")
+
 	// model commands.
 	subcommands.Register(&saxcommand.ClassifyCmd{}, "")
 	subcommands.Register(&saxcommand.DetectCmd{}, "")

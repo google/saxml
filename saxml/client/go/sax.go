@@ -109,6 +109,11 @@ func (m *Model) Exporter() *Exporter {
 	return &Exporter{model: m}
 }
 
+// Saver creates a model saver.
+func (m *Model) Saver() *Saver {
+	return &Saver{model: m}
+}
+
 // Options contains options for creating sax client.
 // Default options are set in Open().
 type Options struct {

@@ -76,6 +76,8 @@ class ServableModelState:
   input_prefetch: bool
   # Whether to precompile device computation during model load.
   precompile: bool
+  # Step for the model variables.
+  step: int
 
 
 @dataclasses.dataclass
