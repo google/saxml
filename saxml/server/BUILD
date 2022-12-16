@@ -179,6 +179,7 @@ pytype_strict_library(
     deps = [
         ":model_service_base",
         ":model_service_main_lib",
+        ":servable_model_registry",
         "//saxml/protobuf:modelet_py_pb2",
         "//saxml/protobuf:modelet_py_pb2_grpc",
         "//saxml/server:spmd_backend",
@@ -198,6 +199,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     deps = [
         ":model_service_base",
+        ":servable_model_registry",
         "//saxml/protobuf:modelet_py_pb2",
         "//saxml/protobuf:modelet_py_pb2_grpc",
         "//saxml/server:spmd_backend",

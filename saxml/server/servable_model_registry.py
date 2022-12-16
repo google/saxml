@@ -32,6 +32,7 @@ if
 it will have an alias `foo.FooExpABC`.
 """
 
+import re
 from typing import List, Mapping, Optional
 
 from saxml.server.servable_model_params import ServableModelParams
@@ -42,6 +43,9 @@ from saxml.server.servable_model_params import ServableModelParamsT
 REGISTRY_ROOT = None
 # Global registry. name -> params
 _registry = {}
+
+# A regex to filter (full match) models by their names.
+MODEL_FILTER_REGEX: Optional[re.Pattern[str]] = None
 
 
 def get_aliases(full_model_name: str) -> List[str]:
@@ -83,6 +87,10 @@ def _get_full_model_name_from_alias(alias: str) -> Optional[str]:
 
 def get(model_name: str) -> Optional[ServableModelParamsT]:
   """Returns a model with the name."""
+  if (MODEL_FILTER_REGEX is not None and
+      MODEL_FILTER_REGEX.fullmatch(model_name) is None):
+    # Filtered.
+    return None
   maybe_params = _registry.get(model_name)
   if maybe_params:
     return maybe_params
@@ -94,4 +102,10 @@ def get(model_name: str) -> Optional[ServableModelParamsT]:
 
 def get_all() -> Mapping[str, ServableModelParamsT]:
   """Returns all models. Full model names only."""
-  return _registry
+  if MODEL_FILTER_REGEX is None:
+    return _registry
+  models = {}
+  for k, m in _registry.items():
+    if MODEL_FILTER_REGEX.fullmatch(k) is not None:
+      models[k] = m
+  return models

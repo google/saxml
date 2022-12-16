@@ -13,6 +13,7 @@
 # limitations under the License.
 """The main module of model services."""
 
+import re
 from typing import Optional, Sequence
 
 from absl import app
@@ -24,11 +25,15 @@ from paxml import setup_jax
 from saxml.protobuf import modelet_pb2
 from saxml.protobuf import modelet_pb2_grpc
 from saxml.server import model_service_base
+from saxml.server import servable_model_registry
 from saxml.server import spmd_backend
 
 _SAX_CELL = flags.DEFINE_string(
     'sax_cell', None, 'Optional SAX cell of the admin server. '
     'If set, heartbeat is enabled.')
+_MODEL_FILTER_REGEX = flags.DEFINE_string(
+    'model_filter_regex', None,
+    'A regex to filter (full match) models in the registry by their names.')
 _ADMIN_PORT = flags.DEFINE_integer(
     'admin_port', None, 'Optional port for the built-in admin server.')
 
@@ -98,6 +103,10 @@ def set_up():
 
 def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
   """Runs the server until it is stopped."""
+  if _MODEL_FILTER_REGEX.value is not None:
+    logging.info('Setting model filter to %s', _MODEL_FILTER_REGEX.value)
+    servable_model_registry.MODEL_FILTER_REGEX = re.compile(
+        _MODEL_FILTER_REGEX.value)
   set_up()
   if _HOST_ORDINAL.value is None:
     is_primary = jax.process_index() == 0
