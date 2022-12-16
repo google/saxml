@@ -23,6 +23,7 @@ pytype_strict_library(
         "//third_party/py/numpy",
         "//third_party/py/paxml:base_task",
         "//third_party/py/praxis:decoder_hparams",
+        "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis/layers:attentions",
         "//third_party/py/praxis/layers:transformers",

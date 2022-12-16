@@ -30,6 +30,7 @@ from praxis import base_input
 from praxis import base_layer
 from praxis import base_model
 from praxis import optimizers
+from praxis import pax_fiddle
 from praxis import py_utils
 from praxis import pytypes
 from praxis import schedules
@@ -95,7 +96,7 @@ class TestExpt(base_experiment.BaseExperiment):
     """Returns the task parameters."""
     task_p = tasks_lib.SingleTask.HParams(name='test_task')
 
-    model_p = TestModel.HParams(name='test_model')
+    model_p = pax_fiddle.Config(TestModel, name='test_model')
     task_p.model = model_p
     task_p.model.mesh_axis_names = ('replica', 'data', 'model')
     task_p.model.ici_mesh_shape = (1, 1, 1)
