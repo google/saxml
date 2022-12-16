@@ -79,7 +79,7 @@ class ServableCustomMethod(servable_model.ServableMethod):
                method_hparams: CustomCallHParams, prng_key: PRNGKey,
                model_config: Any):
     self._model_config = model_config
-    self._method_hprams = method_hparams
+    self._method_hparams = method_hparams
     super().__init__(
         model,
         method_hparams.model_fn_name,
@@ -96,16 +96,16 @@ class ServableCustomMethod(servable_model.ServableMethod):
   def fetch_output(self, model_fn_outputs: NestedJTensor,
                    model_fn_inputs: NestedJTensor) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
-    return self._method_hprams.fetch_output_fn(model_fn_outputs,
-                                               model_fn_inputs)
+    return self._method_hparams.fetch_output_fn(model_fn_outputs,
+                                                model_fn_inputs)
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
-    return self._method_hprams.pre_process_fn(raw_inputs)
+    return self._method_hparams.pre_process_fn(raw_inputs)
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
-    return self._method_hprams.post_process_fn(compute_outputs)
+    return self._method_hparams.post_process_fn(compute_outputs)
 
 
 class ServableCustomModel(servable_model.ServableModel):
