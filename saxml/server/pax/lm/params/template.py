@@ -59,6 +59,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   MAX_LIVE_BATCHES = 4
   ENABLE_GENERATE = True
   ENABLE_GENERATE_STREAM = False
+  STREAM_INTERVAL_STEPS = 1
 
   def input_for_model_init(self):
     batch_size = self.BATCH_SIZE
@@ -161,7 +162,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         decoder=generate_hparams,
         include_prefix_in_result=self.INCLUDE_PREFIX_IN_RESULT,
         max_live_batches=self.MAX_LIVE_BATCHES,
-        extra_inputs=self.EXTRA_INPUTS)
+        extra_inputs=self.EXTRA_INPUTS,
+        stream_interval_steps=self.STREAM_INTERVAL_STEPS)
 
 
 def make_servable(servable_class=ServingTemplate):

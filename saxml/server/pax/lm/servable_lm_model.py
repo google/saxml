@@ -72,6 +72,7 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
   decoder: decoder_hparams.DecoderHParams = decoder_hparams.DecoderHParams()
   include_prefix_in_result: bool = False
   encoder_decoder_model: bool = False
+  stream_interval_steps: int = 1
 
 
 class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
@@ -433,7 +434,8 @@ class LMDecodeMethod(ServableLMMethod):
           logging.info('Secondary host: host_callback on %s', x)
 
       kwargs['host_callback'] = decoder_utils.DecodingHostCallback(
-          callback_fn, interval_steps=1)
+          callback_fn,
+          interval_steps=self._method_hparams.stream_interval_steps)
 
     outputs = self._model.apply(
         mdl_vars,
