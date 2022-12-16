@@ -15,7 +15,7 @@
 
 import abc
 import queue
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, Mapping
 
 from absl import logging
 import jax
@@ -587,18 +587,18 @@ class LMDecodeMethod(ServableLMMethod):
   def tf_pre_processing(
       self,
       texts: NestedNpOrTfTensor,
-      temperature: Optional[NestedNpOrTfTensor] = None) -> NestedTfTensor:
+      extra_inputs: Optional[Mapping[str, Any]] = None) -> NestedTfTensor:
     """Tokenizes `texts` using TF ops.
 
-    This also implements `ExportableToSavedModel.tf_pre_processing`. If the
-    TensorSpec of `temperature` is provided in the input signature, the exported
-    method will take a batched temperature tensor too. See also the
-    `input_signature` method of this class.
+    This also implements `ExportableToSavedModel.tf_pre_processing`. If extra
+    inputs are provided in the input signature, the exported
+    method will take a batched tensor too. See also the `input_signature` method
+    of this class.
 
     Args:
       texts: the input text of shape [batch_size].
-      temperature: optional temperature parameter shape [batch_size] for
-        sampling decoding.
+      extra_inputs: optional mapping of extra input key to tensor or tensor spec
+      of shape [batch_size].
 
     Returns:
       A NestedMap of preprocessed tensors.
@@ -619,8 +619,9 @@ class LMDecodeMethod(ServableLMMethod):
           prefix_lengths=tf.cast(prefix_lengths, tf.int32),
           weights=weights)
 
-    if temperature is not None:
-      preprocessed['temperature'] = temperature
+    if extra_inputs:
+      preprocessed.update(extra_inputs)
+
     return preprocessed
 
   def tf_post_processing(
@@ -684,14 +685,19 @@ class LMDecodeMethod(ServableLMMethod):
         'topk_ids': output_ids
     }
 
-  def input_signature(self, batch_size: Optional[int]) -> list[tf.TensorSpec]:
+  def input_signature(
+      self, batch_size: Optional[int]
+  ) -> tuple[tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
     """Implements `ExportableToSavedModel.input_signature`."""
-    if self._extra_inputs and 'temperature' in self._extra_inputs:
-      return [
-          tf.TensorSpec([batch_size], dtype=tf.string, name='text'),
-          tf.TensorSpec([batch_size], dtype=tf.float32, name='temperature')
-      ]
-    return [tf.TensorSpec([batch_size], dtype=tf.string, name='text')]
+    extra_tensor_specs = {}
+    if self._extra_inputs:
+      for name, val in self._extra_inputs.items():
+        extra_tensor_specs[name] = tf.TensorSpec(
+            [batch_size], tf.convert_to_tensor(val).dtype, name=name)
+    return (
+        tf.TensorSpec([batch_size], dtype=tf.string, name='text'),
+        extra_tensor_specs
+    )
 
   @property
   def extra_trackables(self) -> Any:
