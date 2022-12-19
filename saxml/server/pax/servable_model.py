@@ -194,7 +194,10 @@ class ServableMethod(servable_model.ServableMethod):
     assert isinstance(input_batch,
                       (NestedMap, dict)), 'extra_inputs unsupported on non-dict'
     for k, v in extra_input_tensors.items():
-      input_batch[k] = v
+      if isinstance(input_batch, NestedMap):
+        input_batch.Set(k, v)
+      else:
+        input_batch[k] = v
     return input_batch
 
   def call_model_function(self,
