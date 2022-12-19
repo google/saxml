@@ -135,6 +135,10 @@ class ServableMethod(servable_model.ServableMethod):
     self.load()
 
   @property
+  def pax_model(self) -> base_model.BaseModel:
+    return self._model
+
+  @property
   def exportable(self) -> bool:
     return self._exportable
 

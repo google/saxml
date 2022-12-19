@@ -14,7 +14,7 @@
 """Wraps a model with custom service APIs."""
 
 import abc
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from paxml import checkpoint_pb2
 from praxis import base_model
@@ -33,8 +33,25 @@ NestedMap = py_utils.NestedMap
 
 
 FetchOutputFn = Callable[[NestedJTensor, NestedJTensor], NestedJTensor]
-PreProcessingFn = Callable[[List[Any]], NestedNpTensor]
-PostProcessingFn = Callable[[NestedNpTensor], List[Any]]
+# Preprocessor: (inputs, optional_method_state) -> numpy input arrays
+#   without CreateInitStateFn: (inputs,) -> numpy input arrays
+#   with CreateInitStateFn: (inputs, method_state) -> numpy input arrays
+PreProcessingFn = Union[Callable[[List[Any], Optional[Any]], NestedNpTensor],
+                        Callable[[List[Any]], NestedNpTensor]]
+# Postprocessor:
+#   without CreateInitStateFn: (numpy arrays,) -> outputs
+#   with CreateInitStateFn: (numpy arrays, method_states) -> outputs
+PostProcessingFn = Union[Callable[[NestedNpTensor, Optional[Any]], List[Any]],
+                         Callable[[NestedNpTensor], List[Any]]]
+# Optional creator of initial method state.
+CreateInitStateFn = Callable[[], Any]
+
+# Custom way of calling the model function (before fetch_output). Optional.
+# Signature is
+#  (model, inputs, mdl_vars, prng_key, method_state) -> (outputs, updated_vars).
+CallModelFn = Callable[
+    [base_model.BaseModel, NestedJTensor, NestedJTensor, PRNGKey, Any],
+    Tuple[NestedJTensor, NestedJTensor]]
 
 
 class CustomMethodName:
@@ -50,12 +67,16 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
     fetch_output_fn: A callable fetch_output_fn for the custom call.
     pre_process_fn: A callable pre_process_fn for the custom call.
     post_process_fn: A callable post_process_fn for the custom call.
+    create_init_state_fn: A callable to initialize custom method state.
+    call_model_fn: Optional custom way of calling the model function.
   """
   model_fn_name: str = ''
   dummy_input_sample: Any = None
-  fetch_output_fn: FetchOutputFn = None
-  pre_process_fn: PreProcessingFn = None
-  post_process_fn: PostProcessingFn = None
+  fetch_output_fn: Optional[FetchOutputFn] = None
+  pre_process_fn: Optional[PreProcessingFn] = None
+  post_process_fn: Optional[PostProcessingFn] = None
+  create_init_state_fn: Optional[CreateInitStateFn] = None
+  call_model_fn: Optional[CallModelFn] = None
 
 
 class ServableCustomModelParams(
@@ -80,6 +101,12 @@ class ServableCustomMethod(servable_model.ServableMethod):
                model_config: Any):
     self._model_config = model_config
     self._method_hparams = method_hparams
+    self._state = None
+    assert method_hparams.fetch_output_fn is not None
+    assert method_hparams.pre_process_fn is not None
+    assert method_hparams.post_process_fn is not None
+    if method_hparams.create_init_state_fn is not None:
+      self._state = method_hparams.create_init_state_fn()
     super().__init__(
         model,
         method_hparams.model_fn_name,
@@ -101,11 +128,26 @@ class ServableCustomMethod(servable_model.ServableMethod):
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
+    # pytype: disable=wrong-arg-count
+    if self._state is not None:
+      return self._method_hparams.pre_process_fn(raw_inputs, self._state)
     return self._method_hparams.pre_process_fn(raw_inputs)
+    # pytype: enable=wrong-arg-count
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
+    # pytype: disable=wrong-arg-count
+    if self._state is not None:
+      return self._method_hparams.post_process_fn(compute_outputs, self._state)
     return self._method_hparams.post_process_fn(compute_outputs)
+    # pytype: enable=wrong-arg-count
+
+  def call_model_function(self, inputs: NestedJTensor, mdl_vars: NestedJTensor,
+                          prng_key: PRNGKey) -> NestedJTensor:
+    if self._method_hparams.call_model_fn is not None:
+      return self._method_hparams.call_model_fn(self.pax_model, inputs,
+                                                mdl_vars, prng_key, self._state)
+    return super().call_model_function(inputs, mdl_vars, prng_key)
 
 
 class ServableCustomModel(servable_model.ServableModel):

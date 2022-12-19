@@ -113,16 +113,19 @@ class TestCustomCall:
     def fetch_output(model_fn_outputs: NestedJTensor,
                      model_fn_inputs: NestedJTensor) -> NestedJTensor:
       del model_fn_inputs
-      return model_fn_outputs[0].plus_one
+      outs, custom_state = model_fn_outputs[0]
+      return outs.plus_one, custom_state
 
     return fetch_output
 
   def get_pre_process_fn(self) -> servable_custom_model.PreProcessingFn:
     """Gets pre_process_fn."""
 
-    def pre_process(raw_inputs: List[str]) -> NestedNpTensor:
+    def pre_process(raw_inputs: List[str],
+                    method_state: List[List[int]]) -> NestedNpTensor:
       nums = [int(raw_input) for raw_input in raw_inputs]
       nums = np.array(nums, dtype=np.int32)
+      method_state.append([len(method_state)] * len(raw_inputs))
       return py_utils.NestedMap(nums=nums)
 
     return pre_process
@@ -130,11 +133,43 @@ class TestCustomCall:
   def get_post_process_fn(self) -> servable_custom_model.PostProcessingFn:
     """Gets post_process_fn."""
 
-    def post_process(compute_outputs: NestedNpTensor) -> List[str]:
+    def post_process(compute_outputs: NestedNpTensor,
+                     method_state: List[List[int]]) -> List[str]:
       logging.info('compute_outputs: %s', compute_outputs)
+      method_state.pop()
       return [str(compute_output) for compute_output in compute_outputs]
 
     return post_process
+
+  def get_create_init_state_fn(self) -> servable_custom_model.CreateInitStateFn:
+    """Gets create_init_state_fn."""
+
+    def create_init_state_fn() -> list[int]:
+      return []
+
+    return create_init_state_fn
+
+  def get_call_model_fn(self) -> servable_custom_model.CallModelFn:
+
+    def call_model_fn(model, inputs, mdl_vars, prng_key, method_state):
+      k1, k2 = prng_key
+      outputs, updated_vars = model.apply(
+          mdl_vars,
+          inputs,
+          method=model.test_method,
+          mutable=[
+              base_layer.NON_TRAINABLE,
+              base_layer.DECODE_CACHE,
+              base_layer.PREFIX_DECODE_CACHE,
+          ],
+          rngs={
+              base_layer.PARAMS: k1,
+              base_layer.RANDOM: k2,
+          },
+      )
+      return (outputs, jnp.asarray(method_state[-1])), updated_vars
+
+    return call_model_fn
 
 
 class TestServableModel(TestExpt,
@@ -155,7 +190,9 @@ class TestServableModel(TestExpt,
         model_fn_name='test_method',
         fetch_output_fn=custom_call_wrapper.get_fetch_output_fn(),
         pre_process_fn=custom_call_wrapper.get_pre_process_fn(),
-        post_process_fn=custom_call_wrapper.get_post_process_fn())
+        post_process_fn=custom_call_wrapper.get_post_process_fn(),
+        create_init_state_fn=custom_call_wrapper.get_create_init_state_fn(),
+        call_model_fn=custom_call_wrapper.get_call_model_fn())
     return {
         'test_call': custom_call_hparams,
         'test_another_call': custom_call_hparams
