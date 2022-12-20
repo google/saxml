@@ -109,6 +109,9 @@ class VisionServiceGRPC(model_service_base.ModelServiceGRPC, VisionService,
                         vision_pb2_grpc.VisionServiceServicer):
   """gRPC VisionService."""
 
+  def ServiceName(self) -> str:
+    return vision_pb2.VisionService.DESCRIPTOR.full_name
+
   def AddToServer(self, server: Any) -> None:
     vision_pb2_grpc.add_VisionServiceServicer_to_server(self, server)
 

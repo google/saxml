@@ -77,6 +77,9 @@ class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
                     lm_pb2_grpc.LMServiceServicer):
   """LmService gRPC service."""
 
+  def ServiceName(self) -> str:
+    return lm_pb2.LMService.DESCRIPTOR.full_name
+
   def AddToServer(self, server: Any) -> None:
     lm_pb2_grpc.add_LMServiceServicer_to_server(self, server)
 

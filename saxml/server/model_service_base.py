@@ -497,6 +497,10 @@ class ModelService(metaclass=abc.ABCMeta):
 class ModelServiceGRPC(ModelService):
   """gRPC version of model service."""
 
+  def ServiceName(self) -> str:
+    """Returns the full name of the gRPC service, including package name."""
+    raise NotImplementedError('ServiceName not implemented')
+
   @abc.abstractmethod
   def AddToServer(self, server: Any) -> None:
     """Adds the service to the GRPC server."""
@@ -835,7 +839,7 @@ class ModelServicesRunner:
         platform_topology=platform_topology)
     all_grpc_services = [self._modelet_service]
     service_names = [
-        modelet_pb2.DESCRIPTOR.services_by_name['Modelet'].full_name,
+        modelet_pb2.Modelet.DESCRIPTOR.full_name,
         reflection.SERVICE_NAME,
     ]
 
@@ -850,6 +854,7 @@ class ModelServicesRunner:
               loader=self._loaded_models)
           if issubclass(service_class, ModelServiceGRPC):
             all_grpc_services.append(service)
+            service_names.append(service.ServiceName())
           else:
             non_grpc_services.append(service)
           # It's OK to override previous value, since the gRPC and Stubby
