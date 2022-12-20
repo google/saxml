@@ -83,11 +83,17 @@ type Store interface {
 type Mgr struct {
 	// Guards the maps below.
 	mu sync.RWMutex
-	// Published models.
+	// Published models. The address watcher in each model keeps a list of model servers loading or
+	// having loaded the model. Due to load/unload delays and failures, this list can be a subset of
+	// modelets[*].WantedModels(), and is used by the client through the WatchLoc method to find a
+	// ready server.
 	models map[modelFullName]*modelState
-	// Joined model servers.
+	// Joined model servers. The WantedModels method on each model server returns the list of models
+	// currently assigned to it. This is used as ground truth to compute new assignment.
 	modelets map[modeletAddr]*modeletState
-	// Model servers are periodically assigned to models.
+	// The reverse map of modelets[*].WantedModels() computed at reassignment time. When model servers
+	// join and leave, this map is not kept in sync. Therefore, it should only be used by List* and
+	// Locate* methods for human usage or status page display.
 	assignment map[modelFullName][]modeletAddr
 	// Recently unpublished model full names. They still have pending load/unload ops.
 	// Models cannot be published under any name inside until it's removed from this set.
@@ -267,7 +273,11 @@ func (m *Mgr) WatchLoc(ctx context.Context, fullName string, seqno int32) (*watc
 func (m *Mgr) FindModel(fullName modelFullName) *apb.Model {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.models[fullName].specs
+
+	if model, ok := m.models[fullName]; ok {
+		return model.specs
+	}
+	return nil
 }
 
 // Join lets one model server join from an address.
@@ -285,7 +295,8 @@ func (m *Mgr) Join(ctx context.Context, addr string, specs *apb.ModelServer) err
 		if !ok {
 			m.modelets[maddr] = modelServer
 
-			for fullName := range modelServer.SeenModels() {
+			// Only models loading or loaded should get added to the address watcher.
+			for fullName := range modelServer.WantedModels() {
 				model := m.models[fullName]
 				model.addrWatcher.Add(addr)
 			}
@@ -418,7 +429,10 @@ func (m *Mgr) pruneModelets(timeout time.Duration) {
 		if lastPing.After(cutoff) {
 			continue
 		}
-		for fullName := range modelet.SeenModels() {
+		// We are only responsible for handling WantedModels here. After that, we can delete addr from
+		// modelets. If any model is scheduled to be unloaded and therefore not in WantedModels,
+		// the corresponding unloadModels will eventually remove addr from those models' addrWatcher.
+		for fullName := range modelet.WantedModels() {
 			model := m.models[fullName]
 			model.addrWatcher.Del(string(addr))
 		}
@@ -580,6 +594,7 @@ func (m *Mgr) loadModels(ctx context.Context, newlyAssigned map[modeletAddr]mode
 		}
 		model, ok := m.models[fullName]
 		if !ok {
+			m.mu.Unlock()
 			return fmt.Errorf("model %v has been unpublished", fullName)
 		}
 		m.mu.Unlock()
@@ -588,6 +603,8 @@ func (m *Mgr) loadModels(ctx context.Context, newlyAssigned map[modeletAddr]mode
 			return err
 		}
 
+		// We want to be conservative and add addr to addrWatch only if the server will definitely load
+		// the model.
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		model, ok = m.models[fullName]
@@ -614,14 +631,19 @@ func (m *Mgr) loadModels(ctx context.Context, newlyAssigned map[modeletAddr]mode
 func (m *Mgr) unloadModels(ctx context.Context, newlyUnassigned map[modeletAddr]modelFullName) {
 	unload := func(ctx context.Context, fullName modelFullName, addr modeletAddr) error {
 		m.mu.Lock()
-		modelet := m.modelets[addr]
-		if modelet == nil {
-			m.mu.Unlock()
-			return fmt.Errorf("model server %v has left", addr)
-		}
 		model, ok := m.models[fullName]
 		if ok {
+			// Regardless of whether Unload below will succeed or fail, we want to be conservative and
+			// remove addr from addrWatcher now. In particular, if pruneModelets is called after
+			// ComputeAssignment but before unloadModels, modelets may not have addr anymore, but
+			// we still need to remove addr from the address watcher. See the matching comment in
+			// pruneModelets for reference.
 			model.addrWatcher.Del(string(addr))
+		}
+		modelet, ok := m.modelets[addr]
+		if !ok {
+			m.mu.Unlock()
+			return fmt.Errorf("model server %v has left", addr)
 		}
 		m.mu.Unlock()
 
@@ -656,14 +678,15 @@ func (m *Mgr) freeUnpublishedNames(unpublished map[modelFullName]bool) {
 func (m *Mgr) Refresh(ctx context.Context) {
 	// Remove dead model servers.
 	m.pruneModelets(pruneTimeout)
-	// Compute new model-to-model-server assignment.
+	// Compute new assignment.
 	result := m.ComputeAssignment()
 	// Install the new assignment.
 	m.installAssignment(result.NewAssignment)
 	// Unload and load models according to assignment results.
 	m.unloadModels(ctx, result.NewlyUnassigned)
 	m.loadModels(ctx, result.NewlyAssigned)
-	// Make model full names unpublished before the ComputeAssignment call available for use again.
+	// Now that unload calls have been issued, make model full names unpublished before the
+	// ComputeAssignment call available for use again.
 	m.freeUnpublishedNames(result.pendingUnpublished)
 }
 
