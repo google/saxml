@@ -16,8 +16,11 @@ package saxcommand
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"strconv"
+	"strings"
 
 	"flag"
 	log "github.com/golang/glog"
@@ -28,7 +31,9 @@ import (
 
 // GenerateCmd is the command for generate
 type GenerateCmd struct {
-	extra string
+	extra  string
+	stream bool
+	raw    bool
 }
 
 // Name returns the name of GenerateCmd.
@@ -47,6 +52,63 @@ func (*GenerateCmd) Usage() string {
 // SetFlags sets the flags for GenerateCmd.
 func (c *GenerateCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.extra, "extra", "", "extra arguments for Generate().")
+	f.BoolVar(&c.stream, "stream", false, "stream responses")
+}
+
+func (c *GenerateCmd) streamingGenerate(ctx context.Context, query string, lm *sax.LanguageModel) subcommands.ExitStatus {
+	chanStreamResults := lm.GenerateStream(ctx, query, ExtraInputs(c.extra)...)
+	var fullText, prev string
+	var end bool
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Printf("Command canceled: %v\n", ctx.Err())
+			return subcommands.ExitFailure
+		case streamResult := <-chanStreamResults:
+			switch streamResult.Err {
+			case nil:
+				// Every streamResult contains all tokens decoded so far represented as separate texts.
+				var texts []string
+				for _, generateResult := range streamResult.Result {
+					if generateResult.Score == 0 {
+						// All but the last streaming response have zero scores.
+						texts = append(texts, generateResult.Text)
+					} else {
+						// The last streaming response contains the full text decoded from all tokens and score.
+						if end {
+							fmt.Printf("Got two full texts unexpectedly: %q and %q\n", fullText, generateResult.Text)
+							return subcommands.ExitFailure
+						}
+						end = true
+						fullText = generateResult.Text
+					}
+				}
+				if end {
+					// If this is the last streaming response, skip to the io.EOF case in the next iteration.
+					continue
+				}
+
+				// For all but the last streaming responses, print incrementally added text compared to the
+				// last streaming response.
+				curr := strings.Join(texts, " ")
+				if !strings.HasPrefix(curr, prev) {
+					fmt.Printf("Current response %q not prefixed by previous response %q\n", curr, prev)
+					return subcommands.ExitFailure
+				}
+				diff := strings.TrimPrefix(curr, prev)
+				fmt.Print(diff)
+				prev = curr
+			case io.EOF:
+				// Print the final full text on a newline.
+				fmt.Println()
+				fmt.Println("Full text:", fullText)
+				return subcommands.ExitSuccess
+			default:
+				fmt.Printf("Command failed: %v\n", streamResult.Err)
+				return subcommands.ExitFailure
+			}
+		}
+	}
 }
 
 // Executes GenerateCmd.
@@ -70,6 +132,12 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
 	defer cancel()
 
+	// Streaming generate.
+	if c.stream {
+		return c.streamingGenerate(ctx, f.Args()[1], lm)
+	}
+
+	// Non-streaming generate.
 	generates, err := lm.Generate(ctx, f.Args()[1], ExtraInputs(c.extra)...)
 	if err != nil {
 		log.Errorf("Failed to generate query: %v", err)
