@@ -16,6 +16,7 @@ package sax
 
 import (
 	"context"
+	"io"
 
 	"google.golang.org/grpc"
 	"saxml/common/retrier"
@@ -125,7 +126,12 @@ func (l *LanguageModel) GenerateStream(ctx context.Context, text string, options
 			}
 			// Pass both EOF and general errors to channel.
 			res <- StreamResult{Err: err}
-			// Explicitly use permanent error to skip retrier once streaming has started.
+			// On EOF, close the channel and return success to the retrier.
+			if err == io.EOF {
+				close(res)
+				return nil
+			}
+			// On other errors, explicitly use permanent error to skip retrier once streaming has started.
 			return retrier.CreatePermanentError(err)
 		}
 	})

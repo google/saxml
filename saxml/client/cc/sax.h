@@ -201,6 +201,18 @@ class LanguageModel {
   absl::Status Generate(const ModelOptions& options, absl::string_view prefix,
                         std::vector<ScoredText>* result) const;
 
+  // Samples the model and produces suffixes given the 'prefix'.
+  //
+  // The results are streamed from the server and given to a callback function.
+  // For normal results, `status` is OK and `result` contains all texts decoded
+  // so far. The last result has an OK `status` and a nullptr `result`.
+  // If any error happens, `status` contains the error code and message.
+  typedef void (*GenerateCallback)(absl::Status status,
+                                   const std::vector<ScoredText>* result);
+  void GenerateStream(absl::string_view prefix, GenerateCallback cb) const;
+  void GenerateStream(const ModelOptions& options, absl::string_view prefix,
+                      GenerateCallback cb) const;
+
   // Computes the embedding of the given text.
   //
   // On success, returns OK and fills in embedding. Otherwise, returns an error.

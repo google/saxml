@@ -15,9 +15,18 @@
 // saxwrapper wraps sax client library using cgo to provide c/c++ API.
 package main
 
+/*
+typedef void (*generate_callback)(void* cbCtx, int errCode, char* errMsg, void* outData, int outSize);
+
+static inline void generate_callback_bridge(generate_callback cb, void* cbCtx, int errCode, char* errMsg, void* outData, int outSize) {
+	cb(cbCtx, errCode, errMsg, outData, outSize);
+}
+*/
 import "C"
+
 import (
 	"context"
+	"io"
 	rcgo "runtime/cgo"
 	"time"
 	"unsafe"
@@ -33,7 +42,7 @@ import (
 	apb "saxml/protobuf/admin_go_proto_grpc"
 	ampb "saxml/protobuf/audio_go_proto_grpc"
 	cpb "saxml/protobuf/common_go_proto"
-	custompb "saxml/protobuf/custom_go_proto_grpc"
+	cmpb "saxml/protobuf/custom_go_proto_grpc"
 	lmpb "saxml/protobuf/lm_go_proto_grpc"
 	vmpb "saxml/protobuf/vision_go_proto_grpc"
 )
@@ -401,6 +410,57 @@ func go_generate(ptr C.long, timeout C.float, textData *C.char, textSize C.int, 
 	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
 }
 
+//export go_generate_stream
+func go_generate_stream(ptr C.long, timeout C.float, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, cb C.generate_callback, cbCtx unsafe.Pointer) {
+	lm := rcgo.Handle(ptr).Value().(*sax.LanguageModel)
+	if lm == nil {
+		log.Fatalf("streaming generate() called on nil language model.")
+	}
+
+	optionsByte := C.GoBytes(unsafe.Pointer(optionsData), optionsSize)
+	options := &cpb.ExtraInputs{}
+	if err := proto.Unmarshal(optionsByte, options); err != nil {
+		log.Fatalf("streaming generate() received erroneous options")
+	}
+
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	text := C.GoStringN(textData, textSize)
+	ch := lm.GenerateStream(ctx, text, protoOptionToSetter(options)...)
+
+	for res := range ch {
+		err := res.Err
+		switch err {
+		case nil:
+			ret := &lmpb.GenerateResponse{}
+			for _, v := range res.Result {
+				item := &lmpb.DecodedText{
+					Text:  v.Text,
+					Score: v.Score,
+				}
+				ret.Texts = append(ret.GetTexts(), item)
+			}
+			content, err := proto.Marshal(ret)
+			if err != nil {
+				log.Fatal("streaming generate() fails to serialize return value")
+			}
+			errCode := C.int(0)
+			outData := C.CBytes(content) // freed by C caller
+			C.generate_callback_bridge(cb, cbCtx, errCode, nil, outData, C.int(len(content)))
+		case io.EOF:
+			errCode := C.int(0)
+			C.generate_callback_bridge(cb, cbCtx, errCode, nil, nil, 0)
+		default:
+			errCode := C.int(errors.Code(err))
+			errMsg := C.CString(err.Error()) // freed by C caller
+			C.generate_callback_bridge(cb, cbCtx, errCode, errMsg, nil, 0)
+		}
+	}
+}
+
 //export go_lm_embed
 func go_lm_embed(ptr C.long, timeout C.float, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
 	lm := rcgo.Handle(ptr).Value().(*sax.LanguageModel)
@@ -754,7 +814,7 @@ func go_custom(ptr C.long, requestData *C.char, requestSize C.int, methodNameDat
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return
 	}
-	ret := &custompb.CustomResponse{}
+	ret := &cmpb.CustomResponse{}
 	ret.Response = res
 	content, err := proto.Marshal(ret)
 	if err != nil {

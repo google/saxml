@@ -14,11 +14,13 @@
 
 #include "saxml/client/cc/sax.h"
 
+#include <functional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "saxml/client/cc/saxwrapper.h"
 #include "saxml/protobuf/audio.pb.h"
 #include "saxml/protobuf/common.pb.h"
@@ -43,6 +45,7 @@ using ::sax::server::vision::TextToImageResponse;
 using ::sax::server::vision::VideoToTextResponse;
 using VmEmbedResponse = ::sax::server::vision::EmbedResponse;
 using AsrResponse = ::sax::server::audio::AsrResponse;
+
 namespace {
 
 absl::Status CreateErrorAndFree(int error_code, char* errMsgStr) {
@@ -228,6 +231,62 @@ absl::Status LanguageModel::Generate(const ModelOptions& options,
     result->push_back(ScoredText{res.text(), res.score()});
   }
   return absl::OkStatus();
+}
+
+void LanguageModel::GenerateStream(absl::string_view prefix,
+                                   GenerateCallback cb) const {
+  return LanguageModel::GenerateStream(ModelOptions(), prefix, cb);
+}
+
+namespace {
+
+static void GenerateCallbackWrapper(void* cbCtx, int errCode, char* errMsg,
+                                    void* outData, int outSize) {
+  // Unwrap `cbCtx` to recover the original callback function pointer.
+  // Because capturing lambdas and member functions cannot be converted to
+  // function pointers, we need to wrap the callback in a free function to use
+  // the C API. `cbCtx` allows us to pass through the original callback.
+  auto cb = reinterpret_cast<LanguageModel::GenerateCallback>(cbCtx);
+  absl::Status status = CreateErrorAndFree(errCode, errMsg);
+
+  // Check if any error happened.
+  if (errCode != 0) {
+    return cb(status, nullptr);
+  }
+
+  // Check if this is the last call.
+  if (outData == nullptr) {
+    return cb(status, nullptr);
+  }
+
+  // For normal calls, translate output to the format expected by the callback.
+  GenerateResponse out;
+  out.ParseFromArray(outData, outSize);
+  free(outData);
+  std::vector<LanguageModel::ScoredText> result;
+  for (const auto& res : out.texts()) {
+    result.push_back(LanguageModel::ScoredText{res.text(), res.score()});
+  }
+  return cb(status, &result);
+}
+
+}  // namespace
+
+void LanguageModel::GenerateStream(const ModelOptions& options,
+                                   absl::string_view prefix,
+                                   GenerateCallback cb) const {
+  ExtraInputs extra;
+  options.ToProto(&extra);
+  std::string extraStr = "";
+  extra.SerializeToString(&extraStr);
+
+  // Wrap `cb` in an opaque context pointer and give it to go_generate_stream.
+  // go_generate_stream is responsible for calling `cb` with this pointer.
+  auto cbCtx = reinterpret_cast<void*>(cb);
+  go_generate_stream(model_handle_, options.GetTimeout(),
+                     const_cast<char*>(prefix.data()), prefix.size(),
+                     const_cast<char*>(extraStr.data()), extraStr.size(),
+                     GenerateCallbackWrapper, cbCtx);
 }
 
 absl::Status LanguageModel::Embed(absl::string_view text,
