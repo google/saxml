@@ -411,6 +411,18 @@ class LMDecodeMethod(ServableLMMethod):
     self._streamable = streamable
     logging.info('Initialize LMDecodeMethod to be streamable=%s.', streamable)
 
+    self._callback_device_index = 0
+    logging.info('Primary host: %d, Current: %d',
+                 model_state.primary_process_id, jax.process_index())
+
+    devices = model_state.global_mesh.devices.flatten()
+    for i, d in enumerate(devices):
+      logging.info('Checking device %d: %s', i, d)
+      if d.process_index == model_state.primary_process_id:
+        logging.info('Setting callback device index %d: %s', i, d)
+        self._callback_device_index = i
+        break
+
     super().__init__(
         model,
         'decode',
@@ -436,7 +448,9 @@ class LMDecodeMethod(ServableLMMethod):
           logging.info('Secondary host: host_callback on %s', x)
 
       kwargs['result_callback'] = decoder_utils.StreamingResultCallback(
-          functools.partial(hcb.id_tap, callback_fn),
+          functools.partial(
+              hcb.id_tap, callback_fn,
+              device_index=self._callback_device_index),
           interval_steps=self._method_hparams.stream_interval_steps)
 
     outputs = self._model.apply(

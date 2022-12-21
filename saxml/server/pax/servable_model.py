@@ -562,6 +562,7 @@ class ServableModel(servable_model.ServableModel):
       # load model.
       model_state = ServableModelState(
           is_primary_host=jax.process_index() == self._primary_process_id,
+          primary_process_id=self._primary_process_id,
           global_mesh=self._global_mesh,
           mdl_vars=mdl_vars,
           mdl_var_pspecs=mdl_var_pspecs,

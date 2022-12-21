@@ -64,6 +64,8 @@ class ServableModelState:
   # Whether the current host is the primary in a multi-jax-client setup. It is
   # set to True for Pathways.
   is_primary_host: bool
+  # Process ID of the primary host.
+  primary_process_id: int
   # pjit global mesh.
   global_mesh: maps.Mesh
   # Model variables.
