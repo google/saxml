@@ -16,7 +16,7 @@
 import abc
 import dataclasses
 import threading
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from absl import logging
 import jax
@@ -183,8 +183,7 @@ class ServableMethod(servable_model.ServableMethod):
             stream_outs, done = self.dequeue_stream_output()
             if done:
               break
-            outs = self.output_to_host(stream_outs, self.batch_size, False)
-            self.post_processing(outs)
+            self.post_processing(stream_outs)
         outs = self.output_to_host(init_dummy_outputs, self.batch_size)
         # Warm up post processor.
         self.post_processing(outs)
@@ -293,16 +292,17 @@ class ServableMethod(servable_model.ServableMethod):
     return self._device_buffers_to_jax_arrays(
         buffers, self.get_padded_batch_size(unpadded_batch_size))
 
-  def output_to_host(self,
-                     output_tensors: Union[HostTensors, DeviceTensors],
-                     unpadded_batch_size: int,
-                     device_to_host: bool = True) -> HostTensors:
+  def output_to_host(self, output_tensors: DeviceTensors,
+                     unpadded_batch_size: int) -> HostTensors:
     """Fetches device outputs to host. Removes batch padding."""
-    if device_to_host:
-      op = lambda x: np.array(x.addressable_data(0))[:unpadded_batch_size]
-    else:
-      op = lambda x: x[:unpadded_batch_size]
-    return jax.tree_util.tree_map(op, output_tensors)
+    return jax.tree_util.tree_map(
+        lambda x: np.array(x.addressable_data(0))[:unpadded_batch_size],
+        output_tensors)
+
+  def remove_batch_padding(self, host_tensors: HostTensors,
+                           unpadded_batch_size: int) -> HostTensors:
+    return jax.tree_util.tree_map(lambda x: x[:unpadded_batch_size],
+                                  host_tensors)
 
   @abc.abstractmethod
   def add_extra_inputs(

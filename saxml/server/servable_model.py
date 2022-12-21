@@ -14,7 +14,7 @@
 """Wraps a model with service APIs."""
 
 import abc
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 from saxml.server import servable_model_params
 
@@ -64,10 +64,14 @@ class ServableMethod(abc.ABC):
 
   @abc.abstractmethod
   def output_to_host(self,
-                     output_tensors: Union[HostTensors, DeviceTensors],
-                     unpadded_batch_size: int,
-                     device_to_host: bool = True) -> HostTensors:
+                     output_tensors: DeviceTensors,
+                     unpadded_batch_size: int) -> HostTensors:
     """Fetches device outputs to host. Removes batch padding."""
+
+  @abc.abstractmethod
+  def remove_batch_padding(self, host_tensors: HostTensors,
+                           unpadded_batch_size: int) -> HostTensors:
+    """Removes batch padding."""
 
   @property
   def batch_size(self) -> int:

@@ -1094,8 +1094,8 @@ class ModelServicesRunner:
         if done:
           break
 
-        host_tensors = method_obj.output_to_host(
-            host_tensors, len(batch.rpc_tasks), device_to_host=False)
+        host_tensors = method_obj.remove_batch_padding(host_tensors,
+                                                       len(batch.rpc_tasks))
         done_rpcs = 0
 
         if batch.input_tensors is not None:
