@@ -1028,6 +1028,9 @@ class ModelServicesRunner:
                          batch: Batch, out_tensors: DeviceTensors,
                          streaming_done: Optional[utils.Notification]) -> None:
     """Runs post processing and RPC dones asynchronously."""
+    # Use a list to allow deleting out_tensors earlier in the thread pool.
+    out_tensors_container = [out_tensors]
+    del out_tensors
 
     def _postprocess():
       if streaming_done is not None:
@@ -1035,18 +1038,23 @@ class ModelServicesRunner:
         streaming_done.wait()
         logging.info('Streaming finished. Processing final results.')
       with batch:
+        # We don't need to postprocess if preprocess failed where input_tensors
+        # is set to None.
+        pre_process_failure = batch.input_tensors is None
+        # Free input tensors.
+        batch.input_tensors = None
         done_rpcs = 0
         try:
           method_obj = model.method(batch.method.name)
           utils.traceprint_all(batch.rpc_tasks,
                                f'in _postprocess_async: {batch.method}')
-          host_tensors = method_obj.output_to_host(out_tensors,
+          host_tensors = method_obj.output_to_host(out_tensors_container[0],
                                                    len(batch.rpc_tasks))
+          # Free device tensors.
+          del out_tensors_container[0]
           utils.traceprint_all(batch.rpc_tasks,
                                f'After output_to_host: {batch.method}')
-          # We don't need to postprocess if preprocess failed where
-          # input_tensors is set to None.
-          if batch.input_tensors is not None:
+          if not pre_process_failure:
             # TODO(zhifengc): Might make more sense to split this phase into
             # two. One calls output_to_host and the other calls post_processing.
             outputs = method_obj.post_processing(host_tensors)
@@ -1058,7 +1066,7 @@ class ModelServicesRunner:
               task.done(utils.ok())
               done_rpcs += 1
         except Exception as e:  # pylint: disable=broad-except
-          if batch.input_tensors is not None:
+          if not pre_process_failure:
             logging.exception(
                 'Postprocessing error. model_key: %s, method: %s, error: %s',
                 batch.method.model_key, batch.method.name, e)
@@ -1257,6 +1265,7 @@ class ModelServicesRunner:
             batch.finish()
           else:
             self._postprocess_async(model, batch, result, streaming_done)
+            del result
         except Exception as e:  # pylint: disable=broad-except
           self._worker_thread_exception = e
           batch.finish()
