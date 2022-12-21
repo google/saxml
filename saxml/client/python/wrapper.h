@@ -95,6 +95,17 @@ class LanguageModel {
   absl::StatusOr<std::vector<std::pair<std::string, double>>> Generate(
       absl::string_view prefix, const ModelOptions* options = nullptr) const;
 
+  // Invokes the model to generate a stream of suffixes given the 'prefix'.
+  //
+  // When `last` is true, this is the last callback invocation.
+  // When `last` is false, `results` contains all decoding results so far.
+  typedef std::function<void(
+      bool last, std::vector<std::pair<std::string, double>> results)>
+      GenerateCallback;
+  absl::Status GenerateStream(absl::string_view prefix,
+                              GenerateCallback callback,
+                              const ModelOptions* options = nullptr) const;
+
   // Run embedding on the given text.
   absl::StatusOr<std::vector<double>> Embed(
       absl::string_view text, const ModelOptions* options = nullptr) const;

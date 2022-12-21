@@ -19,7 +19,9 @@
 #include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "saxml/client/cc/sax.h"
+#include "pybind11/gil.h"
 #include "pybind11/pybind11.h"
 
 namespace sax {
@@ -158,6 +160,34 @@ LanguageModel::Generate(absl::string_view prefix,
     result.emplace_back(std::make_pair(std::move(item.suffix), item.score));
   }
   return result;
+}
+
+absl::Status LanguageModel::GenerateStream(absl::string_view prefix,
+                                           GenerateCallback callback,
+                                           const ModelOptions* options) const {
+  if (!status_.ok()) return status_;
+
+  // Do not release GIL here like the other methods do because the callback
+  // contains Python code.
+  // TODO(jiawenhao): Figure out how to release and acquire GIL to enable
+  // Python multi-threading.
+  auto callback_wrapper =
+      [callback](bool last,
+                 const std::vector<::sax::client::LanguageModel::ScoredText>&
+                     results) {
+        std::vector<std::pair<std::string, double>> r;
+        if (last) return callback(true, r);
+        for (size_t i = 0; i < results.size(); i++) {
+          auto& item = results[i];
+          r.emplace_back(std::make_pair(std::move(item.suffix), item.score));
+        }
+        callback(false, r);
+      };
+
+  if (options == nullptr) {
+    return model_->GenerateStream(prefix, callback_wrapper);
+  }
+  return model_->GenerateStream(*options, prefix, callback_wrapper);
 }
 
 absl::StatusOr<std::vector<double>> LanguageModel::Embed(

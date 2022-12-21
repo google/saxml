@@ -83,7 +83,16 @@ PYBIND11_MODULE(sax, m) {
               -> absl::StatusOr<std::vector<std::pair<std::string, double>>> {
             return lm.Generate(text, options);
           },
-          py::arg("text"), py::arg("options") = nullptr);
+          py::arg("text"), py::arg("options") = nullptr)
+      .def(
+          "GenerateStream",
+          [](sax::client::pybind::LanguageModel& lm, absl::string_view text,
+             py::function py_callback,
+             const sax::client::ModelOptions* options) -> absl::Status {
+            // py_callback: Callable[[bool, list[tuple[str, float]]], None]
+            return lm.GenerateStream(text, py_callback, options);
+          },
+          py::arg("text"), py::arg("callback"), py::arg("options") = nullptr);
 
   py::class_<sax::client::pybind::VisionModel>(m, "VisionModel")
       .def(

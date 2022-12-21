@@ -16,10 +16,10 @@
 package main
 
 /*
-typedef void (*generate_callback)(void* cbCtx, int errCode, char* errMsg, void* outData, int outSize);
+typedef void (*generate_callback)(void* cbCtx, void* outData, int outSize);
 
-static inline void generate_callback_bridge(generate_callback cb, void* cbCtx, int errCode, char* errMsg, void* outData, int outSize) {
-	cb(cbCtx, errCode, errMsg, outData, outSize);
+static inline void generate_callback_bridge(generate_callback cb, void* cbCtx, void* outData, int outSize) {
+	cb(cbCtx, outData, outSize);
 }
 */
 import "C"
@@ -60,19 +60,27 @@ func protoOptionToSetter(options *cpb.ExtraInputs) []sax.ModelOptionSetter {
 	return extra
 }
 
-// buildReturnValues is a helper function for model methods that returns both returned value (such as score or text) and error.
+// buildReturnError is a helper function for model methods that return an error.
+// "outErrMsgData" is for error message. They are ascii printable characters so size is not needed. It's empty when there is no error.
+// "outErrCode" is the canonical error code for the error. It's 0 when there is no error.
+func buildReturnError(outErrMsgData **C.char, outErrCode *C.int, err error) {
+	errCode := errors.Code(err)
+	if errCode != 0 {
+		*outErrMsgData = C.CString(err.Error())
+	}
+	*outErrCode = C.int(errCode)
+}
+
+// buildReturnValues is a helper function for model methods that return both returned values (such as score or text) and error.
 // "outValueData" and "outValueSize" are for returned value. Size is needed since outData might contain "\0".
 // "outErrMsgData" is for error message. They are ascii printable characters so size is not needed. It's empty when there is no error.
 // "outErrCode" is the canonical error code for the error. It's 0 when there is no error.
 func buildReturnValues(outValueData **C.char, outValueSize *C.int, outErrMsgData **C.char, outErrCode *C.int, value *[]byte, err error) {
-	errCode := errors.Code(err)
-	if int(errCode) == 0 {
+	if int(errors.Code(err)) == 0 {
 		*outValueData = C.CString(string(*value))
 		*outValueSize = C.int(len(*value))
-	} else {
-		*outErrMsgData = C.CString(err.Error())
 	}
-	*outErrCode = C.int(errors.Code(err))
+	buildReturnError(outErrMsgData, outErrCode, err)
 }
 
 // createContextWithTimeout creates a timeout context if "timeout" is positive.
@@ -411,16 +419,18 @@ func go_generate(ptr C.long, timeout C.float, textData *C.char, textSize C.int, 
 }
 
 //export go_generate_stream
-func go_generate_stream(ptr C.long, timeout C.float, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, cb C.generate_callback, cbCtx unsafe.Pointer) {
+func go_generate_stream(ptr C.long, timeout C.float, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, cb C.generate_callback, cbCtx unsafe.Pointer, errMsg **C.char, errCode *C.int) {
 	lm := rcgo.Handle(ptr).Value().(*sax.LanguageModel)
 	if lm == nil {
+		// This is not expected.
 		log.Fatalf("streaming generate() called on nil language model.")
 	}
 
 	optionsByte := C.GoBytes(unsafe.Pointer(optionsData), optionsSize)
 	options := &cpb.ExtraInputs{}
 	if err := proto.Unmarshal(optionsByte, options); err != nil {
-		log.Fatalf("streaming generate() received erroneous options")
+		buildReturnError(errMsg, errCode, err)
+		return
 	}
 
 	ctx, cancel := createContextWithTimeout(timeout)
@@ -447,18 +457,21 @@ func go_generate_stream(ptr C.long, timeout C.float, textData *C.char, textSize 
 			if err != nil {
 				log.Fatal("streaming generate() fails to serialize return value")
 			}
-			errCode := C.int(0)
 			outData := C.CBytes(content) // freed by C caller
-			C.generate_callback_bridge(cb, cbCtx, errCode, nil, outData, C.int(len(content)))
+			// For normal results, send a non-nil output.
+			C.generate_callback_bridge(cb, cbCtx, outData, C.int(len(content)))
 		case io.EOF:
-			errCode := C.int(0)
-			C.generate_callback_bridge(cb, cbCtx, errCode, nil, nil, 0)
+			// On EOF, send a nil output to let the C++ wrapper translate it to a "last" bool.
+			C.generate_callback_bridge(cb, cbCtx, nil, 0)
 		default:
-			errCode := C.int(errors.Code(err))
-			errMsg := C.CString(err.Error()) // freed by C caller
-			C.generate_callback_bridge(cb, cbCtx, errCode, errMsg, nil, 0)
+			// For any other error, end streaming with an error.
+			buildReturnError(errMsg, errCode, err)
+			return
 		}
 	}
+
+	// End streaming with no error.
+	buildReturnError(errMsg, errCode, nil)
 }
 
 //export go_lm_embed
