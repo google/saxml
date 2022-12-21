@@ -704,7 +704,7 @@ class ModeletService:
     for key, status in self._loader.get_status().items():
       model = modelet_pb2.GetStatusResponse.ModelWithStatus(
           model_key=key, model_status=status)
-      if req.include_failure_reasons:
+      if status == common_pb2.ModelStatus.FAILED and req.include_failure_reasons:
         model.failure_reason = self._loader.get_error(key)
       resp.models.append(model)
 
