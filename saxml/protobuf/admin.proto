@@ -145,7 +145,7 @@ message ModelServer {
 message JoinedModelServer {
   ModelServer model_server = 1;
   string address = 2;
-  int32 debug_port = 6;
+  string debug_address = 6;
   int64 last_join_ms = 3;                      // milliseconds since Unix epoch
   map<string, ModelStatus> loaded_models = 4;  // model ID: status
   map<string, string> failure_reasons = 5;     // model ID: error message
@@ -233,7 +233,7 @@ message JoinRequest {
   // The network address and port identifying a model server, e.g.,
   //   [1::2]:8888
   string address = 1;
-  int32 debug_port = 3;
+  string debug_address = 3;
   ModelServer model_server = 2;
 }
 

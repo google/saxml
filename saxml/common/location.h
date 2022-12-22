@@ -32,9 +32,9 @@ namespace sax {
 //
 // If admin_port is not 0, this process will start an admin server for sax_cell.
 // in the background.
-std::string Join(std::string sax_cell, std::string ip_port,
-                 std::string serialized_specs, int debug_port = 0,
-                 int admin_port = 0);
+std::string Join(const std::string& sax_cell, const std::string& ip_port,
+                 const std::string& debug_addr,
+                 const std::string& serialized_specs, int admin_port = 0);
 
 }  // namespace sax
 

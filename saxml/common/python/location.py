@@ -21,8 +21,8 @@ from saxml.common.python import pybind_location
 
 def Join(sax_cell: str,
          ip_port: str,
+         debug_addr: str,
          specs: bytes,
-         debug_port: Optional[int] = None,
          admin_port: Optional[int] = None) -> None:
   """Join is called by model servers to join the admin server in a SAX cell.
 
@@ -34,8 +34,8 @@ def Join(sax_cell: str,
   Args:
     sax_cell: The Sax cell to join, e.g. /sax/test.
     ip_port: The IP:port of the joining model server.
+    debug_addr: The address where an HTTP page is exported for debugging.
     specs: Serialized ModelServer proto.
-    debug_port: If set, an HTTP page is exported at this port for debugging.
     admin_port: If set, this process will start an admin server on the given
       port for sax_cell in the background.
 
@@ -43,7 +43,7 @@ def Join(sax_cell: str,
     RuntimeError: The caller failed to join the admin server.
   """
   result: str = pybind_location.Join(
-      sax_cell, ip_port, specs, debug_port if debug_port is not None else 0,
+      sax_cell, ip_port, debug_addr, specs,
       admin_port if admin_port is not None else 0)
   if result:
     raise RuntimeError(result)

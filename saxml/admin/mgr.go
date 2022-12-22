@@ -281,11 +281,11 @@ func (m *Mgr) FindModel(fullName modelFullName) *apb.Model {
 }
 
 // Join lets one model server join from an address.
-func (m *Mgr) Join(ctx context.Context, addr string, debugPort int, specs *apb.ModelServer) error {
+func (m *Mgr) Join(ctx context.Context, addr, debugAddr string, specs *apb.ModelServer) error {
 	maddr := modeletAddr(addr)
 
 	createNewServerState := func() error {
-		modelServer := state.New(addr, debugPort, protobuf.NewModelServer(specs))
+		modelServer := state.New(addr, debugAddr, protobuf.NewModelServer(specs))
 		if err := modelServer.Start(ctx, m); err != nil {
 			return fmt.Errorf("failed to start a connection with %v: %w", addr, err)
 		}
@@ -364,7 +364,7 @@ func (m *Mgr) makeJoinedModelServerLocked(addr string, modelet *modeletState) (*
 	return &apb.JoinedModelServer{
 		ModelServer:  modelet.Specs.ToProto(),
 		Address:      addr,
-		DebugPort:    int32(modelet.DebugPort),
+		DebugAddress: modelet.DebugAddr,
 		LastJoinMs:   modelet.LastPing().UnixMilli(),
 		LoadedModels: statuses,
 	}, nil

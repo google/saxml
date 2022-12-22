@@ -35,7 +35,7 @@ class LocationTest(absltest.TestCase):
 
     model_addr = 'localhost:10000'
     specs = admin_pb2.ModelServer()
-    location.Join(sax_cell, model_addr, specs.SerializeToString())
+    location.Join(sax_cell, model_addr, '', specs.SerializeToString())
 
     time.sleep(3)  # wait for the initial Join to happen
     admin_addr = 'localhost:' + str(port)
@@ -59,7 +59,7 @@ class LocationTest(absltest.TestCase):
     model_addr = 'localhost:10000'
     specs = admin_pb2.ModelServer()
     location.Join(
-        sax_cell, model_addr, specs.SerializeToString(), admin_port=port)
+        sax_cell, model_addr, '', specs.SerializeToString(), admin_port=port)
 
     time.sleep(3)  # wait for the initial Join to happen
     admin_addr = 'localhost:' + str(port)
@@ -72,7 +72,7 @@ class LocationTest(absltest.TestCase):
 
   def test_join_fail(self):
     with self.assertRaises(RuntimeError):
-      location.Join('/sax/test-join-fail-py', 'localhost:10000', '')
+      location.Join('/sax/test-join-fail-py', 'localhost:10000', '', '')
 
 
 if __name__ == '__main__':

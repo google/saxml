@@ -623,7 +623,7 @@ class ModeletService:
           self._loadable_model_paths.append(alias)
 
     self._ipport = ipaddr.Join(ipaddr.MyIPAddr(), service_port)
-    self._debug_port = debug_port
+    self._debug_addr = ipaddr.Join(ipaddr.MyIPAddr(), debug_port)
 
   def model_services(self) -> Dict[str, ModelService]:
     return self._services
@@ -644,8 +644,8 @@ class ModeletService:
         location.Join(
             self._sax_cell,
             self._ipport,
+            self._debug_addr,
             specs.SerializeToString(),
-            debug_port=self._debug_port,
             admin_port=self._admin_port)
       except RuntimeError as e:
         logging.exception('location.Join failed')

@@ -128,7 +128,7 @@ type action struct {
 type State struct {
 	// Immutable server attributes.
 	Addr      string
-	DebugPort int
+	DebugAddr string
 	Specs     *protobuf.ModelServer
 
 	// Connection to the server.
@@ -445,13 +445,13 @@ func (s *State) Close() {
 }
 
 // New creates a new State instance from a running model server.
-func New(addr string, debugPort int, specs *protobuf.ModelServer) *State {
+func New(addr, debugAddr string, specs *protobuf.ModelServer) *State {
 	if specs == nil {
 		specs = &protobuf.ModelServer{}
 	}
 	return &State{
 		Addr:      addr,
-		DebugPort: debugPort,
+		DebugAddr: debugAddr,
 		Specs:     specs,
 		seen:      make(map[naming.ModelFullName]*ModelWithStatus),
 		wanted:    make(map[naming.ModelFullName]*Model),
