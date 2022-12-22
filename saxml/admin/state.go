@@ -127,8 +127,9 @@ type action struct {
 // All methods on State are thread-safe.
 type State struct {
 	// Immutable server attributes.
-	Addr  string
-	Specs *protobuf.ModelServer
+	Addr      string
+	DebugPort int
+	Specs     *protobuf.ModelServer
 
 	// Connection to the server.
 	client mgrpc.ModeletClient
@@ -444,14 +445,15 @@ func (s *State) Close() {
 }
 
 // New creates a new State instance from a running model server.
-func New(addr string, specs *protobuf.ModelServer) *State {
+func New(addr string, debugPort int, specs *protobuf.ModelServer) *State {
 	if specs == nil {
 		specs = &protobuf.ModelServer{}
 	}
 	return &State{
-		Addr:   addr,
-		Specs:  specs,
-		seen:   make(map[naming.ModelFullName]*ModelWithStatus),
-		wanted: make(map[naming.ModelFullName]*Model),
+		Addr:      addr,
+		DebugPort: debugPort,
+		Specs:     specs,
+		seen:      make(map[naming.ModelFullName]*ModelWithStatus),
+		wanted:    make(map[naming.ModelFullName]*Model),
 	}
 }

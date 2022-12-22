@@ -564,10 +564,11 @@ def register_service(
 class ModeletService:
   """Main service holding different model RPCs and loading/unloading models."""
 
-  def __init__(self, service_port: int, batcher: PerMethodBatcher,
-               loader: LoadedModelManager, sax_cell: Optional[str],
-               admin_port: Optional[int], platform_chip: Optional[str],
-               platform_topology: Optional[str], *args, **kwargs):
+  def __init__(self, service_port: int, debug_port: Optional[int],
+               batcher: PerMethodBatcher, loader: LoadedModelManager,
+               sax_cell: Optional[str], admin_port: Optional[int],
+               platform_chip: Optional[str], platform_topology: Optional[str],
+               *args, **kwargs):
     self._services = {}
     self._batcher = batcher
     self._loader = loader
@@ -622,6 +623,7 @@ class ModeletService:
           self._loadable_model_paths.append(alias)
 
     self._ipport = ipaddr.Join(ipaddr.MyIPAddr(), service_port)
+    self._debug_port = debug_port
 
   def model_services(self) -> Dict[str, ModelService]:
     return self._services
@@ -639,8 +641,12 @@ class ModeletService:
           servable_model_paths=list(self._loadable_model_paths),
       )
       try:
-        location.Join(self._sax_cell, self._ipport, specs.SerializeToString(),
-                      self._admin_port)
+        location.Join(
+            self._sax_cell,
+            self._ipport,
+            specs.SerializeToString(),
+            debug_port=self._debug_port,
+            admin_port=self._admin_port)
       except RuntimeError as e:
         logging.exception('location.Join failed')
         raise e
@@ -778,6 +784,7 @@ class ModelServicesRunner:
   def __init__(self,
                is_primary_process: bool = True,
                port: int = 0,
+               debug_port: Optional[int] = None,
                deterministic_prng_seed: Optional[int] = None,
                sax_cell: Optional[str] = None,
                admin_port: Optional[int] = None,
@@ -831,6 +838,7 @@ class ModelServicesRunner:
         max_live_batches=1)
     self._modelet_service = ModeletServiceGRPC(
         port,
+        debug_port,
         batcher=self._batcher,
         loader=self._loaded_models,
         sax_cell=sax_cell,
