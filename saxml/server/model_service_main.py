@@ -103,6 +103,7 @@ def set_up():
 
 def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
   """Runs the server until it is stopped."""
+  jax.monitoring.record_event('/jax/sax/model_service/run')
   if _MODEL_FILTER_REGEX.value is not None:
     logging.info('Setting model filter to %s', _MODEL_FILTER_REGEX.value)
     servable_model_registry.MODEL_FILTER_REGEX = re.compile(
