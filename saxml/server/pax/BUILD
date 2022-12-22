@@ -89,7 +89,6 @@ pytype_strict_library(
         "//third_party/py/praxis:decoder_utils",
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis:pytypes",
-        "//third_party/py/praxis:train_states",
     ],
 )
 
