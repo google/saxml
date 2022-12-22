@@ -14,7 +14,8 @@
 """Wraps a model with service APIs."""
 
 import abc
-from typing import Any, Dict, List, Optional, Tuple
+import queue
+from typing import Any, Dict, List, Optional
 
 from saxml.server import servable_model_params
 
@@ -37,6 +38,9 @@ class ServableMethod(abc.ABC):
     self._sorted_batch_sizes = sorted(self._sorted_batch_sizes)
     self._max_live_batches = method_params.get_max_live_batches()
     self._extra_inputs = method_params.get_default_extra_inputs()
+    # If an element is None, it marks the end of the stream.
+    self._stream_queue: queue.SimpleQueue[
+        Optional[HostTensors]] = queue.SimpleQueue()
 
   @classmethod
   @abc.abstractmethod
@@ -125,13 +129,17 @@ class ServableMethod(abc.ABC):
   def streamable(self) -> bool:
     """Whether this method supports streaming."""
 
-  @abc.abstractmethod
-  def dequeue_stream_output(self) -> Tuple[HostTensors, bool]:
-    """Dequeue streamed tensors. Blocking if empty."""
+  def dequeue_stream_output(self) -> Optional[HostTensors]:
+    """Dequeues streamed tensors, or None if done. Blocking if empty."""
+    return self._stream_queue.get()
 
-  @abc.abstractmethod
   def enqueue_stream_output(self, stream_outputs: HostTensors) -> None:
-    """Enqueue streamed tensors from device."""
+    """Enqueues streamed tensors."""
+    self._stream_queue.put(stream_outputs)
+
+  def mark_stream_output_done(self) -> None:
+    """Marks the streaming as done."""
+    self._stream_queue.put(None)
 
   def get_padded_batch_size(self, unpadded_batch_size: int) -> int:
     for bs in self.sorted_batch_sizes:
@@ -145,6 +153,7 @@ class ServableMethod(abc.ABC):
               raw_inputs: List[Any],
               extra_inputs: Optional[List[ExtraInput]] = None) -> List[Any]:
     """Executes pre_processing, device_compute, and post_processing."""
+    assert not self.streamable
     unpadded_batch_size = len(raw_inputs)
     if unpadded_batch_size > self.batch_size:
       raise ValueError('Inputs to compute() had a larger batch size ('

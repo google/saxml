@@ -21,6 +21,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 from absl import logging
 import jax
 from jax import numpy as jnp
+from jax.experimental import host_callback as hcb
 from jax.experimental import maps
 from jax.experimental import pjit
 from jax.interpreters import pxla
@@ -109,6 +110,9 @@ class ServableMethod(servable_model.ServableMethod):
     - pre_processing()
     - post_processing()
     - add_extra_inputs()
+
+  Note on streaming: the final outputs of jax_func() must depend on previous
+  host calls inside jax_func() to guarantee correct ordering.
   """
 
   def __init__(self, method_params: servable_model_params.ServableMethodParams,
@@ -121,6 +125,20 @@ class ServableMethod(servable_model.ServableMethod):
     self._prng_key = prng_key
     self._step = StepCounter()
     self._local_devices = list(model_state.global_mesh.local_devices)
+    self._callback_device_index = 0
+    logging.info('Primary host: %d, Current: %d',
+                 model_state.primary_process_id, jax.process_index())
+
+    devices = model_state.global_mesh.devices.flatten()
+    for i, d in enumerate(devices):
+      if d.process_index == model_state.primary_process_id:
+        logging.info('Setting callback device index %d: %s', i, d)
+        self._callback_device_index = i
+        break
+
+  @property
+  def callback_device_index(self) -> int:
+    return self._callback_device_index
 
   def load(self) -> None:
     for batch_size in self._sorted_batch_sizes:
@@ -168,7 +186,7 @@ class ServableMethod(servable_model.ServableMethod):
     info.dummy_inputs = self._device_buffers_to_jax_arrays(
         info.dummy_inputs_per_device_buffers, batch_size)
     # Initialize the device function.
-    info.device_fn = self._pjit_device_fn(input_pspecs)
+    info.device_fn = self._pjit_device_fn(input_pspecs, batch_size)
 
     # Compute with dummy to trigger compilation.
     if self.model_state.precompile:
@@ -180,13 +198,14 @@ class ServableMethod(servable_model.ServableMethod):
         # Retrieve streamed outputs until streaming is done
         if self.streamable:
           while True:
-            stream_outs, done = self.dequeue_stream_output()
-            if done:
+            stream_outs = self.dequeue_stream_output()
+            if stream_outs is None:
               break
             self.post_processing(stream_outs)
         outs = self.output_to_host(init_dummy_outputs, self.batch_size)
-        # Warm up post processor.
-        self.post_processing(outs)
+        if not self.streamable:
+          # Warm up post processor.
+          self.post_processing(outs)
 
   @property
   def model_state(self) -> ServableModelState:
@@ -370,7 +389,7 @@ class ServableMethod(servable_model.ServableMethod):
     """Invokes the JAX function that implements the device computation."""
 
   def _pjit_device_fn(
-      self, input_pspecs: PSpecs
+      self, input_pspecs: PSpecs, batch_size: int
   ) -> Callable[[DeviceTensors, DeviceTensors], DeviceTensors]:
     """Returns a pjit-ed model function with input handling."""
 
@@ -392,9 +411,20 @@ class ServableMethod(servable_model.ServableMethod):
       prng_key = jax.random.fold_in(self._prng_key, step)
       outputs = self.jax_func(mdl_vars, prng_key, batched_inputs,
                               non_batched_inputs)
-      # Make sure outputs are replicated.
-      return jax.tree_map(lambda x: pjit.with_sharding_constraint(x, None),
-                          outputs)
+      # This assumes that outputs are generated after previous host calls, and
+      # it is guaranteed by data dependency.
+      if self.streamable:
+
+        def _mark_done(dummy, _):
+          del dummy
+          self.mark_stream_output_done()
+
+        hcb.id_tap(_mark_done, outputs, device_index=self.callback_device_index)
+        # Unused final outputs. Return something to make output_to_host
+        # blocking.
+        return jnp.zeros((batch_size,), dtype=jnp.int32)
+
+      return outputs
 
     # pjit-ed function.
     return pjit.pjit(

@@ -15,7 +15,6 @@
 
 from typing import Any
 
-from absl import logging
 import numpy as np
 from saxml.protobuf import lm_pb2
 from saxml.protobuf import lm_pb2_grpc
@@ -101,9 +100,7 @@ class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
                                   request.model_key, context, request,
                                   empty_resp)
     while True:
-      logging.info('Waiting on queue.')
       msg = await q.get()
-      logging.info('Dequeued message: %s', msg)
       if msg is None:
         break
       yield msg

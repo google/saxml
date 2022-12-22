@@ -15,7 +15,6 @@
 
 import abc
 import functools
-import queue
 from typing import Any, Dict, List, Optional, Tuple, Union, Mapping
 
 from absl import logging
@@ -406,22 +405,8 @@ class LMDecodeMethod(ServableLMMethod):
         'Using np_tf_sess_wrapper on LMDecodeMethod.tf_post_processing')
     self._tf_sess_post_processing = np_tf_sess_wrapper.wrap_tf_session(
         self.tf_post_processing, False)
-    self._stream_queue: queue.SimpleQueue[Tuple[NestedNpTensor,
-                                                bool]] = queue.SimpleQueue()
     self._streamable = streamable
     logging.info('Initialize LMDecodeMethod to be streamable=%s.', streamable)
-
-    self._callback_device_index = 0
-    logging.info('Primary host: %d, Current: %d',
-                 model_state.primary_process_id, jax.process_index())
-
-    devices = model_state.global_mesh.devices.flatten()
-    for i, d in enumerate(devices):
-      logging.info('Checking device %d: %s', i, d)
-      if d.process_index == model_state.primary_process_id:
-        logging.info('Setting callback device index %d: %s', i, d)
-        self._callback_device_index = i
-        break
 
     super().__init__(
         model,
@@ -437,20 +422,14 @@ class LMDecodeMethod(ServableLMMethod):
 
     kwargs = {}
     if self.streamable:
-      if self.model_state.is_primary_host:
 
-        def callback_fn(x, _):
-          logging.info('Primary host: host_callback on %s', x)
-          self.enqueue_stream_output(x)
-      else:
-
-        def callback_fn(x, _):
-          logging.info('Secondary host: host_callback on %s', x)
+      def callback_fn(x, _):
+        assert self.model_state.is_primary_host
+        self.enqueue_stream_output(x)
 
       kwargs['result_callback'] = decoder_utils.StreamingResultCallback(
           functools.partial(
-              hcb.id_tap, callback_fn,
-              device_index=self._callback_device_index),
+              hcb.id_tap, callback_fn, device_index=self.callback_device_index),
           interval_steps=self._method_hparams.stream_interval_steps)
 
     outputs = self._model.apply(
@@ -474,17 +453,6 @@ class LMDecodeMethod(ServableLMMethod):
   @property
   def streamable(self) -> bool:
     return self._streamable
-
-  def dequeue_stream_output(self) -> Tuple[NestedNpTensor, bool]:
-    """Dequeue streamed tensors. Blocking if empty."""
-    output_tensors, done = self._stream_queue.get()
-    return output_tensors, done
-
-  def enqueue_stream_output(self, stream_outputs: NestedMap) -> None:
-    """Enqueue streamed tensors from device."""
-    done = stream_outputs.done
-    del stream_outputs.done
-    self._stream_queue.put((stream_outputs, done))
 
   def fetch_output(self, model_fn_outputs: NestedJTensor,
                    model_fn_inputs: NestedJTensor) -> NestedJTensor:

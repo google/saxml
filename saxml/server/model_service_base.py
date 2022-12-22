@@ -1044,7 +1044,6 @@ class ModelServicesRunner:
       if streaming_done is not None:
         logging.info('Waiting for streaming to finish.')
         streaming_done.wait()
-        logging.info('Streaming finished. Processing final results.')
       with batch:
         # We don't need to postprocess if preprocess failed where input_tensors
         # is set to None.
@@ -1052,6 +1051,8 @@ class ModelServicesRunner:
         # Free input tensors.
         batch.input_tensors = None
         done_rpcs = 0
+        if not pre_process_failure:
+          logging.info('Processing final results.')
         try:
           method_obj = model.method(batch.method.name)
           utils.traceprint_all(batch.rpc_tasks,
@@ -1098,13 +1099,10 @@ class ModelServicesRunner:
       done = False
       while not done:
         method_obj = model.method(batch.method.name)
-        logging.info('Method %s: dequeue_stream_output', batch.method.name)
-        host_tensors, done = method_obj.dequeue_stream_output()
+        host_tensors = method_obj.dequeue_stream_output()
 
-        logging.info('host_tensors %s', host_tensors)
-        logging.info('done %s', done)
-
-        if done:
+        if host_tensors is None:
+          # Done.
           break
 
         host_tensors = method_obj.remove_batch_padding(host_tensors,

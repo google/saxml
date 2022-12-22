@@ -150,14 +150,6 @@ class ServableMethod(servable_model.ServableMethod):
   def streamable(self) -> bool:
     return False
 
-  def dequeue_stream_output(self) -> Tuple[NestedNpTensor, bool]:
-    """Dequeue streamed tensors. Blocking if empty."""
-    raise NotImplementedError('dequeue_stream_output not implemented')
-
-  def enqueue_stream_output(self, stream_outputs: NestedMap) -> None:
-    """Enqueue streamed tensors from device."""
-    raise NotImplementedError('enqueue_stream_output not implemented')
-
   def get_unpadded_branch_key(self, inputs: NestedNpTensor) -> int:
     """Returns the bucket key (before padding) used for inputs."""
     del inputs

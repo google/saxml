@@ -59,6 +59,7 @@ pytype_strict_library(
         "//saxml/server:servable_model_params",
         "//third_party/py/absl-py/logging",
         "//third_party/py/jax",
+        "//third_party/py/jax:experimental",
         "//third_party/py/jax:mesh_utils",
         "//third_party/py/numpy",
     ],
