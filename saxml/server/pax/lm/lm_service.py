@@ -96,9 +96,10 @@ class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
     return resp
 
   async def GenerateStream(self, request, context):
-    resp = lm_pb2.GenerateResponse()
+    empty_resp = lm_pb2.GenerateResponse()
     q = self.EnqueueStreamRequest(LMMethodName.GENERATE_STREAM,
-                                  request.model_key, context, request, resp)
+                                  request.model_key, context, request,
+                                  empty_resp)
     while True:
       logging.info('Waiting on queue.')
       msg = await q.get()
@@ -106,7 +107,6 @@ class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
       if msg is None:
         break
       yield msg
-    yield resp
 
   async def Embed(self, request, context):
     resp = lm_pb2.EmbedResponse()

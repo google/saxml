@@ -525,7 +525,7 @@ class ModelServiceGRPC(ModelService):
 
   def EnqueueStreamRequest(self, method: str, model_key: str,
                            context: grpc.ServicerContext, req: message.Message,
-                           resp: message.Message) -> asyncio.Queue:
+                           empty_resp: message.Message) -> asyncio.Queue:
     """Enqueues a streaming request, and returns a done future."""
     # TODO(changlan): Validate the method supports streaming.
     loop = asyncio.get_running_loop()
@@ -541,7 +541,7 @@ class ModelServiceGRPC(ModelService):
         loop.call_soon_threadsafe(q.put_nowait, None)
 
     self._EnqueueRequestInternal(method, model_key,
-                                 utils.RPCContextGRPC(context), req, resp,
+                                 utils.RPCContextGRPC(context), req, empty_resp,
                                  _done)
 
     return q
@@ -1055,6 +1055,11 @@ class ModelServicesRunner:
           utils.traceprint_all(batch.rpc_tasks,
                                f'After output_to_host: {batch.method}')
           if not pre_process_failure:
+            # No more result for streaming.
+            if streaming_done is not None:
+              for task in batch.rpc_tasks:
+                task.done(utils.ok())
+              return
             # TODO(zhifengc): Might make more sense to split this phase into
             # two. One calls output_to_host and the other calls post_processing.
             outputs = method_obj.post_processing(host_tensors)
@@ -1102,9 +1107,11 @@ class ModelServicesRunner:
           try:
             outputs = method_obj.post_processing(host_tensors)
             for out, task in zip(outputs, batch.rpc_tasks):
+              # Use a new response each time.
+              resp = copy.deepcopy(task.response)
               self._model_services[batch.method.service_id].FillRPCResponse(
-                  batch.method.name, out, task.response)
-              task.done(utils.ok(), task.response)
+                  batch.method.name, out, resp)
+              task.done(utils.ok(), resp)
               done_rpcs += 1
           except Exception as e:  # pylint: disable=broad-except
             logging.exception(
