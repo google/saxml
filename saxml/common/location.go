@@ -47,7 +47,7 @@ const (
 	// Timeout for repeated Join RPC calls. When a model server just boots up and calls Join, it may
 	// not be ready to respond to GetStatus calls issued by the admin server Join RPC handler yet.
 	// Retry Join calls for this much time to allow the model server to become ready.
-	retryTimeout = time.Minute * 2
+	retryTimeout = time.Minute
 )
 
 // join makes a Join RPC call to an admin server address.
@@ -92,18 +92,17 @@ func Join(ctx context.Context, saxCell string, ipPort string, debugAddr string, 
 	// If multiple model servers call Join with non-zero admin port values, all but one model server
 	// will be stuck at leader election. Put the admin server start call in a goroutine so Join calls
 	// aren't blocked.
-	go func() {
-		if adminPort == 0 {
-			return
-		}
-		adminServer := admin.NewServer(saxCell, adminPort)
-		log.Infof("Starting admin server at :%v", adminPort)
-		if err := adminServer.Start(ctx); err != nil {
-			log.Errorf("Failed to start admin server at :%v: %v", adminPort, err)
-			return
-		}
-		log.Infof("Started admin server at :%v", adminPort)
-	}()
+	if adminPort != 0 {
+		go func() {
+			adminServer := admin.NewServer(saxCell, adminPort)
+			log.Infof("Starting admin server at :%v", adminPort)
+			if err := adminServer.Start(ctx); err != nil {
+				log.Errorf("Failed to start admin server at :%v: %v", adminPort, err)
+				return
+			}
+			log.Infof("Started admin server at :%v", adminPort)
+		}()
+	}
 
 	// If the platform supports it, subscribe to ongoing admin server address updates.
 	var updates <-chan []byte
@@ -112,11 +111,14 @@ func Join(ctx context.Context, saxCell string, ipPort string, debugAddr string, 
 		return err
 	}
 
-	retryJoinWithTimeout := func(ctx context.Context, addr string) {
+	retryJoinWithTimeout := func(ctx context.Context, addr string) error {
 		ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 		defer cancel()
-		retrier.Do(
-			ctx, func() error { return join(ctx, addr, ipPort, debugAddr, specs) }, errors.JoinShouldRetry,
+		return retrier.Do(
+			ctx, func() error {
+				err := join(ctx, addr, ipPort, debugAddr, specs)
+				return err
+			}, errors.JoinShouldRetry,
 		)
 	}
 
@@ -124,28 +126,50 @@ func Join(ctx context.Context, saxCell string, ipPort string, debugAddr string, 
 	// has joined the latest admin server.
 	go func() {
 		// Delay the first call by a few seconds so the calling model server can get ready to handle
-		// GetStatus calls.
-		timer := time.NewTimer(2 * time.Second)
+		// GetStatus calls issued by the admin server being joined.
+		time.Sleep(2 * time.Second)
+		// The address watcher may send the old address a few times repeatedly during an address change.
+		// Use this variable to filter out unnecessary Join calls.
+		var joinedAddr string
+		// Regardless of address updates, we want to call Join on the admin server at least once this
+		// much time in case address watching doesn't work.
+		timer := time.NewTimer(joinPeriod)
 		for {
 			select {
 			// Call Join every time the admin address changes.
 			case bytes := <-updates:
+				log.Info("Calling Join due to address update")
 				addr, err := addr.ParseAddr(bytes)
 				if err != nil {
-					log.Errorf("Failed to get admin address to rejoin, retrying later: %v", err)
-				} else {
-					retryJoinWithTimeout(ctx, addr)
+					log.Errorf("ParseAddr error: %v", err)
+					continue
 				}
-				timer.Reset(joinPeriod)
-			// Call Join at least every `joinPeriod` regardless of address change updates.
+				if addr == joinedAddr {
+					log.Infof("Not calling Join on old address %v", addr)
+					continue
+				}
+				if err := retryJoinWithTimeout(ctx, addr); err != nil {
+					log.Errorf("Failed to join %v: %v", addr, err)
+					continue
+				}
+				log.Infof("Joined %v", addr)
+				// On success, remember the address so this select branch calls Join only when a new address
+				// is received.
+				joinedAddr = addr
+			// Call Join at least every `joinPeriod` regardless of address changes.
 			case <-timer.C:
+				timer.Reset(joinPeriod)
+				log.Info("Calling Join at fixed interval")
 				addr, err := addr.FetchAddr(ctx, saxCell)
 				if err != nil {
-					log.Errorf("Failed to get admin address to rejoin, retrying later: %v", err)
-				} else {
-					retryJoinWithTimeout(ctx, addr)
+					log.Errorf("FetchAddr error: %v", err)
+					continue
 				}
-				timer.Reset(joinPeriod)
+				if err := retryJoinWithTimeout(ctx, addr); err != nil {
+					log.Errorf("Failed to join %v: %v", addr, err)
+					continue
+				}
+				log.Infof("Joined %v", addr)
 			}
 		}
 	}()
