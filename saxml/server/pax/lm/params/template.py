@@ -61,6 +61,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   ENABLE_GENERATE = True
   ENABLE_GENERATE_STREAM = False
   STREAM_INTERVAL_STEPS = 1
+  DECODE_MESH_TRANSPOSE = None
 
   def input_for_model_init(self):
     batch_size = self.BATCH_SIZE
@@ -113,7 +114,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
           seqlen=self.INPUT_SEQ_LEN + self.MAX_DECODE_STEPS,
           beam_size=self.BEAM_SIZE,
           eos_id=self.EOS_ID,
-          length_norm_alpha=self.LENGTH_NORM_ALPHA)
+          length_norm_alpha=self.LENGTH_NORM_ALPHA,
+          decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE)
     else:
       generate_hparams = decoder_hparams.SampleDecoderHParams(
           fprop_for_prefix=self.FPROP_FOR_PREFIX,
@@ -125,7 +127,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
           num_samples=self.NUM_SAMPLES,
           temperature=None,
           eos_id=self.EOS_ID,
-          k=self.TOP_K)
+          k=self.TOP_K,
+          decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE)
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
         max_input_seq_len=self.INPUT_SEQ_LEN,
