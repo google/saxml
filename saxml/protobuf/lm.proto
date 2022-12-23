@@ -68,6 +68,40 @@ message GenerateResponse {
   repeated DecodedText texts = 1;
 }
 
+// Usage example:
+//
+// results = [""] * num_of_samples
+// scores = [0.0] * num_of_samples
+// for response in range(get_streaming_responses()):
+//   for i, item in enumerate(response.items):
+//     results[i] = results[i][:item.prefix_len] + item.text
+//     scores[i] = item.score
+//
+// results[i] and scores[i] will contain the fully decoded text and score for
+// the ith item.
+message GenerateStreamItem {
+  // The decoded text. This contains new, incrementally decoded text not
+  // included in the result accumulated so far.
+  string text = 1;
+
+  // How many leading characters in the result accumulated so far should
+  // prefix the `text` field above.
+  int32 prefix_len = 2;
+
+  // The final response in a stream is required to contain scores for each
+  // fully decoded item.
+  double score = 3;
+}
+
+// Each response message represents one incremental decoding result in a
+// streaming of results.
+message GenerateStreamResponse {
+  // Each item corresponds to one of several possible decoded suffixes.
+  // The server decides on the order of these items. In other words, the order
+  // is not guaranteed to be stable between responses.
+  repeated GenerateStreamItem items = 1;
+}
+
 message EmbedRequest {
   string model_key = 1;
   string text = 2;
@@ -85,8 +119,8 @@ service LMService {
   // Returns generated texts using the text prefix in the request.
   rpc Generate(GenerateRequest) returns (GenerateResponse);
 
-  // Returns generated text stream using the test prefix.
-  rpc GenerateStream(GenerateRequest) returns (stream GenerateResponse);
+  // Returns a stream of generated texts using the text prefix in the request.
+  rpc GenerateStream(GenerateRequest) returns (stream GenerateStreamResponse);
 
   // Returns a text embedding given the text.
   rpc Embed(EmbedRequest) returns (EmbedResponse);

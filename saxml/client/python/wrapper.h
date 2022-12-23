@@ -100,7 +100,7 @@ class LanguageModel {
   // When `last` is true, this is the last callback invocation.
   // When `last` is false, `results` contains all decoding results so far.
   typedef std::function<void(
-      bool last, std::vector<std::pair<std::string, double>> results)>
+      bool last, std::vector<std::tuple<std::string, int, double>> results)>
       GenerateCallback;
   absl::Status GenerateStream(absl::string_view prefix,
                               GenerateCallback callback,

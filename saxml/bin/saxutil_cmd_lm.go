@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -28,6 +29,12 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"saxml/client/go/sax"
 )
+
+var clear = func() {
+	cmd := exec.Command("clear")
+	cmd.Stdout = os.Stdout
+	cmd.Run()
+}
 
 // GenerateCmd is the command for generate
 type GenerateCmd struct {
@@ -57,8 +64,8 @@ func (c *GenerateCmd) SetFlags(f *flag.FlagSet) {
 
 func (c *GenerateCmd) streamingGenerate(ctx context.Context, query string, lm *sax.LanguageModel) subcommands.ExitStatus {
 	chanStreamResults := lm.GenerateStream(ctx, query, ExtraInputs(c.extra)...)
-	var fullText, prev string
-	var end bool
+	var accumulatedResults []string
+	var scores []float64
 	for {
 		select {
 		case <-ctx.Done():
@@ -67,41 +74,37 @@ func (c *GenerateCmd) streamingGenerate(ctx context.Context, query string, lm *s
 		case streamResult := <-chanStreamResults:
 			switch streamResult.Err {
 			case nil:
-				// Every streamResult contains all tokens decoded so far represented as separate texts.
-				var texts []string
-				for _, generateResult := range streamResult.Result {
-					if generateResult.Score == 0 {
-						// All but the last streaming response have zero scores.
-						texts = append(texts, generateResult.Text)
-					} else {
-						// The last streaming response contains the full text decoded from all tokens and score.
-						if end {
-							fmt.Printf("Got two full texts unexpectedly: %q and %q\n", fullText, generateResult.Text)
-							return subcommands.ExitFailure
-						}
-						end = true
-						fullText = generateResult.Text
+				// Grow accumulatedResults and scores to accommodate all returned suffixes.
+				for len(accumulatedResults) < len(streamResult.Items) {
+					accumulatedResults = append(accumulatedResults, "")
+				}
+				for len(scores) < len(streamResult.Items) {
+					scores = append(scores, 0.0)
+				}
+				clear()
+				for i, item := range streamResult.Items {
+					if len(accumulatedResults[i]) < item.PrefixLen {
+						fmt.Printf("PrefixLen %v exceeds the current result %v\n", item.PrefixLen, accumulatedResults[i])
+						return subcommands.ExitFailure
 					}
-				}
-				if end {
-					// If this is the last streaming response, skip to the io.EOF case in the next iteration.
-					continue
-				}
+					accumulatedResults[i] = accumulatedResults[i][:item.PrefixLen] + item.Text
+					scores[i] = item.Score
 
-				// For all but the last streaming responses, print incrementally added text compared to the
-				// last streaming response.
-				curr := strings.Join(texts, " ")
-				if !strings.HasPrefix(curr, prev) {
-					fmt.Printf("Current response %q not prefixed by previous response %q\n", curr, prev)
-					return subcommands.ExitFailure
+					// Print all suffixes separated by one blank line.
+					fmt.Println(accumulatedResults[i])
+					fmt.Println()
 				}
-				diff := strings.TrimPrefix(curr, prev)
-				fmt.Print(diff)
-				prev = curr
 			case io.EOF:
-				// Print the final full text on a newline.
-				fmt.Println()
-				fmt.Println("Full text:", fullText)
+				var strs []string
+				for _, score := range scores {
+					strs = append(strs, fmt.Sprintf("%v", score))
+				}
+				if len(strs) == 1 {
+					fmt.Print("Score: ")
+				} else {
+					fmt.Print("Scores: ")
+				}
+				fmt.Println(strings.Join(strs, ", "))
 				return subcommands.ExitSuccess
 			default:
 				fmt.Printf("Command failed: %v\n", streamResult.Err)

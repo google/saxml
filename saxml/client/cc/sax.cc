@@ -33,6 +33,7 @@ namespace client {
 
 using ::sax::ExtraInputs;
 using ::sax::server::lm::GenerateResponse;
+using ::sax::server::lm::GenerateStreamResponse;
 using ::sax::server::lm::ScoreRequest;
 using ::sax::server::lm::ScoreResponse;
 using LmEmbedResponse = ::sax::server::lm::EmbedResponse;
@@ -246,21 +247,22 @@ static void GenerateCallbackWrapper(void* cbCtx, void* outData, int outSize) {
   // function pointers, we need to wrap the callback in a free function to use
   // the C API. `cbCtx` allows us to send through the original callback.
   auto cb = reinterpret_cast<LanguageModel::GenerateCallback*>(cbCtx);
-  std::vector<LanguageModel::ScoredText> result;
+  std::vector<LanguageModel::GenerateItem> items;
 
   // Check if this is the last call.
   if (outData == nullptr) {
-    return (*cb)(/*last=*/true, result);
+    return (*cb)(/*last=*/true, items);
   }
 
   // For other calls, translate output to the format expected by the callback.
-  GenerateResponse out;
+  GenerateStreamResponse out;
   out.ParseFromArray(outData, outSize);
   free(outData);
-  for (const auto& res : out.texts()) {
-    result.push_back(LanguageModel::ScoredText{res.text(), res.score()});
+  for (const auto& item : out.items()) {
+    items.push_back(LanguageModel::GenerateItem{item.text(), item.prefix_len(),
+                                                item.score()});
   }
-  return (*cb)(/*last=*/false, result);
+  return (*cb)(/*last=*/false, items);
 }
 
 }  // namespace

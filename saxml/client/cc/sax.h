@@ -205,12 +205,37 @@ class LanguageModel {
   //
   // This is a blocking call. The calling thread will invoke the given callback
   // multiple times during streaming. This call returns when streaming ends,
-  // either successfully or due to error, conveyed by the returned status.
+  // either successfully or due to error, indicated by the returned status.
   //
   // When the callback is invoked, `last` indicates if this is the last call.
-  // `result` is valid iif `last` is false. The callback is called only when
+  // `items` is valid iif `last` is false. The callback is called only when
   // no error is encountered.
-  typedef std::function<void(bool last, const std::vector<ScoredText>& result)>
+  //
+  // Example:
+  //
+  // std::vector<std::string> texts;
+  // std::vector<double> scores;
+  // auto callback = [&texts, &scores](
+  //                     bool last,
+  //                     const std::vector<GenerateItem>& items) {
+  //   if (last) {
+  //     return;
+  //   }
+  //   texts.resize(items.size(), "");
+  //   scores.resize(items.size(), 0.0);
+  //   for (int i = 0; i < items.size(); i++) {
+  //     texts[i] = texts[i].substr(0, items[i].prefix_len) + items[i].text;
+  //     scores[i] = items[i].score;
+  //   }
+  // }
+  // absl::Status status = lm.GenerateStream(prefix, callback);
+  // EXPECT_OK(status);
+  struct GenerateItem {
+    std::string text;
+    int prefix_len;
+    double score;
+  };
+  typedef std::function<void(bool last, const std::vector<GenerateItem>& items)>
       GenerateCallback;
   absl::Status GenerateStream(absl::string_view prefix,
                               GenerateCallback cb) const;

@@ -57,7 +57,8 @@ class LmService(model_service_base.ModelService):
     if method_name == LMMethodName.GENERATE_STREAM:
       texts, scores = method_outputs
       for text, score in zip(texts, scores):
-        response.texts.append(lm_pb2.DecodedText(text=text, score=score))
+        # Let GenerateStream below add the correct value of prefix_len.
+        response.items.append(lm_pb2.GenerateStreamItem(text=text, score=score))
       return
     if method_name == LMMethodName.EMBED:
       embeddings = method_outputs
@@ -95,7 +96,8 @@ class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
     return resp
 
   async def GenerateStream(self, request, context):
-    empty_resp = lm_pb2.GenerateResponse()
+    curr_lengths = []
+    empty_resp = lm_pb2.GenerateStreamResponse()
     q = self.EnqueueStreamRequest(LMMethodName.GENERATE_STREAM,
                                   request.model_key, context, request,
                                   empty_resp)
@@ -103,6 +105,16 @@ class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
       msg = await q.get()
       if msg is None:
         break
+
+      # In this implementation, we never erase previously generated text and
+      # only append new text. Therefore, track the lengths of currently
+      # accumulated results and return them in `prefix_len`.
+      if len(curr_lengths) < len(msg.items):
+        curr_lengths += [0] * (len(msg.items) - len(curr_lengths))
+      for i, item in enumerate(msg.items):
+        item.prefix_len = curr_lengths[i]
+        curr_lengths[i] += len(item.text)
+
       yield msg
 
   async def Embed(self, request, context):

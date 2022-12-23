@@ -93,17 +93,58 @@ func (l *LanguageModel) Generate(ctx context.Context, text string, options ...Mo
 	return res, nil
 }
 
+// GenerateStreamItem represents one partially or fully decoded suffix.
+type GenerateStreamItem struct {
+	Text      string
+	PrefixLen int
+	Score     float64
+}
+
 // StreamResult is the result for streaming generate.
 type StreamResult struct {
 	// Err is the error for current channel call.
 	//   nil means no error;
 	//   EOF means success;
 	//   other error means failed streaming attempt.
-	Err    error
-	Result []GenerateResult
+	Err   error
+	Items []GenerateStreamItem
+}
+
+func extractGenerateStreamResponse(res *pb.GenerateStreamResponse) []GenerateStreamItem {
+	results := make([]GenerateStreamItem, 0, len(res.GetItems()))
+	for _, item := range res.GetItems() {
+		candidate := GenerateStreamItem{Text: item.GetText(), PrefixLen: int(item.GetPrefixLen()), Score: item.GetScore()}
+		results = append(results, candidate)
+	}
+	return results
 }
 
 // GenerateStream performs streaming sampling decoding for `text` on a language model.
+//
+// Example:
+//
+//		var texts []string
+//		var scores []float64
+//		ch := lm.GenerateStream(ctx, prefix)
+//		for res := range ch {
+//			switch res.Err {
+//			case nil:
+//				for i, item := range res.Items {
+//					if i >= len(texts) {
+//						texts = append(texts, "")
+//					}
+//					texts[i] = texts[i][:item.PrefixLen] + item.Text
+//					if i >= len(scores) {
+//						scores = append(scores, 0.0)
+//					}
+//					scores[i] = item.Score
+//				}
+//			case io.EOF:
+//	     log.Info("EOF")
+//			default:
+//				log.Fatal(err)
+//			}
+//		}
 func (l *LanguageModel) GenerateStream(ctx context.Context, text string, options ...ModelOptionSetter) chan StreamResult {
 	req := &pb.GenerateRequest{
 		ModelKey:    l.model.modelID,
@@ -121,7 +162,7 @@ func (l *LanguageModel) GenerateStream(ctx context.Context, text string, options
 		for {
 			resp, err := stream.Recv()
 			if err == nil {
-				res <- StreamResult{Result: extractGenerateResponse(resp)}
+				res <- StreamResult{Items: extractGenerateStreamResponse(resp)}
 				continue
 			}
 			// Pass both EOF and general errors to channel.

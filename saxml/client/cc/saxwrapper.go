@@ -445,13 +445,14 @@ func go_generate_stream(ptr C.long, timeout C.float, textData *C.char, textSize 
 		err := res.Err
 		switch err {
 		case nil:
-			ret := &lmpb.GenerateResponse{}
-			for _, v := range res.Result {
-				item := &lmpb.DecodedText{
-					Text:  v.Text,
-					Score: v.Score,
+			ret := &lmpb.GenerateStreamResponse{}
+			for _, v := range res.Items {
+				item := &lmpb.GenerateStreamItem{
+					Text:      v.Text,
+					PrefixLen: int32(v.PrefixLen),
+					Score:     v.Score,
 				}
-				ret.Texts = append(ret.GetTexts(), item)
+				ret.Items = append(ret.GetItems(), item)
 			}
 			content, err := proto.Marshal(ret)
 			if err != nil {

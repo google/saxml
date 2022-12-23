@@ -173,15 +173,17 @@ absl::Status LanguageModel::GenerateStream(absl::string_view prefix,
   // Python multi-threading.
   auto callback_wrapper =
       [callback](bool last,
-                 const std::vector<::sax::client::LanguageModel::ScoredText>&
-                     results) {
-        std::vector<std::pair<std::string, double>> r;
+                 const std::vector<::sax::client::LanguageModel::GenerateItem>&
+                     items) {
+        std::vector<std::tuple<std::string, int, double>> r;
+        r.reserve(items.size());
         if (last) return callback(true, r);
-        for (size_t i = 0; i < results.size(); i++) {
-          auto& item = results[i];
-          r.emplace_back(std::make_pair(std::move(item.suffix), item.score));
+        for (size_t i = 0; i < items.size(); i++) {
+          auto& item = items[i];
+          r.emplace_back(std::make_tuple(std::move(item.text), item.prefix_len,
+                                         item.score));
         }
-        callback(false, r);
+        callback(false, std::move(r));
       };
 
   if (options == nullptr) {
