@@ -56,6 +56,7 @@ pytype_strict_library(
     deps = [
         "//saxml/server:servable_model_params",
         "//saxml/server:utils",
+        "//third_party/py/absl-py/logging",
         "//third_party/py/jax",
         "//third_party/py/jax:mesh_utils",
         "//third_party/py/paxml:base_experiment",

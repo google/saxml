@@ -11,11 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Base class for servable model configs."""
 
 import abc
 from typing import Any, Dict, List, Optional, Union, Tuple, Type
+from absl import logging
 
 import jax
 from jax.experimental import mesh_utils
@@ -33,6 +33,9 @@ def get_pax_checkpoint_type() -> checkpoint_pb2.CheckpointType:
   return checkpoint_pb2.CheckpointType.CHECKPOINT_GDA
 
 
+logged_jax_device = False
+
+
 class ServableModelParams(base_experiment.BaseExperiment,
                           servable_model_params.ServableModelParams):
   """A base class that each model config needs to implement for serving."""
@@ -42,12 +45,16 @@ class ServableModelParams(base_experiment.BaseExperiment,
 
   @classmethod
   def check_serving_platform(cls) -> utils.Status:
+    global logged_jax_device
+    if not logged_jax_device:
+      logging.info('jax devices: %s', jax.devices())
+      logged_jax_device = True
     mesh_shape = cls.serving_mesh_shape()
     try:
       # If mesh_shape is supported, create_device_mesh should succeed.
       mesh_utils.create_device_mesh(mesh_shape)
-    except Exception:  # pylint: disable=broad-except
-      return utils.invalid_arg('Unsupported mesh shape')
+    except Exception as e:  # pylint: disable=broad-except
+      return utils.invalid_arg(f'Unsupported mesh shape: {e}')
     return utils.ok()
 
   @classmethod
