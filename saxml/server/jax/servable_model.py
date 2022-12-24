@@ -15,6 +15,7 @@
 
 import abc
 import dataclasses
+import functools
 import threading
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
@@ -37,6 +38,7 @@ PSpecs = Any
 ShapesAndDtypes = Any
 Shapes = Any
 JaxTensors = Any
+InputShapeInfo = servable_model.InputShapeInfo
 
 
 def remove_padding(x: jnp.ndarray, shape: Sequence[int]) -> jnp.ndarray:
@@ -120,7 +122,7 @@ class ServableMethod(servable_model.ServableMethod):
                dummy_input_sample: Any) -> None:
     super().__init__(method_params)
     self._model_state = model_state
-    self._per_bs_infos: Dict[int, MethodInputInfo] = {}
+    self._per_bs_infos: Dict[InputShapeInfo, MethodInputInfo] = {}
     self._dummy_input_sample = dummy_input_sample
     self._prng_key = prng_key
     self._step = StepCounter()
@@ -140,20 +142,27 @@ class ServableMethod(servable_model.ServableMethod):
   def callback_device_index(self) -> int:
     return self._callback_device_index
 
-  def load(self) -> None:
+  def get_sorted_input_shapes(self) -> List[InputShapeInfo]:
+    result = []
     for batch_size in self._sorted_batch_sizes:
-      logging.info('Initializing for batch size %s', batch_size)
-      self._register_for_batch_size(batch_size)
+      result.append(InputShapeInfo(batch_size))
+    return result
 
-  def get_dummy_inputs(self, batch_size: int) -> HostTensors:
+  def load(self) -> None:
+    for input_shape in self.get_sorted_input_shapes():
+      logging.info('Initializing for input_shape %s', input_shape)
+      self._register_for_input_shape(input_shape)
+
+  def get_dummy_inputs(self, input_shape: InputShapeInfo) -> HostTensors:
     """Returns host tensors with dummy data at a batch size."""
-    return self.pre_processing([self._dummy_input_sample] * batch_size)
+    return self.pre_processing([self._dummy_input_sample] *
+                               input_shape.batch_size)
 
-  def _register_for_batch_size(self, batch_size: int) -> None:
-    batched_host_dummy = self.get_dummy_inputs(batch_size)
+  def _register_for_input_shape(self, input_shape: InputShapeInfo) -> None:
+    batched_host_dummy = self.get_dummy_inputs(input_shape)
     batched_host_dummy = self.update_extra_inputs(
-        batched_host_dummy, batch_size,
-        [self.default_extra_inputs] * batch_size)
+        batched_host_dummy, input_shape.batch_size,
+        [self.default_extra_inputs] * input_shape.batch_size)
 
     def _assert_type(x):
       assert isinstance(x, np.ndarray), (
@@ -176,21 +185,21 @@ class ServableMethod(servable_model.ServableMethod):
     global_input_shape_dtypes = jax.tree_util.tree_map(
         lambda x: ((num_cores,) + x.shape, x.dtype), host_dummy)
 
-    self._per_bs_infos[batch_size] = MethodInputInfo(
+    self._per_bs_infos[input_shape] = MethodInputInfo(
         input_pspecs=input_pspecs,
         global_input_shape_dtypes=global_input_shape_dtypes,
     )
-    info = self._per_bs_infos[batch_size]
+    info = self._per_bs_infos[input_shape]
     info.dummy_inputs_per_device_buffers = self._input_to_device_buffers(
-        batched_host_dummy, batch_size, is_dummy=True)
+        batched_host_dummy, input_shape, is_dummy=True)
     info.dummy_inputs = self._device_buffers_to_jax_arrays(
-        info.dummy_inputs_per_device_buffers, batch_size)
+        info.dummy_inputs_per_device_buffers, input_shape)
     # Initialize the device function.
-    info.device_fn = self._pjit_device_fn(input_pspecs, batch_size)
+    info.device_fn = self._pjit_device_fn(input_pspecs, input_shape.batch_size)
 
     # Compute with dummy to trigger compilation.
     if self.model_state.precompile:
-      init_dummy_outputs = self.device_compute(info.dummy_inputs, batch_size)
+      init_dummy_outputs = self.device_compute(info.dummy_inputs, input_shape)
 
     if self.model_state.is_primary_host:
       # Transfer dummy to host to block until dummy computation is done.
@@ -225,26 +234,39 @@ class ServableMethod(servable_model.ServableMethod):
     """
     return ()
 
+  def _check_and_resize_to_host_array(self, x: HostTensors,
+                                      global_input_shape_dtype: ShapesAndDtypes,
+                                      unpadded_input_shape: InputShapeInfo):
+    """Checks the shape of x and resize to the desired shape.
+
+    Args:
+      x: Host tensor.
+      global_input_shape_dtype: Global input shape and dtype for this tensor.
+      unpadded_input_shape: Unpadded input shape.
+
+    Returns:
+      host array after padding or slice of x.
+    """
+    global_shape, global_dtype = global_input_shape_dtype
+    assert x.dtype == global_dtype, (x.dtype, global_dtype)
+    assert x.shape[1:] == global_shape[2:], (x.shape, global_shape)
+    b = x.shape[0]
+    assert unpadded_input_shape.batch_size == b
+    full_b = global_shape[1]
+    if b != full_b:
+      assert b < full_b
+      x = np.concatenate([x, np.repeat(x[:1], full_b - b, 0)], axis=0)
+    return x
+
   def _input_to_device_buffers(self, one_core_inputs: HostTensors,
-                               unpadded_batch_size: int,
+                               unpadded_input_shape: InputShapeInfo,
                                is_dummy: bool) -> DeviceTensors:
-    info = self._per_bs_infos[self.get_padded_batch_size(unpadded_batch_size)]
-
-    def _check_and_pad_to_host_array(x, global_input_shape_dtype):
-      global_shape, global_dtype = global_input_shape_dtype
-      assert x.dtype == global_dtype, (x.dtype, global_dtype)
-      assert x.shape[1:] == global_shape[2:], (x.shape, global_shape)
-      b = x.shape[0]
-      assert unpadded_batch_size == b
-      full_b = global_shape[1]
-      if b != full_b:
-        assert b < full_b
-        x = np.concatenate([x, np.repeat(x[:1], full_b - b, 0)], axis=0)
-      return x
-
+    info = self._per_bs_infos[self.get_padded_input_shape(unpadded_input_shape)]
     step = np.array(self._step.next(), dtype=np.int32)
     host_inputs = jax.tree_util.tree_map(
-        _check_and_pad_to_host_array,
+        functools.partial(
+            self._check_and_resize_to_host_array,
+            unpadded_input_shape=unpadded_input_shape),
         one_core_inputs,
         # Only the batched inputs.
         info.global_input_shape_dtypes[1])
@@ -288,11 +310,11 @@ class ServableMethod(servable_model.ServableMethod):
     return jax.tree_util.tree_map(_update_buffers, host_inputs,
                                   info.dummy_inputs_per_device_buffers)
 
-  def _device_buffers_to_jax_arrays(self, buffers: Any,
-                                    batch_size: int) -> DeviceTensors:
+  def _device_buffers_to_jax_arrays(
+      self, buffers: Any, input_shape: InputShapeInfo) -> DeviceTensors:
     if not self.model_state.input_prefetch:
       return buffers
-    info = self._per_bs_infos[batch_size]
+    info = self._per_bs_infos[input_shape]
 
     def _to_jax_array(pspec, bufs, shape_dtype):
       shape, _ = shape_dtype
@@ -304,12 +326,12 @@ class ServableMethod(servable_model.ServableMethod):
                                   info.global_input_shape_dtypes)
 
   def input_to_device(self, one_core_inputs: HostTensors,
-                      unpadded_batch_size: int) -> DeviceTensors:
+                      unpadded_input_shape: InputShapeInfo) -> DeviceTensors:
     """Transfers input data to device. Pads incomplete batches."""
     buffers = self._input_to_device_buffers(
-        one_core_inputs, unpadded_batch_size, is_dummy=False)
-    return self._device_buffers_to_jax_arrays(
-        buffers, self.get_padded_batch_size(unpadded_batch_size))
+        one_core_inputs, unpadded_input_shape, is_dummy=False)
+    padded_shape = self.get_padded_input_shape(unpadded_input_shape)
+    return self._device_buffers_to_jax_arrays(buffers, padded_shape)
 
   def output_to_host(self, output_tensors: DeviceTensors,
                      unpadded_batch_size: int) -> HostTensors:
@@ -368,19 +390,20 @@ class ServableMethod(servable_model.ServableMethod):
     return self.add_extra_inputs(input_batch, extra_input_tensors)
 
   def device_compute(self, input_batch: DeviceTensors,
-                     unpadded_batch_size: int) -> DeviceTensors:
+                     unpadded_shape: InputShapeInfo) -> DeviceTensors:
     """Executes the device computation."""
-    padded_batch_size = self.get_padded_batch_size(unpadded_batch_size)
+    padded_shape = self.get_padded_input_shape(unpadded_shape)
     with self.model_state.global_mesh:
-      output_batch = self._per_bs_infos[padded_batch_size].device_fn(
+      output_batch = self._per_bs_infos[padded_shape].device_fn(
           self.model_state.mdl_vars, input_batch)
       return output_batch
 
-  def compute_with_dummy_data(self, unpadded_batch_size: int) -> DeviceTensors:
+  def compute_with_dummy_data(self,
+                              unpadded_shape: InputShapeInfo) -> DeviceTensors:
     """Executes device computation with dummy inputs."""
-    padded_batch_size = self.get_padded_batch_size(unpadded_batch_size)
-    return self.device_compute(
-        self._per_bs_infos[padded_batch_size].dummy_inputs, padded_batch_size)
+    padded_shape = self.get_padded_input_shape(unpadded_shape)
+    return self.device_compute(self._per_bs_infos[padded_shape].dummy_inputs,
+                               padded_shape)
 
   @abc.abstractmethod
   def jax_func(self, mdl_vars: JaxTensors, prng_key: jnp.ndarray,

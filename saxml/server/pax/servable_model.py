@@ -42,7 +42,10 @@ from saxml.server.pax import servable_model_params
 
 ServableModelState = servable_model.ServableModelState
 StepCounter = servable_model.StepCounter
+HostTensors = servable_model.HostTensors
+InputShapeInfo = servable_model.InputShapeInfo
 MethodInputInfo = servable_model.MethodInputInfo
+ShapesAndDtypes = servable_model.ShapesAndDtypes
 CheckpointType = checkpoint_pb2.CheckpointType
 JTensor = pytypes.JTensor
 NpTensor = pytypes.NpTensor
@@ -125,13 +128,11 @@ class ServableMethod(servable_model.ServableMethod):
     self._dummy_bucket_key = -1
     self._exportable = exportable
     self._batch_option = BatchOption.from_servable_method_params(method_params)
+    self._bucket_keys = method_params.bucket_keys
 
-    if method_params.bucket_keys is None:
-      select_bucket_keys = [self._dummy_bucket_key]
-    else:
-      select_bucket_keys = method_params.bucket_keys
+    # TODO(b/261075587): remove conditional based input prefix bucketization.
     self._branch_selector = branch_selection.BranchSelector(
-        keys=select_bucket_keys)
+        keys=[self._dummy_bucket_key])
     self.load()
 
   @property
@@ -318,7 +319,7 @@ class ServableMethod(servable_model.ServableMethod):
   @property
   def model_fn_input_polymorphic_shape(self) -> pytypes.Nested[str]:
     """Returns a batch polymorphic shape for jax2tf."""
-    batched_host_dummy = self.get_dummy_inputs(self.batch_size)
+    batched_host_dummy = self.get_dummy_inputs(InputShapeInfo(self.batch_size))
     batched_host_dummy = self.update_extra_inputs(
         batched_host_dummy, self.batch_size,
         [self.default_extra_inputs] * self.batch_size)

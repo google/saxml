@@ -48,6 +48,7 @@ from saxml.server.spmd_backend import SPMDBackend
 from google.protobuf import message
 
 DeviceTensors = servable_model.DeviceTensors
+InputShapeInfo = servable_model.InputShapeInfo
 Closure = Callable[[], None]
 StatusCallback = Callable[..., None]
 
@@ -149,6 +150,7 @@ class Batch:
   # synchronous device-based sync only. This is used when there is no unfinished
   # batch in queue to overlap with async host sync.
   skip_host_sync: bool = False
+  unpadded_shape: InputShapeInfo = InputShapeInfo()
 
   def size(self):
     return len(self.rpc_tasks)
@@ -194,7 +196,8 @@ class PerMethodBatcher:
       batch_size: int,
       max_live_batches: int,
       preprocess_fn: Optional[Callable[[Sequence[utils.RpcQueueTask]],
-                                       DeviceTensors]] = None
+                                       Tuple[DeviceTensors,
+                                             InputShapeInfo]]] = None
   ) -> None:
     """Registers a method that should be batched.
 
@@ -240,7 +243,12 @@ class PerMethodBatcher:
           batch_sem.release()
           continue
 
-        batch = Batch(key, rpc_tasks, None, _finish_batch)
+        batch = Batch(
+            key,
+            rpc_tasks,
+            None,
+            _finish_batch,
+            unpadded_shape=InputShapeInfo(batch_size=len(rpc_tasks)))
         # If there is no other unprocessed batch, we enqueue to batch before
         # preprocessing finishes.
         with self._global_live_batches_lock:
@@ -255,7 +263,7 @@ class PerMethodBatcher:
           batch.mark_as_ready()
         else:
           try:
-            input_tensors = preprocess_fn(rpc_tasks)
+            input_tensors, unpadded_shape = preprocess_fn(rpc_tasks)
           except Exception as e:  # pylint: disable=broad-except
             # Catch arbitrary exception and propagate the error to the client
             # without crashing the server.
@@ -264,11 +272,13 @@ class PerMethodBatcher:
               rpc_task.done(utils.internal_error(error_msg))
             # Set input_tensors to None to indicate failed preprocess.
             input_tensors = None
+            unpadded_shape = InputShapeInfo(batch_size=len(rpc_tasks))
             if not presync:
               _finish_batch()
             continue
           finally:
             batch.input_tensors = input_tensors
+            batch.unpadded_shape = unpadded_shape
             batch.mark_as_ready()
         if not presync:
           self._batch_queue.put(batch)
@@ -999,6 +1009,7 @@ class ModelServicesRunner:
             service.ParseMethodRPCRequest(method_name, t.request)
             for t in rpc_tasks
         ])
+        unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
         extra_inputs = [
             dict(t.request.extra_inputs.items)
             if hasattr(t.request, 'extra_inputs') and t.request.extra_inputs
@@ -1007,9 +1018,9 @@ class ModelServicesRunner:
         inputs = method.update_extra_inputs(inputs, len(rpc_tasks),
                                             extra_inputs)
         utils.traceprint_all(rpc_tasks, 'After pre_processing')
-        res = method.input_to_device(inputs, len(rpc_tasks))
+        res = method.input_to_device(inputs, unpadded_shape)
         utils.traceprint_all(rpc_tasks, 'After input_to_device')
-        return res
+        return res, unpadded_shape
 
       self._batcher.register_method(
           model,
@@ -1239,11 +1250,10 @@ class ModelServicesRunner:
         # An exception must be from low-level software/hardware stack and we
         # crash the job.
         try:
-          unpadded_batch_size = len(batch.rpc_tasks)
           self._inform_secondary_hosts(
               batch.method.name,
               batch.method.model_key,
-              str(unpadded_batch_size),
+              str(batch.unpadded_shape),
               skip_host_sync=batch.skip_host_sync)
           model = self._loaded_models.get_model(batch.method.model_key)
           batch.wait_for_ready()
@@ -1256,8 +1266,7 @@ class ModelServicesRunner:
             # Failed preprosessing. Since we have already informed secondary
             # hosts, we need to compute on tensors.
             if self._spmd_backend.spmd_host_count() > 1:
-              result = method_obj.compute_with_dummy_data(
-                  unpadded_batch_size=unpadded_batch_size)
+              result = method_obj.compute_with_dummy_data(batch.unpadded_shape)
               if method_obj.streamable:
                 streaming_done = utils.Notification()
                 self._postprocess_stream_async(model, batch, streaming_done)
@@ -1266,7 +1275,7 @@ class ModelServicesRunner:
           else:
             result = method_obj.device_compute(
                 input_batch=batch.input_tensors,
-                unpadded_batch_size=unpadded_batch_size)
+                unpadded_shape=batch.unpadded_shape)
 
             if method_obj.streamable:
               streaming_done = utils.Notification()
@@ -1333,12 +1342,13 @@ class ModelServicesRunner:
         # we crash the job.
         try:
           model_key = msgs.pop(0)
-          unpadded_batch_size = int(msgs.pop(0))
-          logging.info(
-              'Received model_key %s method %s, unpadded_batch_size %s',
-              model_key, method, unpadded_batch_size)
-          self._loaded_models.get_model(model_key).method(
-              method).compute_with_dummy_data(unpadded_batch_size)
+          unpadded_shape_str = msgs.pop(0)
+          logging.info('Received model_key %s method %s, unpadded_shape %s',
+                       model_key, method, unpadded_shape_str)
+          method_obj = self._loaded_models.get_model(model_key).method(method)
+          unpadded_shape = method_obj.deserialize_input_shape(
+              unpadded_shape_str)
+          method_obj.compute_with_dummy_data(unpadded_shape)
         except Exception as e:  # pylint: disable=broad-except
           self._worker_thread_exception = e
           break

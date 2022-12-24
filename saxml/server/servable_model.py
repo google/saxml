@@ -14,6 +14,8 @@
 """Wraps a model with service APIs."""
 
 import abc
+import dataclasses
+import json
 import queue
 from typing import Any, Dict, List, Optional
 
@@ -22,6 +24,16 @@ from saxml.server import servable_model_params
 HostTensors = Any
 DeviceTensors = Any
 ExtraInput = Dict[str, float]
+
+
+@dataclasses.dataclass(eq=True, frozen=True)
+class InputShapeInfo:
+  """Input shape information."""
+
+  def __str__(self):
+    return json.dumps(dataclasses.asdict(self))
+
+  batch_size: int = -1
 
 
 class ServableMethod(abc.ABC):
@@ -63,7 +75,7 @@ class ServableMethod(abc.ABC):
 
   @abc.abstractmethod
   def input_to_device(self, one_core_inputs: HostTensors,
-                      unpadded_batch_size: int) -> DeviceTensors:
+                      unpadded_shape: InputShapeInfo) -> DeviceTensors:
     """Transfers input data to device. Pads incomplete batches."""
 
   @abc.abstractmethod
@@ -121,7 +133,7 @@ class ServableMethod(abc.ABC):
 
   @abc.abstractmethod
   def device_compute(self, input_batch: DeviceTensors,
-                     unpadded_batch_size: int) -> DeviceTensors:
+                     unpadded_shape: InputShapeInfo) -> DeviceTensors:
     """Executes the device computation."""
 
   @property
@@ -141,13 +153,36 @@ class ServableMethod(abc.ABC):
     """Marks the streaming as done."""
     self._stream_queue.put(None)
 
-  def get_padded_batch_size(self, unpadded_batch_size: int) -> int:
+  def deserialize_input_shape(self, unpadded_shape_str: str) -> InputShapeInfo:
+    """Deserialize input shape from a str."""
+    unpadded_shape_dict = json.loads(unpadded_shape_str)
+    return InputShapeInfo(batch_size=unpadded_shape_dict['batch_size'])
+
+  def get_padded_input_shape(self,
+                             unpadded_shape: InputShapeInfo) -> InputShapeInfo:
+    """Get padded input shape.
+
+    Args:
+      unpadded_shape: Unpadded shape information contains batch size or sequence
+        length.
+
+    Returns:
+      Padded input shape.
+    Raises:
+      ValueError if unpadded batch size or sequence length too large.
+    """
     for bs in self.sorted_batch_sizes:
-      if bs >= unpadded_batch_size:
-        return bs
+      if bs >= unpadded_shape.batch_size:
+        return InputShapeInfo(bs)
+
     raise ValueError(
-        f'Batch size larger than maximum: {unpadded_batch_size} vs '
+        f'Batch size larger than maximum: {unpadded_shape.batch_size} vs '
         f'{self.batch_size}')
+
+  def get_unpadded_shape(self, unpadded_batch_size,
+                         inputs: HostTensors) -> InputShapeInfo:
+    del inputs
+    return InputShapeInfo(unpadded_batch_size)
 
   def compute(self,
               raw_inputs: List[Any],
@@ -160,15 +195,18 @@ class ServableMethod(abc.ABC):
                        f'{unpadded_batch_size}) than was '
                        f'configured ({self.batch_size})')
     inputs = self.pre_processing(raw_inputs)
-    inputs = self.update_extra_inputs(inputs, unpadded_batch_size, extra_inputs)
-    inputs = self.input_to_device(inputs, unpadded_batch_size)
-    outputs = self.device_compute(
-        inputs, self.get_padded_batch_size(unpadded_batch_size))
-    outputs = self.output_to_host(outputs, unpadded_batch_size)
+    unpadded_shape = self.get_unpadded_shape(unpadded_batch_size, inputs)
+    inputs = self.update_extra_inputs(inputs, unpadded_shape.batch_size,
+                                      extra_inputs)
+    inputs = self.input_to_device(inputs, unpadded_shape)
+    padded_shape = self.get_padded_input_shape(unpadded_shape)
+    outputs = self.device_compute(inputs, padded_shape)
+    outputs = self.output_to_host(outputs, unpadded_shape.batch_size)
     return self.post_processing(outputs)
 
   @abc.abstractmethod
-  def compute_with_dummy_data(self, unpadded_batch_size: int) -> DeviceTensors:
+  def compute_with_dummy_data(self,
+                              unpadded_shape: InputShapeInfo) -> DeviceTensors:
     """Executes device computation with dummy inputs."""
     # This is needed for multi-host SPMD programs to execute in sync.
 
