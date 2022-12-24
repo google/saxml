@@ -101,6 +101,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         slice_left=self.SLICE_LEFT)
 
   def generate(self) -> Optional[servable_lm_model.DecodeHParams]:
+    max_decode_steps = max(self.MAX_DECODE_STEPS) if isinstance(
+        self.MAX_DECODE_STEPS, list) else self.MAX_DECODE_STEPS
     if not self.ENABLE_GENERATE:
       return None
 
@@ -111,7 +113,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
       generate_hparams = decoder_hparams.BeamSearchHParams(
           fprop_for_prefix=True,
           max_decode_steps=self.MAX_DECODE_STEPS,
-          seqlen=self.INPUT_SEQ_LEN + self.MAX_DECODE_STEPS,
+          seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           beam_size=self.BEAM_SIZE,
           eos_id=self.EOS_ID,
           length_norm_alpha=self.LENGTH_NORM_ALPHA,
@@ -123,7 +125,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
           lazy_prefix_broadcast=(self.FPROP_FOR_PREFIX and
                                  self.NUM_SAMPLES > 1),
           max_decode_steps=self.MAX_DECODE_STEPS,
-          seqlen=self.INPUT_SEQ_LEN + self.MAX_DECODE_STEPS,
+          seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           num_samples=self.NUM_SAMPLES,
           temperature=None,
           eos_id=self.EOS_ID,
@@ -139,6 +141,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         extra_inputs=self.EXTRA_INPUTS)
 
   def generate_stream(self) -> Optional[servable_lm_model.DecodeHParams]:
+    max_decode_steps = max(self.MAX_DECODE_STEPS) if isinstance(
+        self.MAX_DECODE_STEPS, list) else self.MAX_DECODE_STEPS
     if not self.ENABLE_GENERATE_STREAM:
       return None
 
@@ -153,7 +157,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         # Use LPB for whenever FPROP_FOR_PREFIX is enabled.
         lazy_prefix_broadcast=(self.FPROP_FOR_PREFIX and self.NUM_SAMPLES > 1),
         max_decode_steps=self.MAX_DECODE_STEPS,
-        seqlen=self.INPUT_SEQ_LEN + self.MAX_DECODE_STEPS,
+        seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
         num_samples=self.NUM_SAMPLES,
         temperature=None,
         eos_id=self.EOS_ID,
