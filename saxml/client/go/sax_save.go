@@ -38,5 +38,5 @@ func (e *Saver) Save(ctx context.Context, checkpointPath string) error {
 		_, err := pbgrpc.NewModeletClient(conn).Save(ctx, req)
 		return err
 	}
-	return e.model.runGRPC(ctx, "Save", save)
+	return e.model.run(ctx, "Save", save)
 }

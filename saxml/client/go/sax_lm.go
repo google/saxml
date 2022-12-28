@@ -43,7 +43,7 @@ func (l *LanguageModel) Score(ctx context.Context, prefix string, suffix []strin
 	}
 
 	var resp *pb.ScoreResponse
-	err := l.model.runGRPC(ctx, "Score", func(conn *grpc.ClientConn) error {
+	err := l.model.run(ctx, "Score", func(conn *grpc.ClientConn) error {
 		var scoreErr error
 		resp, scoreErr = pbgrpc.NewLMServiceClient(conn).Score(ctx, req)
 		return scoreErr
@@ -81,7 +81,7 @@ func (l *LanguageModel) Generate(ctx context.Context, text string, options ...Mo
 	}
 
 	var resp *pb.GenerateResponse
-	err := l.model.runGRPC(ctx, "generate", func(conn *grpc.ClientConn) error {
+	err := l.model.run(ctx, "generate", func(conn *grpc.ClientConn) error {
 		var sampleErr error
 		resp, sampleErr = pbgrpc.NewLMServiceClient(conn).Generate(ctx, req)
 		return sampleErr
@@ -153,7 +153,7 @@ func (l *LanguageModel) GenerateStream(ctx context.Context, text string, options
 	}
 
 	res := make(chan StreamResult)
-	go l.model.runGRPC(ctx, "generateStream", func(conn *grpc.ClientConn) error {
+	go l.model.run(ctx, "generateStream", func(conn *grpc.ClientConn) error {
 		client := pbgrpc.NewLMServiceClient(conn)
 		stream, err := client.GenerateStream(ctx, req)
 		if err != nil {
@@ -190,7 +190,7 @@ func (l *LanguageModel) Embed(ctx context.Context, text string, options ...Model
 	}
 
 	var resp *pb.EmbedResponse
-	err := l.model.runGRPC(ctx, "Embed", func(conn *grpc.ClientConn) error {
+	err := l.model.run(ctx, "Embed", func(conn *grpc.ClientConn) error {
 		var embErr error
 		resp, embErr = pbgrpc.NewLMServiceClient(conn).Embed(ctx, req)
 		return embErr

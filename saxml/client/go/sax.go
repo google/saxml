@@ -50,17 +50,10 @@ type Model struct {
 	location *location.Table // Keeps track a list of addresses for this model.
 }
 
-// runGRPC runs a callback function (`callMethod`) against sax system with retries through gRPC.
+// run runs a callback function (`callMethod`) against sax system with retries through gRPC.
 // `methodName` is only for logging purpose.
 // `callMethod` is the callback function that performs model logic (e.g. score, sample).
-func (m *Model) runGRPC(ctx context.Context, methodName string, callMethod func(conn *grpc.ClientConn) error) error {
-	wrappedCallMethod := func(conn connection.Conn) error {
-		return callMethod(conn.(*grpc.ClientConn))
-	}
-	return m.run(ctx, methodName, wrappedCallMethod)
-}
-
-func (m *Model) run(ctx context.Context, methodName string, callMethod func(conn connection.Conn) error) error {
+func (m *Model) run(ctx context.Context, methodName string, callMethod func(conn *grpc.ClientConn) error) error {
 	makeQuery := func() error {
 		address, err := m.location.Pick(ctx)
 		if err != nil {

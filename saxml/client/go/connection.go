@@ -22,6 +22,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
+	"google.golang.org/grpc"
 	"saxml/common/errors"
 	"saxml/common/platform/env"
 )
@@ -32,13 +33,8 @@ const (
 	dialTimeout = 2 * time.Second
 )
 
-// Conn represents a gRPC or Stubby client connection.
-type Conn interface {
-	Close() error
-}
-
 type conn struct {
-	client      Conn
+	client      *grpc.ClientConn
 	lastAccTime time.Time
 }
 
@@ -77,7 +73,7 @@ func newConnTable() *connTable {
 
 // checkAndGet checks the existence of connecton for an addrress and returns connection.
 // The returned boolean indicates if connection is found.
-func (t *connTable) checkAndGet(addr string) (Conn, bool) {
+func (t *connTable) checkAndGet(addr string) (*grpc.ClientConn, bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	connection, found := t.table[addr]
@@ -88,14 +84,14 @@ func (t *connTable) checkAndGet(addr string) (Conn, bool) {
 	return nil, false
 }
 
-func (t *connTable) getOrCreate(ctx context.Context, addr string) (Conn, error) {
+func (t *connTable) getOrCreate(ctx context.Context, addr string) (*grpc.ClientConn, error) {
 	existingClient, found := t.checkAndGet(addr)
 	if found && existingClient != nil {
 		return existingClient, nil
 	}
 
 	// Couldn't find connection. Create a new one.
-	var newClient Conn
+	var newClient *grpc.ClientConn
 	var err error
 	ctx, cancel := context.WithTimeout(ctx, dialTimeout)
 	defer cancel()
@@ -125,6 +121,6 @@ func (t *connTable) getOrCreate(ctx context.Context, addr string) (Conn, error) 
 var globalConnTable *connTable = newConnTable()
 
 // GetOrCreate gets or creates a connection for a given address.
-func GetOrCreate(ctx context.Context, addr string) (Conn, error) {
+func GetOrCreate(ctx context.Context, addr string) (*grpc.ClientConn, error) {
 	return globalConnTable.getOrCreate(ctx, addr)
 }

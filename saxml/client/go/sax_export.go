@@ -52,5 +52,5 @@ func (e *Exporter) Export(ctx context.Context, methodName, exportPath, rngSeedMo
 		_, err := pbgrpc.NewModeletClient(conn).Export(ctx, req)
 		return err
 	}
-	return e.model.runGRPC(ctx, "Export", export)
+	return e.model.run(ctx, "Export", export)
 }

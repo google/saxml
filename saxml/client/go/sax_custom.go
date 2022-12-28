@@ -40,7 +40,7 @@ func (m *CustomModel) Custom(ctx context.Context, request string, methodName str
 	}
 
 	var resp *pb.CustomResponse
-	err := m.model.runGRPC(ctx, "CustomCall", func(conn *grpc.ClientConn) error {
+	err := m.model.run(ctx, "CustomCall", func(conn *grpc.ClientConn) error {
 		var customCallErr error
 		resp, customCallErr = pbgrpc.NewCustomServiceClient(conn).Custom(ctx, req)
 		return customCallErr

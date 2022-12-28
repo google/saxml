@@ -55,7 +55,7 @@ func (m *AudioModel) Recognize(ctx context.Context, audioBytes []byte, options .
 	}
 
 	var resp *pb.AsrResponse
-	err := m.model.runGRPC(ctx, "SpeechRecognition", func(conn *grpc.ClientConn) error {
+	err := m.model.run(ctx, "SpeechRecognition", func(conn *grpc.ClientConn) error {
 		var asrErr error
 		resp, asrErr = pbgrpc.NewAudioServiceClient(conn).Recognize(ctx, req)
 		return asrErr

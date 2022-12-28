@@ -54,7 +54,7 @@ func (v *VisionModel) Classify(ctx context.Context, imageBytes []byte, options .
 	}
 
 	var resp *pb.ClassifyResponse
-	err := v.model.runGRPC(ctx, "Classify", func(conn *grpc.ClientConn) error {
+	err := v.model.run(ctx, "Classify", func(conn *grpc.ClientConn) error {
 		var classifyErr error
 		resp, classifyErr = pbgrpc.NewVisionServiceClient(conn).Classify(ctx, req)
 		return classifyErr
@@ -91,7 +91,7 @@ func (v *VisionModel) TextToImage(ctx context.Context, text string, options ...M
 	}
 
 	var resp *pb.TextToImageResponse
-	err := v.model.runGRPC(ctx, "TextToImage", func(conn *grpc.ClientConn) error {
+	err := v.model.run(ctx, "TextToImage", func(conn *grpc.ClientConn) error {
 		var textToImageErr error
 		resp, textToImageErr = pbgrpc.NewVisionServiceClient(conn).TextToImage(ctx, req)
 		return textToImageErr
@@ -113,7 +113,7 @@ func (v *VisionModel) Embed(ctx context.Context, imageBytes []byte, options ...M
 	}
 
 	var resp *pb.EmbedResponse
-	err := v.model.runGRPC(ctx, "Embed", func(conn *grpc.ClientConn) error {
+	err := v.model.run(ctx, "Embed", func(conn *grpc.ClientConn) error {
 		var sampleErr error
 		resp, sampleErr = pbgrpc.NewVisionServiceClient(conn).Embed(ctx, req)
 		return sampleErr
@@ -159,7 +159,7 @@ func (v *VisionModel) Detect(ctx context.Context, imageBytes []byte, text []stri
 	}
 
 	var resp *pb.DetectResponse
-	err := v.model.runGRPC(ctx, "Detect", func(conn *grpc.ClientConn) error {
+	err := v.model.run(ctx, "Detect", func(conn *grpc.ClientConn) error {
 		var detectErr error
 		resp, detectErr = pbgrpc.NewVisionServiceClient(conn).Detect(ctx, req)
 		return detectErr
@@ -197,7 +197,7 @@ func (v *VisionModel) ImageToText(ctx context.Context, imageBytes []byte, text s
 	}
 
 	var resp *pb.ImageToTextResponse
-	err := v.model.runGRPC(ctx, "ImageToText", func(conn *grpc.ClientConn) error {
+	err := v.model.run(ctx, "ImageToText", func(conn *grpc.ClientConn) error {
 		var imageToTextErr error
 		resp, imageToTextErr = pbgrpc.NewVisionServiceClient(conn).ImageToText(ctx, req)
 		return imageToTextErr
@@ -238,7 +238,7 @@ func (v *VisionModel) VideoToText(ctx context.Context, imageFrames [][]byte, tex
 	}
 
 	var resp *pb.VideoToTextResponse
-	err := v.model.runGRPC(ctx, "VideoToText", func(conn *grpc.ClientConn) error {
+	err := v.model.run(ctx, "VideoToText", func(conn *grpc.ClientConn) error {
 		var videoToTextErr error
 		resp, videoToTextErr = pbgrpc.NewVisionServiceClient(conn).VideoToText(ctx, req)
 		return videoToTextErr

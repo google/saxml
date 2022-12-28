@@ -48,6 +48,7 @@ go_library(
         "//saxml/common:errors",
         "//saxml/common/platform:env",
         "@com_github_golang_glog//:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
     ],
 )
 
@@ -64,7 +65,6 @@ go_test(
         "//saxml/protobuf:lm_go_proto_grpc",
         # unused internal lm gRPC dependency,
         "@com_github_google_go_cmp//cmp:go_default_library",
-        "@org_golang_google_grpc//:go_default_library",
     ],
 )
 

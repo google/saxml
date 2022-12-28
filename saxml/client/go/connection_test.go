@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/grpc"
 	saxerrors "saxml/common/errors"
 	"saxml/common/platform/env"
 	_ "saxml/common/platform/cloud" // registers a platform
@@ -60,7 +59,7 @@ func TestConnection(t *testing.T) {
 				Suffix:   []string{"abc"},
 				Prefix:   "xyz",
 			}
-			modelServer := pbgrpc.NewLMServiceClient(conn.(*grpc.ClientConn))
+			modelServer := pbgrpc.NewLMServiceClient(conn)
 			res, err := modelServer.Score(context.Background(), req)
 			if err != nil {
 				t.Fatalf("Unable to Score() against address %s due to %v\n", addresses[j], err)
