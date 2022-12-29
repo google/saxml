@@ -378,15 +378,15 @@ class LMScoreMethod(ServableLMMethod):
 
   def fetch_output(self, model_fn_outputs: NestedJTensor,
                    model_fn_inputs: NestedJTensor) -> NestedJTensor:
+    if 'scores' in model_fn_outputs[0]:
+      # Custom scores.
+      return model_fn_outputs[0]['scores']
     # per_token_xent or per_example_xnent is -logprobs. We return the negative
     # value so that higher score is better.
     if 'per_token_xent' not in model_fn_outputs[0]:
       assert 'per_example_xent' in model_fn_outputs[0]
       assert model_fn_outputs[0].per_example_xent.ndim == 1
       return -model_fn_outputs[0].per_example_xent
-
-    if 'scores' in model_fn_outputs[0]:
-      return model_fn_outputs[0].scores
     seqlen = self._score_params.max_input_seq_len
     allow_seq_lens = self.sorted_seq_lens
     assert len(model_fn_outputs[0].per_token_xent.shape) > 1
