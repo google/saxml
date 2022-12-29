@@ -34,6 +34,7 @@ from praxis import base_layer
 from praxis import base_model
 from praxis import py_utils
 from praxis import pytypes
+from praxis.layers.quantization import quantize
 from saxml.server.jax import servable_model
 from saxml.server.pax import branch_selection
 from saxml.server.pax import servable_model_params
@@ -537,9 +538,8 @@ class ServableModel(servable_model.ServableModel):
             in_axis_resources=(mdl_var_pspecs, None),
             out_axis_resources=(new_pspec, None))
         mdl_vars, _ = pjit_quant_fn(mdl_vars, prng_key)
-        # Set mode to inference to run quantized model.
-        self._model_config.set_quant_mode('inference')
         new_task_p = self._model_config.task()
+        quantize.set_quantization(new_task_p.model)
         new_jax_task = new_task_p.Instantiate()
         model = new_jax_task.model
         task_p = new_task_p

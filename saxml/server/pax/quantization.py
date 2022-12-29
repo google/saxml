@@ -78,7 +78,6 @@ def for_transformer(quantize_on_the_fly=True):
           mode = quantization_hparams.QuantizationMode.MATERIALIZE
         else:
           mode = quantization_hparams.QuantizationMode.INFERENCE
-        config.set_quant_mode(mode)
         task_p = config.task()
 
         quantization_type_str, _ = config.get_quant_configs()
