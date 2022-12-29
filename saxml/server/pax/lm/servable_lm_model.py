@@ -243,10 +243,13 @@ class ServableLMMethod(servable_model.ServableMethod):
 
     return jax.tree_util.tree_map(_slice_fn, batched_input)
 
-  def _check_and_resize_to_host_array(self, x: HostTensors,
-                                      global_input_shape_dtype: ShapesAndDtypes,
-                                      unpadded_input_shape: InputShapeInfo):
-    """Checks the shape of x and resize to the desired shape.
+  def resize_host_array(
+      self,
+      x: np.ndarray,
+      global_input_shape_dtype: ShapesAndDtypes,
+      unpadded_input_shape: InputShapeInfo,
+  ):
+    """Resizes x to the desired shape.
 
     Args:
       x: Host tensor.
@@ -256,25 +259,21 @@ class ServableLMMethod(servable_model.ServableMethod):
     Returns:
       host array after padding or slice of x.
     """
-    global_shape, global_dtype = global_input_shape_dtype
-    assert x.dtype == global_dtype, (x.dtype, global_dtype)
-    b = x.shape[0]
-    assert unpadded_input_shape.batch_size == b
-    full_b = global_shape[1]
-    if b != full_b:
-      assert b < full_b
-      x = np.concatenate([x, np.repeat(x[:1], full_b - b, 0)], axis=0)
-    if unpadded_input_shape.seq_len == self._dummy_bucket_key or len(
-        x.shape) != 2:
-      return x
+    global_shape, _ = global_input_shape_dtype
+    if unpadded_input_shape.seq_len != self._dummy_bucket_key and len(
+        x.shape) == 2:
+      # x's shape has the longest sequence length with trailing 0s.
+      # Slice sequence which is the 2nd dim to have the desired sequence length.
+      l = x.shape[1]
+      full_l = global_shape[2]
+      if l != full_l:
+        assert l >= full_l
+        x = x[:, :full_l]
 
-    # x's shape has the longest sequence length with trailing 0s.
-    # Slice sequence which is the 2nd dim to have the desired sequence length.
-    l = x.shape[1]
-    full_l = global_shape[2]
-    if l != full_l:
-      assert l >= full_l
-      x = x[:, :full_l]
+    # Let the parent class handle the batch dim.
+    x = super().resize_host_array(
+        x, global_input_shape_dtype, unpadded_input_shape
+    )
     return x
 
   def _get_longest_seqlen(self, inputs: NestedNpTensor) -> int:

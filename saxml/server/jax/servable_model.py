@@ -234,10 +234,10 @@ class ServableMethod(servable_model.ServableMethod):
     """
     return ()
 
-  def _check_and_resize_to_host_array(self, x: HostTensors,
-                                      global_input_shape_dtype: ShapesAndDtypes,
-                                      unpadded_input_shape: InputShapeInfo):
-    """Checks the shape of x and resize to the desired shape.
+  def resize_host_array(self, x: np.ndarray,
+                        global_input_shape_dtype: ShapesAndDtypes,
+                        unpadded_input_shape: InputShapeInfo):
+    """Checks the shape of x and resizes to the desired shape.
 
     Args:
       x: Host tensor.
@@ -265,8 +265,7 @@ class ServableMethod(servable_model.ServableMethod):
     step = np.array(self._step.next(), dtype=np.int32)
     host_inputs = jax.tree_util.tree_map(
         functools.partial(
-            self._check_and_resize_to_host_array,
-            unpadded_input_shape=unpadded_input_shape),
+            self.resize_host_array, unpadded_input_shape=unpadded_input_shape),
         one_core_inputs,
         # Only the batched inputs.
         info.global_input_shape_dtypes[1])
