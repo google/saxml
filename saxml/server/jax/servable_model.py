@@ -251,7 +251,10 @@ class ServableMethod(servable_model.ServableMethod):
     assert x.dtype == global_dtype, (x.dtype, global_dtype)
     assert x.shape[1:] == global_shape[2:], (x.shape, global_shape)
     b = x.shape[0]
-    assert unpadded_input_shape.batch_size == b
+    assert unpadded_input_shape.batch_size == b, (
+        unpadded_input_shape.batch_size,
+        b,
+    )
     full_b = global_shape[1]
     if b != full_b:
       assert b < full_b
