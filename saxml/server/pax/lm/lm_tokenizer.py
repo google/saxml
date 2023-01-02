@@ -21,6 +21,8 @@ from praxis import base_hyperparams
 import seqio
 import tensorflow as tf
 
+StreamState = Tuple[tf.RaggedTensor, tf.Tensor]
+
 
 class LMTokenizer(base_hyperparams.BaseParameterizable):
   """Tokenizer for language models."""
@@ -134,38 +136,50 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
     assert p.spm_model
     return self._vocab.tf_tokenizer.detokenize(ids)
 
-  def InitStream(self, batch_size: int) -> Tuple[tf.RaggedTensor, tf.Tensor]:
+  def InitStream(self, batch_size: tf.Tensor) -> StreamState:
     """Create the initial state for streaming.
 
     Args:
-      batch_size: the number of decoding streams.
+      batch_size: A scalar or 1D tensor representing stream formation, usually
+        batch or [batch, num_samples].
 
     Returns:
 
       A tuple of 2 elements:
-        - A ragged tensor of [batch_size, seqlen] unprocessed prefix IDs.
-        - A boolean tensor [batch_size] indicating if any prefix strings have
-          been generated.
+        - A ragged tensor of shape [np.prod(batch_size), seqlen], containing
+          unprocessed prefix IDs.
+        - A boolean tensor of shape batch_size indicating if any prefix strings
+          have been generated.
     """
-    return tf.ragged.constant(
-        [[]] * batch_size, dtype=tf.int32), tf.fill([batch_size], False)
+    nrows = tf.math.reduce_prod(batch_size).numpy()
+    unprocessed_prefix_ids = tf.ragged.constant([[]] * nrows, dtype=tf.int32)
+    started = tf.fill(batch_size, False)
+    return unprocessed_prefix_ids, started
 
   def DecodeOnStream(
-      self, stream_state: Tuple[tf.RaggedTensor, tf.Tensor], new_ids: tf.Tensor
-  ) -> Tuple[tf.Tensor, Tuple[tf.RaggedTensor, tf.Tensor]]:
+      self, new_ids: tf.Tensor, stream_state: StreamState
+  ) -> Tuple[tf.Tensor, StreamState]:
     """Converts new chunks of IDs on decoding streams.
 
     Args:
-      stream_state: stream state. See description in InitStream.
-      new_ids: A matrix of shape [batch, new_chunk_len] for the newly generated
-        IDs for streaming.
+      new_ids: A matrix of shape [batch, ..., new_chunk_len] containing IDs
+        newly generated from streaming.
+      stream_state: Stream state. See description in InitStream.
 
     Returns:
-      A tuple of (newly decoded strings, updated stream state)
+      A tuple of (newly decoded strings, updated stream state).
     """
-    unprocessed_prefix_ids, started = stream_state
     p = self.hparams
     assert p.spm_model
+
+    # Merge all leading N - 1 dimensions of new_ids and started to match the
+    # flattened ragged tensor.
+    unprocessed_prefix_ids, started = stream_state
+    batch_size = tf.shape(started)
+    nrows = tf.math.reduce_prod(batch_size).numpy()
+    new_ids = tf.reshape(new_ids, [nrows, -1])
+    started = tf.reshape(started, [nrows])
+
     # Find the byte-encoded IDs.
     new_ids_shape = tf.shape(new_ids)
     b, new_seqlen = new_ids_shape[0], new_ids_shape[1]
@@ -218,15 +232,19 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
     new_unprocessed_prefix_ids = tf.concat([remaining_prefix, trailing_bytes],
                                            axis=1)
 
+    # Reshape output back to [batch_size, ...] before returning.
+    new_strs = tf.reshape(new_strs, batch_size)
+    new_started = tf.reshape(new_started, batch_size)
     return new_strs, (new_unprocessed_prefix_ids, new_started)
 
-  def FinishStream(
-      self, stream_state: Tuple[tf.RaggedTensor, tf.Tensor]) -> tf.Tensor:
+  def FinishStream(self, stream_state: StreamState) -> tf.Tensor:
     """Finishes the streams by decoding any remaining tokens."""
     p = self.hparams
     assert p.spm_model
-    b = tf.shape(stream_state[1])[0]
-    new_strs, _ = self.DecodeOnStream(
-        stream_state,
-        tf.fill([b, 1], tf.constant(p.target_eos_id, dtype=tf.int32)))
+    _, started = stream_state
+    batch_size = tf.shape(started)
+
+    eos_ids = tf.fill(batch_size, tf.constant(p.target_eos_id, dtype=tf.int32))
+    eos_ids = tf.expand_dims(eos_ids, axis=-1)
+    new_strs, _ = self.DecodeOnStream(eos_ids, stream_state)
     return new_strs

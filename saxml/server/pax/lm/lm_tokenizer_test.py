@@ -98,14 +98,15 @@ class LMTokenizerTest(tf.test.TestCase, parameterized.TestCase):
     tokenizer = instantiate(p)
     state = tokenizer.InitStream(2)
 
-    strs, state = tokenizer.DecodeOnStream(state, [[0], [261]])
+    strs, state = tokenizer.DecodeOnStream([[0], [261]], state)
     self.assertEqual([b'', b'the'], list(strs))
-    strs, state = tokenizer.DecodeOnStream(state, [[9873], [1242]])
+    strs, state = tokenizer.DecodeOnStream([[9873], [1242]], state)
     self.assertEqual([b'hello', b' quick'], list(strs))
-    strs, state = tokenizer.DecodeOnStream(state,
-                                           [[640, 1, 0], [3350, 9806, 11144]])
+    strs, state = tokenizer.DecodeOnStream(
+        [[640, 1, 0], [3350, 9806, 11144]], state
+    )
     self.assertEqual([b' world', b' brown fox jumps'], list(strs))
-    strs, state = tokenizer.DecodeOnStream(state, [[0], [1]])
+    strs, state = tokenizer.DecodeOnStream([[0], [1]], state)
     self.assertEqual([b'', b''], list(strs))
     strs = tokenizer.FinishStream(state)
     self.assertEqual([b'', b''], list(strs))
@@ -119,18 +120,39 @@ class LMTokenizerTest(tf.test.TestCase, parameterized.TestCase):
             [b'<0x67>', b'<0x68>', b'<0x69>']))
     state = tokenizer.InitStream(2)
 
-    strs, state = tokenizer.DecodeOnStream(state, [[9873], [261]])
+    strs, state = tokenizer.DecodeOnStream([[9873], [261]], state)
     self.assertEqual([b'hello', b'the'], list(strs))
-    strs, state = tokenizer.DecodeOnStream(state,
-                                           [[byte_ids[0]], [byte_ids[1]]])
+    strs, state = tokenizer.DecodeOnStream(
+        [[byte_ids[0]], [byte_ids[1]]], state
+    )
     self.assertEqual([b'', b''], list(strs))
-    strs, state = tokenizer.DecodeOnStream(state, [[byte_ids[2]], [1242]])
+    strs, state = tokenizer.DecodeOnStream([[byte_ids[2]], [1242]], state)
     self.assertEqual([b'', b'h quick'], list(strs))
     strs, state = tokenizer.DecodeOnStream(
-        state, [[byte_ids[2], 640], [byte_ids[0], byte_ids[1]]])
+        [[byte_ids[2], 640], [byte_ids[0], byte_ids[1]]], state
+    )
     self.assertEqual([b'gii world', b''], list(strs))
     strs = tokenizer.FinishStream(state)
     self.assertEqual([b'', b'gh'], list(strs))
+
+  def testStreamBatchSizeTensor(self):
+    p = _CreateParams()
+    tokenizer = instantiate(p)
+    batch_size = tf.constant([1, 2])
+    state = tokenizer.InitStream(batch_size)
+
+    strs, state = tokenizer.DecodeOnStream([[[0], [261]]], state)
+    self.assertAllEqual([[b'', b'the']], strs)
+    strs, state = tokenizer.DecodeOnStream([[[9873], [1242]]], state)
+    self.assertAllEqual([[b'hello', b' quick']], strs)
+    strs, state = tokenizer.DecodeOnStream(
+        [[[640, 1, 0], [3350, 9806, 11144]]], state
+    )
+    self.assertAllEqual([[b' world', b' brown fox jumps']], strs)
+    strs, state = tokenizer.DecodeOnStream([[[0], [1]]], state)
+    self.assertAllEqual([[b'', b'']], strs)
+    strs = tokenizer.FinishStream(state)
+    self.assertAllEqual([[b'', b'']], strs)
 
 
 if __name__ == '__main__':

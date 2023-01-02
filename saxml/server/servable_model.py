@@ -17,7 +17,7 @@ import abc
 import dataclasses
 import json
 import queue
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from saxml.server import servable_model_params
 
@@ -130,6 +130,26 @@ class ServableMethod(abc.ABC):
   @abc.abstractmethod
   def post_processing(self, compute_outputs: HostTensors) -> List[Any]:
     """Postprocesses the output host arrays to final host output."""
+
+  def post_processing_stream(
+      self,
+      compute_outputs: Optional[HostTensors] = None,
+      stream_state: Optional[Any] = None,
+  ) -> Tuple[List[Tuple[List[str], List[float]]], Optional[Any]]:
+    """Postprocesses one streaming output.
+
+    Args:
+      compute_outputs: Tensors streamed out of the device. If missing, finalize
+        streaming using stream_state.
+      stream_state: The stream_state returned by the previous call. If missing,
+        initialize streaming using compute_outputs as the first input.
+
+    Returns:
+      Final host output and state to pass to the next call. The output contains
+      a list of batch tuples. Each tuple contains two lists of num_samples
+      elements: decoded strings and scores, respectively.
+    """
+    raise NotImplementedError('post_processing_stream not implemented')
 
   @abc.abstractmethod
   def device_compute(self, input_batch: DeviceTensors,

@@ -679,6 +679,37 @@ class LMDecodeMethod(ServableLMMethod):
               for d in decoded], list(scores))
             for decoded, scores in zip(batched_decoded, batched_scores)]
 
+  def post_processing_stream(
+      self,
+      compute_outputs: Optional[NestedNpTensor] = None,
+      stream_state: Optional[Any] = None,
+  ) -> Tuple[List[Tuple[List[str], List[float]]], Optional[Any]]:
+    if compute_outputs is None and stream_state is None:
+      raise ValueError('compute_outputs and stream_state cannot both be None')
+    assert isinstance(compute_outputs, py_utils.NestedMap)
+
+    if stream_state is None:
+      batch_size = compute_outputs.output_ids.shape[:-1]
+      stream_state = self._tokenizer.InitStream(batch_size)
+
+    if compute_outputs is None:
+      batch_decoded, stream_state = (
+          self._tokenizer.FinishStream(stream_state),
+          None,
+      )
+    else:
+      batch_decoded, stream_state = self._tokenizer.DecodeOnStream(
+          compute_outputs.output_ids, stream_state
+      )
+
+    return [
+        ([d.numpy() for d in decoded], [0.0] * len(decoded))
+        for decoded in batch_decoded
+    ], stream_state
+
+  def post_processing_stream_finish(self, stream_states: Any) -> list[Any]:
+    return self._tokenizer.FinishStream(stream_states)
+
   def get_scores(self, result: NestedMap, host=False):
     """Get scores from decoding results."""
     if self._method_hparams.encoder_decoder_model:

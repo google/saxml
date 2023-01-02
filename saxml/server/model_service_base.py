@@ -1108,27 +1108,30 @@ class ModelServicesRunner:
 
     def _postprocess():
       done = False
+      stream_state = None
       while not done:
+        b = len(batch.rpc_tasks)
         method_obj = model.method(batch.method.name)
         host_tensors = method_obj.dequeue_stream_output()
+        if host_tensors is not None:
+          host_tensors = method_obj.remove_batch_padding(host_tensors, b)
 
         if host_tensors is None:
-          # Done.
-          break
-
-        host_tensors = method_obj.remove_batch_padding(host_tensors,
-                                                       len(batch.rpc_tasks))
-        done_rpcs = 0
+          # Done with streaming.
+          done = True
 
         if batch.input_tensors is not None:
+          done_rpcs = 0
           try:
-            outputs = method_obj.post_processing(host_tensors)
+            outputs, stream_state = method_obj.post_processing_stream(
+                host_tensors, stream_state
+            )
             for out, task in zip(outputs, batch.rpc_tasks):
               # Use a new response each time.
               resp = copy.deepcopy(task.response)
               self._model_services[batch.method.service_id].FillRPCResponse(
                   batch.method.name, out, resp)
-              task.done(utils.ok(), resp)
+              task.done(utils.ok())
               done_rpcs += 1
           except Exception as e:  # pylint: disable=broad-except
             logging.exception(
@@ -1139,6 +1142,7 @@ class ModelServicesRunner:
               task.done(utils.internal_error(error_msg))
             # Terminate the thread early if any exceptions were thrown.
             done = True
+
       streaming_done.notify()
 
     self._pool.run(_postprocess)
