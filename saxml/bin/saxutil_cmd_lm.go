@@ -52,7 +52,9 @@ func (*GenerateCmd) Synopsis() string { return "generate a text against a given 
 // Usage returns the full usage of GenerateCmd.
 func (*GenerateCmd) Usage() string {
 	return `generate ModelID Query:
-	generates a text input using a published language model. Support temperature through: -extra="temperature:0.2"
+	generates a text input using a published language model.
+	Support extra inputs such as temperature through: -extra="temperature:0.2"
+	Support streaming through -stream
 `
 }
 
