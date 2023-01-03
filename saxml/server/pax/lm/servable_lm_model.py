@@ -32,6 +32,7 @@ from praxis import decoder_utils
 from praxis import py_utils
 from praxis import pytypes
 from saxml.server.jax import np_tf_sess_wrapper
+from saxml.server.pax import branch_selection
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
 from saxml.server.pax.lm import lm_service
@@ -151,7 +152,7 @@ class ServableLMMethod(servable_model.ServableMethod):
     return lm_service.SERVICE_ID
 
   @property
-  def sorted_seq_lens(self) -> Optional[List[int]]:
+  def sorted_seq_lens(self) -> List[int]:
     """A list of sorted supported (ascending order) sequence lengths."""
     return sorted(self._bucket_keys) if self._bucket_keys else [-1]
 
@@ -192,7 +193,7 @@ class ServableLMMethod(servable_model.ServableMethod):
       return InputShapeInfo(padded_shape.batch_size)
 
     seq_len = -1
-    sorted_seq_lens = sorted(self._bucket_keys)
+    sorted_seq_lens = self.sorted_seq_lens
     for sl in sorted_seq_lens:
       if sl >= unpadded_shape.seq_len:
         seq_len = sl
@@ -310,6 +311,24 @@ class ServableLMMethod(servable_model.ServableMethod):
 
     return jax.tree_util.tree_map(_slice_fn, inputs)
 
+  def _bucketize_tf_preprocessed_inputs(self, inputs: NestedMap) -> NestedMap:
+    if len(self.sorted_seq_lens) == 1 or 'paddings' not in inputs:
+      return inputs
+
+    branch_selector = branch_selection.BranchSelector(self.sorted_seq_lens)
+    assert branch_selector.has_multiple_branches()
+    prefix_lengths = tf.cast(
+        tf.math.reduce_sum(1.0 - inputs['paddings'], axis=-1), tf.int32
+    )
+    branch_key = tf.math.reduce_max(prefix_lengths)
+    branch_idx = branch_selector.get_branch_index_tf(branch_key)
+    seqlen = tf.constant(branch_selector.branch_keys)[branch_idx]
+
+    def _slice_fn(x):
+      return x[:, :seqlen] if len(x.shape) == 2 else x
+
+    return jax.tree_util.tree_map(_slice_fn, inputs)
+
   def get_maxlen(self) -> int:
     """Gets the max input sequence lengths."""
     raise NotImplementedError('get_maxlen not implemented')
@@ -349,6 +368,26 @@ class ServableLMMethod(servable_model.ServableMethod):
     padded_state = self.pad_result(state, maxlen - seqlen, 1)
     return padded_result, padded_state
 
+  @property
+  def model_fn_input_polymorphic_shape(self) -> pytypes.Nested[str]:
+    """Returns a batch polymorphic shape for jax2tf."""
+    batched_host_dummy = self.get_dummy_inputs(InputShapeInfo(self.batch_size))
+    batched_host_dummy = self.update_extra_inputs(
+        batched_host_dummy,
+        self.batch_size,
+        [self.default_extra_inputs] * self.batch_size,
+    )
+
+    batch_pattern = 'b' if len(self.sorted_batch_sizes) > 1 else '_'
+    if len(self.sorted_seq_lens) > 1:
+      seq_pattern = f'{batch_pattern}, t'
+    else:
+      seq_pattern = f'{batch_pattern}, _'
+    return jax.tree_util.tree_map(
+        lambda x: seq_pattern if len(x.shape) == 2 else f'{batch_pattern}, ...',
+        batched_host_dummy,
+    )
+
 
 class LMScoreMethod(ServableLMMethod):
   """Implements the score method of an LM."""
@@ -365,7 +404,9 @@ class LMScoreMethod(ServableLMMethod):
     dummy_input_sample = ('', [''])
     logging.info('Using np_tf_sess_wrapper on LMScoreMethod.tf_pre_processing')
     self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
-        self.tf_pre_processing)
+        # `bucketize_inputs` is only used in SavedModel export. The sax-native
+        # serving has an equivalent bucketization after `pre_processing`.
+        functools.partial(self.tf_pre_processing, bucketize_inputs=False).func)
     super().__init__(
         model,
         'compute_predictions',
@@ -386,17 +427,20 @@ class LMScoreMethod(ServableLMMethod):
       assert 'per_example_xent' in model_fn_outputs[0]
       assert model_fn_outputs[0].per_example_xent.ndim == 1
       return -model_fn_outputs[0].per_example_xent
-    seqlen = self._score_params.max_input_seq_len
-    allow_seq_lens = self.sorted_seq_lens
     assert len(model_fn_outputs[0].per_token_xent.shape) > 1
     xnent_len = model_fn_outputs[0].per_token_xent.shape[1]
-    assert xnent_len == seqlen or (allow_seq_lens is not None and
-                                   xnent_len in allow_seq_lens)
+    assert xnent_len == model_fn_inputs.ids.shape[1]
     per_token_logprobs = -model_fn_outputs[0].per_token_xent
     non_paddings = 1.0 - model_fn_inputs.paddings
     if (not self._score_params.include_eos_score and
         self._tokenizer.hparams.append_eos):
-      non_paddings = jnp.pad(non_paddings[:, 1:], [[0, 0], [0, 1]])
+      non_paddings = jnp.pad(
+          # TODO(b/263808957): change back to non_paddings[:, 1:] once the bug
+          # is fixed.
+          jax.lax.dynamic_slice_in_dim(
+              non_paddings, 1, non_paddings.shape[1] - 1, axis=1),
+          [[0, 0], [0, 1]],
+      )
     return jnp.sum(
         per_token_logprobs * model_fn_inputs.score_masks * non_paddings,
         axis=-1,
@@ -481,8 +525,12 @@ class LMScoreMethod(ServableLMMethod):
     scores = list(compute_outputs.astype(float))
     return scores
 
-  def tf_pre_processing(self, prefixes: NestedNpOrTfTensor,
-                        suffixes: NestedNpOrTfTensor) -> NestedTfTensor:
+  def tf_pre_processing(
+      self,
+      prefixes: NestedNpOrTfTensor,
+      suffixes: NestedNpOrTfTensor,
+      bucketize_inputs: bool = True,
+  ) -> NestedTfTensor:
     """Tokenizes `prefixes` and `suffixes` using TF ops.
 
     This also implements `ExportableToSavedModel.tf_pre_processing`.
@@ -490,6 +538,8 @@ class LMScoreMethod(ServableLMMethod):
     Args:
       prefixes: the prefix text batch of shape [batch_size].
       suffixes: the suffix text batch of shape [batch_size].
+      bucketize_inputs: whether to bucketize the preprocessed inputs based on
+        max sequence length in the batch.
 
     Returns:
       A NestedMap of preprocessed tensors.
@@ -497,13 +547,17 @@ class LMScoreMethod(ServableLMMethod):
     (ids, labels, paddings, weights, score_masks,
      inputs_indicator) = self._tf_tokenize_inputs(prefixes, suffixes)
 
-    return py_utils.NestedMap(
+    preprocessed = py_utils.NestedMap(
         ids=ids,
         labels=labels,
         paddings=paddings,
         weights=weights,
         score_masks=score_masks,
-        inputs_indicator=inputs_indicator)
+        inputs_indicator=inputs_indicator,
+    )
+    if bucketize_inputs:
+      return self._bucketize_tf_preprocessed_inputs(preprocessed)
+    return preprocessed
 
   def tf_post_processing(
       self, compute_outputs: NestedNpOrTfTensor) -> NestedNpOrTfTensor:
@@ -541,7 +595,9 @@ class LMDecodeMethod(ServableLMMethod):
       self._include_prefix_in_result = method_hparams.include_prefix_in_result
     logging.info('Using np_tf_sess_wrapper on LMDecodeMethod.tf_pre_processing')
     self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
-        self.tf_pre_processing)
+        # `bucketize_inputs` is only used in SavedModel export. The sax-native
+        # serving has an equivalent bucketization after `pre_processing`.
+        functools.partial(self.tf_pre_processing, bucketize_inputs=False).func)
     logging.info(
         'Using np_tf_sess_wrapper on LMDecodeMethod.tf_post_processing')
     self._tf_sess_post_processing = np_tf_sess_wrapper.wrap_tf_session(
@@ -745,7 +801,9 @@ class LMDecodeMethod(ServableLMMethod):
   def tf_pre_processing(
       self,
       texts: NestedNpOrTfTensor,
-      extra_inputs: Optional[Mapping[str, Any]] = None) -> NestedTfTensor:
+      extra_inputs: Optional[Mapping[str, Any]] = None,
+      bucketize_inputs: bool = True,
+  ) -> NestedTfTensor:
     """Tokenizes `texts` using TF ops.
 
     This also implements `ExportableToSavedModel.tf_pre_processing`. If extra
@@ -756,7 +814,9 @@ class LMDecodeMethod(ServableLMMethod):
     Args:
       texts: the input text of shape [batch_size].
       extra_inputs: optional mapping of extra input key to tensor or tensor spec
-      of shape [batch_size].
+        of shape [batch_size].
+      bucketize_inputs: whether to bucketize the preprocessed inputs based on
+        max sequence length in the batch.
 
     Returns:
       A NestedMap of preprocessed tensors.
@@ -776,6 +836,9 @@ class LMDecodeMethod(ServableLMMethod):
           paddings=paddings,
           prefix_lengths=tf.cast(prefix_lengths, tf.int32),
           weights=weights)
+
+    if bucketize_inputs:
+      preprocessed = self._bucketize_tf_preprocessed_inputs(preprocessed)
 
     if extra_inputs:
       preprocessed.update(extra_inputs)

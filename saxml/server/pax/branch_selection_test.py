@@ -30,6 +30,16 @@ class BranchSelectionTest(absltest.TestCase):
     self.assertEqual(branch_selector.get_branch_index(key=5), 1)
     self.assertEqual(branch_selector.get_branch_index(key=8), 1)
 
+  def test_multiple_user_keys_tf(self):
+    seq_lens = [4, 8]
+    branch_selector = branch_selection.BranchSelector(keys=seq_lens)
+    self.assertEqual(branch_selector.branch_keys, [4, 8])
+    self.assertTrue(branch_selector.has_multiple_branches())
+    self.assertEqual(branch_selector.get_branch_index_tf(key=2), 0)
+    self.assertEqual(branch_selector.get_branch_index_tf(key=4), 0)
+    self.assertEqual(branch_selector.get_branch_index_tf(key=5), 1)
+    self.assertEqual(branch_selector.get_branch_index_tf(key=8), 1)
+
 
 if __name__ == '__main__':
   absltest.main()

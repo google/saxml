@@ -16,6 +16,7 @@
 
 from typing import List
 import numpy as np
+import tensorflow as tf
 
 
 class BranchSelector(object):
@@ -47,3 +48,8 @@ class BranchSelector(object):
 
   def get_branch_index(self, key: int) -> int:
     return min(np.searchsorted(self._keys, key), len(self._keys) - 1)
+
+  def get_branch_index_tf(self, key: tf.Tensor) -> tf.Tensor:
+    return tf.math.minimum(
+        tf.searchsorted(self._keys, [key])[0],
+        len(self._keys) - 1)

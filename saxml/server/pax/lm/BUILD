@@ -44,6 +44,7 @@ pytype_strict_library(
     deps = [
         ":lm_service",
         "//saxml/server/jax:np_tf_sess_wrapper",
+        "//saxml/server/pax:branch_selection",
         "//saxml/server/pax:servable_model",
         "//saxml/server/pax:servable_model_params",
         "//third_party/py/absl-py/logging",

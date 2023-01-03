@@ -324,7 +324,8 @@ class ServableMethod(servable_model.ServableMethod):
     batched_host_dummy = self.update_extra_inputs(
         batched_host_dummy, self.batch_size,
         [self.default_extra_inputs] * self.batch_size)
-    return jax.tree_util.tree_map(lambda _: 'b, ...', batched_host_dummy)
+    batch_pattern = 'b, ...' if len(self.sorted_batch_sizes) > 1 else None
+    return jax.tree_util.tree_map(lambda _: batch_pattern, batched_host_dummy)
 
 
 class ServableModel(servable_model.ServableModel):
