@@ -40,6 +40,15 @@ class ServableMethodParams(metaclass=abc.ABCMeta):
     in the input. The `default_value` is the default value for input[key].
     """
 
+  @abc.abstractmethod
+  def get_batching_wait_secs(self) -> Optional[float]:
+    """Returns the optional batching waiting seconds for the method.
+
+    If batching wait secs is None, will not wait for the next request if the
+    request queue is empty. Otherwise, the total waiting time for the incoming
+    requests after the first request is set to this value.
+    """
+
 
 class ServableModelParams(metaclass=abc.ABCMeta):
   """A base class that each model config needs to implement for serving."""

@@ -112,11 +112,16 @@ class ServableMethodParams(base_hyperparams.BaseHyperParams,
     bucket_keys: keys for branch computations such as sequence length
       bucketization, this usually represents a list of possible sizes for a
       non-batch dimension, in increasing order.
+    batching_wait_secs: batching wait secs for the next item. If the serving
+      latency for this model is fast (<2s), do not need to set this value.
+      Usually, the suggested waiting seconds for batching could set to less than
+      10% device latency for the given batch size.
   """
   batch_size: Union[int, List[int]] = 1
   max_live_batches: int = 4
   extra_inputs: Optional[Dict[str, float]] = None
   bucket_keys: Optional[List[int]] = None
+  batching_wait_secs: Optional[float] = None
 
   def get_batch_size(self) -> Union[int, List[int]]:
     return self.batch_size
@@ -126,3 +131,6 @@ class ServableMethodParams(base_hyperparams.BaseHyperParams,
 
   def get_default_extra_inputs(self) -> Optional[Dict[str, float]]:
     return self.extra_inputs
+
+  def get_batching_wait_secs(self) -> Optional[float]:
+    return self.batching_wait_secs

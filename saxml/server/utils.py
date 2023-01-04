@@ -16,6 +16,7 @@
 import dataclasses
 import queue
 import threading
+import time
 from typing import Any, Callable, Optional, Protocol, Sequence, Tuple
 
 import grpc
@@ -97,8 +98,9 @@ def traceprint_all(rpc_tasks: Sequence[RpcQueueTask], msg: str):
 class RpcQueue():
   """A queue of RPC requests."""
 
-  def __init__(self):
+  def __init__(self, batching_wait_secs: Optional[float] = None):
     self._queue: queue.SimpleQueue[RpcQueueTask] = queue.SimpleQueue()
+    self._batching_wait_secs = batching_wait_secs
 
   def send(self,
            rpc: Optional[RPCContext],
@@ -129,13 +131,23 @@ class RpcQueue():
       A list of RpcQueueTask.
     """
     batch = []
+    batch_begin_time = time.time()
     while len(batch) < batch_size:
       try:
         # Only blocks for the 1st item in the batch.
         if batch:
-          task = self._queue.get_nowait()
+          timeout = (
+              self._batching_wait_secs - time.time() + batch_begin_time
+              if self._batching_wait_secs
+              else 0
+          )
+          if timeout <= 0:
+            task = self._queue.get_nowait()
+          else:
+            task = self._queue.get(timeout=timeout)
         else:
           task = self._queue.get()
+          batch_begin_time = time.time()
       except queue.Empty:
         break
 

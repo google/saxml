@@ -128,12 +128,17 @@ class Method:
   def limit(self) -> int:
     return max(self.batch_size * self.max_live_batches, 1)
 
-  def __init__(self, model: servable_model.ServableModel, batch_size: int,
-               max_live_batches: int):
+  def __init__(
+      self,
+      model: servable_model.ServableModel,
+      batch_size: int,
+      max_live_batches: int,
+      batching_wait_secs: Optional[float] = None,
+  ):
     self.model = model
     self.batch_size = batch_size
     self.max_live_batches = max_live_batches
-    self.queue = utils.RpcQueue()
+    self.queue = utils.RpcQueue(batching_wait_secs=batching_wait_secs)
     self.admissioner = utils.Admissioner(limit=self.limit())
 
 
@@ -195,9 +200,13 @@ class PerMethodBatcher:
       key: MethodKey,
       batch_size: int,
       max_live_batches: int,
-      preprocess_fn: Optional[Callable[[Sequence[utils.RpcQueueTask]],
-                                       Tuple[DeviceTensors,
-                                             InputShapeInfo]]] = None
+      preprocess_fn: Optional[
+          Callable[
+              [Sequence[utils.RpcQueueTask]],
+              Tuple[DeviceTensors, InputShapeInfo],
+          ]
+      ] = None,
+      batching_wait_secs: Optional[float] = None,
   ) -> None:
     """Registers a method that should be batched.
 
@@ -208,9 +217,14 @@ class PerMethodBatcher:
       max_live_batches: Maximum number of live batches.
       preprocess_fn: An optional preprocessing method that turns a sequence of
         RpcQueueTasks into device tensors to be consumed by device computation.
+      batching_wait_secs: An optional batching waiting seconds in float.
     """
     method = Method(
-        model=model, batch_size=batch_size, max_live_batches=max_live_batches)
+        model=model,
+        batch_size=batch_size,
+        max_live_batches=max_live_batches,
+        batching_wait_secs=batching_wait_secs,
+    )
     self._per_method_queues[key] = method
     # If the model supports running dummy data on the primary, we can enqueue
     # to batch before preprocessing to allow early multi-host sync; if
@@ -1034,7 +1048,9 @@ class ModelServicesRunner:
           MethodKey(method_name, service_id, model_key),
           method.batch_size,
           preprocess_fn=_pre_process_inputs,
-          max_live_batches=method.max_live_batches)
+          max_live_batches=method.max_live_batches,
+          batching_wait_secs=method.batching_wait_secs,
+      )
 
   def _export_model(self, req: modelet_pb2.ExportRequest):
     """Exports a method of a model."""

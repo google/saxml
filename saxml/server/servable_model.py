@@ -49,6 +49,7 @@ class ServableMethod(abc.ABC):
     assert isinstance(self._sorted_batch_sizes, list)
     self._sorted_batch_sizes = sorted(self._sorted_batch_sizes)
     self._max_live_batches = method_params.get_max_live_batches()
+    self._batching_wait_secs = method_params.get_batching_wait_secs()
     self._extra_inputs = method_params.get_default_extra_inputs()
     # If an element is None, it marks the end of the stream.
     self._stream_queue: queue.SimpleQueue[
@@ -97,6 +98,11 @@ class ServableMethod(abc.ABC):
   def max_live_batches(self) -> int:
     """Maximum number of live batches in the server for this method."""
     return self._max_live_batches
+
+  @property
+  def batching_wait_secs(self) -> Optional[float]:
+    """Bathing waiting secs in the server for this method."""
+    return self._batching_wait_secs
 
   @abc.abstractmethod
   def pre_processing(self, raw_inputs: List[Any]) -> HostTensors:
