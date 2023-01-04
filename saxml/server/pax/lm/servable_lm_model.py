@@ -406,7 +406,8 @@ class LMScoreMethod(ServableLMMethod):
     self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
         # `bucketize_inputs` is only used in SavedModel export. The sax-native
         # serving has an equivalent bucketization after `pre_processing`.
-        functools.partial(self.tf_pre_processing, bucketize_inputs=False).func)
+        lambda *args: self.tf_pre_processing(*args, bucketize_inputs=False)
+    )
     super().__init__(
         model,
         'compute_predictions',
@@ -597,7 +598,8 @@ class LMDecodeMethod(ServableLMMethod):
     self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
         # `bucketize_inputs` is only used in SavedModel export. The sax-native
         # serving has an equivalent bucketization after `pre_processing`.
-        functools.partial(self.tf_pre_processing, bucketize_inputs=False).func)
+        lambda *args: self.tf_pre_processing(*args, bucketize_inputs=False)
+    )
     logging.info(
         'Using np_tf_sess_wrapper on LMDecodeMethod.tf_post_processing')
     self._tf_sess_post_processing = np_tf_sess_wrapper.wrap_tf_session(
