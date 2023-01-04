@@ -21,7 +21,7 @@ from praxis import base_hyperparams
 import seqio
 import tensorflow as tf
 
-StreamState = Tuple[tf.RaggedTensor, tf.Tensor]
+StreamState = Tuple[tf.Tensor, tf.Tensor, tf.Tensor]
 
 
 class LMTokenizer(base_hyperparams.BaseParameterizable):
@@ -145,16 +145,21 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
 
     Returns:
 
-      A tuple of 2 elements:
-        - A ragged tensor of shape [np.prod(batch_size), seqlen], containing
-          unprocessed prefix IDs.
+      A tuple of 3 elements:
+        - A tensor of shape [np.prod(batch_size), seqlen], containing
+          unprocessed prefix IDs. Left-aligned if they have differen lengths.
+        - A tensor of shape [np.prod(batch_size)], indicating the valid length
+          in the unprocessed prefix IDs.
         - A boolean tensor of shape batch_size indicating if any prefix strings
           have been generated.
     """
-    nrows = tf.math.reduce_prod(batch_size).numpy()
-    unprocessed_prefix_ids = tf.ragged.constant([[]] * nrows, dtype=tf.int32)
+    nrows = tf.math.reduce_prod(batch_size)
     started = tf.fill(batch_size, False)
-    return unprocessed_prefix_ids, started
+    return (
+        tf.zeros([nrows, 0], dtype=tf.int32),
+        tf.zeros([nrows], dtype=tf.int32),
+        started,
+    )
 
   def DecodeOnStream(
       self, new_ids: tf.Tensor, stream_state: StreamState
@@ -174,9 +179,9 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
 
     # Merge all leading N - 1 dimensions of new_ids and started to match the
     # flattened ragged tensor.
-    unprocessed_prefix_ids, started = stream_state
+    unprocessed_prefix_ids, unprocessed_prefix_len, started = stream_state
     batch_size = tf.shape(started)
-    nrows = tf.math.reduce_prod(batch_size).numpy()
+    nrows = tf.math.reduce_prod(batch_size)
     new_ids = tf.reshape(new_ids, [nrows, -1])
     started = tf.reshape(started, [nrows])
 
@@ -211,8 +216,13 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
     fake_prefix = tf.RaggedTensor.from_tensor(fake_prefix, fake_prefix_len)
 
     # Decode with prefix.
+    unprocessed_prefix_ids_ragged = tf.RaggedTensor.from_tensor(
+        unprocessed_prefix_ids, unprocessed_prefix_len
+    )
     to_process = tf.concat(
-        [fake_prefix, unprocessed_prefix_ids, without_trailing_bytes], axis=1)
+        [fake_prefix, unprocessed_prefix_ids_ragged, without_trailing_bytes],
+        axis=1,
+    )
     new_strs = self._vocab.tf_tokenizer.detokenize(to_process)
     # Remove fake prefix.
     new_strs = tf.strings.substr(new_strs, fake_prefix_str_len, tf.fill([b],
@@ -225,23 +235,28 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
         tf.reverse(new_ids, axis=[1]), trailing_byte_count)
     trailing_bytes = tf.reverse(trailing_bytes, axis=[1])
 
-    remaining_prefix_len = unprocessed_prefix_ids.row_lengths()
-    remaining_prefix_len = tf.where(is_all_bytes, remaining_prefix_len, 0)
+    remaining_prefix_len = tf.where(is_all_bytes, unprocessed_prefix_len, 0)
     remaining_prefix = tf.RaggedTensor.from_tensor(
-        unprocessed_prefix_ids.to_tensor(), remaining_prefix_len)
-    new_unprocessed_prefix_ids = tf.concat([remaining_prefix, trailing_bytes],
-                                           axis=1)
+        unprocessed_prefix_ids, remaining_prefix_len
+    )
+    new_unprocessed_prefix_ids = tf.concat(
+        [remaining_prefix, trailing_bytes], axis=1
+    )
 
     # Reshape output back to [batch_size, ...] before returning.
     new_strs = tf.reshape(new_strs, batch_size)
     new_started = tf.reshape(new_started, batch_size)
-    return new_strs, (new_unprocessed_prefix_ids, new_started)
+    return new_strs, (
+        new_unprocessed_prefix_ids.to_tensor(),
+        new_unprocessed_prefix_ids.row_lengths(),
+        new_started,
+    )
 
   def FinishStream(self, stream_state: StreamState) -> tf.Tensor:
     """Finishes the streams by decoding any remaining tokens."""
     p = self.hparams
     assert p.spm_model
-    _, started = stream_state
+    _, _, started = stream_state
     batch_size = tf.shape(started)
 
     eos_ids = tf.fill(batch_size, tf.constant(p.target_eos_id, dtype=tf.int32))

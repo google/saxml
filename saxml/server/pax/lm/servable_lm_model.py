@@ -605,6 +605,22 @@ class LMDecodeMethod(ServableLMMethod):
     self._streamable = streamable
     logging.info('Initialize LMDecodeMethod to be streamable=%s.', streamable)
 
+    def _init_stream_and_decode(new_ids):
+      batch_size = tf.shape(new_ids)[:-1]
+      return self._tokenizer.DecodeOnStream(
+          new_ids, self._tokenizer.InitStream(batch_size)
+      )
+
+    self._tf_sess_first_stream_step = np_tf_sess_wrapper.wrap_tf_session(
+        _init_stream_and_decode, False
+    )
+    self._tf_sess_stream_step = np_tf_sess_wrapper.wrap_tf_session(
+        self._tokenizer.DecodeOnStream, False
+    )
+    self._tf_sess_stream_finish = np_tf_sess_wrapper.wrap_tf_session(
+        self._tokenizer.FinishStream, False
+    )
+
     super().__init__(
         model,
         'decode',
@@ -612,7 +628,8 @@ class LMDecodeMethod(ServableLMMethod):
         method_hparams,
         prng_key,
         dummy_input_sample,
-        exportable=exportable)
+        exportable=exportable,
+    )
 
   def call_model_function(self, inputs, mdl_vars, prng_key):
     k1, k2 = prng_key
@@ -742,29 +759,22 @@ class LMDecodeMethod(ServableLMMethod):
   ) -> Tuple[List[Tuple[List[str], List[float]]], Optional[Any]]:
     if compute_outputs is None and stream_state is None:
       raise ValueError('compute_outputs and stream_state cannot both be None')
-    assert isinstance(compute_outputs, py_utils.NestedMap)
-
-    if stream_state is None:
-      batch_size = compute_outputs.output_ids.shape[:-1]
-      stream_state = self._tokenizer.InitStream(batch_size)
 
     if compute_outputs is None:
-      batch_decoded, stream_state = (
-          self._tokenizer.FinishStream(stream_state),
-          None,
+      batch_decoded = self._tf_sess_stream_finish(stream_state)
+      stream_state = None
+    elif stream_state is None:
+      batch_decoded, stream_state = self._tf_sess_first_stream_step(
+          compute_outputs['output_ids']
       )
     else:
-      batch_decoded, stream_state = self._tokenizer.DecodeOnStream(
-          compute_outputs.output_ids, stream_state
+      batch_decoded, stream_state = self._tf_sess_stream_step(
+          compute_outputs['output_ids'], stream_state
       )
 
     return [
-        ([d.numpy() for d in decoded], [0.0] * len(decoded))
-        for decoded in batch_decoded
+        (decoded, [0.0] * len(decoded)) for decoded in batch_decoded
     ], stream_state
-
-  def post_processing_stream_finish(self, stream_states: Any) -> list[Any]:
-    return self._tokenizer.FinishStream(stream_states)
 
   def get_scores(self, result: NestedMap, host=False):
     """Get scores from decoding results."""

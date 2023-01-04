@@ -50,7 +50,7 @@ from google.protobuf import message
 DeviceTensors = servable_model.DeviceTensors
 InputShapeInfo = servable_model.InputShapeInfo
 Closure = Callable[[], None]
-StatusCallback = Callable[..., None]
+StatusCallback = utils.StatusCallback
 
 # TODO(zhifengc): Convert these an enum to enforce stronger typing.
 _LOAD_METHOD_KEY = '_internal_load'
@@ -545,10 +545,7 @@ class ModelServiceGRPC(ModelService):
       if not status.ok():
         context.set_code(status.code)
         context.set_details(status.details)
-      if resp is not None:
-        loop.call_soon_threadsafe(q.put_nowait, copy.deepcopy(resp))
-      else:
-        loop.call_soon_threadsafe(q.put_nowait, None)
+      loop.call_soon_threadsafe(q.put_nowait, resp)
 
     self._EnqueueRequestInternal(method, model_key,
                                  utils.RPCContextGRPC(context), req, empty_resp,
@@ -1108,17 +1105,20 @@ class ModelServicesRunner:
 
     def _postprocess():
       done = False
+      postprocess_error = False
       stream_state = None
       while not done:
         b = len(batch.rpc_tasks)
         method_obj = model.method(batch.method.name)
         host_tensors = method_obj.dequeue_stream_output()
-        if host_tensors is not None:
-          host_tensors = method_obj.remove_batch_padding(host_tensors, b)
-
         if host_tensors is None:
           # Done with streaming.
           done = True
+        else:
+          host_tensors = method_obj.remove_batch_padding(host_tensors, b)
+        if postprocess_error:
+          # Postprocessing failed before.
+          continue
 
         if batch.input_tensors is not None:
           done_rpcs = 0
@@ -1131,7 +1131,7 @@ class ModelServicesRunner:
               resp = copy.deepcopy(task.response)
               self._model_services[batch.method.service_id].FillRPCResponse(
                   batch.method.name, out, resp)
-              task.done(utils.ok())
+              task.done(utils.ok(), resp)
               done_rpcs += 1
           except Exception as e:  # pylint: disable=broad-except
             logging.exception(
@@ -1140,8 +1140,7 @@ class ModelServicesRunner:
             error_msg = f'Postprocessing error: {e}\n{traceback.format_exc()}'
             for task in batch.rpc_tasks[done_rpcs:]:
               task.done(utils.internal_error(error_msg))
-            # Terminate the thread early if any exceptions were thrown.
-            done = True
+            postprocess_error = True
 
       streaming_done.notify()
 

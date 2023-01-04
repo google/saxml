@@ -16,7 +16,7 @@
 import dataclasses
 import queue
 import threading
-from typing import Any, Callable, Optional, Sequence, Tuple
+from typing import Any, Callable, Optional, Protocol, Sequence, Tuple
 
 import grpc
 
@@ -32,8 +32,14 @@ class Status:
     return self.code == grpc.StatusCode.OK
 
 
+class StatusCallback(Protocol):
+  """A callback on a status, and optionally other arguments."""
+
+  def __call__(self, status: Status, *args, **kwargs) -> None:
+    ...
+
+
 Callback = Callable[..., None]
-StatusCallback = Callable[[Status], None]
 TracerPrintCallback = Callable[[str], None]
 
 
