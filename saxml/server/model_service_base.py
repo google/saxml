@@ -817,6 +817,15 @@ class ModelServicesRunner:
     if self._is_primary:
       self._pool = utils.ThreadPool(
           num_threads=16, thread_name_prefix='model_service_runner')
+
+      # Device execution ensures the enqueue operations of streaming outputs
+      # across different requests are serializable. By constraining
+      # num_thread=1, we can ensure the dequeue operations are also
+      # serializable because utils.ThreadPool runs in FIFO order.
+      self._stream_pool = utils.ThreadPool(
+          num_threads=1,
+          thread_name_prefix='model_service_runner_stream_dequeuer',
+      )
       primary_host = self._spmd_backend.spmd_host_index()
       if self._spmd_backend.spmd_host_count() > 1:
         self._spmd_backend.send_via_device(str(primary_host))
@@ -830,6 +839,7 @@ class ModelServicesRunner:
           name='model_service_runner_keep_warm')
     else:
       self._pool = None
+      self._stream_pool = None
       primary_id_str = self._spmd_backend.receive_via_device()
       primary_host = int(primary_id_str)
       logging.info('Secondary worker loop. Primary process: %d', primary_host)
@@ -1144,7 +1154,7 @@ class ModelServicesRunner:
 
       streaming_done.notify()
 
-    self._pool.run(_postprocess)
+    self._stream_pool.run(_postprocess)
 
   def _run_primary_worker_loop(self):
     """Main loop for processing batches."""
