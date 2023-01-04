@@ -206,11 +206,14 @@ class ServableMethod(servable_model.ServableMethod):
       if self.model_state.precompile:
         # Retrieve streamed outputs until streaming is done
         if self.streamable:
+          stream_state = None
           while True:
             stream_outs = self.dequeue_stream_output()
+            _, stream_state = self.post_processing_stream(
+                stream_outs, stream_state
+            )
             if stream_outs is None:
               break
-            self.post_processing(stream_outs)
         outs = self.output_to_host(init_dummy_outputs, self.batch_size)
         if not self.streamable:
           # Warm up post processor.
