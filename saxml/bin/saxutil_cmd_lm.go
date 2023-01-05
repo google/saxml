@@ -90,7 +90,8 @@ func (c *GenerateCmd) streamingGenerate(ctx context.Context, query string, lm *s
 						return subcommands.ExitFailure
 					}
 					accumulatedResults[i] = accumulatedResults[i][:item.PrefixLen] + item.Text
-					scores[i] = item.Score
+					// Accumulate the scores.
+					scores[i] += item.Score
 
 					// Print all suffixes separated by one blank line.
 					fmt.Println(accumulatedResults[i])

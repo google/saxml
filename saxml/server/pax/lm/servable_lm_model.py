@@ -765,18 +765,19 @@ class LMDecodeMethod(ServableLMMethod):
     if compute_outputs is None:
       batch_decoded = self._tf_sess_stream_finish(stream_state)
       stream_state = None
+      scores = np.zeros(batch_decoded.shape)
     elif stream_state is None:
       batch_decoded, stream_state = self._tf_sess_first_stream_step(
           compute_outputs['output_ids']
       )
+      scores = compute_outputs['scores']
     else:
       batch_decoded, stream_state = self._tf_sess_stream_step(
           compute_outputs['output_ids'], stream_state
       )
+      scores = compute_outputs['scores']
 
-    return [
-        (decoded, [0.0] * len(decoded)) for decoded in batch_decoded
-    ], stream_state
+    return [(d, s) for (d, s) in zip(batch_decoded, scores)], stream_state
 
   def get_scores(self, result: NestedMap, host=False):
     """Get scores from decoding results."""
