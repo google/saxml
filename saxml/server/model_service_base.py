@@ -498,10 +498,16 @@ class ModelService(metaclass=abc.ABCMeta):
                       response: Any) -> None:
     """Fills an RPC response based on a method's postprocessing outputs."""
 
-  def _EnqueueRequestInternal(self, method: str, model_key: str,
-                              rpc_context: utils.RPCContext,
-                              req: message.Message, resp: message.Message,
-                              done: StatusCallback):
+  def _EnqueueRequestInternal(
+      self,
+      method: str,
+      model_key: str,
+      rpc_context: utils.RPCContext,
+      req: message.Message,
+      resp: message.Message,
+      done: StatusCallback,
+      streaming: bool,
+  ):
     """Enqueues a request to the processing loop."""
     # Request may arrive before the corresponding _load_model() finishes or
     # after an unload. In this case, return NotFound.
@@ -514,6 +520,13 @@ class ModelService(metaclass=abc.ABCMeta):
     if not self._batcher.has_method(batcher_item_key):
       done(utils.invalid_arg(f'{model_key} does not support {method}'))
       return
+
+    # The method may not support streaming.
+    if streaming:
+      model = self._loader.get_model(model_key)
+      if not model.method(method).streamable:
+        done(utils.invalid_arg(f'Method {method} does not support streaming'))
+        return
 
     self._batcher.add_item(batcher_item_key, rpc_context, req, resp, done)
 
@@ -542,16 +555,21 @@ class ModelServiceGRPC(ModelService):
         context.set_details(status.details)
       loop.call_soon_threadsafe(fut.set_result, None)
 
-    self._EnqueueRequestInternal(method, model_key,
-                                 utils.RPCContextGRPC(context), req, resp,
-                                 _done)
+    self._EnqueueRequestInternal(
+        method,
+        model_key,
+        utils.RPCContextGRPC(context),
+        req,
+        resp,
+        _done,
+        streaming=False,
+    )
     return fut
 
   def EnqueueStreamRequest(self, method: str, model_key: str,
                            context: grpc.ServicerContext, req: message.Message,
                            empty_resp: message.Message) -> asyncio.Queue:
     """Enqueues a streaming request, and returns a done future."""
-    # TODO(changlan): Validate the method supports streaming.
     loop = asyncio.get_running_loop()
     q = asyncio.Queue()
 
@@ -561,9 +579,15 @@ class ModelServiceGRPC(ModelService):
         context.set_details(status.details)
       loop.call_soon_threadsafe(q.put_nowait, resp)
 
-    self._EnqueueRequestInternal(method, model_key,
-                                 utils.RPCContextGRPC(context), req, empty_resp,
-                                 _done)
+    self._EnqueueRequestInternal(
+        method,
+        model_key,
+        utils.RPCContextGRPC(context),
+        req,
+        empty_resp,
+        _done,
+        streaming=True,
+    )
 
     return q
 
