@@ -364,7 +364,7 @@ class ServableMethod(servable_model.ServableMethod):
     """Updates mutable input keys to input batch.
 
     Users would like to update some input keys for the input batch through
-    PRC requests. This function updates the per example mutable input value in
+    RPC requests. This function updates the per example mutable input value in
     the input batch from extra_inputs.
 
     Args:

@@ -52,8 +52,9 @@ def ValidateRequestForExtraInputs(
   for input_key in req_extra_inputs:
     if extra_inputs is None or input_key not in extra_inputs:
       return utils.invalid_arg(
-          f'key {input_key} in PRC request extra_inputs field is not in'
-          'ServableModel.extra_input. extra_inputs in ServableModel are'
-          f'{extra_inputs}')
+          f"key {input_key} in RPC request's extra_inputs field is not in"
+          'ServableModel.extra_inputs. extra_inputs in ServableModel are'
+          f'{extra_inputs}'
+      )
 
   return utils.ok()
