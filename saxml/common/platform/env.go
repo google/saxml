@@ -50,7 +50,7 @@ type StatusPageData struct {
 type Server interface {
 	// GRPCServer returns the underlying gRPC server. It should be only used for service registration.
 	GRPCServer() *grpc.Server
-	// CheckACLs returns nil iff the principal extracted from ctx passes an ACL check.
+	// CheckACLs returns nil iff the principal extracted from a request context passes an ACL check.
 	CheckACLs(ctx context.Context, acls []string) error
 
 	// WriteStatusPage writes the status page of an admin server.
@@ -86,6 +86,9 @@ type Env interface {
 	ListSubdirs(ctx context.Context, path string) ([]string, error)
 	// DirExists checks the existence of a directory.
 	DirExists(ctx context.Context, path string) (bool, error)
+
+	// CheckACLs returns nil iff the given principal passes an ACL check.
+	CheckACLs(principal string, acls []string) error
 
 	// Watch watches for content changes in a file and sends the new content on the returned channel.
 	Watch(ctx context.Context, path string) (<-chan []byte, error)

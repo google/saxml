@@ -76,8 +76,8 @@ func (c *CreateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		adminACL = f.Args()[2]
 	}
 
-	// adminACL, if non-empty, is set as the owner and write ACL on the created cell subdirectory.
-	// All files created within will inherit this ACL as owner and writer.
+	// adminACL, if non-empty, is set as the write ACL on the created cell subdirectory.
+	// All files created within will inherit this ACL as writer.
 	if err := cell.Create(ctx, saxCell, adminACL); err != nil {
 		log.Errorf("Failed to create SAX cell %s: %v", saxCell, err)
 		return subcommands.ExitFailure

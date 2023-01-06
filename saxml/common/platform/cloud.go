@@ -386,6 +386,16 @@ func (e *Env) DirExists(ctx context.Context, path string) (bool, error) {
 	return false, err
 }
 
+// CheckACLs returns nil iff the given principal passes an ACL check.
+func (e *Env) CheckACLs(principal string, acls []string) error {
+	for _, acl := range acls {
+		if acl != "" {
+			return fmt.Errorf("ACL check is not supported: %w", errors.ErrUnimplemented)
+		}
+	}
+	return nil
+}
+
 // Watch watches for content changes in a file and sends the new content on the returned channel.
 func (e *Env) Watch(ctx context.Context, path string) (<-chan []byte, error) {
 	prev, err := e.ReadCachedFile(ctx, path)
@@ -459,7 +469,7 @@ func (s *Server) GRPCServer() *grpc.Server {
 	return s.Server
 }
 
-// CheckACLs returns nil iff the principal extracted from ctx passes an ACL check.
+// CheckACLs returns nil iff the principal extracted from a request context passes an ACL check.
 func (s *Server) CheckACLs(ctx context.Context, acls []string) error {
 	for _, acl := range acls {
 		if acl != "" {
