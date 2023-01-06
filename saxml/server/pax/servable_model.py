@@ -13,8 +13,7 @@
 # limitations under the License.
 """Wraps a model with service APIs."""
 
-import dataclasses
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from absl import logging
 from etils import epath
@@ -57,30 +56,6 @@ NestedMap = py_utils.NestedMap
 NestedPartitionSpec = pytypes.NestedPartitionSpec
 
 CKPT_MODULE = checkpoints
-
-
-@dataclasses.dataclass
-class BatchOption:
-  """Batch option for exporting."""
-  allowed_batch_sizes: Sequence[int]
-  enable_batching_op: bool = True
-  max_enqueued_batches: int = 1
-  num_batch_threads: int = 1
-  batch_timeout_micros: int = 200_000
-
-  @classmethod
-  def from_servable_method_params(
-      cls, p: servable_model_params.ServableMethodParams) -> 'BatchOption':
-    return BatchOption(
-        allowed_batch_sizes=[p.batch_size]
-        if isinstance(p.batch_size, int) else p.batch_size,
-        max_enqueued_batches=p.max_live_batches,
-        # TODO(b/244356528): make the following configurable in
-        # ServableMethodParams?
-        enable_batching_op=True,
-        num_batch_threads=1,
-        batch_timeout_micros=100_000,
-    )
 
 
 class ServableMethod(servable_model.ServableMethod):
@@ -128,8 +103,8 @@ class ServableMethod(servable_model.ServableMethod):
     self._model_fn_name = model_fn_name
     self._dummy_bucket_key = -1
     self._exportable = exportable
-    self._batch_option = BatchOption.from_servable_method_params(method_params)
     self._bucket_keys = method_params.bucket_keys
+    self._method_params = method_params
 
     # TODO(b/261075587): remove conditional based input prefix bucketization.
     self._branch_selector = branch_selection.BranchSelector(
@@ -145,8 +120,8 @@ class ServableMethod(servable_model.ServableMethod):
     return self._exportable
 
   @property
-  def batch_option(self) -> BatchOption:
-    return self._batch_option
+  def method_params(self) -> servable_model_params.ServableMethodParams:
+    return self._method_params
 
   @property
   def streamable(self) -> bool:

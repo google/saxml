@@ -86,9 +86,10 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   def serving_mesh_shape(cls):
     return cls.ICI_MESH_SHAPE
 
-  def score(self):
+  def score(self) -> Optional[servable_lm_model.ScoreHParams]:
     return servable_lm_model.ScoreHParams(
-        batch_size=self.BATCH_SIZE, max_input_seq_len=self.INPUT_SEQ_LEN)
+        batch_size=self.BATCH_SIZE,
+        max_input_seq_len=self.INPUT_SEQ_LEN)
 
   def serving_tokenizer(self):
     if self.SPM_MODEL is None:
