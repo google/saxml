@@ -62,6 +62,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   ENABLE_GENERATE_STREAM = False
   STREAM_INTERVAL_STEPS = 1
   DECODE_MESH_TRANSPOSE = None
+  # Remove this after MultipQueryAttention supports lazy prefix.
+  SUPPORT_LAZY_PREFIX_BROADCAST = True
 
   def input_for_model_init(self):
     batch_size = self.BATCH_SIZE
@@ -122,8 +124,9 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
       generate_hparams = decoder_hparams.SampleDecoderHParams(
           fprop_for_prefix=self.FPROP_FOR_PREFIX,
           # Use LPB for whenever FPROP_FOR_PREFIX is enabled.
-          lazy_prefix_broadcast=(self.FPROP_FOR_PREFIX and
-                                 self.NUM_SAMPLES > 1),
+          lazy_prefix_broadcast=self.FPROP_FOR_PREFIX
+          and self.NUM_SAMPLES > 1
+          and self.SUPPORT_LAZY_PREFIX_BROADCAST,
           max_decode_steps=self.MAX_DECODE_STEPS,
           seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           num_samples=self.NUM_SAMPLES,
@@ -155,7 +158,9 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
     generate_hparams = decoder_hparams.SampleDecoderHParams(
         fprop_for_prefix=self.FPROP_FOR_PREFIX,
         # Use LPB for whenever FPROP_FOR_PREFIX is enabled.
-        lazy_prefix_broadcast=(self.FPROP_FOR_PREFIX and self.NUM_SAMPLES > 1),
+        lazy_prefix_broadcast=self.FPROP_FOR_PREFIX
+        and self.NUM_SAMPLES > 1
+        and self.SUPPORT_LAZY_PREFIX_BROADCAST,
         max_decode_steps=self.MAX_DECODE_STEPS,
         seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
         num_samples=self.NUM_SAMPLES,
