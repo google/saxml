@@ -212,8 +212,13 @@ func (c *ScoreCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Suffix", "Score"})
+	logPsPerSuffix := len(logPs) / len(suffixes)
 	for index, suffix := range suffixes {
-		table.Append([]string{suffix, strconv.FormatFloat(logPs[index], 'G', 8, 64)})
+		formattedLogPs := make([]string, len(logPs))
+		for i, logP := range logPs[index*logPsPerSuffix : (index+1)*logPsPerSuffix] {
+			formattedLogPs[i] = strconv.FormatFloat(logP, 'G', 8, 64)
+		}
+		table.Append(append([]string{suffix}, formattedLogPs...))
 	}
 	table.Render()
 	return subcommands.ExitSuccess
