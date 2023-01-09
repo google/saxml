@@ -109,7 +109,12 @@ type Env interface {
 // Register lets a platform register its Env implementation.
 //
 // This should only get called in init functions, so there is no need for mutex protection.
-func Register(env Env) { globalEnv = env }
+func Register(env Env) {
+	if globalEnv != nil {
+		log.Fatal("Platform environment already registered.")
+	}
+	globalEnv = env
+}
 
 // Get returns the registered Env implementation.
 func Get() Env {
