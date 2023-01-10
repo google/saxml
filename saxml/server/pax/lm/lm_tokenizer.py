@@ -185,6 +185,13 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
     new_ids = tf.reshape(new_ids, [nrows, -1])
     started = tf.reshape(started, [nrows])
 
+    # Hint the rank of prefix ids/len for `tf.RaggedTensor.from_tensor`, which
+    # is useful when TF can't identify their ranks on its own.
+    unprocessed_prefix_ids = tf.ensure_shape(
+        unprocessed_prefix_ids, [None, None]
+    )
+    unprocessed_prefix_len = tf.ensure_shape(unprocessed_prefix_len, [None])
+
     # Find the byte-encoded IDs.
     new_ids_shape = tf.shape(new_ids)
     b, new_seqlen = new_ids_shape[0], new_ids_shape[1]
@@ -248,7 +255,7 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
     new_started = tf.reshape(new_started, batch_size)
     return new_strs, (
         new_unprocessed_prefix_ids.to_tensor(),
-        new_unprocessed_prefix_ids.row_lengths(),
+        tf.cast(new_unprocessed_prefix_ids.row_lengths(), dtype=tf.int32),
         new_started,
     )
 
