@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "saxml/client/python/wrapper.h"
+#include "saxml/protobuf/common.pb.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/pytypes.h"
 #include "pybind11_abseil/absl_casters.h"    // IWYU pragma: keep
@@ -29,7 +30,12 @@ PYBIND11_MODULE(sax, m) {
   py::class_<sax::client::ModelOptions>(m, "ModelOptions")
       .def(py::init<>())
       .def("SetExtraInput", &sax::client::ModelOptions::SetExtraInput)
-      .def("SetTimeout", &sax::client::ModelOptions::SetTimeout);
+      .def("SetTimeout", &sax::client::ModelOptions::SetTimeout)
+      .def("ToDebugString", [](sax::client::ModelOptions& mo) {
+        ::sax::ExtraInputs extra_inputs;
+        mo.ToProto(&extra_inputs);
+        return extra_inputs.DebugString();
+      });
 
   py::class_<sax::client::pybind::AudioModel>(m, "AudioModel")
       .def("Recognize", &sax::client::pybind::AudioModel::Recognize,
