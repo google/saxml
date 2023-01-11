@@ -17,7 +17,6 @@
 from typing import Any
 
 import numpy as np
-from praxis import py_utils
 from saxml.protobuf import vision_pb2
 from saxml.protobuf import vision_pb2_grpc
 from saxml.server import model_service_base
@@ -39,22 +38,26 @@ class VisionService(model_service_base.ModelService):
 
   def ParseMethodRPCRequest(self, method_name: str, request: Any) -> Any:
     if method_name == VisionMethodName.CLASSIFY:
-      return py_utils.NestedMap(image_bytes=np.array(request.image_bytes))
+      return {'image_bytes': np.array(request.image_bytes)}
     if method_name == VisionMethodName.TEXT_TO_IMAGE:
       return request.text
     if method_name == VisionMethodName.EMBED:
-      return py_utils.NestedMap(image_bytes=np.array(request.image_bytes))
+      return {'image_bytes': np.array(request.image_bytes)}
     if method_name == VisionMethodName.DETECT:
-      return py_utils.NestedMap(
-          image_bytes=np.array(request.image_bytes),
-          text=np.array(request.text))
+      return {
+          'image_bytes': np.array(request.image_bytes),
+          'text': np.array(request.text),
+      }
     if method_name == VisionMethodName.IMAGE_TO_TEXT:
-      return py_utils.NestedMap(
-          image_bytes=np.array(request.image_bytes),
-          text=np.array(request.text))
+      return {
+          'image_bytes': np.array(request.image_bytes),
+          'text': np.array(request.text),
+      }
     if method_name == VisionMethodName.VIDEO_TO_TEXT:
-      return py_utils.NestedMap(
-          image_frames=list(request.image_frames), text=np.array(request.text))
+      return {
+          'image_frames': list(request.image_frames),
+          'text': np.array(request.text),
+      }
     raise NotImplementedError(f'Method {method_name} unimplemented.')
 
   def FillRPCResponse(self, method_name: str, method_outputs: Any,

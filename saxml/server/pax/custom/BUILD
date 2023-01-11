@@ -14,25 +14,14 @@ pytype_strict_library(
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
-        ":custom_service",
         "//saxml/server/pax:servable_model",
         "//saxml/server/pax:servable_model_params",
+        "//saxml/server/services:custom_service",
         "//third_party/py/paxml:checkpoint_py_pb2",
         "//third_party/py/praxis:base_model",
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis:pytypes",
-    ],
-)
-
-pytype_strict_library(
-    name = "custom_service",
-    srcs = ["custom_service.py"],
-    srcs_version = "PY3",
-    deps = [
-        "//saxml/protobuf:custom_py_pb2",
-        "//saxml/protobuf:custom_py_pb2_grpc",
-        "//saxml/server:model_service_base",
     ],
 )
 

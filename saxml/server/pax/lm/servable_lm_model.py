@@ -17,7 +17,7 @@ import abc
 import dataclasses
 import functools
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union, Mapping
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from absl import logging
 import jax
@@ -35,7 +35,7 @@ from saxml.server.jax import np_tf_sess_wrapper
 from saxml.server.pax import branch_selection
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
-from saxml.server.pax.lm import lm_service
+from saxml.server.services import lm_service
 import tensorflow as tf
 
 CheckpointType = checkpoint_pb2.CheckpointType

@@ -15,8 +15,6 @@
 """Imports the registered services and Cloud LM servable model params."""
 
 # pylint: disable=unused-import,g-bad-import-order
-# Import the services.
-import saxml.server.pax.lm.lm_service
 
 # Import the servables.
 from saxml.server.pax.lm.params import lm_cloud

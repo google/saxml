@@ -22,7 +22,7 @@ from praxis import py_utils
 from praxis import pytypes
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
-from saxml.server.pax.custom import custom_service
+from saxml.server.services import custom_service
 
 CheckpointType = checkpoint_pb2.CheckpointType
 JTensor = pytypes.JTensor

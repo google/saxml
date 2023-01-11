@@ -16,23 +16,8 @@ pytype_strict_library(
     srcs_version = "PY3",
     tags = ["keep_dep"],
     deps = [
-        ":lm_service",
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax/lm/params:lm_cloud",
-    ],
-)
-
-pytype_strict_library(
-    name = "lm_service",
-    srcs = ["lm_service.py"],
-    srcs_version = "PY3",
-    deps = [
-        "//saxml/protobuf:lm_py_pb2",
-        "//saxml/protobuf:lm_py_pb2_grpc",
-        "//saxml/server:model_service_base",
-        "//saxml/server/pax:servable_model_params",
-        "//third_party/py/numpy",
-        "//third_party/py/paxml:checkpoint_py_pb2",
     ],
 )
 
@@ -42,11 +27,11 @@ pytype_strict_library(
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
-        ":lm_service",
         "//saxml/server/jax:np_tf_sess_wrapper",
         "//saxml/server/pax:branch_selection",
         "//saxml/server/pax:servable_model",
         "//saxml/server/pax:servable_model_params",
+        "//saxml/server/services:lm_service",
         "//third_party/py/absl-py/logging",
         "//third_party/py/jax",
         "//third_party/py/jax:experimental",

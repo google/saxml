@@ -21,9 +21,9 @@ pytype_strict_library(
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
-        ":vision_service",
         "//saxml/server/pax:servable_model",
         "//saxml/server/pax:servable_model_params",
+        "//saxml/server/services:vision_service",
         "//third_party/py/jax",
         "//third_party/py/lingvo/core:cluster_factory",
         "//third_party/py/numpy",
@@ -42,21 +42,7 @@ pytype_strict_library(
     name = "all_imports",
     srcs = ["all_imports.py"],
     deps = [
-        ":vision_service",
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax/vision/params:resnet",
-    ],
-)
-
-pytype_strict_library(
-    name = "vision_service",
-    srcs = ["vision_service.py"],
-    srcs_version = "PY3",
-    deps = [
-        "//saxml/protobuf:vision_py_pb2",
-        "//saxml/protobuf:vision_py_pb2_grpc",
-        "//saxml/server:model_service_base",
-        "//third_party/py/numpy",
-        "//third_party/py/praxis:py_utils",
     ],
 )

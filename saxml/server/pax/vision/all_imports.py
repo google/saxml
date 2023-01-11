@@ -15,8 +15,6 @@
 """Imports the registered services and vision servable model params."""
 
 # pylint: disable=unused-import,g-bad-import-order
-# Import the services.
-import saxml.server.pax.vision.vision_service
 
 # Import the servables.
 from saxml.server.pax.vision.params import resnet
