@@ -51,6 +51,11 @@ def create_binary(
         py_binary_rule = pytype_strict_binary,
         deps = imports_targets + extra_deps,
         exp_sources = exp_sources,
+        paropts = ["--compress"],
+        exec_properties = {
+            "mem": "24g",
+            "cpp_link.mem": "24g",
+        },
     )
 
 def create_server_binary(
