@@ -14,7 +14,7 @@
 """Wraps a model with custom service APIs."""
 
 import abc
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
 
 from paxml import checkpoint_pb2
 from praxis import base_model
@@ -33,18 +33,36 @@ NestedMap = py_utils.NestedMap
 
 
 FetchOutputFn = Callable[[NestedJTensor, NestedJTensor], NestedJTensor]
-# Preprocessor: (inputs, optional_method_state) -> numpy input arrays
-#   without CreateInitStateFn: (inputs,) -> numpy input arrays
-#   with CreateInitStateFn: (inputs, method_state) -> numpy input arrays
-PreProcessingFn = Union[Callable[[List[Any], Optional[Any]], NestedNpTensor],
-                        Callable[[List[Any]], NestedNpTensor]]
-# Postprocessor:
-#   without CreateInitStateFn: (numpy arrays,) -> outputs
-#   with CreateInitStateFn: (numpy arrays, method_states) -> outputs
-PostProcessingFn = Union[Callable[[NestedNpTensor, Optional[Any]], List[Any]],
-                         Callable[[NestedNpTensor], List[Any]]]
+
+
+class PreProcessingFn(Protocol):
+  """Preprocessor function: (inputs, optional_method_state) -> numpy arrays.
+
+  Without CreateInitStateFn: (inputs,) -> numpy input arrays
+  With CreateInitStateFn: (inputs, method_state) -> numpy input arrays.
+  """
+
+  def __call__(
+      self, raw_inputs: List[Any], method_state: Optional[Any] = None
+  ) -> NestedNpTensor:
+    ...
+
+
+class PostProcessingFn(Protocol):
+  """Postprocessor function: (numpy arrays, optional_method_state) -> outputs.
+
+  Without CreateInitStateFn: (numpy arrays,) -> outputs
+  With CreateInitStateFn: (numpy arrays, method_states) -> outputs
+  """
+
+  def __call__(
+      self, raw_inputs: NestedNpTensor, method_state: Optional[Any] = None
+  ) -> List[Any]:
+    ...
+
+
 # Optional creator of initial method state.
-CreateInitStateFn = Callable[[], Any]
+CreateInitStateFn = Callable[['ServableCustomMethod'], Any]
 
 # Custom way of calling the model function (before fetch_output). Optional.
 # Signature is
@@ -105,8 +123,6 @@ class ServableCustomMethod(servable_model.ServableMethod):
     assert method_hparams.fetch_output_fn is not None
     assert method_hparams.pre_process_fn is not None
     assert method_hparams.post_process_fn is not None
-    if method_hparams.create_init_state_fn is not None:
-      self._state = method_hparams.create_init_state_fn()
     super().__init__(
         model,
         method_hparams.model_fn_name,
@@ -114,7 +130,12 @@ class ServableCustomMethod(servable_model.ServableMethod):
         method_hparams,
         prng_key,
         method_hparams.dummy_input_sample,
-        exportable=False)
+        exportable=False,
+        load=False,
+    )
+    if method_hparams.create_init_state_fn is not None:
+      self._state = method_hparams.create_init_state_fn(self)
+    self.load()
 
   @classmethod
   def service_id(cls) -> str:
@@ -128,19 +149,15 @@ class ServableCustomMethod(servable_model.ServableMethod):
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
-    # pytype: disable=wrong-arg-count
     if self._state is not None:
       return self._method_hparams.pre_process_fn(raw_inputs, self._state)
     return self._method_hparams.pre_process_fn(raw_inputs)
-    # pytype: enable=wrong-arg-count
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
-    # pytype: disable=wrong-arg-count
     if self._state is not None:
       return self._method_hparams.post_process_fn(compute_outputs, self._state)
     return self._method_hparams.post_process_fn(compute_outputs)
-    # pytype: enable=wrong-arg-count
 
   def call_model_function(self, inputs: NestedJTensor, mdl_vars: NestedJTensor,
                           prng_key: PRNGKey) -> NestedJTensor:

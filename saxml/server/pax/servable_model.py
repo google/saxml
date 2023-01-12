@@ -73,14 +73,17 @@ class ServableMethod(servable_model.ServableMethod):
     - post_processing()
   """
 
-  def __init__(self,
-               model: base_model.BaseModel,
-               model_fn_name: str,
-               model_state: ServableModelState,
-               method_params: servable_model_params.ServableMethodParams,
-               prng_key: PRNGKey,
-               dummy_input_sample: Any,
-               exportable: bool = False):
+  def __init__(
+      self,
+      model: base_model.BaseModel,
+      model_fn_name: str,
+      model_state: ServableModelState,
+      method_params: servable_model_params.ServableMethodParams,
+      prng_key: PRNGKey,
+      dummy_input_sample: Any,
+      exportable: bool = False,
+      load: bool = True,
+  ):
     """Initializes the method.
 
     Args:
@@ -97,6 +100,7 @@ class ServableMethod(servable_model.ServableMethod):
         problems like infinite loop in the device computation (but silent
         problems like NaNs are fine).
       exportable: whether this method is exportable to a SavedModel.
+      load: Whether to load this method during this __init__ call.
     """
     super().__init__(method_params, model_state, prng_key, dummy_input_sample)
     self._model = model
@@ -109,7 +113,8 @@ class ServableMethod(servable_model.ServableMethod):
     # TODO(b/261075587): remove conditional based input prefix bucketization.
     self._branch_selector = branch_selection.BranchSelector(
         keys=[self._dummy_bucket_key])
-    self.load()
+    if load:
+      self.load()
 
   @property
   def pax_model(self) -> base_model.BaseModel:

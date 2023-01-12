@@ -144,7 +144,10 @@ class TestCustomCall:
   def get_create_init_state_fn(self) -> servable_custom_model.CreateInitStateFn:
     """Gets create_init_state_fn."""
 
-    def create_init_state_fn() -> list[int]:
+    def create_init_state_fn(
+        method: servable_custom_model.ServableCustomMethod,
+    ) -> list[int]:
+      del method
       return []
 
     return create_init_state_fn
