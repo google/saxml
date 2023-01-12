@@ -55,6 +55,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   EOS_ID = 1
   SLICE_LEFT = True
   EXTRA_INPUTS = {'temperature': 0.1}
+  SCORE_EXTRA_INPUTS = {}
   BUCKET_KEYS = None
   INCLUDE_PREFIX_IN_RESULT = False
   MAX_LIVE_BATCHES = 4
@@ -89,7 +90,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   def score(self) -> Optional[servable_lm_model.ScoreHParams]:
     return servable_lm_model.ScoreHParams(
         batch_size=self.BATCH_SIZE,
-        max_input_seq_len=self.INPUT_SEQ_LEN)
+        max_input_seq_len=self.INPUT_SEQ_LEN,
+        extra_inputs=self.SCORE_EXTRA_INPUTS)
 
   def serving_tokenizer(self):
     if self.SPM_MODEL is None:
