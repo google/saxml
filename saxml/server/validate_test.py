@@ -95,6 +95,42 @@ class ValidateTest(absltest.TestCase):
     validate_status = validate.ValidateRequestForExtraInputs(req, extra_inputs)
     self.assertTrue(validate_status.ok())
 
+  def test_defined_extra_input_req_and_extra_inputs_tensor_match(self):
+    req = test_pb2.TestRequestWithExtraInput()
+    req.extra_inputs.tensors['a'].values.extend([0.1, 0.2])
+    extra_inputs = {'a': [0.3, 0.4]}
+    validate_status = validate.ValidateRequestForExtraInputs(req, extra_inputs)
+    self.assertTrue(validate_status.ok())
+
+  def test_defined_extra_input_req_and_extra_inputs_tensor_mismatch(self):
+    req = test_pb2.TestRequestWithExtraInput()
+    req.extra_inputs.tensors['a'].values.extend([0.1, 0.2])
+    extra_inputs = {'b': [0.1, 0.2]}
+    validate_status = validate.ValidateRequestForExtraInputs(req, extra_inputs)
+    self.assertEqual(validate_status.code, grpc.StatusCode.INVALID_ARGUMENT)
+
+  def test_defined_extra_input_req_and_extra_inputs_tensor_size_mismatch(self):
+    req = test_pb2.TestRequestWithExtraInput()
+    req.extra_inputs.tensors['a'].values.extend([0.1, 0.2, 0.3])
+    extra_inputs = {'b': [0.1, 0.2]}
+    validate_status = validate.ValidateRequestForExtraInputs(req, extra_inputs)
+    self.assertEqual(validate_status.code, grpc.StatusCode.INVALID_ARGUMENT)
+
+  def test_extra_inputs_items_values_key_collision(self):
+    req = test_pb2.TestRequestWithExtraInput()
+    req.extra_inputs.tensors['a'].values.extend([0.1, 0.2])
+    req.extra_inputs.items['a'] = 0.3
+    extra_inputs = {'a': [0.1, 0.2]}
+    validate_status = validate.ValidateRequestForExtraInputs(req, extra_inputs)
+    self.assertEqual(validate_status.code, grpc.StatusCode.INVALID_ARGUMENT)
+
+  def test_defined_extra_input_non_list_and_extra_inputs_tensor(self):
+    req = test_pb2.TestRequestWithExtraInput()
+    req.extra_inputs.tensors['a'].values.extend([0.1, 0.2])
+    extra_inputs = {'a': 0.1}
+    validate_status = validate.ValidateRequestForExtraInputs(req, extra_inputs)
+    self.assertEqual(validate_status.code, grpc.StatusCode.INVALID_ARGUMENT)
+
 
 if __name__ == '__main__':
   absltest.main()
