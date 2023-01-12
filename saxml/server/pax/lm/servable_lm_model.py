@@ -388,6 +388,18 @@ class ServableLMMethod(servable_model.ServableMethod):
         batched_host_dummy,
     )
 
+  def _extra_inputs_to_tf_signature(
+      self, batch_size: Optional[int]
+  ) -> Mapping[str, tf.TensorSpec]:
+    extra_tensor_specs = {}
+    if self._extra_inputs:
+      for name, val in self._extra_inputs.items():
+        val_tf = tf.convert_to_tensor(val)
+        extra_tensor_specs[name] = tf.TensorSpec(
+            [batch_size, *val_tf.shape.as_list()], val_tf.dtype, name=name
+        )
+    return extra_tensor_specs
+
 
 class LMScoreMethod(ServableLMMethod):
   """Implements the score method of an LM."""
@@ -530,6 +542,7 @@ class LMScoreMethod(ServableLMMethod):
       self,
       prefixes: NestedNpOrTfTensor,
       suffixes: NestedNpOrTfTensor,
+      extra_inputs: Optional[Mapping[str, Any]] = None,
       bucketize_inputs: bool = True,
   ) -> NestedTfTensor:
     """Tokenizes `prefixes` and `suffixes` using TF ops.
@@ -539,6 +552,8 @@ class LMScoreMethod(ServableLMMethod):
     Args:
       prefixes: the prefix text batch of shape [batch_size].
       suffixes: the suffix text batch of shape [batch_size].
+      extra_inputs: optional mapping of extra input key to tensor or tensor spec
+        of shape [batch_size].
       bucketize_inputs: whether to bucketize the preprocessed inputs based on
         max sequence length in the batch.
 
@@ -556,8 +571,13 @@ class LMScoreMethod(ServableLMMethod):
         score_masks=score_masks,
         inputs_indicator=inputs_indicator,
     )
+
     if bucketize_inputs:
-      return self._bucketize_tf_preprocessed_inputs(preprocessed)
+      preprocessed = self._bucketize_tf_preprocessed_inputs(preprocessed)
+
+    if extra_inputs:
+      preprocessed.update(extra_inputs)
+
     return preprocessed
 
   def tf_post_processing(
@@ -565,12 +585,15 @@ class LMScoreMethod(ServableLMMethod):
     """Implements `ExportableToSavedModel.tf_post_processing`."""
     return {'scores': compute_outputs}
 
-  def input_signature(self, batch_size: Optional[int]) -> list[tf.TensorSpec]:
+  def input_signature(
+      self, batch_size: Optional[int]
+  ) -> tuple[tf.TensorSpec, tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
     """Implements `ExportableToSavedModel.input_signature`."""
-    return [
+    return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),
-        tf.TensorSpec([batch_size], dtype=tf.string, name='suffixes')
-    ]
+        tf.TensorSpec([batch_size], dtype=tf.string, name='suffixes'),
+        self._extra_inputs_to_tf_signature(batch_size),
+    )
 
   @property
   def extra_trackables(self) -> Any:
@@ -923,14 +946,9 @@ class LMDecodeMethod(ServableLMMethod):
       self, batch_size: Optional[int]
   ) -> tuple[tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
     """Implements `ExportableToSavedModel.input_signature`."""
-    extra_tensor_specs = {}
-    if self._extra_inputs:
-      for name, val in self._extra_inputs.items():
-        extra_tensor_specs[name] = tf.TensorSpec(
-            [batch_size], tf.convert_to_tensor(val).dtype, name=name)
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='text'),
-        extra_tensor_specs
+        self._extra_inputs_to_tf_signature(batch_size),
     )
 
   @property
