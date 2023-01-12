@@ -14,7 +14,7 @@
 
 """Validate RPC request."""
 
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional
 
 from saxml.server import utils
 
@@ -23,8 +23,7 @@ from google.protobuf import message
 
 def ValidateRequestForExtraInputs(
     req: Optional[message.Message] = None,
-    extra_inputs: Optional[Dict[str, Union[float, List[float]]]] = None,
-) -> utils.Status:
+    extra_inputs: Optional[Dict[str, float]] = None) -> utils.Status:
   """Validate RPC request's extra_input field.
 
   If req has `extra_input` field, it is required that the `items` map in the
@@ -37,21 +36,14 @@ def ValidateRequestForExtraInputs(
       `extra_input` field defined, will return NOT_FOUND status.
 
   Returns:
-    If
-    (1) the keys in `req.extra_input.items` are a subset of `extra_input`'s keys
-    (2) the keys in `req.extra_input.tensors` are a subset of `extra_input`'s
-      keys
-    (3) the keys in `req.extra_input.tensors` are not a subset of
-      `req.extra_input.items`'s keys
-    (4) the values in `req.extra_input.tensors` are the same size a the values
-      of `req.extra_input.tensors`'s keys
+    If the keys in `req.extra_input.items` are a subset of `extra_input`'s keys,
     will return OK status, otherwise, will return NOT_FOUND status.
   """
   if req is None:
     return utils.ok()
 
   req_extra_inputs = (
-      dict(req.extra_inputs.items)
+      req.extra_inputs.items
       if hasattr(req, 'extra_inputs') and req.extra_inputs else None)
 
   if req_extra_inputs is None:
@@ -63,26 +55,6 @@ def ValidateRequestForExtraInputs(
           f"key {input_key} in RPC request's extra_inputs field is not in"
           'ServableModel.extra_inputs. extra_inputs in ServableModel are'
           f'{extra_inputs}'
-      )
-
-  for key, tensor in dict(req.extra_inputs.tensors).items():
-    if extra_inputs is None or key not in extra_inputs:
-      return utils.invalid_arg(
-          f"key {key} in RPC request's extra_inputs field is not in"
-          'ServableModel.extra_inputs. extra_inputs in ServableModel are'
-          f'{extra_inputs}'
-      )
-    if key in req_extra_inputs:
-      return utils.invalid_arg(
-          'It is invalid for the same key to appear in both items '
-          'and tensors.')
-    if not isinstance(extra_inputs[key], list):
-      return utils.invalid_arg(
-          f'Extra inputs `{key}` is a list but the default value is not.'
-      )
-    if len(list(tensor.values)) != len(extra_inputs[key]):
-      return utils.invalid_arg(
-          f'Extra inputs `{key}` does not have the same size as the default.'
       )
 
   return utils.ok()

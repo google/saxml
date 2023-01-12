@@ -388,10 +388,10 @@ class ServableMethod(servable_model.ServableMethod):
     # Add extra signatures to the input_batch.
     extra_input_tensors = {}
     for input_key, default_value in self.default_extra_inputs.items():
-      input_value = []
+      input_value = np.empty((batch_size,), dtype=np.float32)
       for i in range(batch_size):
-        input_value.append(extra_inputs[i].get(input_key, default_value))
-      extra_input_tensors[input_key] = np.array(input_value)
+        input_value[i] = extra_inputs[i].get(input_key, default_value)
+      extra_input_tensors[input_key] = input_value
     return self.add_extra_inputs(input_batch, extra_input_tensors)
 
   def device_compute(self, input_batch: DeviceTensors,
