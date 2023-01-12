@@ -30,6 +30,8 @@ PYBIND11_MODULE(sax, m) {
   py::class_<sax::client::ModelOptions>(m, "ModelOptions")
       .def(py::init<>())
       .def("SetExtraInput", &sax::client::ModelOptions::SetExtraInput)
+      .def(
+        "SetExtraInputTensor", &sax::client::ModelOptions::SetExtraInputTensor)
       .def("SetTimeout", &sax::client::ModelOptions::SetTimeout)
       .def("ToDebugString", [](sax::client::ModelOptions& mo) {
         ::sax::ExtraInputs extra_inputs;

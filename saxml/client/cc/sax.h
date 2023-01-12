@@ -48,10 +48,14 @@ class ModelOptions {
   float GetTimeout() const;
 
   void SetExtraInput(absl::string_view key, float value);
+  void SetExtraInputTensor(
+    absl::string_view key, const std::vector<float>& value);
   void ToProto(::sax::ExtraInputs* proto) const;
 
  private:
   std::map<std::string, float> kv_;  // key-value pair for extra input to model.
+  // key-value pair for extra input tensors to model.
+  std::map<std::string, std::vector<float>> kv_t_;
   float timeout_ = -1;  // Query timeout. Negative value means no timeout.
 };
 

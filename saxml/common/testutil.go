@@ -328,15 +328,27 @@ func (s *stubLanguageModelServer) Generate(ctx context.Context, in *lmpb.Generat
 	if val, found := extra["temperature"]; found {
 		temperature = float64(val)
 	}
+	extraVector := []float64{}
+	extraT := in.GetExtraInputs().GetTensors()
+	if val, found := extraT["extra_tensor"]; found {
+		vector := val.GetValues()
+		for _, value := range vector {
+			extraVector = append(extraVector, float64(value))
+		}
+	}
+	product := 1.0
+	for _, value := range extraVector {
+		product *= value
+	}
 	return &lmpb.GenerateResponse{
 		Texts: []*lmpb.DecodedText{
 			&lmpb.DecodedText{
 				Text:  text + "_0",
-				Score: float64(len(text)) * 0.1 * temperature,
+				Score: float64(len(text)) * 0.1 * temperature * product,
 			},
 			&lmpb.DecodedText{
 				Text:  text + "_1",
-				Score: float64(len(text)) * 0.2 * temperature,
+				Score: float64(len(text)) * 0.2 * temperature * product,
 			},
 		},
 	}, nil

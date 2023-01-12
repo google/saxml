@@ -32,6 +32,7 @@ namespace sax {
 namespace client {
 
 using ::sax::ExtraInputs;
+using ::sax::TensorInputs;
 using ::sax::server::lm::GenerateResponse;
 using ::sax::server::lm::GenerateStreamResponse;
 using ::sax::server::lm::ScoreRequest;
@@ -68,9 +69,19 @@ void ModelOptions::SetExtraInput(absl::string_view key, float value) {
   kv_[std::string(key)] = value;
 }
 
+void ModelOptions::SetExtraInputTensor(
+  absl::string_view key, const std::vector<float>& value) {
+  kv_t_[std::string(key)] = value;
+}
+
 void ModelOptions::ToProto(ExtraInputs* proto) const {
   for (auto const& option : kv_) {
     (*proto->mutable_items())[option.first] = option.second;
+  }
+  for (auto const& option : kv_t_) {
+    TensorInputs tensor;
+    tensor.mutable_values()->Assign(option.second.begin(), option.second.end());
+    (*proto->mutable_tensors())[option.first] = tensor;
   }
 }
 

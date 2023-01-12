@@ -127,12 +127,17 @@ func WithNumConn(num int) OptionSetter {
 
 // ModelOptions contains options for model methods.
 type ModelOptions struct {
-	kv map[string]float32
+	kv  map[string]float32
+	kvT map[string][]float32
 }
 
 // ExtraInputs creates a ExtraInputs proto from a ModelOptions.
 func (mo *ModelOptions) ExtraInputs() *pb.ExtraInputs {
-	return &pb.ExtraInputs{Items: mo.kv}
+	tensors := make(map[string]*pb.TensorInputs)
+	for key, value := range mo.kvT {
+		tensors[key] = &pb.TensorInputs{Values: value}
+	}
+	return &pb.ExtraInputs{Items: mo.kv, Tensors: tensors}
 }
 
 // ModelOptionSetter are setters for sax options.
@@ -145,10 +150,18 @@ func WithExtraInput(name string, value float32) ModelOptionSetter {
 	}
 }
 
+// WithExtraInputTensor sets options (key-tensor pairs) for the query.
+func WithExtraInputTensor(name string, value []float32) ModelOptionSetter {
+	return func(o *ModelOptions) {
+		o.kvT[name] = value
+	}
+}
+
 // NewModelOptions creates a ModelOption by applying a list of key value pairs.
 func NewModelOptions(setters ...ModelOptionSetter) *ModelOptions {
 	opts := &ModelOptions{
-		kv: make(map[string]float32),
+		kv:  make(map[string]float32),
+		kvT: make(map[string][]float32),
 	}
 	for _, op := range setters {
 		op(opts)
