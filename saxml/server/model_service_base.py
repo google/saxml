@@ -1055,11 +1055,19 @@ class ModelServicesRunner:
             for t in rpc_tasks
         ])
         unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
-        extra_inputs = [
-            dict(t.request.extra_inputs.items)
-            if hasattr(t.request, 'extra_inputs') and t.request.extra_inputs
-            else {} for t in rpc_tasks
-        ]
+
+        extra_inputs = []
+        for t in rpc_tasks:
+          extra_inputs.append({})
+          if hasattr(t.request, 'extra_inputs') and t.request.extra_inputs:
+            # Scalars
+            for k, v in dict(t.request.extra_inputs.items).items():
+              extra_inputs[-1][k] = v
+            # Tensors (1d list of floats)
+            # (Reshaping is delegated to the model.)
+            for k, v in dict(t.request.extra_inputs.tensors).items():
+              extra_inputs[-1][k] = list(v.values)
+
         inputs = method.update_extra_inputs(inputs, len(rpc_tasks),
                                             extra_inputs)
         utils.traceprint_all(rpc_tasks, 'After pre_processing')
