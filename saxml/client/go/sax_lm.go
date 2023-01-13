@@ -159,10 +159,12 @@ func (l *LanguageModel) GenerateStream(ctx context.Context, text string, options
 		if err != nil {
 			return err
 		}
+		first := true
 		for {
 			resp, err := stream.Recv()
 			if err == nil {
 				res <- StreamResult{Items: extractGenerateStreamResponse(resp)}
+				first = false
 				continue
 			}
 			// Pass both EOF and general errors to channel.
@@ -173,6 +175,10 @@ func (l *LanguageModel) GenerateStream(ctx context.Context, text string, options
 				return nil
 			}
 			// On other errors, explicitly use permanent error to skip retrier once streaming has started.
+			if first {
+				// Special handling for the first Recv() call, which returns actual errors such as NotFound.
+				return err
+			}
 			return retrier.CreatePermanentError(err)
 		}
 	})
