@@ -32,8 +32,8 @@ go_library(
 )
 
 go_library(
-    name = "cloudenv",
-    srcs = ["cloudenv.go"],
+    name = "cloud",
+    srcs = ["cloud.go"],
     deps = [
         ":env",
         # unused internal flag dependency,
@@ -46,15 +46,6 @@ go_library(
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//reflection:go_default_library",
         "@org_golang_x_oauth2//google:go_default_library",
-    ],
-)
-
-go_library(
-    name = "cloud",
-    srcs = ["cloud.go"],
-    deps = [
-        ":cloudenv",
-        ":env",
     ],
 )
 
