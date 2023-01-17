@@ -26,7 +26,7 @@ import (
 	"saxml/common/addr"
 	"saxml/common/location"
 	"saxml/common/platform/env"
-	_ "saxml/common/platform/cloud" // registers a platform
+	_ "saxml/common/platform/register" // registers a platform
 	"saxml/common/testutil"
 
 	pb "saxml/protobuf/admin_go_proto_grpc"

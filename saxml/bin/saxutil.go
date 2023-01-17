@@ -24,7 +24,7 @@ import (
 	"github.com/google/subcommands"
 	"saxml/bin/saxcommand"
 	"saxml/common/platform/env"
-	_ "saxml/common/platform/cloud" // registers a platform
+	_ "saxml/common/platform/register" // registers a platform
 )
 
 const (

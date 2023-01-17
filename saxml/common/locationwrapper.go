@@ -25,7 +25,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"saxml/common/location"
-	_ "saxml/common/platform/cloud" // registers a platform
+	_ "saxml/common/platform/register" // registers a platform
 
 	pb "saxml/protobuf/admin_go_proto_grpc"
 )

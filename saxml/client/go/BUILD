@@ -60,8 +60,8 @@ go_test(
     deps = [
         "//saxml/common:errors",
         "//saxml/common:testutil",
-        "//saxml/common/platform:cloud",
         "//saxml/common/platform:env",
+        "//saxml/common/platform:register",
         "//saxml/protobuf:lm_go_proto_grpc",
         # unused internal lm gRPC dependency,
         "@com_github_google_go_cmp//cmp:go_default_library",

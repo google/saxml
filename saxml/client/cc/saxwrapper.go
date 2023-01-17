@@ -37,7 +37,7 @@ import (
 	"saxml/client/go/saxadmin"
 	"saxml/common/errors"
 	"saxml/common/naming"
-	_ "saxml/common/platform/cloud" // registers a platform
+	_ "saxml/common/platform/register" // registers a platform
 
 	apb "saxml/protobuf/admin_go_proto_grpc"
 	ampb "saxml/protobuf/audio_go_proto_grpc"

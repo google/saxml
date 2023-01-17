@@ -33,8 +33,8 @@ go_test(
     srcs = ["validator_test.go"],
     deps = [
         ":validator",
-        "//saxml/common/platform:cloud",
         "//saxml/common/platform:env",
+        "//saxml/common/platform:register",
         "//saxml/protobuf:admin_go_proto_grpc",
         "//saxml/protobuf:common_go_proto",
         "@com_github_google_go_cmp//cmp:go_default_library",

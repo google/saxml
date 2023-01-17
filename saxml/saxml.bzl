@@ -160,8 +160,6 @@ def py_strict_test(name, srcs = [], deps = [], pybind_deps = [], **kwargs):
     native.py_test(name = name, srcs = srcs, deps = clean_py_deps(deps), data = data, **kwargs)
 
 def go_library(name, srcs = [], deps = [], **kwargs):
-    if "//saxml/common/platform:cloud" in deps:
-        fail("Don't select platforms in go_library rules.")
     _go_library(
         name = name,
         srcs = srcs,
@@ -180,8 +178,6 @@ def go_binary(name, srcs = [], deps = [], cgo = None, **kwargs):
         cgo: If True, enable cgo support.
         **kwargs: Args passed through to go_binary or go_library rules.
     """
-    if not "//saxml/common/platform:cloud" in deps:
-        fail("No platform selected.")
     if cgo:
         _go_binary(
             name = name,

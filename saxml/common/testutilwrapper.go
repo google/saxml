@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	log "github.com/golang/glog"
-	_ "saxml/common/platform/cloud" // registers a platform
+	_ "saxml/common/platform/register" // registers a platform
 	"saxml/common/testutil"
 )
 

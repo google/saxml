@@ -12,8 +12,8 @@ go_binary(
     deps = [
         # unused internal flag dependency,
         "//saxml/admin",
-        "//saxml/common/platform:cloud",
         "//saxml/common/platform:env",
+        "//saxml/common/platform:register",
         "@com_github_golang_glog//:go_default_library",
     ],
 )
@@ -26,8 +26,8 @@ go_binary(
         "//saxml/common:cell",
         "//saxml/common:config",
         "//saxml/common:naming",
-        "//saxml/common/platform:cloud",
         "//saxml/common/platform:env",
+        "//saxml/common/platform:register",
         "@com_github_golang_glog//:go_default_library",
     ],
 )
@@ -67,8 +67,8 @@ go_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":saxcommand",
-        "//saxml/common/platform:cloud",
         "//saxml/common/platform:env",
+        "//saxml/common/platform:register",
         "@com_github_google_subcommands//:go_default_library",
     ],
 )

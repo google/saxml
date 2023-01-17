@@ -5,14 +5,14 @@
 # following rules:
 #
 # 1.  go_binary and go_test targets that use the env package (including
-#     transitively) should import one of the platform targets below.
-# 2.  go_library targets, including testutil, should not import any
-#     platform target.
+#     transitively) should import the register target to register a platform.
+# 2.  go_library targets, including testutil, should not import the register
+#     target.
 # 3.  Cgo libraries are a special case. Because they can get linked into
-#     any non-Go rules that can't import Go platform targets, they should
-#     import the platform target they need.
+#     any non-Go targets that can't import Go platform targets, they should
+#     import the register target.
 #
-# Separately, go_binary targets should call env.Get().Init() near the
+# In addition, go_binary targets should call env.Get().Init() near the
 # beginning of their main() functions. Tests shouldn't call it.
 
 load("//saxml:saxml.bzl", "go_library", "go_test", "pytype_strict_library")
@@ -31,9 +31,24 @@ go_library(
     ],
 )
 
+config_setting(
+    name = "vertex",
+    values = {"define": "sax_env_vertex=1"},
+)
+
+go_library(
+    name = "register",
+    srcs = ["register_cloud.go"],
+    deps = select({
+        ":vertex": [":cloud"],
+        "//conditions:default": [":cloud"],
+    }),
+)
+
 go_library(
     name = "cloud",
     srcs = ["cloud.go"],
+    visibility = ["//visibility:private"],
     deps = [
         ":env",
         # unused internal flag dependency,

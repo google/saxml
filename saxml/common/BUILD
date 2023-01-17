@@ -90,8 +90,8 @@ go_test(
         ":addr",
         ":location",
         ":testutil",
-        "//saxml/common/platform:cloud",
         "//saxml/common/platform:env",
+        "//saxml/common/platform:register",
         "//saxml/protobuf:admin_go_proto_grpc",
     ],
 )
@@ -102,7 +102,7 @@ go_binary(
     cgo = True,
     deps = [
         ":location",
-        "//saxml/common/platform:cloud",
+        "//saxml/common/platform:register",
         "//saxml/protobuf:admin_go_proto_grpc",
         "@org_golang_google_protobuf//proto",
     ],
@@ -228,7 +228,7 @@ go_binary(
     cgo = True,
     deps = [
         ":testutil",
-        "//saxml/common/platform:cloud",
+        "//saxml/common/platform:register",
         "@com_github_golang_glog//:go_default_library",
     ],
 )

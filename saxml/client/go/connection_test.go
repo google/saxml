@@ -24,7 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	saxerrors "saxml/common/errors"
 	"saxml/common/platform/env"
-	_ "saxml/common/platform/cloud" // registers a platform
+	_ "saxml/common/platform/register" // registers a platform
 	"saxml/common/testutil"
 
 	pb "saxml/protobuf/lm_go_proto_grpc"

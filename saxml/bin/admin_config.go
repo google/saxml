@@ -24,7 +24,7 @@ import (
 	"saxml/common/config"
 	"saxml/common/naming"
 	"saxml/common/platform/env"
-	_ "saxml/common/platform/cloud" // registers a platform
+	_ "saxml/common/platform/register" // registers a platform
 )
 
 var (

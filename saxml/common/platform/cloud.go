@@ -398,19 +398,21 @@ func (e *Env) CheckACLs(principal string, acls []string) error {
 
 // Watch watches for content changes in a file and sends the new content on the returned channel.
 func (e *Env) Watch(ctx context.Context, path string) (<-chan []byte, error) {
-	prev, err := e.ReadCachedFile(ctx, path)
-	if err != nil {
-		return nil, fmt.Errorf("error reading file %v in Watch: %w", path, err)
-	}
-
 	updates := make(chan []byte)
 	// TODO(jiawenhao): Shut down the goroutine properly when the returned channel is closed.
 	go func() {
+		prev, err := e.ReadCachedFile(ctx, path)
+		if err != nil {
+			log.Errorf("Watch(%v) error, retrying later: %v", path, err)
+		} else {
+			updates <- prev
+		}
+
 		ticker := time.NewTicker(watchPeriod)
 		for range ticker.C {
 			curr, err := e.ReadCachedFile(ctx, path)
 			if err != nil {
-				log.Errorf("Watch error, retrying later: %v", err)
+				log.Errorf("Watch(%v) error, retrying later: %v", path, err)
 			} else if !bytes.Equal(prev, curr) {
 				prev = curr
 				updates <- curr

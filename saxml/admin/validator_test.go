@@ -21,7 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"saxml/admin/validator"
 	"saxml/common/platform/env"
-	_ "saxml/common/platform/cloud" // registers a platform
+	_ "saxml/common/platform/register" // registers a platform
 
 	apb "saxml/protobuf/admin_go_proto_grpc"
 	cpb "saxml/protobuf/common_go_proto"

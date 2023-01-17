@@ -44,7 +44,7 @@ go_binary(
         "//saxml/client/go:saxadmin",
         "//saxml/common:errors",
         "//saxml/common:naming",
-        "//saxml/common/platform:cloud",
+        "//saxml/common/platform:register",
         "//saxml/protobuf:admin_go_proto_grpc",
         "//saxml/protobuf:audio_go_proto_grpc",
         "//saxml/protobuf:common_go_proto",

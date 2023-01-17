@@ -25,7 +25,7 @@ import (
 	log "github.com/golang/glog"
 	"saxml/admin/admin"
 	"saxml/common/platform/env"
-	_ "saxml/common/platform/cloud" // registers a platform
+	_ "saxml/common/platform/register" // registers a platform
 )
 
 var (
