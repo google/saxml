@@ -109,8 +109,11 @@ class DetectHParams(servable_model_params.ServableMethodParams):
   Attributes:
     is_open_set: Indicates whether the model supports open set detection by
       passing text arguments to the Detect() API.
+    model_method_name: The name of the method to call to extract embeddings from
+      an input image.  Required.
   """
   is_open_set: bool = False
+  model_method_name: Optional[str] = None
 
 
 class ImageToTextHParams(servable_model_params.ServableMethodParams):
@@ -517,20 +520,25 @@ class ImageBytesToText(servable_model.ServableMethod):
         hyps=results['hyp'], hyplen=results['hyplen'], logprobs=logprobs
     )
 
-  def _preprocess_images(self, raw_input: Any) -> NpTensor:
+  def _preprocess_images(self, raw_input: Any) -> NestedNpTensor:
     """Preprocesses images on one unpadded data."""
     image_bytes = raw_input['image_bytes']
     image_data = self._input_processor.ImageBytesToBatch(image_bytes)
-    return image_data.image[0]
+    image_data = image_data.Transform(lambda x: x[0])
+    return image_data
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
     images = []
+    image_info = []
     texts = []
     with self._cluster:
       # TODO(weihan,sax-dev): wrap this loop with tf.function.
       for inp in raw_inputs:
-        images.append(self._preprocess_images(inp))
+        image_data = self._preprocess_images(inp)
+        images.append(image_data['image'])
+        if 'image_info' in image_data:
+          image_info.append(image_data['image_info'])
         texts += [inp['text']]
 
     images = np.stack(images)
@@ -559,6 +567,10 @@ class ImageBytesToText(servable_model.ServableMethod):
         target_ids=ids,
         target_paddings=paddings,
     )
+
+    if image_info:
+      processed_input_batch.image_info = np.stack(image_info)
+
     return processed_input_batch
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
@@ -579,11 +591,12 @@ class ImageBytesToText(servable_model.ServableMethod):
 class VideoBytesToText(ImageBytesToText):
   """Method for implementing video->text."""
 
-  def _preprocess_images(self, raw_input: Any) -> NpTensor:
+  def _preprocess_images(self, raw_input: Any) -> NestedNpTensor:
     """Preprocesses images on one unpadded data."""
     image_frames = tf.convert_to_tensor(raw_input['image_frames'])
     image_data = self._input_processor.ImageBytesToBatch(image_frames)
-    return image_data.image[0]
+    image_data = image_data.Transform(lambda x: x[0])
+    return image_data
 
 
 class VisionModel(servable_model.ServableModel):
@@ -639,18 +652,21 @@ class VisionModel(servable_model.ServableModel):
       )
     elif method == VisionMethodName.DETECT:
       assert isinstance(method_params, DetectHParams)
+      if method_params.model_method_name is None:
+        raise ValueError('Must specify `model_method_name` in DetectHParams.')
       image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
       dummy_input = {'image_bytes': image_bytes}
       if method_params.is_open_set:
         dummy_input['text'] = ['dummy']
       return ImageBytesToDetect(
           model,
-          'compute_predictions',
+          method_params.model_method_name,
           model_state,
           method_params,
           prng_key=prng_key,
           dummy_input_sample=dummy_input,
-          model_config=self.model_config)
+          model_config=self.model_config,
+      )
     elif method == VisionMethodName.IMAGE_TO_TEXT:
       assert isinstance(method_params, ImageToTextHParams)
       image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
