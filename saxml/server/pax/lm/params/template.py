@@ -34,9 +34,10 @@ from saxml.server.pax.lm import servable_lm_model
 
 
 class ServingTemplate(servable_lm_model.ServableLMModelParams):
-  # pylint: disable=line-too-long
-  """Template servable config."""
-  # pylint: enable=line-too-long
+  """Template servable config.
+
+  Language model parameters can be found at go/sax-lm-decode-params.
+  """
 
   ICI_MESH_SHAPE = [1, 1, 8]
   USE_BEAM_SEARCH = False
