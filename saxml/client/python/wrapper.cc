@@ -333,6 +333,32 @@ VisionModel::ImageToText(absl::string_view image_bytes, absl::string_view text,
   return result;
 }
 
+absl::StatusOr<std::vector<std::pair<pybind11::bytes, double>>>
+VisionModel::VideoToText(const std::vector<absl::string_view>& image_frames,
+                         absl::string_view text,
+                         const ModelOptions* options) const {
+  if (!status_.ok()) return status_;
+  std::vector<::sax::client::VisionModel::ScoredText> samples;
+  {
+    pybind11::gil_scoped_release release;
+    if (options == nullptr) {
+      RETURN_IF_ERROR(model_->VideoToText(image_frames, text, &samples));
+    } else {
+      RETURN_IF_ERROR(
+          model_->VideoToText(*options, image_frames, text, &samples));
+    }
+  }
+
+  // NOTE: pybind11::bytes must be called within GIL.
+  std::vector<std::pair<pybind11::bytes, double>> result;
+  for (size_t i = 0; i < samples.size(); i++) {
+    auto& item = samples[i];
+    result.push_back(
+        std::make_pair(pybind11::bytes(std::move(item.text)), item.score));
+  }
+  return result;
+}
+
 Model::Model(absl::string_view id, const Options* options) {
   status_ = ::sax::client::Model::Open(id, options, &base_);
 }

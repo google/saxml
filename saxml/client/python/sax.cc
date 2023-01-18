@@ -30,8 +30,8 @@ PYBIND11_MODULE(sax, m) {
   py::class_<sax::client::ModelOptions>(m, "ModelOptions")
       .def(py::init<>())
       .def("SetExtraInput", &sax::client::ModelOptions::SetExtraInput)
-      .def(
-        "SetExtraInputTensor", &sax::client::ModelOptions::SetExtraInputTensor)
+      .def("SetExtraInputTensor",
+           &sax::client::ModelOptions::SetExtraInputTensor)
       .def("SetTimeout", &sax::client::ModelOptions::SetTimeout)
       .def("ToDebugString", [](sax::client::ModelOptions& mo) {
         ::sax::ExtraInputs extra_inputs;
@@ -150,6 +150,17 @@ PYBIND11_MODULE(sax, m) {
             return vm.ImageToText(image_bytes, text, options);
           },
           py::arg("image_bytes"), py::arg("text") = "",
+          py::arg("options") = nullptr)
+      .def(
+          "VideoToText",
+          [](sax::client::pybind::VisionModel& vm,
+             const std::vector<absl::string_view>& image_frames,
+             absl::string_view text, const sax::client::ModelOptions* options)
+              -> absl::StatusOr<
+                  std::vector<std::pair<pybind11::bytes, double>>> {
+            return vm.VideoToText(image_frames, text, options);
+          },
+          py::arg("image_frames"), py::arg("text") = "",
           py::arg("options") = nullptr);
 
   py::class_<sax::client::pybind::Model>(m, "Model")

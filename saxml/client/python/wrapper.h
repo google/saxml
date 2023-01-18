@@ -162,6 +162,14 @@ class VisionModel {
       absl::string_view image_bytes, absl::string_view text = "",
       const ModelOptions* options = nullptr) const;
 
+  // VideoToText produces a list of captions and scores given 'image_frames'
+  // and an optional prefix 'text'
+  //
+  // Returns a vector of tuples <text, score>.
+  absl::StatusOr<std::vector<std::pair<pybind11::bytes, double>>> VideoToText(
+      const std::vector<absl::string_view>& image_frames,
+      absl::string_view text = "", const ModelOptions* options = nullptr) const;
+
  private:
   explicit VisionModel(::sax::client::Model* base, const absl::Status& status);
   ::sax::client::Model* base_ = nullptr;
