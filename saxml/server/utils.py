@@ -283,3 +283,7 @@ def permission_denied(errmsg: str) -> Status:
 
 def resource_exhausted(errmsg: str) -> Status:
   return Status(grpc.StatusCode.RESOURCE_EXHAUSTED, errmsg)
+
+
+def unimplemented(errmsg: str) -> Status:
+  return Status(grpc.StatusCode.UNIMPLEMENTED, errmsg)
