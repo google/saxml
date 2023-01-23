@@ -35,6 +35,7 @@ from saxml.server.jax import np_tf_sess_wrapper
 from saxml.server.pax import branch_selection
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
+from saxml.server.pax.lm import servable_lm_common
 from saxml.server.services import lm_service
 import tensorflow as tf
 
@@ -50,6 +51,8 @@ NestedNpOrTfTensor = Union[NestedNpTensor, NestedTfTensor]
 LMMethodName = lm_service.LMMethodName
 HostTensors = servable_model.HostTensors
 ShapesAndDtypes = servable_model.ShapesAndDtypes
+
+decode_tf_post_processing = servable_lm_common.decode_tf_post_processing
 
 
 @dataclasses.dataclass(eq=True, frozen=True)
@@ -626,7 +629,15 @@ class LMDecodeMethod(ServableLMMethod):
     logging.info(
         'Using np_tf_sess_wrapper on LMDecodeMethod.tf_post_processing')
     self._tf_sess_post_processing = np_tf_sess_wrapper.wrap_tf_session(
-        self.tf_post_processing, False)
+        # pylint: disable=g-long-lambda
+        lambda *args: decode_tf_post_processing(
+            *args,
+            tokenizer=self._tokenizer,
+            encoder_decoder_model=self._method_hparams.encoder_decoder_model,
+            include_prefix_in_result=self._include_prefix_in_result,
+        ),
+        False,
+    )
     self._streamable = streamable
     logging.info('Initialize LMDecodeMethod to be streamable=%s.', streamable)
 
@@ -695,50 +706,11 @@ class LMDecodeMethod(ServableLMMethod):
 
   def fetch_output(self, model_fn_outputs: NestedJTensor,
                    model_fn_inputs: NestedJTensor) -> NestedJTensor:
-    assert len(model_fn_outputs[0]) == 3
-    # Extract the per example outputs and discard weighted scalars and metrics.
-    _, result, _ = model_fn_outputs[0]
-    output_ids = result.output_ids  # [batch_size, num_samples, seqlen].
-    scores = self.get_scores(result)
-
-    if self._method_hparams.encoder_decoder_model:
-      decode_lengths = None
-      prefix_lengths = None
-    else:
-      # [batch_size, num_samples]
-      decode_lengths = result.decode_lengths
-      # [batch_size]
-      prefix_lengths = model_fn_inputs.prefix_lengths
-
-    return NestedMap(
-        output_ids=output_ids,
-        decode_lengths=decode_lengths,
-        prefix_lengths=prefix_lengths,
-        scores=scores,
+    return servable_lm_common.decode_fetch_output(
+        model_fn_outputs,
+        model_fn_inputs,
+        self._method_hparams.encoder_decoder_model,
     )
-
-  def _tf_tokenize_inputs(
-      self, texts: tf.Tensor
-  ) -> Tuple[tf.Tensor, Optional[tf.Tensor], Optional[tf.Tensor],
-             Optional[tf.Tensor]]:
-    ids, labels, paddings = self._tokenizer.StringsToIds(
-        texts, self._method_hparams.max_input_seq_len)
-
-    if self._method_hparams.encoder_decoder_model:
-      # TODO(wangtao): consider change behavior of tokenizer. Encoder-decoder
-      # model needs EOS at the end of the sequence, BOS is not needed at the
-      # beginning of the sequence.
-      return labels, None, None, None
-
-    # weights, prefix_lengths computation is specific for decoder model.
-    weights = 1.0 - paddings
-    prefix_lengths = tf.reduce_sum(1.0 - paddings, axis=-1)
-    if (hasattr(self._tokenizer, 'hparams') and
-        not self._tokenizer.hparams.append_eos):
-      # Use labels prepended with SOS as IDs.
-      ids = tf.concat([ids[:, 0:1], labels[:, :-1]], axis=1)
-      prefix_lengths += 1
-    return ids, paddings, prefix_lengths, weights
 
   def pre_processing(self, raw_inputs: List[str]) -> NestedNpTensor:
     texts = np.array(raw_inputs)
@@ -857,7 +829,14 @@ class LMDecodeMethod(ServableLMMethod):
     Returns:
       A NestedMap of preprocessed tensors.
     """
-    ids, paddings, prefix_lengths, weights = self._tf_tokenize_inputs(texts)
+    ids, paddings, prefix_lengths, weights = (
+        servable_lm_common.decode_tf_tokenize_inputs(
+            texts,
+            self._tokenizer,
+            self._method_hparams.max_input_seq_len,
+            self._method_hparams.encoder_decoder_model,
+        )
+    )
 
     if self._method_hparams.encoder_decoder_model:
       # Preprocess for the encoder decoder model.
@@ -894,53 +873,12 @@ class LMDecodeMethod(ServableLMMethod):
       A mapping that contains the decoded tensors, scores and ids of the topk
       results.
     """
-    assert isinstance(compute_outputs, py_utils.NestedMap)
-    if self._method_hparams.encoder_decoder_model:
-      # Post process for the encoder decoder model.
-      # output_ids: [b, seqlen]
-      # scores: [b]
-      decoded = tf.map_fn(
-          self._tokenizer.IdsToStrings,
-          compute_outputs.output_ids,
-          fn_output_signature=tf.string)
-      decoded = tf.expand_dims(decoded, axis=-1)
-      output_ids = tf.expand_dims(compute_outputs.output_ids, axis=-1)
-      scores = tf.expand_dims(compute_outputs.scores, axis=-1)
-    else:
-      # prefix_lengths: [b]
-      # decode_lengths: [b, num_samples]
-      # output_ids: [b, num_samples, seqlen]
-      # scores: [b, num_samples]
-      if self._include_prefix_in_result:
-        output_ids = compute_outputs.output_ids
-        decode_lengths = compute_outputs.decode_lengths
-      else:
-
-        def remove_prefix(ids_and_prefix_length):
-          ids, prefix_length = ids_and_prefix_length
-          return tf.pad(ids[:, prefix_length:], [[0, 0], [0, prefix_length]])
-
-        output_ids = tf.map_fn(
-            remove_prefix,
-            (compute_outputs.output_ids, compute_outputs.prefix_lengths),
-            fn_output_signature=tf.int32,
-        )
-        decode_lengths = compute_outputs.decode_lengths - tf.expand_dims(
-            compute_outputs.prefix_lengths, axis=-1)
-
-      def decode(ids_and_lens):
-        ids, lens = ids_and_lens
-        return self._tokenizer.IdsToStrings(
-            tf.RaggedTensor.from_tensor(ids, lens), lens)
-
-      decoded = tf.map_fn(
-          decode, (output_ids, decode_lengths), fn_output_signature=tf.string)
-      scores = compute_outputs.scores
-    return {
-        'topk_decoded': decoded,
-        'topk_scores': scores,
-        'topk_ids': output_ids
-    }
+    return decode_tf_post_processing(
+        compute_outputs,
+        tokenizer=self._tokenizer,
+        encoder_decoder_model=self._method_hparams.encoder_decoder_model,
+        include_prefix_in_result=self._include_prefix_in_result,
+    )
 
   def input_signature(
       self, batch_size: Optional[int]

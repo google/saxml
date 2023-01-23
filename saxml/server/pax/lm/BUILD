@@ -22,11 +22,26 @@ pytype_strict_library(
 )
 
 pytype_strict_library(
+    name = "servable_lm_common",
+    srcs = ["servable_lm_common.py"],
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//third_party/py/jax",
+        "//third_party/py/numpy",
+        "//third_party/py/praxis:py_utils",
+        "//third_party/py/praxis:pytypes",
+        "//third_party/py/tensorflow:tensorflow_no_contrib",
+    ],
+)
+
+pytype_strict_library(
     name = "servable_lm_model",
     srcs = ["servable_lm_model.py"],
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
+        ":servable_lm_common",
         "//saxml/server/jax:np_tf_sess_wrapper",
         "//saxml/server/pax:branch_selection",
         "//saxml/server/pax:servable_model",
