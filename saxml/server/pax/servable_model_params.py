@@ -23,10 +23,13 @@ from paxml import base_experiment
 from paxml import checkpoint_pb2
 from praxis import base_hyperparams
 from praxis import py_utils
+from praxis.layers.quantization import quantization_hparams
 from saxml.server import servable_model_params
 from saxml.server import utils
 
 NestedMap = py_utils.NestedMap
+QuantizationType = quantization_hparams.QuantizationType
+QuantizationMode = quantization_hparams.QuantizationMode
 
 
 def get_pax_checkpoint_type() -> checkpoint_pb2.CheckpointType:
@@ -40,8 +43,8 @@ class ServableModelParams(base_experiment.BaseExperiment,
                           servable_model_params.ServableModelParams):
   """A base class that each model config needs to implement for serving."""
 
-  quantization_type: str = 'ptq'
-  quant_mode: Optional[str] = None
+  quantization_type: QuantizationType = QuantizationType.PTQ
+  quant_mode: QuantizationMode = QuantizationMode.INFERENCE
 
   @classmethod
   def check_serving_platform(cls) -> utils.Status:
@@ -76,13 +79,13 @@ class ServableModelParams(base_experiment.BaseExperiment,
     small for sample inputs.
     """
 
-  def get_quant_configs(self) -> Tuple[str, Optional[str]]:
+  def get_quant_configs(self) -> Tuple[QuantizationType, QuantizationMode]:
     return self.quantization_type, self.quant_mode  # pytype: disable=attribute-error
 
-  def set_quantization_type(self, quantization_type) -> None:
+  def set_quantization_type(self, quantization_type: QuantizationType) -> None:
     self.quantization_type = quantization_type  # pytype: disable=attribute-error
 
-  def set_quant_mode(self, mode: str) -> None:
+  def set_quant_mode(self, mode: QuantizationMode) -> None:
     self.quant_mode = mode  # pytype: disable=attribute-error
 
   @classmethod

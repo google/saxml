@@ -47,7 +47,7 @@ from praxis.layers.quantization import quantize
 
 # TODO(jianlijianli): Merge this with the decorator in pax.
 # Ready-to-use quantization decorators for quantizing transformer.
-def for_transformer(quantize_on_the_fly=True):
+def for_transformer(quantize_on_the_fly=True, num_bits: int = 8):
   """Find and quantize transformer.
 
   If there are transformers that shouldn't be quantized, use the quantize_*
@@ -55,11 +55,15 @@ def for_transformer(quantize_on_the_fly=True):
 
   If there are no transformers in the model, it's a no-op.
 
+  Note that this decorator is only for weight-only quantization.
+
   Args:
     quantize_on_the_fly: If the model is to be quantized on the fly.
       - Defaults to True, and the input model is float, and quantization happen
         on the fly.
       - When set to False, the input model is already quantized.
+    num_bits: number of bits for quantized weights. Currently supports 8 and 4
+      but any interger [1, 8] works.
 
   Returns:
     a modifier that quantizes transformers when applied to a config.
@@ -78,16 +82,19 @@ def for_transformer(quantize_on_the_fly=True):
           mode = quantization_hparams.QuantizationMode.MATERIALIZE
         else:
           mode = quantization_hparams.QuantizationMode.INFERENCE
+        config.set_quant_mode(mode)
         task_p = config.task()
 
         quantization_type_str, _ = config.get_quant_configs()
         quantization_type = quantization_hparams.QuantizationType(
             quantization_type_str)
+        assert num_bits == 8 or num_bits == 4
         quantize.set_quantization(
             task_p.model,
             layers.transformers.Transformer,
             quantization_type,
-            mode=mode)
+            mode=mode,
+            num_bits=num_bits)
         return task_p
 
     return Wrapper

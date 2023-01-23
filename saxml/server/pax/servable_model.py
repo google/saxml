@@ -33,6 +33,7 @@ from praxis import base_layer
 from praxis import base_model
 from praxis import py_utils
 from praxis import pytypes
+from praxis.layers.quantization import quantization_hparams
 from praxis.layers.quantization import quantize
 from saxml.server.jax import servable_model
 from saxml.server.pax import branch_selection
@@ -457,7 +458,11 @@ class ServableModel(servable_model.ServableModel):
                                              mdl_var_unpadded_shapes)
 
       model = jax_task.model
-      if self.model_config.quant_mode == 'materialize':
+      logging.info('quant_mode: %s', self.model_config.quant_mode)
+      if (
+          self.model_config.quant_mode
+          == quantization_hparams.QuantizationMode.MATERIALIZE
+      ):
         # quantize model.
         def convert(x):
           # writing this as lamda triggers "g-long-lambda" warning.
@@ -467,10 +472,16 @@ class ServableModel(servable_model.ServableModel):
 
         # get PartitionSpec for output.
         def quant_pspec_fn(mdl_vars_to_quant, prng_keys):
-          mdl_vars_to_quant = jax.tree_map(py_utils.maybe_slice_uneven_sharding,
-                                           mdl_vars_to_quant, mdl_var_pspecs,
-                                           mdl_var_unpadded_shapes)
-          if model_p.fprop_dtype == jnp.bfloat16 or model_p.dtype == jnp.bfloat16:
+          mdl_vars_to_quant = jax.tree_map(
+              py_utils.maybe_slice_uneven_sharding,
+              mdl_vars_to_quant,
+              mdl_var_pspecs,
+              mdl_var_unpadded_shapes,
+          )
+          if (
+              model_p.fprop_dtype == jnp.bfloat16
+              or model_p.dtype == jnp.bfloat16
+          ):
             # Convert float inputs/vars if fprop dtype is bfloat16.
             mdl_vars_to_quant = jax.tree_map(convert, mdl_vars_to_quant)
           k1, k2, prng_keys = jax.random.split(prng_keys, num=3)
@@ -498,10 +509,16 @@ class ServableModel(servable_model.ServableModel):
         # pylint: enable=g-long-lambda
 
         def quant_fn(mdl_vars_to_quant, prng_keys):
-          mdl_vars_to_quant = jax.tree_map(py_utils.maybe_slice_uneven_sharding,
-                                           mdl_vars_to_quant, mdl_var_pspecs,
-                                           mdl_var_unpadded_shapes)
-          if model_p.fprop_dtype == jnp.bfloat16 or model_p.dtype == jnp.bfloat16:
+          mdl_vars_to_quant = jax.tree_map(
+              py_utils.maybe_slice_uneven_sharding,
+              mdl_vars_to_quant,
+              mdl_var_pspecs,
+              mdl_var_unpadded_shapes,
+          )
+          if (
+              model_p.fprop_dtype == jnp.bfloat16
+              or model_p.dtype == jnp.bfloat16
+          ):
             # Convert float inputs/vars if fprop dtype is bfloat16.
             mdl_vars_to_quant = jax.tree_map(convert, mdl_vars_to_quant)
           k1, k2, prng_keys = jax.random.split(prng_keys, num=3)
