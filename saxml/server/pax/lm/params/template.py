@@ -54,7 +54,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   SPM_MODEL = None
   SOS_ID = 0
   EOS_ID = 1
-  STOP_TOKEN_IDS = [EOS_ID]
+  STOP_TOKEN_IDS = None
   SLICE_LEFT = True
   EXTRA_INPUTS = {'temperature': 0.1}
   SCORE_EXTRA_INPUTS = {}
@@ -110,6 +110,9 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   def generate(self) -> Optional[servable_lm_model.DecodeHParams]:
     max_decode_steps = max(self.MAX_DECODE_STEPS) if isinstance(
         self.MAX_DECODE_STEPS, list) else self.MAX_DECODE_STEPS
+    stop_token_ids = (
+        self.STOP_TOKEN_IDS if self.STOP_TOKEN_IDS else [self.EOS_ID]
+    )
     if not self.ENABLE_GENERATE:
       return None
 
@@ -122,7 +125,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
           max_decode_steps=self.MAX_DECODE_STEPS,
           seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           beam_size=self.BEAM_SIZE,
-          eos_id=self.STOP_TOKEN_IDS,
+          eos_id=stop_token_ids,
           length_norm_alpha=self.LENGTH_NORM_ALPHA,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
       )
@@ -137,7 +140,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
           seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           num_samples=self.NUM_SAMPLES,
           temperature=None,
-          eos_id=self.STOP_TOKEN_IDS,
+          eos_id=stop_token_ids,
           k=self.TOP_K,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
       )
@@ -153,6 +156,9 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   def generate_stream(self) -> Optional[servable_lm_model.DecodeHParams]:
     max_decode_steps = max(self.MAX_DECODE_STEPS) if isinstance(
         self.MAX_DECODE_STEPS, list) else self.MAX_DECODE_STEPS
+    stop_token_ids = (
+        self.STOP_TOKEN_IDS if self.STOP_TOKEN_IDS else [self.EOS_ID]
+    )
     if not self.ENABLE_GENERATE_STREAM:
       return None
 
@@ -172,8 +178,9 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
         num_samples=self.NUM_SAMPLES,
         temperature=None,
-        eos_id=self.EOS_ID,
-        k=self.TOP_K)
+        eos_id=stop_token_ids,
+        k=self.TOP_K,
+    )
 
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
