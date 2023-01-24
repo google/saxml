@@ -417,8 +417,9 @@ class ServableModel(servable_model.ServableModel):
         train_state_global_shapes = jax.tree_map(maybe_to_bfloat16_dtype,
                                                  train_state_global_shapes)
 
-      partitioned_specs = jax_task.create_train_state_partition_specs(
-          vars_weight_params, discard_opt_states=discard_opt_states)
+      partition_specs = jax_task.create_train_state_partition_specs(
+          vars_weight_params, discard_opt_states=discard_opt_states
+      )
       if checkpoint_path is not None:
         checkpoint_path = epath.Path(checkpoint_path)
         if not checkpoint_path.is_dir():
@@ -437,8 +438,9 @@ class ServableModel(servable_model.ServableModel):
             checkpoint_path,
             global_mesh=global_mesh,
             checkpoint_type=self._ckpt_type,
-            state_specs=partitioned_specs,
-            step=step)
+            state_specs=partition_specs,
+            step=step,
+        )
       else:
         assert self._test_mode, 'Must provide checkpoint unless in test mode'
         _, partitioned_train_state = (
@@ -451,7 +453,7 @@ class ServableModel(servable_model.ServableModel):
       assert partitioned_train_state is not None
       mdl_vars = partitioned_train_state.mdl_vars
       del partitioned_train_state
-      mdl_var_pspecs = partitioned_specs.mdl_vars
+      mdl_var_pspecs = partition_specs.mdl_vars
       mdl_var_unpadded_shapes = (jax_task.create_train_state_unpadded_shapes(
           vars_weight_params, discard_opt_states=discard_opt_states)).mdl_vars
       mdl_var_unpadded_shapes = jax.tree_map(lambda x: x.shape,
@@ -488,11 +490,12 @@ class ServableModel(servable_model.ServableModel):
           return jax_task.model.apply(
               mdl_vars_to_quant,
               mutable=[],
-              method=jax_task.model.quantized_partitioned_specs,
+              method=jax_task.model.quantized_partition_specs,
               rngs={
                   base_layer.PARAMS: k1,
                   base_layer.RANDOM: k2,
-              })
+              },
+          )
 
         pjit_quant_pspec_fn = pjit.pjit(
             quant_pspec_fn,
