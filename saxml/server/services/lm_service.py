@@ -13,6 +13,7 @@
 # limitations under the License.
 """RPC service LM inference."""
 
+from collections.abc import Iterable
 from typing import Any
 
 import numpy as np
@@ -47,7 +48,10 @@ class LmService(model_service_base.ModelService):
   def FillRPCResponse(self, method_name: str, method_outputs: Any,
                       response: Any) -> None:
     if method_name == LMMethodName.SCORE:
-      response.logp.extend(method_outputs)
+      if isinstance(method_outputs, Iterable):
+        response.logp.extend(method_outputs)
+      else:
+        response.logp.append(method_outputs)
       return
     if method_name == LMMethodName.GENERATE:
       texts, scores = method_outputs
