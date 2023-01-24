@@ -46,16 +46,18 @@ class SerializedPjitFunction:
     raise NotImplementedError('not implemented')
 
 
-def serialize_pjittable_function(fun: Callable[..., Any],
-                                 global_input_shape_dtypes: Sequence[Any],
-                                 input_pspecs: Sequence[Any],
-                                 mesh: maps.Mesh) -> SerializedPjitFunction:
+def serialize_pjittable_function(
+    fun: Callable[..., Any],
+    global_inputs_shape_dtype: Sequence[Any],
+    input_pspecs: Sequence[Any],
+    mesh: maps.Mesh,
+) -> SerializedPjitFunction:
   """Converts a pjittable function to a SerializedPjitFunction.
 
   Args:
     fun: The python JAX function to be pjitted. Only positional args are
       supported, but each arg can be an arbitrary pytree of arrays.
-    global_input_shape_dtypes: Sequence of input shape_dtypes for the positional
+    global_inputs_shape_dtype: Sequence of input shape_dtypes for the positional
       args. It should have the same pytree structure as the inputs to fun.
     input_pspecs: Sequence of pspecs for the positional args. It should have the
       same pytree structure as the inputs to fun.
@@ -68,7 +70,7 @@ def serialize_pjittable_function(fun: Callable[..., Any],
   pjitted = pjit.pjit(
       fun, in_axis_resources=input_pspecs, out_axis_resources=None)
   with mesh:
-    lowered = pjitted.lower(*global_input_shape_dtypes)
+    lowered = pjitted.lower(*global_inputs_shape_dtype)
     mesh_comp = lowered._lowering  # pylint: disable=protected-access
     assert isinstance(mesh_comp, jax.pxla.MeshComputation)
     global_in_avals = mesh_comp.compile_args['global_in_avals']

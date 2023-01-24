@@ -91,7 +91,7 @@ class MethodInputInfo:
   # Partition specs for the inputs of the device function.
   input_pspecs: PSpecs
   # Global shape and dtype for the inputs of the device function.
-  global_input_shape_dtypes: ShapesAndDtypes
+  global_inputs_shape_dtype: ShapesAndDtypes
   # Dummy input tensors used for secondary hosts.
   dummy_inputs: Optional[DeviceTensors] = None
   # Dummy input device buffers (on the local devices)
@@ -182,12 +182,13 @@ class ServableMethod(servable_model.ServableMethod):
     input_pspecs = jax.tree_util.tree_map(_get_pspec, host_dummy)
 
     num_cores = len(self.model_state.global_mesh.devices.flat)
-    global_input_shape_dtypes = jax.tree_util.tree_map(
-        lambda x: ((num_cores,) + x.shape, x.dtype), host_dummy)
+    global_inputs_shape_dtype = jax.tree_util.tree_map(
+        lambda x: ((num_cores,) + x.shape, x.dtype), host_dummy
+    )
 
     self._per_bs_infos[input_shape] = MethodInputInfo(
         input_pspecs=input_pspecs,
-        global_input_shape_dtypes=global_input_shape_dtypes,
+        global_inputs_shape_dtype=global_inputs_shape_dtype,
     )
     info = self._per_bs_infos[input_shape]
     info.dummy_inputs_per_device_buffers = self._input_to_device_buffers(
@@ -271,10 +272,12 @@ class ServableMethod(servable_model.ServableMethod):
     step = np.array(self._step.next(), dtype=np.int32)
     host_inputs = jax.tree_util.tree_map(
         functools.partial(
-            self.resize_host_array, unpadded_input_shape=unpadded_input_shape),
+            self.resize_host_array, unpadded_input_shape=unpadded_input_shape
+        ),
         one_core_inputs,
         # Only the batched inputs.
-        info.global_input_shape_dtypes[1])
+        info.global_inputs_shape_dtype[1],
+    )
     host_inputs = (step, host_inputs, self.get_nonbatch_inputs(host_inputs))
 
     def _pad_for_devices(x):
@@ -327,8 +330,12 @@ class ServableMethod(servable_model.ServableMethod):
           shape, jax.sharding.NamedSharding(self.model_state.global_mesh,
                                             pspec), bufs)
 
-    return jax.tree_util.tree_map(_to_jax_array, info.input_pspecs, buffers,
-                                  info.global_input_shape_dtypes)
+    return jax.tree_util.tree_map(
+        _to_jax_array,
+        info.input_pspecs,
+        buffers,
+        info.global_inputs_shape_dtype,
+    )
 
   def input_to_device(self, one_core_inputs: HostTensors,
                       unpadded_input_shape: InputShapeInfo) -> DeviceTensors:
