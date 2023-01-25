@@ -540,7 +540,7 @@ class ServableModel(servable_model.ServableModel):
             out_axis_resources=(new_pspec, None))
         mdl_vars, _ = pjit_quant_fn(mdl_vars, prng_key)
         new_task_p = self._model_config.task()
-        quantize.set_quantization(new_task_p.model)
+        quantize.set_inference_mode(new_task_p.model)
         new_jax_task = new_task_p.Instantiate()
         model = new_jax_task.model
         task_p = new_task_p
