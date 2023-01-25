@@ -29,6 +29,7 @@ class LMMethodName:
   GENERATE = 'lm.generate'
   GENERATE_STREAM = 'lm.generate_stream'
   EMBED = 'lm.embed'
+  GRADIENT = 'lm.gradient'
 
 
 class LmService(model_service_base.ModelService):

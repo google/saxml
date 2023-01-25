@@ -104,6 +104,23 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
   output_embedding_name: Optional[str] = None
 
 
+class GradientHParams(servable_model_params.ServableMethodParams):
+  """HParameters for LM gradient method.
+
+  Attributes:
+    max_input_seq_len: static sequence length dimension size. Inputs are padded
+      or truncated to this size.
+    include_eos_score: whether to add EOS score to the result.
+    inputs_tensor_names: tensors to take gradients with respect to in inputs.
+    mdl_vars_tensors_names: tensors to take gradients with respect to in
+      mdl_vars.
+  """
+  max_input_seq_len: int = 0
+  include_eos_score: bool = False
+  inputs_tensor_names: Optional[List[str]] = None
+  mdl_vars_tensor_names: Optional[List[str]] = None
+
+
 class ServableLMModelParams(
     servable_model_params.ServableModelParams, metaclass=abc.ABCMeta):
   """A base class that each LM model config needs to implement for serving."""
@@ -126,6 +143,9 @@ class ServableLMModelParams(
     text_to_embedding = self.text_to_embedding()  # pylint: disable=assignment-from-none
     if text_to_embedding is not None:
       methods[LMMethodName.EMBED] = text_to_embedding
+    gradient = self.gradient()  # pylint: disable=assignment-from-none
+    if gradient is not None:
+      methods[LMMethodName.GRADIENT] = gradient
     return methods
 
   def score(self) -> Optional[ScoreHParams]:
@@ -134,6 +154,10 @@ class ServableLMModelParams(
 
   def generate(self) -> Optional[DecodeHParams]:
     """Returns the params for the decode method."""
+    return None
+
+  def gradient(self) -> Optional[GradientHParams]:
+    """Returns the params for the gradient method."""
     return None
 
   def generate_stream(self) -> Optional[DecodeHParams]:
@@ -468,65 +492,6 @@ class LMScoreMethod(ServableLMMethod):
   def output_seq_dim(self) -> int:
     return 1
 
-  def _tf_tokenize_inputs(
-      self, prefixes: tf.Tensor, suffixes: tf.Tensor
-  ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
-    seqlen = self._score_params.max_input_seq_len
-    shape = [None, seqlen]
-    pfx_ids, pfx_labels, pfx_paddings = self._tokenizer.StringsToIds(
-        prefixes, max_length=seqlen)
-    (pfx_ids, pfx_labels, pfx_paddings) = (tf.ensure_shape(pfx_ids, shape),
-                                           tf.ensure_shape(pfx_labels, shape),
-                                           tf.ensure_shape(pfx_paddings, shape))
-    sfx_ids, sfx_labels, sfx_paddings = self._tokenizer.StringsToIds(
-        suffixes, max_length=seqlen)
-    (sfx_ids, sfx_labels, sfx_paddings) = (tf.ensure_shape(sfx_ids, shape),
-                                           tf.ensure_shape(sfx_labels, shape),
-                                           tf.ensure_shape(sfx_paddings, shape))
-    # Lengths are with EOS in labels, and SOS in ids (will be adjusted if not).
-    pfx_lengths = seqlen - tf.cast(
-        tf.reduce_sum(pfx_paddings, 1), dtype=tf.int32)
-    sfx_lengths = seqlen - tf.cast(
-        tf.reduce_sum(sfx_paddings, 1), dtype=tf.int32)
-
-    score_masks = pfx_paddings
-    if self._tokenizer.hparams.append_eos:
-      # Left-shift to exclude prefix EOS.
-      score_masks = tf.pad(
-          score_masks[:, 1:], [[0, 0], [0, 1]], constant_values=1.0)
-      full_lengths = pfx_lengths + sfx_lengths - 1
-    else:
-      # pfx_ids are not complete. Reconstruct by appending SOS to labels.
-      pfx_ids = tf.concat([pfx_ids[:, :1], pfx_labels[:, :-1]], axis=1)
-      full_lengths = pfx_lengths + sfx_lengths + 1
-      pfx_lengths += 1
-      sfx_lengths += 1
-      assert not self._score_params.include_eos_score, (
-          'tokenizer cannot append EOS')
-
-    # Remove SOS from suffix
-    sfx_ids = sfx_labels
-
-    def _combine(pfx, pfx_lens, sfx, sfx_lens):
-      r_pfx = tf.RaggedTensor.from_tensor(pfx, pfx_lens)
-      r_sfx = tf.RaggedTensor.from_tensor(sfx, sfx_lens)
-      return tf.concat([r_pfx, r_sfx], axis=1).to_tensor(shape=pfx.shape)
-
-    # Do not include suffix EOS in ids.
-    ids = _combine(pfx_ids, pfx_lengths, sfx_ids, sfx_lengths - 1)
-    # Do not include prefix EOS in ids.
-    labels = _combine(pfx_labels, pfx_lengths - 1, sfx_labels, sfx_lengths)
-
-    paddings = tf.cast(
-        tf.greater_equal(
-            tf.range(seqlen, dtype=tf.int32), full_lengths[:, tf.newaxis]),
-        pfx_paddings.dtype)
-    inputs_indicator = tf.cast(
-        tf.less(tf.range(seqlen, dtype=tf.int32), pfx_lengths[:, tf.newaxis]),
-        tf.int32)
-    weights = 1.0 - paddings
-    return ids, labels, paddings, weights, score_masks, inputs_indicator
-
   def pre_processing(self,
                      raw_inputs: List[Tuple[str, List[str]]]) -> NestedNpTensor:
     prefixes = np.array([prefix for prefix, _ in raw_inputs])
@@ -563,8 +528,15 @@ class LMScoreMethod(ServableLMMethod):
     Returns:
       A NestedMap of preprocessed tensors.
     """
-    (ids, labels, paddings, weights, score_masks,
-     inputs_indicator) = self._tf_tokenize_inputs(prefixes, suffixes)
+    (ids, labels, paddings, weights, score_masks, inputs_indicator) = (
+        servable_lm_common.score_tf_tokenize_inputs(
+            prefixes,
+            suffixes,
+            self._tokenizer,
+            self._score_params.max_input_seq_len,
+            self._score_params.include_eos_score,
+        )
+    )
 
     preprocessed = py_utils.NestedMap(
         ids=ids,
@@ -934,6 +906,174 @@ class TextToEmbedding(servable_model.ServableMethod):
     return list(compute_outputs['text_embedding'])
 
 
+class LMGradientMethod(ServableLMMethod):
+  """Implements the gradient method of LM."""
+
+  def __init__(self,
+               model: base_model.BaseModel,
+               model_state: servable_model.ServableModelState,
+               prng_key: PRNGKey,
+               gradient_params: GradientHParams,
+               tokenizer_p: Any,
+               exportable: bool = False):
+    self._tokenizer = tokenizer_p.Instantiate()
+    self._gradient_params = gradient_params
+    self._delimiter = '/'
+    dummy_input_sample = ('', '')
+    logging.info('Using np_tf_sess_wrapper on '
+                 'LMGradientMethod.tf_pre_processing')
+    self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
+        # `bucketize_inputs` is only used in SavedModel export. The sax-native
+        # serving has an equivalent bucketization after `pre_processing`.
+        lambda *args: self.tf_pre_processing(*args, bucketize_inputs=False)
+    )
+    super().__init__(
+        model,
+        '__call__',
+        model_state,
+        gradient_params,
+        prng_key,
+        dummy_input_sample,
+        exportable=exportable)
+
+  def call_model_function(self,
+                          inputs: NestedJTensor,
+                          mdl_vars: NestedJTensor,
+                          prng_key: PRNGKey) -> NestedJTensor:
+    tensors_to_take_gradients = {
+        'inputs': {},
+        'mdl_vars': {},
+    }
+    inputs_tensor_names = (
+        self._gradient_params.inputs_tensor_names
+        if self._gradient_params.inputs_tensor_names is not None
+        else {}
+    )
+    mdl_vars_tensor_names = (
+        self._gradient_params.mdl_vars_tensor_names
+        if self._gradient_params.mdl_vars_tensor_names is not None
+        else {}
+    )
+    split_inputs_tensor_names = {
+        name: name.split(self._delimiter) for name in inputs_tensor_names}
+    split_mdl_vars_tensor_names = {
+        name: name.split(self._delimiter) for name in mdl_vars_tensor_names}
+
+    def fetch(tree, keys):
+      for key in keys:
+        tree = tree[key]
+      return tree
+
+    def insert(tree, keys, x):
+      for key in keys[:-1]:
+        tree = tree[key]
+      tree[keys[-1]] = x
+      return x
+
+    for k, v in split_inputs_tensor_names.items():
+      try:
+        tensors_to_take_gradients['inputs'][k] = fetch(inputs, v)
+      except Exception as e:
+        raise ValueError(f'Failed to find tensor {k} from inputs') from e
+    for k, v in split_mdl_vars_tensor_names.items():
+      try:
+        tensors_to_take_gradients['mdl_vars'][k] = fetch(mdl_vars, v)
+      except Exception as e:
+        raise ValueError(f'Failed to find tensor {k} from mdl_vars') from e
+
+    call_fn = super().call_model_function
+
+    def forward_fn(tensors_to_take_gradients, inputs_no_grad, mdl_vars_no_grad):
+      for k, v in tensors_to_take_gradients['inputs'].items():
+        insert(inputs_no_grad, split_inputs_tensor_names[k], v)
+      for k, v in tensors_to_take_gradients['mdl_vars'].items():
+        insert(mdl_vars_no_grad, split_mdl_vars_tensor_names[k], v)
+      outputs = call_fn(inputs_no_grad, mdl_vars_no_grad, prng_key)
+      return outputs[0][0]['total_loss'][0], outputs
+    compute_gradient_fn = jax.value_and_grad(
+        forward_fn, has_aux=True)
+    (_, outputs), grads = compute_gradient_fn(
+        tensors_to_take_gradients, inputs, mdl_vars)
+    outputs = (outputs[0][0], outputs[1])  # 1 is for mutable.
+    outputs[0]['gradients'] = grads
+    return outputs
+
+  def fetch_output(self, model_fn_outputs: NestedJTensor,
+                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+    return model_fn_outputs[0]['gradients']
+
+  def get_maxlen(self) -> int:
+    return self._gradient_params.max_input_seq_len
+
+  def output_seq_dim(self) -> int:
+    return 1
+
+  def pre_processing(self,
+                     raw_inputs: List[Tuple[str, str]]) -> NestedNpTensor:
+    prefixes = np.array([prefix for prefix, _ in raw_inputs])
+    suffixes = np.array([suffix for _, suffix in raw_inputs])
+    return self._tf_sess_pre_processing(prefixes, suffixes)
+
+  def post_processing(
+      self, compute_outputs: NestedNpTensor) -> List[Dict[str, List[float]]]:
+    flattened_outputs = jax.tree_util.tree_map(
+        lambda x: x.flatten().tolist(), compute_outputs)
+
+    return [flattened_outputs]  # The extra list is to just conform to base api.
+
+  def tf_pre_processing(
+      self,
+      prefixes: NestedNpOrTfTensor,
+      suffixes: NestedNpOrTfTensor,
+      extra_inputs: Optional[Mapping[str, Any]] = None,
+      bucketize_inputs: bool = True,
+  ) -> NestedTfTensor:
+    """Tokenizes `prefixes` and `suffixes` using TF ops.
+
+    This also implements `ExportableToSavedModel.tf_pre_processing`.
+
+    Args:
+      prefixes: the prefix text batch of shape [batch_size].
+      suffixes: the suffix text batch of shape [batch_size].
+      extra_inputs: optional mapping of extra input key to tensor or tensor spec
+        of shape [batch_size].
+      bucketize_inputs: whether to bucketize the preprocessed inputs based on
+        max sequence length in the batch.
+
+    Returns:
+      A NestedMap of preprocessed tensors.
+    """
+    (ids, labels, paddings, weights, score_masks, inputs_indicator) = (
+        servable_lm_common.score_tf_tokenize_inputs(
+            prefixes,
+            suffixes,
+            self._tokenizer,
+            self._gradient_params.max_input_seq_len,
+            self._gradient_params.include_eos_score,
+        )
+    )
+
+    preprocessed = py_utils.NestedMap(
+        ids=ids,
+        labels=labels,
+        paddings=paddings,
+        weights=weights,
+        score_masks=score_masks,
+        inputs_indicator=inputs_indicator,
+    )
+
+    if bucketize_inputs:
+      preprocessed = self._bucketize_tf_preprocessed_inputs(preprocessed)
+
+    if extra_inputs:
+      preprocessed.update(extra_inputs)
+
+    return preprocessed
+
+  # TODO(gozhe): Implement tf_post_processing, input_signature,
+  # extra_trackables for export.
+
+
 class ServableLMModel(servable_model.ServableModel):
   """Represents an implementation for the LM service, backed by a model.
 
@@ -985,6 +1125,20 @@ class ServableLMModel(servable_model.ServableModel):
           prng_key=prng_key,
           dummy_input_sample='test',
           model_config=self.model_config)
+    elif method == LMMethodName.GRADIENT:
+      assert isinstance(method_params, GradientHParams)
+      assert (
+          method_params.inputs_tensor_names is not None
+          or method_params.mdl_vars_tensor_names is not None
+      )
+      return LMGradientMethod(
+          model,
+          model_state,
+          prng_key,
+          method_params,
+          tokenizer_p,
+          exportable=False,  # TODO(gozhe): Test export.
+      )
     else:
       raise NotImplementedError(f'method {method} not implemented')
 
