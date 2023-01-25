@@ -133,9 +133,9 @@ type ModelOptions struct {
 
 // ExtraInputs creates a ExtraInputs proto from a ModelOptions.
 func (mo *ModelOptions) ExtraInputs() *pb.ExtraInputs {
-	tensors := make(map[string]*pb.TensorInputs)
+	tensors := make(map[string]*pb.Tensor)
 	for key, value := range mo.kvT {
-		tensors[key] = &pb.TensorInputs{Values: value}
+		tensors[key] = &pb.Tensor{Values: value}
 	}
 	return &pb.ExtraInputs{Items: mo.kv, Tensors: tensors}
 }

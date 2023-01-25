@@ -32,7 +32,7 @@ namespace sax {
 namespace client {
 
 using ::sax::ExtraInputs;
-using ::sax::TensorInputs;
+using ::sax::Tensor;
 using ::sax::server::lm::GenerateResponse;
 using ::sax::server::lm::GenerateStreamResponse;
 using ::sax::server::lm::ScoreRequest;
@@ -79,7 +79,7 @@ void ModelOptions::ToProto(ExtraInputs* proto) const {
     (*proto->mutable_items())[option.first] = option.second;
   }
   for (auto const& option : kv_t_) {
-    TensorInputs tensor;
+    Tensor tensor;
     tensor.mutable_values()->Assign(option.second.begin(), option.second.end());
     (*proto->mutable_tensors())[option.first] = tensor;
   }

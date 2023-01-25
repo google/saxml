@@ -42,7 +42,7 @@ message AccessControlLists {
   map<string, string> items = 1;
 }
 
-message TensorInputs {
+message Tensor {
   // Tensors in float flattend to 1d. Reshaping information can be infered from
   // model attributes or other extra inputs.
   repeated float values = 1 [packed = true];
@@ -64,5 +64,5 @@ message ExtraInputs {
   //   "prompt_embeddings" : [0.1, 0.2, 0.3, 0.4]
   // }
   // It is invalid for the same key to appear in both items and tensors.
-  map<string, TensorInputs> tensors = 2;
+  map<string, Tensor> tensors = 2;
 }
