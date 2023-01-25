@@ -38,19 +38,19 @@ class VisionService(model_service_base.ModelService):
 
   def ParseMethodRPCRequest(self, method_name: str, request: Any) -> Any:
     if method_name == VisionMethodName.CLASSIFY:
-      return {'image_bytes': np.array(request.image_bytes)}
+      return {'image_bytes': np.array(request.image_bytes, dtype=object)}
     if method_name == VisionMethodName.TEXT_TO_IMAGE:
       return request.text
     if method_name == VisionMethodName.EMBED:
-      return {'image_bytes': np.array(request.image_bytes)}
+      return {'image_bytes': np.array(request.image_bytes, dtype=object)}
     if method_name == VisionMethodName.DETECT:
       return {
-          'image_bytes': np.array(request.image_bytes),
+          'image_bytes': np.array(request.image_bytes, dtype=object),
           'text': np.array(request.text),
       }
     if method_name == VisionMethodName.IMAGE_TO_TEXT:
       return {
-          'image_bytes': np.array(request.image_bytes),
+          'image_bytes': np.array(request.image_bytes, dtype=object),
           'text': np.array(request.text),
       }
     if method_name == VisionMethodName.VIDEO_TO_TEXT:
