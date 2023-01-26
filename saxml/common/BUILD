@@ -196,6 +196,7 @@ go_library(
     name = "testutil",
     testonly = True,
     srcs = ["testutil.go"],
+    visibility = ["//visibility:public"],
     deps = [
         ":addr",
         "//saxml/common:cell",
@@ -238,5 +239,6 @@ cc_library(
     testonly = True,
     srcs = ["testutil.cc"],
     hdrs = ["testutil.h"],
+    visibility = ["//visibility:public"],
     deps = [":testutilwrapper"],
 )
