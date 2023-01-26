@@ -32,7 +32,6 @@ from praxis import decoder_utils
 from praxis import py_utils
 from praxis import pytypes
 from saxml.server.jax import np_tf_sess_wrapper
-from saxml.server.pax import branch_selection
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
 from saxml.server.pax.lm import servable_lm_common
@@ -338,24 +337,6 @@ class ServableLMMethod(servable_model.ServableMethod):
 
     return jax.tree_util.tree_map(_slice_fn, inputs)
 
-  def _bucketize_tf_preprocessed_inputs(self, inputs: NestedMap) -> NestedMap:
-    if len(self.sorted_seq_lens) == 1 or 'paddings' not in inputs:
-      return inputs
-
-    branch_selector = branch_selection.BranchSelector(self.sorted_seq_lens)
-    assert branch_selector.has_multiple_branches()
-    prefix_lengths = tf.cast(
-        tf.math.reduce_sum(1.0 - inputs['paddings'], axis=-1), tf.int32
-    )
-    branch_key = tf.math.reduce_max(prefix_lengths)
-    branch_idx = branch_selector.get_branch_index_tf(branch_key)
-    seqlen = tf.constant(branch_selector.branch_keys)[branch_idx]
-
-    def _slice_fn(x):
-      return x[:, :seqlen] if len(x.shape) == 2 else x
-
-    return jax.tree_util.tree_map(_slice_fn, inputs)
-
   def get_maxlen(self) -> int:
     """Gets the max input sequence lengths."""
     raise NotImplementedError('get_maxlen not implemented')
@@ -414,18 +395,6 @@ class ServableLMMethod(servable_model.ServableMethod):
         lambda x: seq_pattern if len(x.shape) == 2 else f'{batch_pattern}, ...',
         batched_host_dummy,
     )
-
-  def _extra_inputs_to_tf_signature(
-      self, batch_size: Optional[int]
-  ) -> Mapping[str, tf.TensorSpec]:
-    extra_tensor_specs = {}
-    if self._extra_inputs:
-      for name, val in self._extra_inputs.items():
-        val_tf = tf.convert_to_tensor(val)
-        extra_tensor_specs[name] = tf.TensorSpec(
-            [batch_size, *val_tf.shape.as_list()], val_tf.dtype, name=name
-        )
-    return extra_tensor_specs
 
 
 class LMScoreMethod(ServableLMMethod):
@@ -548,7 +517,9 @@ class LMScoreMethod(ServableLMMethod):
     )
 
     if bucketize_inputs:
-      preprocessed = self._bucketize_tf_preprocessed_inputs(preprocessed)
+      preprocessed = servable_lm_common.bucketize_tokenized_inputs(
+          self.sorted_seq_lens, preprocessed
+      )
 
     if extra_inputs:
       preprocessed.update(extra_inputs)
@@ -567,7 +538,9 @@ class LMScoreMethod(ServableLMMethod):
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),
         tf.TensorSpec([batch_size], dtype=tf.string, name='suffixes'),
-        self._extra_inputs_to_tf_signature(batch_size),
+        servable_lm_common.extra_inputs_to_tf_signature(
+            self._extra_inputs, batch_size
+        ),
     )
 
   @property
@@ -825,7 +798,9 @@ class LMDecodeMethod(ServableLMMethod):
           weights=weights)
 
     if bucketize_inputs:
-      preprocessed = self._bucketize_tf_preprocessed_inputs(preprocessed)
+      preprocessed = servable_lm_common.bucketize_tokenized_inputs(
+          self.sorted_seq_lens, preprocessed
+      )
 
     if extra_inputs:
       preprocessed.update(extra_inputs)
@@ -858,7 +833,9 @@ class LMDecodeMethod(ServableLMMethod):
     """Implements `ExportableToSavedModel.input_signature`."""
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='text'),
-        self._extra_inputs_to_tf_signature(batch_size),
+        servable_lm_common.extra_inputs_to_tf_signature(
+            self._extra_inputs, batch_size
+        ),
     )
 
   @property
@@ -1063,7 +1040,9 @@ class LMGradientMethod(ServableLMMethod):
     )
 
     if bucketize_inputs:
-      preprocessed = self._bucketize_tf_preprocessed_inputs(preprocessed)
+      preprocessed = servable_lm_common.bucketize_tokenized_inputs(
+          self.sorted_seq_lens, preprocessed
+      )
 
     if extra_inputs:
       preprocessed.update(extra_inputs)

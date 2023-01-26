@@ -27,6 +27,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
+        "//saxml/server/pax:branch_selection",
         "//third_party/py/jax",
         "//third_party/py/numpy",
         "//third_party/py/praxis:py_utils",
@@ -43,7 +44,6 @@ pytype_strict_library(
     deps = [
         ":servable_lm_common",
         "//saxml/server/jax:np_tf_sess_wrapper",
-        "//saxml/server/pax:branch_selection",
         "//saxml/server/pax:servable_model",
         "//saxml/server/pax:servable_model_params",
         "//saxml/server/services:lm_service",

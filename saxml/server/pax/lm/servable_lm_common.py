@@ -1,11 +1,13 @@
 """Common function calls for language model methods."""
 
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union, Mapping
 
+import jax
 from jax import numpy as jnp
 import numpy as np
 from praxis import py_utils
 from praxis import pytypes
+from saxml.server.pax import branch_selection
 import tensorflow as tf
 
 
@@ -254,3 +256,48 @@ def score_tf_tokenize_inputs(
   )
   weights = 1.0 - paddings
   return ids, labels, paddings, weights, score_masks, inputs_indicator
+
+
+def bucketize_tokenized_inputs(
+    bucket_keys: list[int], inputs: NestedMap
+) -> NestedMap:
+  """Bucketize tokenized input tensors.
+
+  Args:
+    bucket_keys: a bucket of sequence lengths.
+    inputs: the tokenized tf.Tensors.
+
+  Returns:
+    A NestedMap of tensors padded to the nearest length in the bucket greater
+    than or equal to the longest input sequence length in the batch.
+  """
+  if len(bucket_keys) == 1 or 'paddings' not in inputs:
+    return inputs
+
+  branch_selector = branch_selection.BranchSelector(bucket_keys)
+  assert branch_selector.has_multiple_branches()
+  seq_lengths = tf.cast(
+      tf.math.reduce_sum(1.0 - inputs['paddings'], axis=-1), tf.int32
+  )
+  branch_key = tf.math.reduce_max(seq_lengths)
+  branch_idx = branch_selector.get_branch_index_tf(branch_key)
+  seqlen = tf.constant(branch_selector.branch_keys)[branch_idx]
+
+  def _slice_fn(x):
+    return x[:, :seqlen] if len(x.shape) == 2 else x
+
+  return jax.tree_util.tree_map(_slice_fn, inputs)
+
+
+def extra_inputs_to_tf_signature(
+    sample_extra_inputs: Optional[Mapping[str, Any]], batch_size: Optional[int]
+) -> Mapping[str, tf.TensorSpec]:
+  """Generate input signature from sample extra inputs."""
+  extra_tensor_specs = {}
+  if sample_extra_inputs:
+    for name, val in sample_extra_inputs.items():
+      val_tf = tf.convert_to_tensor(val)
+      extra_tensor_specs[name] = tf.TensorSpec(
+          [batch_size, *val_tf.shape.as_list()], val_tf.dtype, name=name
+      )
+  return extra_tensor_specs
