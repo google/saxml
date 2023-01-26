@@ -50,7 +50,7 @@ def decode_tf_post_processing(
     tokenizer: Any,
     encoder_decoder_model: bool = False,
     include_prefix_in_result: bool = False,
-) -> NestedNpOrTfTensor:
+) -> dict[str, tf.Tensor]:
   """Post-process the outputs using TF ops.
 
   This also implements `ExportableToSavedModel.tf_post_processing`.

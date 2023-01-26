@@ -24,10 +24,19 @@ from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
 from saxml.server.services import custom_service
 
+import tensorflow as tf
+
 CheckpointType = checkpoint_pb2.CheckpointType
 JTensor = pytypes.JTensor
 NestedJTensor = pytypes.NestedJTensor
 NestedNpTensor = pytypes.NestedNpTensor
+NestedTfTensor = pytypes.Nested[tf.Tensor]
+NestedTfTensorSpec = pytypes.Nested[tf.TensorSpec]
+NestedTfTrackable = pytypes.Nested[
+    tf.saved_model.experimental.TrackableResource
+]
+
+NestedPolyShape = pytypes.Nested[str]
 PRNGKey = pytypes.PRNGKey
 NestedMap = py_utils.NestedMap
 
@@ -71,6 +80,9 @@ CallModelFn = Callable[
     [base_model.BaseModel, NestedJTensor, NestedJTensor, PRNGKey, Any],
     Tuple[NestedJTensor, NestedJTensor]]
 
+TfProcessingFn = Callable[..., NestedTfTensor]
+TfInputSignatureGenerator = Callable[[Optional[int]], NestedTfTensorSpec]
+
 
 class CustomMethodName:
   CUSTOM = 'custom'
@@ -87,6 +99,12 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
     post_process_fn: A callable post_process_fn for the custom call.
     create_init_state_fn: A callable to initialize custom method state.
     call_model_fn: Optional custom way of calling the model function.
+    tf_pre_process_fn: TF pre-process function for model export.
+    tf_post_process_fn: TF pre-process function for model export.
+    tf_extra_trackables: TF tracable resources for model export.
+    tf_input_signature: Input signature of `tf_pre_process_fn`.
+    model_fn_input_polymorphic_shape: jax2tf polymorphic shape for the input
+      tensors of `call_model_fn`.
   """
   model_fn_name: str = ''
   dummy_input_sample: Any = None
@@ -95,6 +113,13 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
   post_process_fn: Optional[PostProcessingFn] = None
   create_init_state_fn: Optional[CreateInitStateFn] = None
   call_model_fn: Optional[CallModelFn] = None
+  # Fields for SavedModel export only.
+  exportable: bool = False
+  tf_pre_process_fn: Optional[TfProcessingFn] = None
+  tf_post_process_fn: Optional[TfProcessingFn] = None
+  tf_extra_trackables: Optional[NestedTfTrackable] = None
+  tf_input_signature: Optional[TfInputSignatureGenerator] = None
+  model_fn_input_polymorphic_shape: Optional[NestedPolyShape] = None
 
 
 class ServableCustomModelParams(
@@ -130,7 +155,7 @@ class ServableCustomMethod(servable_model.ServableMethod):
         method_hparams,
         prng_key,
         method_hparams.dummy_input_sample,
-        exportable=False,
+        exportable=method_hparams.exportable,
         load=False,
     )
     if method_hparams.create_init_state_fn is not None:
@@ -165,6 +190,37 @@ class ServableCustomMethod(servable_model.ServableMethod):
       return self._method_hparams.call_model_fn(self.pax_model, inputs,
                                                 mdl_vars, prng_key, self._state)
     return super().call_model_function(inputs, mdl_vars, prng_key)
+
+  def tf_pre_processing(self, *args: NestedTfTensor) -> NestedTfTensor:
+    if self._state is not None:
+      raise NotImplementedError(
+          'Custom call with extra state is not exportable.'
+      )
+    if self._method_hparams.tf_pre_process_fn is None:
+      raise ValueError('CustomCallHParams.tf_pre_process_fn not set.')
+    return self._method_hparams.tf_pre_process_fn(*args)
+
+  def tf_post_processing(
+      self, compute_outputs: NestedTfTensor
+  ) -> NestedTfTensor:
+    if self._state is not None:
+      raise NotImplementedError(
+          'Custom call with extra state is not exportable.'
+      )
+    if self._method_hparams.tf_post_process_fn is None:
+      raise ValueError('CustomCallHParams.tf_post_process_fn not set.')
+    return self._method_hparams.tf_post_process_fn(compute_outputs)
+
+  def input_signature(self, batch_size) -> Optional[NestedTfTensorSpec]:
+    return self._method_hparams.tf_input_signature(batch_size)
+
+  @property
+  def extra_trackables(self) -> Optional[NestedTfTrackable]:
+    return self._method_hparams.tf_extra_trackables
+
+  @property
+  def model_fn_input_polymorphic_shape(self) -> Optional[NestedPolyShape]:
+    return self._method_hparams.model_fn_input_polymorphic_shape
 
 
 class ServableCustomModel(servable_model.ServableModel):
