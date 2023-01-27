@@ -117,11 +117,23 @@ class DetectHParams(servable_model_params.ServableMethodParams):
 
 
 class ImageToTextHParams(servable_model_params.ServableMethodParams):
-  """HParameters for ImageToText method."""
+  """HParameters for ImageToText method.
+
+  Attributes:
+    model_method_name: The name of the method to call to extract embeddings from
+      an input image.  Required.
+  """
+  model_method_name: Optional[str] = None
 
 
 class VideoToTextHParams(servable_model_params.ServableMethodParams):
-  """HParameters for VideoToText method."""
+  """HParameters for VideoToText method.
+
+  Attributes:
+    model_method_name: The name of the method to call to extract embeddings from
+      an input image.  Required.
+  """
+  model_method_name: Optional[str] = None
 
 
 class VisionModelParamsBase(servable_model_params.ServableModelParams):
@@ -435,7 +447,7 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
   def fetch_output(self, model_fn_outputs: NestedJTensor,
                    model_fn_inputs: NestedJTensor) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
-    image_embedding = model_fn_outputs[0][self._embedding_name]
+    image_embedding = model_fn_outputs[0].GetItem(self._embedding_name)
     return NestedMap(image_embedding=image_embedding)
 
   @tf.function
@@ -453,7 +465,10 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
-    return list(compute_outputs['image_embedding'])
+    image_embedding = compute_outputs['image_embedding']
+    if image_embedding.dtype not in [np.float32, np.float64]:
+      image_embedding = image_embedding.astype(np.float32)
+    return list(image_embedding)
 
 
 class ImageBytesToDetect(servable_model.ServableMethod):
@@ -669,18 +684,27 @@ class VisionModel(servable_model.ServableModel):
       )
     elif method == VisionMethodName.IMAGE_TO_TEXT:
       assert isinstance(method_params, ImageToTextHParams)
+      if method_params.model_method_name is None:
+        raise ValueError(
+            'Must specify `model_method_name` in ImageToTextHParams.'
+        )
       image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
       dummy_input = {'image_bytes': image_bytes, 'text': ''}
       return ImageBytesToText(
           model,
-          '_decode_generation',
+          method_params.model_method_name,
           model_state,
           method_params,
           prng_key=prng_key,
           dummy_input_sample=dummy_input,
-          model_config=self.model_config)
+          model_config=self.model_config,
+      )
     elif method == VisionMethodName.VIDEO_TO_TEXT:
       assert isinstance(method_params, VideoToTextHParams)
+      if method_params.model_method_name is None:
+        raise ValueError(
+            'Must specify `model_method_name` in VideoToTextHParams.'
+        )
       image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
       dummy_input = {
           'image_frames': [image_bytes, image_bytes],
@@ -688,11 +712,12 @@ class VisionModel(servable_model.ServableModel):
       }
       return VideoBytesToText(
           model,
-          '_decode_generation',
+          method_params.model_method_name,
           model_state,
           method_params,
           prng_key=prng_key,
           dummy_input_sample=dummy_input,
-          model_config=self.model_config)
+          model_config=self.model_config,
+      )
     else:
       raise NotImplementedError(f'method {method} not implemented.')
