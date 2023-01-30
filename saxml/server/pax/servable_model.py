@@ -474,8 +474,7 @@ class ServableModel(servable_model.ServableModel):
 
         # get PartitionSpec for output.
         def quant_pspec_fn(mdl_vars_to_quant, prng_keys):
-          mdl_vars_to_quant = jax.tree_map(
-              py_utils.maybe_slice_uneven_sharding,
+          mdl_vars_to_quant = py_utils.maybe_slice_uneven_sharding(
               mdl_vars_to_quant,
               mdl_var_pspecs,
               mdl_var_unpadded_shapes,
@@ -512,8 +511,7 @@ class ServableModel(servable_model.ServableModel):
         # pylint: enable=g-long-lambda
 
         def quant_fn(mdl_vars_to_quant, prng_keys):
-          mdl_vars_to_quant = jax.tree_map(
-              py_utils.maybe_slice_uneven_sharding,
+          mdl_vars_to_quant = py_utils.maybe_slice_uneven_sharding(
               mdl_vars_to_quant,
               mdl_var_pspecs,
               mdl_var_unpadded_shapes,
