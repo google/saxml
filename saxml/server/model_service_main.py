@@ -98,7 +98,7 @@ def set_up():
       jax_backend_target=flags.FLAGS.jax_backend_target,
       jax_xla_backend=flags.FLAGS.jax_xla_backend,
       jax_enable_checks=flags.FLAGS.jax_enable_checks,
-      jax_array=True)
+  )
 
 
 def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
