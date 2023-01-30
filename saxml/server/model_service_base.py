@@ -1016,7 +1016,7 @@ class ModelServicesRunner:
   def stop(self) -> None:
     """Wait until all threads finishes."""
     self._aio_loop.call_soon_threadsafe(self._terminate_future.set_result, ())
-    self._batcher.add_item(key=MethodKey(_TERMINATE_METHOD_KEY))
+    self._enqueue_terminate()
     self._multihost_sync.stop()
 
   def _generate_rng_seed(self):
@@ -1094,6 +1094,9 @@ class ModelServicesRunner:
       logging.warning('Model %s is not loaded.', model_key)
       return
     self._loaded_models.get_model(model_key).save(checkpoint_path)
+
+  def _enqueue_terminate(self):
+    self._batcher.add_item(key=MethodKey(_TERMINATE_METHOD_KEY))
 
   def _inform_secondary_hosts(self, *msgs: str, skip_host_sync=True) -> None:
     self._multihost_sync.send(self._encode_message(*msgs), skip_host_sync)
