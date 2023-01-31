@@ -15,6 +15,7 @@
 
 import abc
 import asyncio
+import base64
 import copy
 import dataclasses
 import queue
@@ -1268,6 +1269,10 @@ class ModelServicesRunner:
           task = batch.rpc_tasks[0]
           request = typing.cast(modelet_pb2.ExportRequest, task.request)
           try:
+            self._inform_secondary_hosts(
+                batch.method.name,
+                base64.encodebytes(request.SerializeToString()).decode(),
+            )
             self._export_model(request)
             task.done(utils.ok())
           except ValueError as e:
@@ -1399,6 +1404,11 @@ class ModelServicesRunner:
         except Exception as e:  # pylint: disable=broad-except
           logging.exception('Error occurred during save: %s, error: %s',
                             model_key, e)
+      elif method == _EXPORT_METHOD_KEY:
+        request = modelet_pb2.ExportRequest.FromString(
+            base64.decodebytes(msgs[0].encode())
+        )
+        self._export_model(request)
       else:
         # Model methods at secondary hosts are simply invoking a device program
         # with pre-defined dummy inputs, so we do not expect any known exception
