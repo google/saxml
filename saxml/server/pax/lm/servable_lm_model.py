@@ -14,9 +14,7 @@
 """Wraps a model with LMService APIs."""
 
 import abc
-import dataclasses
 import functools
-import json
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from absl import logging
@@ -50,15 +48,9 @@ NestedNpOrTfTensor = Union[NestedNpTensor, NestedTfTensor]
 LMMethodName = lm_service.LMMethodName
 HostTensors = servable_model.HostTensors
 ShapesAndDtypes = servable_model.ShapesAndDtypes
+InputShapeInfo = servable_lm_common.InputShapeInfo
 
 decode_tf_post_processing = servable_lm_common.decode_tf_post_processing
-
-
-@dataclasses.dataclass(eq=True, frozen=True)
-class InputShapeInfo(servable_model.InputShapeInfo):
-  """Input shape information."""
-  batch_size: int = -1
-  seq_len: int = -1
 
 
 class ScoreHParams(servable_model_params.ServableMethodParams):
@@ -191,15 +183,18 @@ class ServableLMMethod(servable_model.ServableMethod):
 
   def deserialize_input_shape(self, unpadded_shape_str: str) -> InputShapeInfo:
     """Deserialize input shape from a str."""
-    unpadded_shape_dict = json.loads(unpadded_shape_str)
-    seq_len = unpadded_shape_dict.get('seq_len', self._dummy_bucket_key)
-    return InputShapeInfo(
-        batch_size=unpadded_shape_dict['batch_size'], seq_len=seq_len)
+    return servable_lm_common.deserialize_input_shape(
+        unpadded_shape_str, self._dummy_bucket_key
+    )
 
   def get_unpadded_shape(self, unpadded_batch_size,
                          inputs: HostTensors) -> InputShapeInfo:
-    return InputShapeInfo(unpadded_batch_size,
-                          self.get_max_seq_len_in_batch(inputs))
+    return InputShapeInfo(
+        unpadded_batch_size,
+        servable_lm_common.get_max_seq_len_in_batch(
+            inputs, self._dummy_bucket_key, self._bucket_keys
+        ),
+    )
 
   def get_padded_input_shape(self,
                              unpadded_shape: InputShapeInfo) -> InputShapeInfo:
@@ -217,58 +212,19 @@ class ServableLMMethod(servable_model.ServableMethod):
     padded_shape = super().get_padded_input_shape(unpadded_shape)
     if self._bucket_keys is None:
       return InputShapeInfo(padded_shape.batch_size)
-
-    seq_len = -1
-    sorted_seq_lens = self.sorted_seq_lens
-    for sl in sorted_seq_lens:
-      if sl >= unpadded_shape.seq_len:
-        seq_len = sl
-        break
-
-    if seq_len == -1:
-      raise ValueError(
-          f'Sequence length larger than maximum: {unpadded_shape.seq_len} vs '
-          f'{sorted_seq_lens[-1]}')
-    return InputShapeInfo(padded_shape.batch_size, seq_len)
-
-  def get_max_seq_len_in_batch(self, inputs: HostTensors) -> int:
-    """Get unpadded seq_len for inputs.
-
-    Args:
-      inputs: Host tensors.
-
-    Returns:
-      Unpadded sequence length for inputs.
-    """
-    if inputs is None or self._bucket_keys is None:
-      return self._dummy_bucket_key
-    paddings = getattr(inputs, 'paddings', None)
-    if isinstance(inputs, tuple):
-      for item in inputs:
-        if 'paddings' in item:
-          paddings = item['paddings']
-          break
-    if paddings is None:
-      return self._dummy_bucket_key
-    prefix_lengths = np.sum(1.0 - paddings, axis=-1).astype(np.int32)
-    return np.max(prefix_lengths).item()
+    padded_seq_len = servable_lm_common.get_padded_input_seq_len(
+        unpadded_shape.seq_len, self.sorted_seq_lens
+    )
+    return InputShapeInfo(padded_shape.batch_size, padded_seq_len)
 
   def get_dummy_inputs(self, input_shape: InputShapeInfo) -> HostTensors:
     """Returns host tensors with dummy data at a batch size."""
     batched_input = self.pre_processing([self._dummy_input_sample] *
                                         input_shape.batch_size)
 
-    def _slice_fn(x):
-      """The function to slice at sequence dimension."""
-      if (not isinstance(x, np.ndarray) or
-          not hasattr(input_shape, 'seq_len') or
-          input_shape.seq_len == self._dummy_bucket_key):
-        return x
-      if len(x.shape) == 2 and x.shape[1] >= input_shape.seq_len:
-        return x[:, :input_shape.seq_len]
-      return x
-
-    return jax.tree_util.tree_map(_slice_fn, batched_input)
+    return servable_lm_common.handle_host_input_with_input_shape(
+        batched_input, input_shape
+    )
 
   def resize_host_array(
       self,
@@ -286,16 +242,9 @@ class ServableLMMethod(servable_model.ServableMethod):
     Returns:
       host array after padding or slice of x.
     """
-    global_shape, _ = global_input_shape_dtype
-    if unpadded_input_shape.seq_len != self._dummy_bucket_key and len(
-        x.shape) == 2:
-      # x's shape has the longest sequence length with trailing 0s.
-      # Slice sequence which is the 2nd dim to have the desired sequence length.
-      l = x.shape[1]
-      full_l = global_shape[2]
-      if l != full_l:
-        assert l >= full_l
-        x = x[:, :full_l]
+    x = servable_lm_common.resize_host_array(
+        x, global_input_shape_dtype, unpadded_input_shape
+    )
 
     # Let the parent class handle the batch dim.
     x = super().resize_host_array(

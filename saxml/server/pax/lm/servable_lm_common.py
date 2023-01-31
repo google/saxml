@@ -1,6 +1,8 @@
 """Common function calls for language model methods."""
 
-from typing import Any, Optional, Tuple, Union, Mapping
+import dataclasses
+import json
+from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 
 import jax
 from jax import numpy as jnp
@@ -8,6 +10,7 @@ import numpy as np
 from praxis import py_utils
 from praxis import pytypes
 from saxml.server.pax import branch_selection
+from saxml.server.pax import servable_model
 import tensorflow as tf
 
 
@@ -16,6 +19,16 @@ NestedJTensor = pytypes.NestedJTensor
 NestedNpTensor = pytypes.NestedNpTensor
 NestedTfTensor = pytypes.Nested[tf.Tensor]
 NestedNpOrTfTensor = Union[NestedNpTensor, NestedTfTensor]
+HostTensors = servable_model.HostTensors
+ShapesAndDtypes = servable_model.ShapesAndDtypes
+
+
+@dataclasses.dataclass(eq=True, frozen=True)
+class InputShapeInfo(servable_model.InputShapeInfo):
+  """Input shape information."""
+
+  batch_size: int = -1
+  seq_len: int = -1
 
 
 def decode_tf_tokenize_inputs(
@@ -301,3 +314,130 @@ def extra_inputs_to_tf_signature(
           [batch_size, *val_tf.shape.as_list()], val_tf.dtype, name=name
       )
   return extra_tensor_specs
+
+
+def deserialize_input_shape(
+    unpadded_shape_str: str, dummy_bucket_key: int = -1
+) -> InputShapeInfo:
+  """Deserialize input shape from a str."""
+  unpadded_shape_dict = json.loads(unpadded_shape_str)
+  seq_len = unpadded_shape_dict.get('seq_len', dummy_bucket_key)
+  return InputShapeInfo(
+      batch_size=unpadded_shape_dict['batch_size'], seq_len=seq_len
+  )
+
+
+def get_padded_input_seq_len(
+    seq_len: int, sorted_seq_lens: Sequence[int]
+) -> int:
+  """Get padded input shape.
+
+  Args:
+    seq_len: Unpadded sequence length.
+    sorted_seq_lens: Sorted sequence lengths.
+
+  Returns:
+    Padded sequence length.
+  Raises:
+    ValueError if sequence length too large.
+  """
+  for sl in sorted_seq_lens:
+    if sl >= seq_len:
+      return sl
+
+  raise ValueError(
+      f'Sequence length larger than maximum: {seq_len} vs {sorted_seq_lens[-1]}'
+  )
+
+
+def get_max_seq_len_in_batch(
+    inputs: HostTensors,
+    dummy_bucket_key: int = -1,
+    bucket_keys: Optional[Sequence[int]] = None,
+) -> int:
+  """Get unpadded seq_len for inputs.
+
+  Args:
+    inputs: Host tensors.
+    dummy_bucket_keys: Dummy bucket key when bucket_keys is not defined.
+    bucket_keys: Bucket_keys of the method.
+
+  Returns:
+    Unpadded sequence length for inputs.
+  """
+  if inputs is None or bucket_keys is None:
+    return dummy_bucket_key
+  paddings = getattr(inputs, 'paddings', None)
+  if isinstance(inputs, tuple):
+    for item in inputs:
+      if 'paddings' in item:
+        paddings = item['paddings']
+        break
+  if paddings is None:
+    return dummy_bucket_key
+  prefix_lengths = np.sum(1.0 - paddings, axis=-1).astype(np.int32)
+  return np.max(prefix_lengths).item()
+
+
+def handle_host_input_with_input_shape(
+    batch_input: HostTensors, input_shape: InputShapeInfo
+) -> HostTensors:
+  """Pad or slice the host input with the input shape.
+
+  Args:
+    batch_input: Host tensors.
+    input_shape: The desired input_shape for the batch_input.
+
+  Returns:
+  """
+
+  def _slice_fn(x):
+    """The function to slice at sequence dimension."""
+    if (
+        not isinstance(x, np.ndarray)
+        or not hasattr(input_shape, 'seq_len')
+        or input_shape.seq_len == -1
+        or len(x.shape) < 2
+    ):
+      return x
+
+    if x.shape[1] >= input_shape.seq_len:
+      if len(x.shape) == 2:
+        return x[:, : input_shape.seq_len]
+      if len(x.shape) == 3:
+        return x[:, : input_shape.seq_len, :]
+    return x
+
+  return jax.tree_util.tree_map(_slice_fn, batch_input)
+
+
+def resize_host_array(
+    x: np.ndarray,
+    global_input_shape_dtype: ShapesAndDtypes,
+    unpadded_input_shape: InputShapeInfo,
+) -> HostTensors:
+  """Resize host array to the deired shape.
+
+  Args:
+    x: Host tensor.
+    global_input_shape_dtype: Global input shape and dtype for this tensor.
+    unpadded_input_shape: Unpadded input shape.
+
+  Returns:
+    host array after padding or slice of x.
+  """
+  global_shape, _ = global_input_shape_dtype
+  if unpadded_input_shape.seq_len != -1 and (
+      len(x.shape) == 2 or len(x.shape) == 3
+  ):
+    # x's shape has the longest sequence length with trailing 0s.
+    # Slice sequence which is the 2nd dim to have the desired sequence len.
+    l = x.shape[1]
+    full_l = global_shape[2]
+    if l != full_l:
+      assert l >= full_l
+      if len(x.shape) == 2:
+        x = x[:, :full_l]
+      if len(x.shape) == 3:
+        x = x[:, :full_l, :]
+  return x

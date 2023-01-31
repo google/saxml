@@ -17,6 +17,7 @@ pytype_strict_library(
         "//saxml/server/pax:servable_model",
         "//saxml/server/pax:servable_model_params",
         "//saxml/server/services:custom_service",
+        "//third_party/py/numpy",
         "//third_party/py/paxml:checkpoint_py_pb2",
         "//third_party/py/praxis:base_model",
         "//third_party/py/praxis:py_utils",

@@ -14,7 +14,8 @@
 """Wraps a model with custom service APIs."""
 
 import abc
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Sequence
+import numpy as np
 
 from paxml import checkpoint_pb2
 from praxis import base_model
@@ -39,6 +40,9 @@ NestedTfTrackable = pytypes.Nested[
 NestedPolyShape = pytypes.Nested[str]
 PRNGKey = pytypes.PRNGKey
 NestedMap = py_utils.NestedMap
+InputShapeInfo = servable_model.InputShapeInfo
+HostTensors = servable_model.HostTensors
+ShapesAndDtypes = servable_model.ShapesAndDtypes
 
 
 FetchOutputFn = Callable[[NestedJTensor, NestedJTensor], NestedJTensor]
@@ -82,6 +86,14 @@ CallModelFn = Callable[
 
 TfProcessingFn = Callable[..., NestedTfTensor]
 TfInputSignatureGenerator = Callable[[Optional[int]], NestedTfTensorSpec]
+GetSortedInputShapesFn = Callable[
+    [Sequence[int], Sequence[int]], List[InputShapeInfo]
+]
+HandleHostInputWithInputShapeFn = Callable[[HostTensors, Any], HostTensors]
+GetPaddedInputShapeFn = Callable[[Any], Any]
+GetUnpaddedInputShapeFn = Callable[[int, HostTensors], Any]
+DeserializeInputShapeFn = Callable[[str], Any]
+ResizeHostArrayFn = Callable[[np.ndarray, ShapesAndDtypes, Any], HostTensors]
 
 
 class CustomMethodName:
@@ -105,6 +117,13 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
     tf_input_signature: Input signature of `tf_pre_process_fn`.
     model_fn_input_polymorphic_shape: jax2tf polymorphic shape for the input
       tensors of `call_model_fn`.
+    get_sorted_input_shapes_fn: Optional function to get sorted input shapes.
+    handle_host_input_with_input_shape_fn: Optional function to handle host
+      tensors with a given input shape.
+    get_padded_input_shape_fn: Optional function to get padded input shape.
+    get_unpadded_input_shape_fn: Optional function to get unpadded input shape.
+    deserialize_input_shape_fn: Optional function to deserialize InputShapeInfo.
+    resize_host_array_fn: Optional function to resize host array.
   """
   model_fn_name: str = ''
   dummy_input_sample: Any = None
@@ -120,6 +139,14 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
   tf_extra_trackables: Optional[NestedTfTrackable] = None
   tf_input_signature: Optional[TfInputSignatureGenerator] = None
   model_fn_input_polymorphic_shape: Optional[NestedPolyShape] = None
+  get_sorted_input_shapes_fn: Optional[GetSortedInputShapesFn] = None
+  handle_host_input_with_input_shape_fn: Optional[
+      HandleHostInputWithInputShapeFn
+  ] = None
+  get_padded_input_shape_fn: Optional[GetPaddedInputShapeFn] = None
+  get_unpadded_input_shape_fn: Optional[GetUnpaddedInputShapeFn] = None
+  deserialize_input_shape_fn: Optional[DeserializeInputShapeFn] = None
+  resize_host_array_fn: Optional[ResizeHostArrayFn] = None
 
 
 class ServableCustomModelParams(
@@ -221,6 +248,76 @@ class ServableCustomMethod(servable_model.ServableMethod):
   @property
   def model_fn_input_polymorphic_shape(self) -> Optional[NestedPolyShape]:
     return self._method_hparams.model_fn_input_polymorphic_shape
+
+  def get_sorted_input_shapes(self) -> List[InputShapeInfo]:
+    get_sorted_input_shapes_fn = self._method_hparams.get_sorted_input_shapes_fn
+    if get_sorted_input_shapes_fn:
+      return get_sorted_input_shapes_fn(
+          self._sorted_batch_sizes, self._bucket_keys
+      )
+    return super().get_sorted_input_shapes()
+
+  def get_dummy_inputs(self, input_shape: InputShapeInfo) -> HostTensors:
+    """Returns host tensors with dummy data at a batch size."""
+    batched_input = self.pre_processing(
+        [self._dummy_input_sample] * input_shape.batch_size
+    )
+    handle_host_input_with_input_shape_fn = (
+        self._method_hparams.handle_host_input_with_input_shape_fn
+    )
+    if handle_host_input_with_input_shape_fn:
+      return handle_host_input_with_input_shape_fn(batched_input, input_shape)
+    return batched_input
+
+  def get_padded_input_shape(
+      self, unpadded_shape: InputShapeInfo
+  ) -> InputShapeInfo:
+    """Get padded input shape."""
+    # Gets padded batch size.
+    if self._method_hparams.get_padded_input_shape_fn:
+      return self._method_hparams.get_padded_input_shape_fn(unpadded_shape)
+    return super().get_padded_input_shape(unpadded_shape)
+
+  def get_unpadded_shape(
+      self, unpadded_batch_size, inputs: HostTensors
+  ) -> InputShapeInfo:
+    """Get unpadded input shape."""
+    if self._method_hparams.get_unpadded_input_shape_fn:
+      return self._method_hparams.get_unpadded_input_shape_fn(
+          unpadded_batch_size, inputs
+      )
+    return super().get_unpadded_shape(unpadded_batch_size, inputs)
+
+  def deserialize_input_shape(self, unpadded_shape_str: str) -> InputShapeInfo:
+    """Deserialize input shape from a str."""
+    if self._method_hparams.deserialize_input_shape_fn:
+      return self._method_hparams.deserialize_input_shape_fn(unpadded_shape_str)
+    return super().deserialize_input_shape(unpadded_shape_str)
+
+  def resize_host_array(
+      self,
+      x: np.ndarray,
+      global_input_shape_dtype: ShapesAndDtypes,
+      unpadded_input_shape: InputShapeInfo,
+  ) -> HostTensors:
+    """Resizes x to the desired shape.
+
+    Args:
+      x: Host tensor.
+      global_input_shape_dtype: Global input shape and dtype for this tensor.
+      unpadded_input_shape: Unpadded input shape.
+
+    Returns:
+      host array after padding or slice of x.
+    """
+    if self._method_hparams.resize_host_array_fn:
+      x = self._method_hparams.resize_host_array_fn(
+          x, global_input_shape_dtype, unpadded_input_shape
+      )
+    # Let the parent class handle the batch dim.
+    return super().resize_host_array(
+        x, global_input_shape_dtype, unpadded_input_shape
+    )
 
 
 class ServableCustomModel(servable_model.ServableModel):

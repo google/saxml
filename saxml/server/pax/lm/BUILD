@@ -28,6 +28,7 @@ pytype_strict_library(
     visibility = ["//visibility:public"],
     deps = [
         "//saxml/server/pax:branch_selection",
+        "//saxml/server/pax:servable_model",
         "//third_party/py/jax",
         "//third_party/py/numpy",
         "//third_party/py/praxis:py_utils",
