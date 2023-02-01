@@ -11,6 +11,7 @@ load(
     "py_grpc_library",
     "py_proto_library",
 )
+load("//frameworks/platform/endpoints/builddefs:rpc_endpoint_interface.bzl", "RpcService", "rpc_endpoint_interface")
 
 package(
     default_visibility = ["//saxml:internal"],
@@ -56,6 +57,15 @@ proto_library(
     has_services = True,
     visibility = ["//visibility:public"],
     deps = [":common_proto"],
+)
+
+rpc_endpoint_interface(
+    name = "admin_endpoint",
+    rpc_services = [RpcService(
+        name = "sax.Admin",
+        proto_library = ":admin_proto",
+    )],
+    visibility = ["//visibility:public"],
 )
 
 go_proto_library(
@@ -176,6 +186,15 @@ proto_library(
     deps = [":common_proto"],
 )
 
+rpc_endpoint_interface(
+    name = "lm_endpoint",
+    rpc_services = [RpcService(
+        name = "sax.server.lm.LMService",
+        proto_library = ":lm_proto",
+    )],
+    visibility = ["//visibility:public"],
+)
+
 cc_proto_library(
     name = "lm_cc_proto",
     deps = [":lm_proto"],
@@ -222,6 +241,15 @@ proto_library(
     deps = [":common_proto"],
 )
 
+rpc_endpoint_interface(
+    name = "audio_endpoint",
+    rpc_services = [RpcService(
+        name = "sax.server.audio.AudioService",
+        proto_library = ":audio_proto",
+    )],
+    visibility = ["//visibility:public"],
+)
+
 cc_proto_library(
     name = "audio_cc_proto",
     deps = [":audio_proto"],
@@ -266,6 +294,15 @@ proto_library(
     has_services = True,
     visibility = ["//visibility:public"],
     deps = [":common_proto"],
+)
+
+rpc_endpoint_interface(
+    name = "vision_endpoint",
+    rpc_services = [RpcService(
+        name = "sax.server.vision.VisionService",
+        proto_library = ":vision_proto",
+    )],
+    visibility = ["//visibility:public"],
 )
 
 cc_proto_library(
