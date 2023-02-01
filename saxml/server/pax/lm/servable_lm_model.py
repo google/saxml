@@ -501,14 +501,17 @@ class LMScoreMethod(ServableLMMethod):
 class LMDecodeMethod(ServableLMMethod):
   """Base decode method of an LM."""
 
-  def __init__(self,
-               model: base_model.BaseModel,
-               model_state: servable_model.ServableModelState,
-               prng_key: PRNGKey,
-               method_hparams: DecodeHParams,
-               tokenizer_p: Any,
-               exportable: bool = False,
-               streamable: bool = False):
+  def __init__(
+      self,
+      model: base_model.BaseModel,
+      model_state: servable_model.ServableModelState,
+      prng_key: PRNGKey,
+      method_hparams: DecodeHParams,
+      tokenizer_p: Any,
+      exportable: bool = False,
+      streamable: bool = False,
+      load: bool = True,
+  ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._method_hparams = method_hparams
     dummy_input_sample = ''
@@ -559,6 +562,7 @@ class LMDecodeMethod(ServableLMMethod):
         prng_key,
         dummy_input_sample,
         exportable=exportable,
+        load=load,
     )
 
   def call_model_function(self, inputs, mdl_vars, prng_key):
