@@ -51,6 +51,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   VOCAB_SIZE = 32000
   LENGTH_NORM_ALPHA = 0.8
   SCORE_ONLY = False
+  GENERATE_ONLY = False
   SPM_MODEL = None
   SOS_ID = 0
   EOS_ID = 1
@@ -91,6 +92,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
     return cls.ICI_MESH_SHAPE
 
   def score(self) -> Optional[servable_lm_model.ScoreHParams]:
+    if self.GENERATE_ONLY:
+      return None
     return servable_lm_model.ScoreHParams(
         batch_size=self.BATCH_SIZE,
         max_input_seq_len=self.INPUT_SEQ_LEN,
