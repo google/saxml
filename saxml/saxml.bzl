@@ -199,3 +199,10 @@ def go_test(name, srcs = [], library = None, deps = [], **kwargs):
         deps = deps,
         **kwargs
     )
+
+def rpc_endpoint_interface(
+        name,
+        rpc_service_name,  # @unused
+        proto_library,  # @unused
+        **kwargs):  # @unused
+    pass

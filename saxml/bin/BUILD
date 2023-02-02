@@ -2,10 +2,8 @@
 
 load("//saxml:saxml.bzl", "go_binary", "go_library")
 
-default_visibility = ["//learning/multipod/sax:internal"]
-
 package(
-    default_visibility = default_visibility,
+    default_visibility = ["//saxml:internal"],
 )
 
 go_binary(
@@ -23,9 +21,7 @@ go_binary(
 go_binary(
     name = "admin_config",
     srcs = ["admin_config.go"],
-    visibility = default_visibility + [
-        "//learning/multipod/sax:users",
-    ],
+    visibility = ["//visibility:public"],
     deps = [
         # unused internal flag dependency,
         "//saxml/common:cell",

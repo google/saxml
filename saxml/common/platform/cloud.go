@@ -451,7 +451,7 @@ func (e *Env) DialContext(ctx context.Context, target string) (*grpc.ClientConn,
 
 // RequiredACLNamePrefix returns the string required to prefix all ACL names.
 func (e *Env) RequiredACLNamePrefix() string {
-	return ""
+	return "acl/"
 }
 
 // Server extends the grpc server type with a GRPCServer method.
