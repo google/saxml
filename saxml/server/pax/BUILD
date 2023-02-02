@@ -78,7 +78,7 @@ pytype_strict_library(
         "//saxml/server/jax:servable_model",
         "//third_party/py/absl-py/logging",
         "//third_party/py/etils/epath",
-        "//third_party/py/flax/training",
+        "//third_party/py/flax/training:checkpoints",
         "//third_party/py/jax",
         "//third_party/py/jax:mesh_utils",
         "//third_party/py/jax/experimental/gda_serialization:serialization",
