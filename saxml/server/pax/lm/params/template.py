@@ -67,6 +67,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   DECODE_MESH_TRANSPOSE = None
   # Remove this after MultipQueryAttention supports lazy prefix.
   SUPPORT_LAZY_PREFIX_BROADCAST = True
+  EMB_LOOKUP_STYPE = 'index'
 
   def input_for_model_init(self):
     batch_size = self.BATCH_SIZE
@@ -128,6 +129,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
           eos_id=stop_token_ids,
           length_norm_alpha=self.LENGTH_NORM_ALPHA,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
+          emb_lookup_style=self.EMB_LOOKUP_STYPE,
       )
     else:
       generate_hparams = decoder_hparams.SampleDecoderHParams(
@@ -143,6 +145,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
           eos_id=stop_token_ids,
           k=self.TOP_K,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
+          emb_lookup_style=self.EMB_LOOKUP_STYPE,
       )
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
@@ -180,6 +183,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         temperature=None,
         eos_id=stop_token_ids,
         k=self.TOP_K,
+        emb_lookup_style=self.EMB_LOOKUP_STYPE,
     )
 
     return servable_lm_model.DecodeHParams(
@@ -246,6 +250,12 @@ def make_servable(servable_class=ServingTemplate):
         # Override attention with lazy prefix broadcast.
         lazy_prefix_broadcast = False
         decode_params = self.generate()
+        if hasattr(task_p.model.lm_tpl, 'softmax_tpl') and hasattr(
+            task_p.model.lm_tpl.softmax_tpl, 'lookup_style'
+        ) and hasattr(decode_params, 'decoder'):
+          task_p.model.lm_tpl.softmax_tpl.lookup_style = (
+              decode_params.decoder.emb_lookup_style
+          )
         if decode_params is not None:
           if decode_params.decoder.lazy_prefix_broadcast:
             assert decode_params.decoder.num_samples > 1  # pytype: disable=attribute-error
