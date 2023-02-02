@@ -18,7 +18,6 @@ package testutil
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net"
 	"strconv"
 	"strings"
@@ -139,34 +138,6 @@ func (s *stubAdminServer) modelAddressesList(ctx context.Context) []string {
 	return dataset.ToList()
 }
 
-func (s *stubAdminServer) FindLoc(ctx context.Context, in *apb.FindLocRequest) (*apb.FindLocResponse, error) {
-	out := &apb.FindLocResponse{}
-	addresses := s.modelAddressesList(ctx)
-	have := len(addresses)
-	if have == 0 {
-		return out, nil
-	}
-	request := int(in.GetUpTo())
-	if request <= 1 {
-		request = 1
-	}
-	if request > have {
-		request = have
-	}
-	// Random selection. Mimics Admin implementation.
-	idx := rand.Intn(have)
-	picked := make([]string, request)
-	for i := 0; i < request; i++ {
-		picked[i] = addresses[idx]
-		idx = idx + 1
-		if idx == have {
-			idx = 0
-		}
-	}
-	out.ModeletAddresses = picked
-	return out, nil
-}
-
 func (s *stubAdminServer) WatchLoc(ctx context.Context, in *apb.WatchLocRequest) (*apb.WatchLocResponse, error) {
 	result, err := s.modelAddresses.Watch(ctx, in.GetSeqno())
 	if err != nil {
@@ -249,8 +220,8 @@ func CallAdminServer(ctx context.Context, saxCell string, req any) (resp any, er
 	client := agrpc.NewAdminClient(conn)
 
 	switch req := req.(type) {
-	case *apb.FindLocRequest:
-		return client.FindLoc(ctx, req)
+	case *apb.WatchLocRequest:
+		return client.WatchLoc(ctx, req)
 	default:
 		return nil, fmt.Errorf("Unknown request type %T", req)
 	}

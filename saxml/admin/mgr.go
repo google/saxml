@@ -18,7 +18,6 @@ package mgr
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -212,43 +211,6 @@ func (m *Mgr) ListAll() []*apb.PublishedModel {
 		publishedModels = append(publishedModels, m.makePublishedModelLocked(fullName, model.specs))
 	}
 	return publishedModels
-}
-
-// FindLoc returns model server addresses up to a requested number for a model.
-//
-// Deprecated: Use WatchLoc instead.
-func (m *Mgr) FindLoc(fullName modelFullName, upTo int) ([]string, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	if _, ok := m.models[fullName]; !ok {
-		return nil, fmt.Errorf("model %s not found: %w", fullName, errors.ErrNotFound)
-	}
-
-	res := []string{}
-	assignments := m.assignment[fullName]
-	have := len(assignments)
-	if have == 0 {
-		// Note: zero return is an allowed response.
-		return res, nil
-	}
-
-	// Note: at this point, both upTo and have are positive.
-	if upTo > have {
-		upTo = have
-	}
-
-	// TODO(jianlijianli, jiawenhao): improve this with rejection sampling.
-	idx := rand.Intn(have)
-	for i := 0; i < upTo; i++ {
-		res = append(res, string(assignments[idx]))
-		idx = idx + 1
-		// Wrap around. This won't cause duplication since upTo <= have.
-		if idx == have {
-			idx = 0
-		}
-	}
-	return res, nil
 }
 
 // WatchLoc watches changes of the model server addresses after the given seqno.
@@ -445,7 +407,7 @@ func (m *Mgr) pruneModelets(timeout time.Duration) {
 
 // RefreshResult contains the result of a Server.Refresh call.
 type RefreshResult struct {
-	// The toal number of model servers requested by all models when Refresh is called
+	// The total number of model servers requested by all models when Refresh is called
 	TotalRequested int
 
 	// The number of model servers already assigned when Refresh is called.

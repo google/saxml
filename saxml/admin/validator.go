@@ -144,17 +144,6 @@ func ValidateModelUpdate(previous, change *pb.Model, saxCell string) error {
 	return nil
 }
 
-// ValidateFindLocRequest checks whether a FindLocRequest instance is valid within saxCell.
-func ValidateFindLocRequest(req *pb.FindLocRequest, saxCell string) error {
-	if err := ValidateModelFullName(req.GetModelId(), saxCell); err != nil {
-		return err
-	}
-	if upTo := req.GetUpTo(); upTo <= 0 {
-		return fmt.Errorf("FindLocRequest.up_to %d must be > 0: %w", upTo, errors.ErrInvalidArgument)
-	}
-	return nil
-}
-
 // ValidateWatchLocRequest checks whether a WatchLocRequest instance is valid.
 func ValidateWatchLocRequest(req *pb.WatchLocRequest) error {
 	if err := naming.ValidateModelFullName(req.GetModelId()); err != nil {

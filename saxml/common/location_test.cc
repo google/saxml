@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -50,11 +51,27 @@ TEST(LocationTest, Join) {
   std::shared_ptr<grpc::Channel> channel = CreateGRPCChannel(admin_addr);
   std::unique_ptr<::sax::Admin::Stub> stub = ::sax::Admin::NewStub(channel);
   grpc::ClientContext ctx;
-  FindLocRequest req;
-  req.set_up_to(2);
-  FindLocResponse resp;
-  ASSERT_TRUE(stub->FindLoc(&ctx, req, &resp).ok());
-  EXPECT_THAT(resp.modelet_addresses(), testing::Contains(model_addr));
+  WatchLocRequest req;
+  WatchLocResponse resp;
+  ASSERT_TRUE(stub->WatchLoc(&ctx, req, &resp).ok());
+  const WatchResult& result = resp.result();
+  EXPECT_TRUE(result.has_fullset());
+  std::vector<std::string> model_addrs;
+  model_addrs.reserve(result.values_size());
+  for (const std::string& value : result.values()) {
+    model_addrs.push_back(value);
+  }
+  for (const WatchResult_Mutation& change : result.changelog()) {
+    if (change.has_addition()) {
+      model_addrs.push_back(change.addition());
+    }
+    if (change.has_deletion()) {
+      model_addrs.erase(std::remove(model_addrs.begin(), model_addrs.end(),
+                                    change.deletion()),
+                        model_addrs.end());
+    }
+  }
+  EXPECT_THAT(model_addrs, testing::Contains(model_addr));
 
   // Stop the servers.
   sax::StopLocalTestCluster(sax_cell);

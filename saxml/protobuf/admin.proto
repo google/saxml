@@ -178,17 +178,6 @@ message ListResponse {
   repeated PublishedModel published_models = 1;
 }
 
-message FindLocRequest {
-  string model_id = 1;
-  // Number of model server addresses requested. Admin server will return
-  // [0, up_to] of addresses based on availability/workload/status etc.
-  int32 up_to = 2;
-}
-
-message FindLocResponse {
-  repeated string modelet_addresses = 1;
-}
-
 message WatchLocRequest {
   // An ID to identify the model. Must be globally unique, e.g.,
   //   /sax/bar/lm_cloud_spmd_1024b
@@ -255,9 +244,6 @@ service Admin {
 
   // Lists actively serving models.
   rpc List(ListRequest) returns (ListResponse);
-
-  // Finds model server address(es) for a given model.
-  rpc FindLoc(FindLocRequest) returns (FindLocResponse);
 
   // Watches for changes of model server address(es) for a given model.
   rpc WatchLoc(WatchLocRequest) returns (WatchLocResponse);

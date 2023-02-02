@@ -42,12 +42,22 @@ class LocationTest(absltest.TestCase):
     with env.create_grpc_channel(admin_addr) as channel:
       grpc.channel_ready_future(channel).result()
       stub = admin_pb2_grpc.AdminStub(channel)
-      req = admin_pb2.FindLocRequest(up_to=2)
-      resp = stub.FindLoc(req)
+      req = admin_pb2.WatchLocRequest(seqno=0)
+      resp = stub.WatchLoc(req)
+      result = resp.result
+      self.assertTrue(result.has_fullset)
+      model_addrs = []
+      for value in result.values:
+        model_addrs.append(value)
+      for change in result.changelog:
+        if change.HasField('addition'):
+          model_addrs.append(change.addition)
+        if change.HasField('deletion'):
+          model_addrs.remove(change.deletion)
       # NOTE: testutil.StartLocalTestCluster starts 1 model server. We let
       # another server join. So the total is 2.
-      self.assertLen(resp.modelet_addresses, 2)
-      self.assertIn(model_addr, resp.modelet_addresses)
+      self.assertLen(model_addrs, 2)
+      self.assertIn(model_addr, model_addrs)
 
     testutil.StopLocalTestCluster(sax_cell)
 

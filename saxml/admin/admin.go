@@ -176,23 +176,6 @@ func (s *Server) List(ctx context.Context, in *pb.ListRequest) (*pb.ListResponse
 	return &pb.ListResponse{PublishedModels: s.Mgr.ListAll()}, nil
 }
 
-func (s *Server) FindLoc(ctx context.Context, in *pb.FindLocRequest) (*pb.FindLocResponse, error) {
-	if err := validator.ValidateFindLocRequest(in, s.saxCell); err != nil {
-		return nil, err
-	}
-	fullName, err := naming.NewModelFullName(in.GetModelId())
-	if err != nil {
-		return nil, err
-	}
-
-	addresses, err := s.Mgr.FindLoc(fullName, int(in.GetUpTo()))
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.FindLocResponse{ModeletAddresses: addresses}, nil
-}
-
 // WatchLoc handles WatchLoc rpc requests.
 func (s *Server) WatchLoc(ctx context.Context, in *pb.WatchLocRequest) (*pb.WatchLocResponse, error) {
 	if err := validator.ValidateWatchLocRequest(in); err != nil {

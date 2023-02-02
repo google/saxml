@@ -90,6 +90,7 @@ go_test(
         ":addr",
         ":location",
         ":testutil",
+        ":watchable",
         "//saxml/common/platform:env",
         "//saxml/common/platform:register",
         "//saxml/protobuf:admin_go_proto_grpc",

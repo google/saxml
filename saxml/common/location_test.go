@@ -28,6 +28,7 @@ import (
 	"saxml/common/platform/env"
 	_ "saxml/common/platform/register" // registers a platform
 	"saxml/common/testutil"
+	"saxml/common/watchable"
 
 	pb "saxml/protobuf/admin_go_proto_grpc"
 )
@@ -79,13 +80,19 @@ func TestJoin(t *testing.T) {
 
 	// We should see the joined model server after a small delay.
 	time.Sleep(time.Second)
-	resp, err := testutil.CallAdminServer(ctx, saxCell, &pb.FindLocRequest{UpTo: 1})
+	resp, err := testutil.CallAdminServer(ctx, saxCell, &pb.WatchLocRequest{Seqno: 0})
 	if err != nil {
 		t.Fatalf("CallAdminServer(%s) error %v, want no error", saxCell, err)
 	}
-	got := resp.(*pb.FindLocResponse).GetModeletAddresses()
+	result := watchable.FromProto(resp.(*pb.WatchLocResponse).GetResult())
+	dataset := result.Data
+	if dataset == nil {
+		dataset = watchable.NewDataSet()
+	}
+	dataset.Apply(result.Log)
+	got := dataset.ToList()
 	if len(got) != 1 || got[0] != modelAddr {
-		t.Errorf("FindLoc got %v, want [%q]", got, modelAddr)
+		t.Errorf("WatchLoc got %v, want [%q]", got, modelAddr)
 	}
 }
 

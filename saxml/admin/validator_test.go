@@ -373,36 +373,6 @@ func TestCheckModelUpdate(t *testing.T) {
 	}
 }
 
-func TestValidateFindLocRequest(t *testing.T) {
-	saxCell := "/sax/test-find"
-	req := &apb.FindLocRequest{}
-	req.ModelId = saxCell + "/dummy_model"
-	req.UpTo = 1
-	if err := validator.ValidateFindLocRequest(req, saxCell); err != nil {
-		t.Errorf("FindLoc(%v) err %v, want no error", req, err)
-	}
-
-	reqWrongID := &apb.FindLocRequest{}
-	reqWrongID.ModelId = saxCell + "/dummy_model/xyz"
-	reqWrongID.UpTo = 1
-	if err := validator.ValidateFindLocRequest(reqWrongID, saxCell); err == nil {
-		t.Errorf("FindLoc(%v) no error, want some error", reqWrongID)
-	}
-
-	reqWrongUpTo := &apb.FindLocRequest{}
-	reqWrongUpTo.ModelId = saxCell + "/dummy_model"
-	if err := validator.ValidateFindLocRequest(reqWrongUpTo, saxCell); err == nil {
-		t.Errorf("FindLoc(%v) no error, want some error", reqWrongUpTo)
-	}
-
-	reqWrongSaxCell := &apb.FindLocRequest{}
-	reqWrongSaxCell.ModelId = "/sax/other-cell/dummy_model"
-	reqWrongSaxCell.UpTo = 1
-	if err := validator.ValidateFindLocRequest(reqWrongSaxCell, saxCell); err == nil {
-		t.Errorf("FindLoc(%v) no error, want some error", reqWrongSaxCell)
-	}
-}
-
 func TestValidateJoinRequest(t *testing.T) {
 	req := &apb.JoinRequest{}
 	if err := validator.ValidateJoinRequest(req); err == nil {

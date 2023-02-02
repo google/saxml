@@ -82,7 +82,7 @@ func (t *Table) refill(ctx context.Context) {
 
 	addresses, err := t.admin.FindAddresses(ctx, t.model, ask)
 	if err != nil {
-		log.V(2).Infof("Refill fired but FindLoc failed for model %s because %v\n", t.model, err)
+		log.V(2).Infof("Refill fired but FindAddresses failed for model %s because %v\n", t.model, err)
 		return
 	}
 	log.V(2).Infof("Get addresses %v", addresses)
