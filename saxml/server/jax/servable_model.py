@@ -23,7 +23,6 @@ from absl import logging
 import jax
 from jax import numpy as jnp
 from jax.experimental import host_callback as hcb
-from jax.experimental import maps
 from jax.experimental import pjit
 from jax.interpreters import pxla
 import numpy as np
@@ -70,7 +69,7 @@ class ServableModelState:
   # Process ID of the primary host.
   primary_process_id: int
   # pjit global mesh.
-  global_mesh: maps.Mesh
+  global_mesh: jax.sharding.Mesh
   # Model variables.
   mdl_vars: DeviceTensors
   # Model variables' partition specs.
@@ -176,8 +175,9 @@ class ServableMethod(servable_model.ServableMethod):
 
     def _get_pspec(x):
       # Add a `cores` dimension.
-      return pjit.PartitionSpec(self.model_state.global_mesh.axis_names,
-                                *((None,) * len(x.shape)))
+      return jax.sharding.PartitionSpec(
+          self.model_state.global_mesh.axis_names, *((None,) * len(x.shape))
+      )
 
     input_pspecs = jax.tree_util.tree_map(_get_pspec, host_dummy)
 

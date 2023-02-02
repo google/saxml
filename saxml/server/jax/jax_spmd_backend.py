@@ -18,7 +18,6 @@ import functools
 from typing import Callable
 
 import jax
-from jax.experimental import maps
 from jax.experimental import mesh_utils
 from jax.experimental import pjit
 import jax.numpy as jnp
@@ -61,15 +60,16 @@ class JaxSPMDBackend(SPMDBackend):
 
   def __init__(self):
     mesh = mesh_utils.create_device_mesh((jax.device_count(),))
-    self._mesh = maps.Mesh(mesh, ('all',))
+    self._mesh = jax.sharding.Mesh(mesh, ('all',))
     zero = np.zeros((
         1,
         _MESSAGE_BUF_LEN,
     ), dtype=np.uint8)
     self._local_devices = list(self._mesh.local_devices)
     self._zero_bufs = [jax.device_put(zero, d) for d in self._local_devices]
-    self._sharding = jax.sharding.NamedSharding(self._mesh,
-                                                pjit.PartitionSpec('all', None))
+    self._sharding = jax.sharding.NamedSharding(
+        self._mesh, jax.sharding.PartitionSpec('all', None)
+    )
     self._global_shape = (len(self._mesh.devices.flat), _MESSAGE_BUF_LEN)
     self._zero_jax_array = jax.make_array_from_single_device_arrays(
         self._global_shape, self._sharding, self._zero_bufs)

@@ -19,7 +19,6 @@ from typing import Any, Callable, Sequence
 
 import jax
 from jax._src.lib import xla_client as xc
-from jax.experimental import maps
 from jax.experimental import pjit
 
 
@@ -50,7 +49,7 @@ def serialize_pjittable_function(
     fun: Callable[..., Any],
     global_inputs_shape_dtype: Sequence[Any],
     input_pspecs: Sequence[Any],
-    mesh: maps.Mesh,
+    mesh: jax.sharding.Mesh,
 ) -> SerializedPjitFunction:
   """Converts a pjittable function to a SerializedPjitFunction.
 
@@ -92,7 +91,7 @@ def serialize_pjittable_function(
 
 
 def deserialize_pjitted_function(serialized: SerializedPjitFunction,
-                                 mesh: maps.Mesh) -> Callable[..., Any]:
+                                 mesh: jax.sharding.Mesh) -> Callable[..., Any]:
   """Converts a SerializedPjitFunction to a callable compiled function.
 
   Args:

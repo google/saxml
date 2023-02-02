@@ -17,8 +17,6 @@ import os
 
 from absl.testing import absltest
 import jax
-from jax.experimental import maps
-from jax.experimental import pjit
 import jax.numpy as jnp
 import numpy as np
 from saxml.server.jax import serialize
@@ -28,7 +26,7 @@ class SerializeTest(absltest.TestCase):
 
   def get_mesh(self, shape, axes):
     devices = np.array(jax.devices()).reshape(shape)
-    return maps.Mesh(devices, axis_names=axes)
+    return jax.sharding.Mesh(devices, axis_names=axes)
 
   def test_simple_pjit(self):
     mesh = self.get_mesh((8,), ['x'])
@@ -39,7 +37,7 @@ class SerializeTest(absltest.TestCase):
     in_x = jnp.zeros((8,), jnp.float32) + 3
     in_y = jnp.zeros((8,), jnp.float32) + 4
     shape_dtype = jax.ShapeDtypeStruct((8,), jnp.float32)
-    pspec = pjit.PartitionSpec('x')
+    pspec = jax.sharding.PartitionSpec('x')
 
     s = serialize.serialize_pjittable_function(fn, (shape_dtype, shape_dtype),
                                                (pspec, pspec), mesh)
@@ -57,7 +55,7 @@ class SerializeTest(absltest.TestCase):
     in_y = jnp.zeros((8,), jnp.float32) + 4
     in_z = jnp.zeros((8,), jnp.float32) + 8
     shape_dtype = jax.ShapeDtypeStruct((8,), jnp.float32)
-    pspec = pjit.PartitionSpec('x')
+    pspec = jax.sharding.PartitionSpec('x')
 
     s = serialize.serialize_pjittable_function(fn, (shape_dtype, {
         'y': shape_dtype,

@@ -20,7 +20,6 @@ from etils import epath
 from flax.training import checkpoints as flax_checkpoints
 import jax
 from jax import numpy as jnp
-from jax.experimental import maps
 from jax.experimental import mesh_utils
 from jax.experimental import pjit
 from jax.experimental.gda_serialization.serialization import GlobalAsyncCheckpointManager
@@ -394,7 +393,7 @@ class ServableModel(servable_model.ServableModel):
     prng_key, init_key = jax.random.split(prng_key)
 
     logging.info('device_mesh: %s', device_mesh)
-    global_mesh = maps.Mesh(device_mesh, model_p.mesh_axis_names)
+    global_mesh = jax.sharding.Mesh(device_mesh, model_p.mesh_axis_names)
     self._global_mesh = global_mesh
 
     # TODO(zhangqiaorjc, yuanzx): Retrieve unpadded var shapes from checkpoint.
