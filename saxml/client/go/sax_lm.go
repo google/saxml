@@ -153,36 +153,48 @@ func (l *LanguageModel) GenerateStream(ctx context.Context, text string, options
 	}
 
 	res := make(chan StreamResult)
-	go l.model.run(ctx, "generateStream", func(conn *grpc.ClientConn) error {
-		client := pbgrpc.NewLMServiceClient(conn)
-		stream, err := client.GenerateStream(ctx, req)
-		if err != nil {
-			return err
-		}
-		first := true
-		for {
-			resp, err := stream.Recv()
-			if err == nil {
-				res <- StreamResult{Items: extractGenerateStreamResponse(resp)}
-				first = false
-				continue
-			}
-			// Pass both EOF and general errors to channel.
-			res <- StreamResult{Err: err}
-			// On EOF, close the channel and return success to the retrier.
-			if err == io.EOF {
-				close(res)
-				return nil
-			}
-			// On other errors, explicitly use permanent error to skip retrier once streaming has started.
-			if first {
-				// Special handling for the first Recv() call, which returns actual errors such as NotFound.
+	go func() {
+		err := l.model.run(ctx, "generateStream", func(conn *grpc.ClientConn) error {
+			client := pbgrpc.NewLMServiceClient(conn)
+			stream, err := client.GenerateStream(ctx, req)
+			if err != nil {
 				return err
 			}
-			return retrier.CreatePermanentError(err)
+			// If the model doesn't exist or is being loaded on the model server, the GenerateStream call
+			// above doesn't return any error. Instead, the first Recv call below returns a NotFound
+			// error. That's why we need special handling for the first Recv return value.
+			first := true
+			for {
+				resp, err := stream.Recv()
+				if err == nil {
+					// Start streaming results to the res channel. Any error happening after this point
+					// becomes a permanent error.
+					res <- StreamResult{Items: extractGenerateStreamResponse(resp)}
+					first = false
+					continue
+				}
+				if err == io.EOF {
+					// On successful completion of streaming, send io.EOF to the res channel and return
+					// success (nil) to the retrier.
+					res <- StreamResult{Err: err}
+					return nil
+				}
+				if first {
+					// Special handling for the first Recv call: return the error to the retrier to let it
+					// decide what to do. The res channel is unused so far and can be used to stream correct
+					// results if the retrier decides to retry.
+					return err
+				}
+				// Once streaming has started, explicitly use permanent error to skip retries.
+				return retrier.CreatePermanentError(err)
+			}
+		})
+		if err != nil {
+			// Errors getting returned from the retrier are non-retriable. Let users know about them.
+			res <- StreamResult{Err: err}
 		}
-	})
-
+		close(res)
+	}()
 	return res
 }
 
