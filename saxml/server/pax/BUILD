@@ -118,6 +118,7 @@ py_strict_test(
         ":quantization",
         "//saxml/server/pax/lm/params:lm_cloud",
         "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/absl-py/testing:parameterized",
         "//third_party/py/praxis:test_utils",
         "//third_party/py/praxis/layers",
         "//third_party/py/praxis/layers/quantization:layers",

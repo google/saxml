@@ -15,6 +15,7 @@
 """Tests for quantization methods."""
 
 from absl.testing import absltest
+from absl.testing import parameterized
 
 from praxis import layers
 from praxis import test_utils
@@ -31,10 +32,21 @@ class QuantizationModel(LmCloudSpmd2B):
   pass
 
 
+@quantization.for_transformer(use_symmetric=False)
+class QuantizationModelAsy(LmCloudSpmd2B):
+  """Quantize transformer for GLaM100MTarzanC30PF1x1x2Serving."""
+
+  pass
+
+
 class DecoratorTest(test_utils.TestCase):
 
-  def test_for_transformer(self):
-    config = QuantizationModel()
+  @parameterized.named_parameters(
+      ('symmetric', QuantizationModel, True),
+      ('asymmetric', QuantizationModelAsy, False),
+  )
+  def test_for_transformer(self, model_config, expect_symmetric):
+    config = model_config()
     task_p = config.task()
     self.assertEqual(
         task_p.model.lm_tpl.stacked_transformer_tpl.block
@@ -63,6 +75,14 @@ class DecoratorTest(test_utils.TestCase):
         task_p.model.lm_tpl.stacked_transformer_tpl.block
         .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl
         .quantization.mode, quantization_hparams.QuantizationMode.MATERIALIZE)
+    self.assertEqual(
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.quantization.weight_params.use_symmetric,
+        expect_symmetric,
+    )
+    self.assertEqual(
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.quantization.weight_params.use_symmetric,
+        expect_symmetric,
+    )
 
 
 @quantization.for_transformer(linear_only=True)
