@@ -201,33 +201,45 @@ def decode_fetch_output(
 
 
 def score_tf_tokenize_inputs(
-    prefixes: tf.Tensor, suffixes: tf.Tensor, tokenizer: Any,
-    max_seq_len: int, include_eos: bool,
+    prefixes: tf.Tensor,
+    suffixes: tf.Tensor,
+    tokenizer: Any,
+    max_prefix_seq_len: int,
+    max_suffix_seq_len: int,
+    include_eos: bool,
 ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
   """Tokenize inputs for scoring."""
-  seqlen = max_seq_len
-  shape = [None, seqlen]
+  seqlen = max_prefix_seq_len + max_suffix_seq_len
+  output_shape = [None, seqlen]
+  prefix_shape = [None, max_prefix_seq_len]
+  suffix_shape = [None, max_suffix_seq_len]
   pfx_ids, pfx_labels, pfx_paddings = tokenizer.StringsToIds(
-      prefixes, max_length=seqlen
+      prefixes, max_length=max_prefix_seq_len
   )
   (pfx_ids, pfx_labels, pfx_paddings) = (
-      tf.ensure_shape(pfx_ids, shape),
-      tf.ensure_shape(pfx_labels, shape),
-      tf.ensure_shape(pfx_paddings, shape),
+      tf.ensure_shape(pfx_ids, prefix_shape),
+      tf.ensure_shape(pfx_labels, prefix_shape),
+      tf.ensure_shape(pfx_paddings, prefix_shape),
   )
   sfx_ids, sfx_labels, sfx_paddings = tokenizer.StringsToIds(
-      suffixes, max_length=seqlen
+      suffixes, max_length=max_suffix_seq_len
   )
   (sfx_ids, sfx_labels, sfx_paddings) = (
-      tf.ensure_shape(sfx_ids, shape),
-      tf.ensure_shape(sfx_labels, shape),
-      tf.ensure_shape(sfx_paddings, shape),
+      tf.ensure_shape(sfx_ids, suffix_shape),
+      tf.ensure_shape(sfx_labels, suffix_shape),
+      tf.ensure_shape(sfx_paddings, suffix_shape),
   )
   # Lengths are with EOS in labels, and SOS in ids (will be adjusted if not).
-  pfx_lengths = seqlen - tf.cast(tf.reduce_sum(pfx_paddings, 1), dtype=tf.int32)
-  sfx_lengths = seqlen - tf.cast(tf.reduce_sum(sfx_paddings, 1), dtype=tf.int32)
+  pfx_lengths = max_prefix_seq_len - tf.cast(
+      tf.reduce_sum(pfx_paddings, 1), dtype=tf.int32
+  )
+  sfx_lengths = max_suffix_seq_len - tf.cast(
+      tf.reduce_sum(sfx_paddings, 1), dtype=tf.int32
+  )
 
-  score_masks = pfx_paddings
+  score_masks = tf.pad(
+      pfx_paddings, [[0, 0], [0, max_suffix_seq_len]], constant_values=1.0
+  )
   if tokenizer.hparams.append_eos:
     # Left-shift to exclude prefix EOS.
     score_masks = tf.pad(
@@ -250,7 +262,7 @@ def score_tf_tokenize_inputs(
   def _combine(pfx, pfx_lens, sfx, sfx_lens):
     r_pfx = tf.RaggedTensor.from_tensor(pfx, pfx_lens)
     r_sfx = tf.RaggedTensor.from_tensor(sfx, sfx_lens)
-    return tf.concat([r_pfx, r_sfx], axis=1).to_tensor(shape=pfx.shape)
+    return tf.concat([r_pfx, r_sfx], axis=1).to_tensor(shape=output_shape)
 
   # Do not include suffix EOS in ids.
   ids = _combine(pfx_ids, pfx_lengths, sfx_ids, sfx_lengths - 1)

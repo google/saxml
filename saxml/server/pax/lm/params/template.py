@@ -43,6 +43,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   USE_BEAM_SEARCH = False
   BATCH_SIZE = 1
   INPUT_SEQ_LEN = 256
+  SUFFIX_SEQ_LEN = 0  # Defaults to `INPUT_SEQ_LEN`.
   MAX_DECODE_STEPS = 32
   NUM_SAMPLES = 2
   TOP_K = 40
@@ -94,9 +95,16 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   def score(self) -> Optional[servable_lm_model.ScoreHParams]:
     if self.GENERATE_ONLY:
       return None
+    input_seq_len = self.INPUT_SEQ_LEN
+    suffix_seq_len = self.SUFFIX_SEQ_LEN
+    if not suffix_seq_len:
+      assert self.INPUT_SEQ_LEN % 2 == 0
+      input_seq_len = self.INPUT_SEQ_LEN // 2
+      suffix_seq_len = self.INPUT_SEQ_LEN // 2
     return servable_lm_model.ScoreHParams(
         batch_size=self.BATCH_SIZE,
-        max_input_seq_len=self.INPUT_SEQ_LEN,
+        max_input_seq_len=input_seq_len,
+        max_suffix_seq_len=suffix_seq_len,
         extra_inputs=self.SCORE_EXTRA_INPUTS)
 
   def serving_tokenizer(self):

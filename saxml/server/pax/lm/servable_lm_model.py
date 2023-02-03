@@ -57,11 +57,14 @@ class ScoreHParams(servable_model_params.ServableMethodParams):
   """HParameters for LM score method.
 
   Attributes:
-    max_input_seq_len: static sequence length dimension size. Inputs are padded
-      or truncated to this size.
+    max_input_seq_len: static prefix sequence length dimension size.
+    max_suffix_seq_len: static suffix sequence length dimension size. Defaults
+      to be equal to `max_input_seq_len` if not set. Inputs are padded or
+      truncated to (max_input_seq_len + max_suffix_seq_len) size.
     include_eos_score: whether to add EOS score to the result.
   """
   max_input_seq_len: int = 0
+  max_suffix_seq_len: int = 0
   include_eos_score: bool = False
 
 
@@ -405,7 +408,10 @@ class LMScoreMethod(ServableLMMethod):
         keepdims=True)
 
   def get_maxlen(self) -> int:
-    return self._score_params.max_input_seq_len
+    return (
+        self._score_params.max_input_seq_len
+        + self._score_params.max_suffix_seq_len
+    )
 
   def output_seq_dim(self) -> int:
     return 1
@@ -452,6 +458,7 @@ class LMScoreMethod(ServableLMMethod):
             suffixes,
             self._tokenizer,
             self._score_params.max_input_seq_len,
+            self._score_params.max_suffix_seq_len,
             self._score_params.include_eos_score,
         )
     )
@@ -978,7 +985,8 @@ class LMGradientMethod(ServableLMMethod):
             prefixes,
             suffixes,
             self._tokenizer,
-            self._gradient_params.max_input_seq_len,
+            self._gradient_params.max_input_seq_len // 2,
+            self._gradient_params.max_input_seq_len // 2,
             self._gradient_params.include_eos_score,
         )
     )
