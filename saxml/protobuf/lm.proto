@@ -39,8 +39,8 @@ import "saxml/protobuf/common.proto";
 message ScoreRequest {
   string model_key = 1;
   repeated string suffix = 2;
-  // If prefix is not empty, it will be prepended to `text`, but the score will
-  // be calculated only on `text`.
+  // If `prefix` is not empty, it will be prepended to `suffix`, but the score
+  // will be calculated only on `suffix`.
   string prefix = 3;
   .sax.ExtraInputs extra_inputs = 4;
 }
