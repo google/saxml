@@ -47,7 +47,9 @@ from praxis.layers.quantization import quantize
 
 # TODO(jianlijianli): Merge this with the decorator in pax.
 # Ready-to-use quantization decorators for quantizing transformer.
-def for_transformer(quantize_on_the_fly=True, num_bits: int = 8):
+def for_transformer(
+    quantize_on_the_fly=True, num_bits: int = 8, linear_only: bool = False
+):
   """Find and quantize transformer.
 
   If there are transformers that shouldn't be quantized, use the quantize_*
@@ -64,6 +66,7 @@ def for_transformer(quantize_on_the_fly=True, num_bits: int = 8):
       - When set to False, the input model is already quantized.
     num_bits: number of bits for quantized weights. Currently supports 8 and 4
       but any interger [1, 8] works.
+    linear_only: Quantize only the linear layers.
 
   Returns:
     a modifier that quantizes transformers when applied to a config.
@@ -94,7 +97,8 @@ def for_transformer(quantize_on_the_fly=True, num_bits: int = 8):
             layers.transformers.Transformer,
             quantization_type,
             mode=mode,
-            num_bits=num_bits)
+            num_bits=num_bits,
+            linear_only=linear_only)
         return task_p
 
     return Wrapper

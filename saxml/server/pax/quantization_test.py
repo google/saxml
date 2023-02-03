@@ -16,6 +16,7 @@
 
 from absl.testing import absltest
 
+from praxis import layers
 from praxis import test_utils
 from praxis.layers import quantization as qlayer
 from praxis.layers.quantization import quantization_hparams
@@ -63,6 +64,35 @@ class DecoratorTest(test_utils.TestCase):
         .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl
         .quantization.mode, quantization_hparams.QuantizationMode.MATERIALIZE)
 
+
+@quantization.for_transformer(linear_only=True)
+class QuantizationModelLinearOnly(LmCloudSpmd2B):
+  """Quantize linear layers for GLaM100MTarzanC30PF1x1x2Serving."""
+  pass
+
+
+class DecoratorTestLinearOnly(test_utils.TestCase):
+
+  def test_for_transformer(self):
+    config = QuantizationModelLinearOnly()
+    task_p = config.task()
+    self.assertEqual(
+        task_p.model.lm_tpl.stacked_transformer_tpl.block
+        .transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.cls,
+        layers.attentions.AttentionProjection)
+    self.assertEqual(
+        task_p.model.lm_tpl.stacked_transformer_tpl.block
+        .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.cls,
+        qlayer.linears.Linear)
+    self.assertEqual(
+        task_p.model.lm_tpl.stacked_transformer_tpl.block
+        .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl
+        .quantization.quantization_type,
+        quantization_hparams.QuantizationType.PTQ)
+    self.assertEqual(
+        task_p.model.lm_tpl.stacked_transformer_tpl.block
+        .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl
+        .quantization.mode, quantization_hparams.QuantizationMode.MATERIALIZE)
 
 if __name__ == '__main__':
   absltest.main()
