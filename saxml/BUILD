@@ -18,8 +18,4 @@ package_group(
 bzl_library(
     name = "saxml_bzl",
     srcs = ["saxml.bzl"],
-    deps = [
-        "//devtools/build_cleaner/skylark:build_defs_lib",
-        "//frameworks/platform/endpoints/builddefs:rpc_endpoint_interface",
-    ],
 )

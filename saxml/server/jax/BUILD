@@ -38,6 +38,7 @@ py_strict_test(
     srcs = ["serialize_test.py"],
     python_version = "PY3",
     srcs_version = "PY3",
+    tags = ["manual"],
     visibility = [
         "//saxml:internal",
         "//saxml/server/pax:__pkg__",

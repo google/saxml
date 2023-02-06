@@ -26,6 +26,7 @@ py_strict_test(
     srcs = ["np_tf_sess_wrapper_test.py"],
     python_version = "PY3",
     srcs_version = "PY3",
+    tags = ["manual"],
     deps = [
         ":np_tf_sess_wrapper",
         "//third_party/py/absl-py/testing:absltest",

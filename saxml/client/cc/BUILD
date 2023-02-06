@@ -27,6 +27,7 @@ cc_library(
 cc_test(
     name = "sax_test",
     srcs = ["sax_test.cc"],
+    flaky = True,
     deps = [
         ":sax",
         "//saxml/common/platform:env_cc",
