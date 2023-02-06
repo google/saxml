@@ -72,6 +72,7 @@ func (t *Table) shouldTryRefill() (bool, int) {
 func (t *Table) refill(ctx context.Context) {
 	shouldRetry, ask := t.shouldTryRefill()
 	if !shouldRetry {
+		log.Info("No need to refill")
 		return
 	}
 
@@ -82,10 +83,10 @@ func (t *Table) refill(ctx context.Context) {
 
 	addresses, err := t.admin.FindAddresses(ctx, t.model, ask)
 	if err != nil {
-		log.V(2).Infof("Refill fired but FindAddresses failed for model %s because %v\n", t.model, err)
+		log.Infof("Refill fired but FindAddresses failed for model %s because %v\n", t.model, err)
 		return
 	}
-	log.V(2).Infof("Get addresses %v", addresses)
+	log.Infof("Got addresses %v", addresses)
 	t.add(addresses)
 }
 

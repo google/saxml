@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/grpc/codes"
 	saxerrors "saxml/common/errors"
 	"saxml/common/platform/env"
 	_ "saxml/common/platform/register" // registers a platform
@@ -39,7 +40,7 @@ func TestConnection(t *testing.T) {
 			t.Fatalf("Failed to get unused port: %v", err)
 		}
 		ports = append(ports, port)
-		testutil.StartStubModelServer(t, port)
+		testutil.StartStubModelServerT(t, port)
 	}
 
 	addresses := []string{}
@@ -88,5 +89,41 @@ func TestFail(t *testing.T) {
 	}
 	if !errors.Is(err, saxerrors.ErrUnavailable) {
 		t.Fatalf("Creating connection for address %s got error %v, want error unavailable", addr, err)
+	}
+}
+
+func TestBrokenConnection(t *testing.T) {
+	ctx := context.Background()
+	port, err := env.Get().PickUnusedPort()
+	if err != nil {
+		t.Fatalf("Failed to get unused port: %v", err)
+	}
+	closer, err := testutil.StartStubModelServer(testutil.Language, port, 0, "")
+	if err != nil {
+		t.Fatalf("Failed to start stub model server: %v", err)
+	}
+	addr := "localhost:" + strconv.Itoa(port)
+	connTable := newConnTable()
+	conn, err := connTable.getOrCreate(ctx, addr)
+	if err != nil {
+		t.Fatalf("Creating connection for address %s failed with %v\n", addr, err)
+	}
+	defer conn.Close()
+
+	// Shut down the model server.
+	close(closer)
+	time.Sleep(3 * time.Second)
+
+	// We should still be able to get a cached connection.
+	conn, err = connTable.getOrCreate(context.Background(), addr)
+	if err != nil {
+		t.Fatalf("Getting connection for address %s failed with %v\n", addr, err)
+	}
+
+	// Attempting to use the connection should return an Unavailable error.
+	_, err = pbgrpc.NewLMServiceClient(conn).Score(ctx, &pb.ScoreRequest{})
+	want := codes.Unavailable
+	if got := saxerrors.Code(err); got != want {
+		t.Errorf("Expect error code %v, got %v", want, got)
 	}
 }

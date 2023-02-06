@@ -158,7 +158,9 @@ func (s *stubAdminServer) Join(ctx context.Context, in *apb.JoinRequest) (*apb.J
 	return &apb.JoinResponse{}, nil
 }
 
-func startStubAdminServer(adminPort int, modelPorts []int, saxCell string) (chan struct{}, error) {
+// StartStubAdminServer starts a new admin server with stub implementations.
+// Close the returned channel to close the server.
+func StartStubAdminServer(adminPort int, modelPorts []int, saxCell string) (chan struct{}, error) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", adminPort))
 	if err != nil {
 		return nil, err
@@ -195,11 +197,11 @@ func startStubAdminServer(adminPort int, modelPorts []int, saxCell string) (chan
 	return closer, nil
 }
 
-// StartStubAdminServer starts a new admin server with stub implementations.
+// StartStubAdminServerT starts a new admin server with stub implementations.
 // It is automatically closed when the test ends.
-func StartStubAdminServer(t *testing.T, adminPort int, modelPorts []int, saxCell string) {
+func StartStubAdminServerT(t *testing.T, adminPort int, modelPorts []int, saxCell string) {
 	t.Helper()
-	ch, err := startStubAdminServer(adminPort, modelPorts, saxCell)
+	ch, err := StartStubAdminServer(adminPort, modelPorts, saxCell)
 	if err != nil {
 		t.Fatalf("StartStubAdminServer failed: %v", err)
 	}
@@ -504,7 +506,10 @@ func (s *stubCustomModelServer) Custom(ctx context.Context, in *cmpb.CustomReque
 	}, nil
 }
 
-func startStubModelServer(modelType ModelType, modelPort int, scoreDelay time.Duration, unavailableModel string) (chan struct{}, error) {
+// StartStubModelServer starts a new model server of a given type with stub implementations, which
+// also runs a modelet service.
+// Close the returned channel to close the server.
+func StartStubModelServer(modelType ModelType, modelPort int, scoreDelay time.Duration, unavailableModel string) (chan struct{}, error) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", modelPort))
 	if err != nil {
 		return nil, err
@@ -542,12 +547,12 @@ func startStubModelServer(modelType ModelType, modelPort int, scoreDelay time.Du
 	return closer, nil
 }
 
-// StartStubModelServer starts a new model server of a given type with stub implementations, which
+// StartStubModelServerT starts a new language model server with stub implementations, which
 // also runs a modelet service.
 // It is automatically closed when the test ends.
-func StartStubModelServer(t *testing.T, port int) {
+func StartStubModelServerT(t *testing.T, port int) {
 	t.Helper()
-	ch, err := startStubModelServer(Language, port, 0, "")
+	ch, err := StartStubModelServer(Language, port, 0, "")
 	if err != nil {
 		t.Fatalf("StartStubModelServer failed: %v")
 	}
@@ -658,7 +663,7 @@ func (c *Cluster) StartInternal(ctx context.Context) (closers []chan struct{}, e
 		if i < len(c.unavailableModels) {
 			unavailable = c.unavailableModels[i]
 		}
-		closer, err := startStubModelServer(c.modelType, modelPort, delay, unavailable)
+		closer, err := StartStubModelServer(c.modelType, modelPort, delay, unavailable)
 		if err != nil {
 			return nil, fmt.Errorf("start failed: start model server error: %w", err)
 		}
@@ -673,7 +678,7 @@ func (c *Cluster) StartInternal(ctx context.Context) (closers []chan struct{}, e
 		}
 		c.adminPort = adminPort
 	}
-	closer, err := startStubAdminServer(c.adminPort, modelPorts, c.saxCell)
+	closer, err := StartStubAdminServer(c.adminPort, modelPorts, c.saxCell)
 	if err != nil {
 		return nil, fmt.Errorf("start failed: start admin server error: %w", err)
 	}

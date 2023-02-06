@@ -65,6 +65,7 @@ go_test(
         "//saxml/protobuf:lm_go_proto_grpc",
         # unused internal lm gRPC dependency,
         "@com_github_google_go_cmp//cmp:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
     ],
 )
 

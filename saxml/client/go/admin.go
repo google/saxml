@@ -222,7 +222,7 @@ type addrReplica struct {
 // chanWatchResult.
 func (a *addrReplica) Update(chanWatchResult chan *WatchResult) error {
 	for wr := range chanWatchResult {
-		log.V(1).Infof("addrReplica.Update(%s) %v", a.modelID, wr)
+		log.Infof("addrReplica.Update(%s) %v", a.modelID, wr)
 		if wr.Err != nil {
 			return wr.Err
 		}

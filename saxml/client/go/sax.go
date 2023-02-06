@@ -65,7 +65,6 @@ func (m *Model) run(ctx context.Context, methodName string, callMethod func(conn
 		}
 		if errors.ServerShouldPoison(err) {
 			m.location.Poison(address)
-			err = fmt.Errorf("%s not found on server (%s) %w", m.modelID, err, errors.ErrUnavailable)
 		}
 		return err
 	}

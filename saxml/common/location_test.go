@@ -66,7 +66,7 @@ func TestJoin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PickUnusedPort() error %v, want no error", err)
 	}
-	testutil.StartStubAdminServer(t, port, nil, saxCell)
+	testutil.StartStubAdminServerT(t, port, nil, saxCell)
 
 	// Start the address watcher.
 	modelAddr := "localhost:10000"
