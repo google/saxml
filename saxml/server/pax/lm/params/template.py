@@ -208,6 +208,31 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         stream_interval_steps=self.STREAM_INTERVAL_STEPS)
 
 
+class ServingWithGradientTemplate(ServingTemplate):
+  """Template servable config with gradient method."""
+
+  INCLUDE_EOS_SCORE = False
+  GRADIENT_WRT_INPUT_TENSOR_NAMES = None
+  GRADIENT_WRT_MDL_VAR_TENSOR_NAMES = None
+
+  def gradient(self) -> Optional[servable_lm_model.GradientHParams]:
+    if self.GRADIENT_WRT_MDL_VAR_TENSOR_NAMES:
+      raise ValueError(
+          'Running graident method with gradients to model '
+          'supported since it is undefined '
+          'how to introduce the batch dims for export signatures.'
+      )
+
+    return servable_lm_model.GradientHParams(
+        batch_size=self.BATCH_SIZE,
+        max_input_seq_len=self.INPUT_SEQ_LEN,
+        include_eos_score=self.INCLUDE_EOS_SCORE,
+        inputs_tensor_names=self.GRADIENT_WRT_INPUT_TENSOR_NAMES,
+        mdl_vars_tensor_names=None,
+        extra_inputs=self.EXTRA_INPUTS,
+    )
+
+
 def make_servable(servable_class=ServingTemplate):
   """Returns a class decorator that wraps a PAX experiment to a servable.
 

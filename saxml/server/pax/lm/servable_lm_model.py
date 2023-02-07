@@ -931,13 +931,21 @@ class LMGradientMethod(ServableLMMethod):
         forward_fn, has_aux=True)
     (_, outputs), grads = compute_gradient_fn(
         tensors_to_take_gradients, inputs, mdl_vars)
-    outputs = (outputs[0][0], outputs[1])  # 1 is for mutable.
-    outputs[0]['gradients'] = grads
+    outputs = (outputs[0], outputs[1])  # 1 is for mutable.
+    outputs[0][0]['gradients'] = grads
     return outputs
 
   def fetch_output(self, model_fn_outputs: NestedJTensor,
                    model_fn_inputs: NestedJTensor) -> NestedJTensor:
-    return model_fn_outputs[0]['gradients']
+    # fetch loss and gradients from the model output
+    metrics, per_example_output = model_fn_outputs[0]
+    output = dict(scores=per_example_output['scores'])
+
+    for grads_type, grads_dict in metrics['gradients'].items():
+      for tensor_name, grads in grads_dict.items():
+        output[f'gradients/{grads_type}/{tensor_name}'] = grads
+
+    return output
 
   def get_maxlen(self) -> int:
     return self._gradient_params.max_input_seq_len
@@ -1010,8 +1018,32 @@ class LMGradientMethod(ServableLMMethod):
 
     return preprocessed
 
-  # TODO(gozhe): Implement tf_post_processing, input_signature,
-  # extra_trackables for export.
+  def tf_post_processing(self, outputs: NestedTfTensor) -> NestedTfTensor:
+    if self._gradient_params.mdl_vars_tensor_names:
+      raise ValueError(
+          'Exporting graident method with gradients to model '
+          'variables is not supported since it is undefined '
+          'how to introduce the batch dims for export signatures.'
+      )
+
+    return outputs
+
+  def input_signature(
+      self, batch_size: Optional[int]
+  ) -> tuple[tf.TensorSpec, tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
+    """Implements `ExportableToSavedModel.input_signature`."""
+    return (
+        tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),
+        tf.TensorSpec([batch_size], dtype=tf.string, name='suffixes'),
+        servable_lm_common.extra_inputs_to_tf_signature(
+            self._extra_inputs, batch_size
+        ),
+    )
+
+  @property
+  def extra_trackables(self) -> Any:
+    """Implements `ExportableToSavedModel.extra_trackables`."""
+    return None
 
 
 class ServableLMModel(servable_model.ServableModel):
@@ -1077,7 +1109,7 @@ class ServableLMModel(servable_model.ServableModel):
           prng_key,
           method_params,
           tokenizer_p,
-          exportable=False,  # TODO(gozhe): Test export.
+          exportable=True
       )
     else:
       raise NotImplementedError(f'method {method} not implemented')
