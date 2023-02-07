@@ -103,7 +103,7 @@ def deserialize_pjitted_function(serialized: SerializedPjitFunction,
   """
   with mesh:
     devices = list(mesh.devices.flat)
-    backend = jax.pxla.xb.get_device_backend(devices[0])
+    backend = devices[0].client
     in_shardings = (
         jax.sharding.OpShardingSharding(devices, s)
         for s in serialized.flat_in_op_shardings)
