@@ -93,9 +93,12 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
       or truncated to this size.
     output_embedding_name: The name of the embedding to use from the model's
       outputs.  Required.
+    model_method_name: The name of the method to call to extract embeddings from
+      an input image.  Required.
   """
   max_input_seq_len: int = 0
   output_embedding_name: Optional[str] = None
+  model_method_name: Optional[str] = None
 
 
 class GradientHParams(servable_model_params.ServableMethodParams):
@@ -1089,14 +1092,19 @@ class ServableLMModel(servable_model.ServableModel):
     elif method == LMMethodName.EMBED:
       assert isinstance(method_params, TextToEmbeddingHParams)
       assert method_params.output_embedding_name is not None
+      if method_params.model_method_name is None:
+        raise ValueError(
+            'Must specify `model_method_name` in TextToEmbeddingHParams.'
+        )
       return TextToEmbedding(
           model,
-          'compute_text_embedding',
+          method_params.model_method_name,
           model_state,
           method_params,
           prng_key=prng_key,
           dummy_input_sample='test',
-          model_config=self.model_config)
+          model_config=self.model_config,
+      )
     elif method == LMMethodName.GRADIENT:
       assert isinstance(method_params, GradientHParams)
       assert (

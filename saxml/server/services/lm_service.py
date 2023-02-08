@@ -67,6 +67,7 @@ class LmService(model_service_base.ModelService):
       return
     if method_name == LMMethodName.EMBED:
       embeddings = method_outputs
+      embeddings = embeddings.reshape(-1)
       if embeddings.dtype in [np.float32, np.double]:
         response.embedding.extend(list(embeddings))
       else:
