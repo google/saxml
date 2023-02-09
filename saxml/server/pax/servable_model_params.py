@@ -14,13 +14,13 @@
 """Base class for servable model configs."""
 
 import abc
-from typing import Any, Dict, List, Optional, Union, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from absl import logging
 
 import jax
 from jax.experimental import mesh_utils
 from paxml import base_experiment
-from paxml import checkpoint_pb2
+from paxml import checkpoints
 from praxis import base_hyperparams
 from praxis import py_utils
 from praxis.layers.quantization import quantization_hparams
@@ -32,8 +32,8 @@ QuantizationType = quantization_hparams.QuantizationType
 QuantizationMode = quantization_hparams.QuantizationMode
 
 
-def get_pax_checkpoint_type() -> checkpoint_pb2.CheckpointType:
-  return checkpoint_pb2.CheckpointType.CHECKPOINT_GDA
+def get_pax_checkpoint_type() -> checkpoints.CheckpointType:
+  return checkpoints.CheckpointType.GDA
 
 
 logged_jax_device = False
@@ -89,7 +89,7 @@ class ServableModelParams(base_experiment.BaseExperiment,
     self.quant_mode = mode  # pytype: disable=attribute-error
 
   @classmethod
-  def get_checkpoint_type(cls) -> checkpoint_pb2.CheckpointType:
+  def get_checkpoint_type(cls) -> checkpoints.CheckpointType:
     return get_pax_checkpoint_type()
 
   def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,

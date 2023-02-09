@@ -22,7 +22,6 @@ import jax
 from jax import numpy as jnp
 from jax.experimental import host_callback as hcb
 import numpy as np
-from paxml import checkpoint_pb2
 from praxis import base_layer
 from praxis import base_model
 from praxis import decoder_hparams
@@ -36,7 +35,6 @@ from saxml.server.pax.lm import servable_lm_common
 from saxml.server.services import lm_service
 import tensorflow as tf
 
-CheckpointType = checkpoint_pb2.CheckpointType
 JTensor = pytypes.JTensor
 NestedJTensor = pytypes.NestedJTensor
 NestedNpTensor = pytypes.NestedNpTensor

@@ -24,7 +24,6 @@ from jax.experimental import mesh_utils
 from jax.experimental import pjit
 from jax.experimental.gda_serialization.serialization import GlobalAsyncCheckpointManager
 import numpy as np
-from paxml import checkpoint_pb2
 from paxml import checkpoints
 from paxml import train_states
 from paxml import trainer_lib
@@ -46,7 +45,7 @@ HostTensors = servable_model.HostTensors
 InputShapeInfo = servable_model.InputShapeInfo
 MethodInputInfo = servable_model.MethodInputInfo
 ShapesAndDtypes = servable_model.ShapesAndDtypes
-CheckpointType = checkpoint_pb2.CheckpointType
+CheckpointType = checkpoints.CheckpointType
 JTensor = pytypes.JTensor
 NpTensor = pytypes.NpTensor
 NestedJTensor = pytypes.NestedJTensor
@@ -327,8 +326,7 @@ class ServableModel(servable_model.ServableModel):
     super().__init__()
     self._test_mode = test_mode
     self._primary_process_id = primary_process_id
-    assert ckpt_type in (CheckpointType.CHECKPOINT_GDA,
-                         CheckpointType.CHECKPOINT_PERSISTENCE)
+    assert ckpt_type in (CheckpointType.GDA, CheckpointType.PERSISTENCE)
     self._ckpt_type = ckpt_type
     self._mesh_shape = model_config.serving_mesh_shape()
     self._model_config = model_config
@@ -558,9 +556,10 @@ class ServableModel(servable_model.ServableModel):
           mdl_vars=mdl_vars,
           mdl_var_pspecs=mdl_var_pspecs,
           mdl_var_unpadded_shapes=mdl_var_unpadded_shapes,
-          input_prefetch=self._ckpt_type == CheckpointType.CHECKPOINT_GDA,
+          input_prefetch=self._ckpt_type == CheckpointType.GDA,
           precompile=precompile,
-          step=step)
+          step=step,
+      )
       return model, model_state
 
   def load_methods(self, model: base_model.BaseModel,

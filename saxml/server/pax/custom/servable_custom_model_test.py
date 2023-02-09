@@ -23,7 +23,7 @@ import jax
 from jax import numpy as jnp
 import numpy as np
 from paxml import base_experiment
-from paxml import checkpoint_pb2
+from paxml import checkpoints
 from paxml import learners
 from paxml import tasks_lib
 from praxis import base_input
@@ -218,8 +218,9 @@ class ServableCustomModelTest(test_utils.TestCase):
     model = servable_custom_model.ServableCustomModel(
         TestServableModel(),
         primary_process_id=0,
-        ckpt_type=checkpoint_pb2.CheckpointType.CHECKPOINT_GDA,
-        test_mode=True)
+        ckpt_type=checkpoints.CheckpointType.GDA,
+        test_mode=True,
+    )
     model.load(checkpoint_path=None, prng_key=self._prng_key)
     custom_call_result = model.method('test_call').compute(['100', '12'])
     logging.info('custom_call_result: %s', custom_call_result)

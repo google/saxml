@@ -19,7 +19,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from absl import logging
 import jax
 from paxml import base_task
-from paxml import checkpoint_pb2
+from paxml import checkpoints
 from praxis import base_input
 from praxis import base_model
 from praxis import py_utils
@@ -69,11 +69,13 @@ class UnionModelParams(
 class UnionModel(servable_model.ServableModel):
   """A model that implements multiple interfaces."""
 
-  def __init__(self,
-               model_config: servable_model_params.ServableModelParams,
-               primary_process_id: int,
-               ckpt_type: checkpoint_pb2.CheckpointType,
-               test_mode: bool = False):
+  def __init__(
+      self,
+      model_config: servable_model_params.ServableModelParams,
+      primary_process_id: int,
+      ckpt_type: checkpoints.CheckpointType,
+      test_mode: bool = False,
+  ):
     super().__init__(model_config, primary_process_id, ckpt_type, test_mode)
     self._models: List[servable_model.ServableModel] = []
 

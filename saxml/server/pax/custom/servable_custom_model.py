@@ -14,10 +14,9 @@
 """Wraps a model with custom service APIs."""
 
 import abc
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Sequence
+from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple
 import numpy as np
 
-from paxml import checkpoint_pb2
 from praxis import base_model
 from praxis import py_utils
 from praxis import pytypes
@@ -27,7 +26,6 @@ from saxml.server.services import custom_service
 
 import tensorflow as tf
 
-CheckpointType = checkpoint_pb2.CheckpointType
 JTensor = pytypes.JTensor
 NestedJTensor = pytypes.NestedJTensor
 NestedNpTensor = pytypes.NestedNpTensor

@@ -21,7 +21,6 @@ from jax import numpy as jnp
 from lingvo.core import cluster_factory
 import numpy as np
 from paxml import base_task
-from paxml import checkpoint_pb2
 from praxis import base_layer
 from praxis import base_model
 from praxis import pax_fiddle
@@ -32,7 +31,6 @@ from saxml.server.pax import servable_model_params
 from saxml.server.services import vision_service
 import tensorflow as tf
 
-CheckpointType = checkpoint_pb2.CheckpointType
 JTensor = pytypes.JTensor
 NestedJTensor = pytypes.NestedJTensor
 NestedNpTensor = pytypes.NestedNpTensor
