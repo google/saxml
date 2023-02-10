@@ -393,8 +393,17 @@ class LoadedModelManager:
     self._errors = {}
     self._primary_process_id = primary_process_id
 
-  def load(self, key: str, model_path: str, ckpt_path: str,
-           acls: Dict[str, str], prng_key: int) -> servable_model.ServableModel:
+  def load(
+      self,
+      key: str,
+      model_path: str,
+      ckpt_path: str,
+      acls: Dict[str, str],
+      prng_key: int,
+      register_methods_callback: Optional[
+          Callable[[servable_model.ServableModel], None]
+      ] = None,
+  ) -> servable_model.ServableModel:
     """Loads and initializes a model.
 
     Args:
@@ -403,6 +412,7 @@ class LoadedModelManager:
       ckpt_path: Path of the checkpoint.
       acls: ACL names for this model's methods.
       prng_key: PRNG key for this model.
+      register_methods_callback: Optional callback to initialize model methods.
 
     Returns:
       The loaded model object.
@@ -428,6 +438,9 @@ class LoadedModelManager:
       # response when requested.
       self._errors[key] = str(e)
       raise
+
+    if register_methods_callback is not None:
+      register_methods_callback(loaded)
 
     self._status[key] = common_pb2.ModelStatus.LOADED
     self._models[key] = loaded
@@ -1039,51 +1052,57 @@ class ModelServicesRunner:
     """Loads a model and initializes its methods."""
     if self._loaded_models.contains(model_key):
       return
-    model = self._loaded_models.load(model_key, model_path, checkpoint_path,
-                                     acls, prng_key)
-    for method_name in model.methods:
-      method = model.method(method_name)
-      service_id = method.service_id()
-      service = self._model_services[service_id]
 
-      def _pre_process_inputs(rpc_tasks,
-                              method=method,
-                              method_name=method_name,
-                              service=service):
-        utils.traceprint_all(rpc_tasks, 'Before pre_processing')
-        inputs = method.pre_processing([
-            service.ParseMethodRPCRequest(method_name, t.request)
-            for t in rpc_tasks
-        ])
-        unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
+    def register_methods(model):
+      for method_name in model.methods:
+        method = model.method(method_name)
+        service_id = method.service_id()
+        service = self._model_services[service_id]
 
-        extra_inputs = []
-        for t in rpc_tasks:
-          extra_inputs.append({})
-          if hasattr(t.request, 'extra_inputs') and t.request.extra_inputs:
-            # Scalars
-            for k, v in dict(t.request.extra_inputs.items).items():
-              extra_inputs[-1][k] = v
-            # Tensors (1d list of floats)
-            # (Reshaping is delegated to the model.)
-            for k, v in dict(t.request.extra_inputs.tensors).items():
-              extra_inputs[-1][k] = list(v.values)
+        def _pre_process_inputs(
+            rpc_tasks, method=method, method_name=method_name, service=service
+        ):
+          utils.traceprint_all(rpc_tasks, 'Before pre_processing')
+          inputs = method.pre_processing(
+              [
+                  service.ParseMethodRPCRequest(method_name, t.request)
+                  for t in rpc_tasks
+              ]
+          )
+          unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
 
-        inputs = method.update_extra_inputs(inputs, len(rpc_tasks),
-                                            extra_inputs)
-        utils.traceprint_all(rpc_tasks, 'After pre_processing')
-        res = method.input_to_device(inputs, unpadded_shape)
-        utils.traceprint_all(rpc_tasks, 'After input_to_device')
-        return res, unpadded_shape
+          extra_inputs = []
+          for t in rpc_tasks:
+            extra_inputs.append({})
+            if hasattr(t.request, 'extra_inputs') and t.request.extra_inputs:
+              # Scalars
+              for k, v in dict(t.request.extra_inputs.items).items():
+                extra_inputs[-1][k] = v
+              # Tensors (1d list of floats)
+              # (Reshaping is delegated to the model.)
+              for k, v in dict(t.request.extra_inputs.tensors).items():
+                extra_inputs[-1][k] = list(v.values)
 
-      self._batcher.register_method(
-          model,
-          MethodKey(method_name, service_id, model_key),
-          method.batch_size,
-          preprocess_fn=_pre_process_inputs,
-          max_live_batches=method.max_live_batches,
-          batching_wait_secs=method.batching_wait_secs,
-      )
+          inputs = method.update_extra_inputs(
+              inputs, len(rpc_tasks), extra_inputs
+          )
+          utils.traceprint_all(rpc_tasks, 'After pre_processing')
+          res = method.input_to_device(inputs, unpadded_shape)
+          utils.traceprint_all(rpc_tasks, 'After input_to_device')
+          return res, unpadded_shape
+
+        self._batcher.register_method(
+            model,
+            MethodKey(method_name, service_id, model_key),
+            method.batch_size,
+            preprocess_fn=_pre_process_inputs,
+            max_live_batches=method.max_live_batches,
+            batching_wait_secs=method.batching_wait_secs,
+        )
+
+    self._loaded_models.load(
+        model_key, model_path, checkpoint_path, acls, prng_key, register_methods
+    )
 
   def _export_model(self, req: modelet_pb2.ExportRequest):
     """Exports a method of a model."""
