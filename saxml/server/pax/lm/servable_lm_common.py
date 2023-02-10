@@ -175,6 +175,7 @@ def decode_fetch_output(
     model_fn_outputs: NestedJTensor,
     model_fn_inputs: NestedJTensor,
     encoder_decoder_model=False,
+    fetch_prefix_length_from_inputs: bool = False,
 ) -> NestedJTensor:
   """Fetch output for decode."""
   assert len(model_fn_outputs[0]) == 3
@@ -190,7 +191,11 @@ def decode_fetch_output(
     # [batch_size, num_samples]
     decode_lengths = result.decode_lengths
     # [batch_size]
-    prefix_lengths = model_fn_inputs.prefix_lengths
+    if fetch_prefix_length_from_inputs:
+      # Special handle google3/third_party/py/praxis/layers/flaxformer_models.py
+      prefix_lengths = model_fn_inputs.prefix_lengths
+    else:
+      prefix_lengths = result.prefix_lengths
 
   return NestedMap(
       output_ids=output_ids,

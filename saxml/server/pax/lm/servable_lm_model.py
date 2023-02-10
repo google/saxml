@@ -64,6 +64,7 @@ class ScoreHParams(servable_model_params.ServableMethodParams):
   max_input_seq_len: int = 0
   max_suffix_seq_len: int = 0
   include_eos_score: bool = False
+  fetch_prefix_lengths_from_inputs: bool = False
 
 
 class DecodeHParams(servable_model_params.ServableMethodParams):
@@ -81,6 +82,7 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
   include_prefix_in_result: bool = False
   encoder_decoder_model: bool = False
   stream_interval_steps: int = 1
+  fetch_prefix_lengths_from_inputs: bool = False
 
 
 class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
@@ -616,6 +618,7 @@ class LMDecodeMethod(ServableLMMethod):
         model_fn_outputs,
         model_fn_inputs,
         self._method_hparams.encoder_decoder_model,
+        self._method_hparams.fetch_prefix_lengths_from_inputs,
     )
 
   def pre_processing(self, raw_inputs: List[str]) -> NestedNpTensor:

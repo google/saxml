@@ -70,6 +70,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   # Remove this after MultipQueryAttention supports lazy prefix.
   SUPPORT_LAZY_PREFIX_BROADCAST = True
   EMB_LOOKUP_STYPE = 'index'
+  FETCH_PREFIX_LENGTHS_FROM_INPUTS = False
 
   def input_for_model_init(self):
     batch_size = self.BATCH_SIZE
@@ -105,7 +106,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         batch_size=self.BATCH_SIZE,
         max_input_seq_len=input_seq_len,
         max_suffix_seq_len=suffix_seq_len,
-        extra_inputs=self.SCORE_EXTRA_INPUTS)
+        extra_inputs=self.SCORE_EXTRA_INPUTS,
+        fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS)
 
   def serving_tokenizer(self):
     if self.SPM_MODEL is None:
@@ -165,7 +167,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         decoder=generate_hparams,
         include_prefix_in_result=self.INCLUDE_PREFIX_IN_RESULT,
         max_live_batches=self.MAX_LIVE_BATCHES,
-        extra_inputs=self.EXTRA_INPUTS)
+        extra_inputs=self.EXTRA_INPUTS,
+        fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS)
 
   def generate_stream(self) -> Optional[servable_lm_model.DecodeHParams]:
     max_decode_steps = max(self.MAX_DECODE_STEPS) if isinstance(
@@ -205,7 +208,8 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
         include_prefix_in_result=self.INCLUDE_PREFIX_IN_RESULT,
         max_live_batches=self.MAX_LIVE_BATCHES,
         extra_inputs=self.EXTRA_INPUTS,
-        stream_interval_steps=self.STREAM_INTERVAL_STEPS)
+        stream_interval_steps=self.STREAM_INTERVAL_STEPS,
+        fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS)
 
 
 class ServingWithGradientTemplate(ServingTemplate):
