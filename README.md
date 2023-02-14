@@ -113,12 +113,12 @@ saxml/tools/init_cloud_vm.sh
 Start the Sax model server:
 
 ```
+SAX_ROOT=gs://sax-data/sax-root \
 bazel run saxml/server/server -- \
   --sax_cell=/sax/test \
-  --sax_root=gs://sax-data/sax-root \
   --port=10001 \
   --platform_chip=tpuv4 \
-  --platform_topology=1x1x8 \
+  --platform_topology=2x2x1 \
   --alsologtostderr
 ```
 
