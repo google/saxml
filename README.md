@@ -1,77 +1,171 @@
-Sax-ml is system that serves [Pax-ml](https://github.com/google/paxml) models
-for inference.
+# Saxml (aka Sax)
 
-A Sax cluster is composed of an admin server and a group of model servers. The
-admin server keeps track of model servers, assigns published models to model
-servers to serve, and helps clients locate model servers serving specific
-published models.
+Saxml is an experimental system that serves
+[Paxml](https://github.com/google/paxml) models for inference.
 
-## Installation
+A Sax cluster consists of an admin server and a group of model servers.
+The admin server keeps track of model servers, assigns published models to
+model servers to serve, and helps clients locate model servers serving
+specific published models.
 
-The following is a guide for setting up a Sax cluster on Google Cloud Platform.
+## Install Sax
 
-1)
-[Set up a GCE VM and attach a TPU](https://cloud.google.com/tpu/docs/users-guide-tpu-vm).
+### Install and set up the `gcloud` tool
 
-2) Install Git, Python 3.9 and other dependencies
-
-```
-sudo apt-get update
-sudo apt-get install -y curl less git python3-pip rsync gnupg emacs unzip python3.9 python3.9-distutils google-cloud-sdk
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1000
-```
-
-3) Install [Bazel](https://bazel.build/)
-<!--* pragma: { seclinter_this_is_fine: true } *-->
+[Install](https://cloud.google.com/sdk/gcloud#download_and_install_the) the
+`gcloud` CLI and set the default account and project:
 
 ```
-sudo apt install apt-transport-https curl gnupg
-curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
-sudo mv bazel-archive-keyring.gpg /usr/share/keyrings
-echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-sudo apt update && sudo apt install bazel
-sudo apt update && sudo apt full-upgrade
+gcloud config set account <your-email-account>
+gcloud config set project <your-project>
 ```
-<!--* pragma: { seclinter_this_is_fine: false } *-->
-4) Clone this repo: `git clone https://github.com/google/saxml.git`
 
-5) Build Sax: `cd saxml; bazel build ...`
+### Create a Cloud Storage bucket to store Sax server states
 
-## Usage
+[Create](https://cloud.google.com/storage/docs/creating-buckets) a
+Cloud Storage bucket:
 
-To run the saxutil binary, use `bazel run saxutil` or build and alias the binary
-path.
+```
+gcloud storage buckets create gs://sax-data
+```
 
-Sax supports a wide range of models and saxutil provides the full list of
-commands needed to interacts with those models. Here is a list of commands.
+### Create a Compute Engine VM instance for the admin server
 
--   `saxutil help`: Show general help information or help information about a
-    command.
--   `saxutil create`: Create a new sax cell.
--   `saxutil ls`: List all cells, or all published model in a cell, or details
-    of a particular model in a cell.
--   `saxutil publish`: Publishes a model.
--   `saxutil unpublish`: Unpublishes a model.
--   `saxutil update`: Updates a model.
--   `saxutil am.recognize`: Invoke an ASR model to transcribe the given audio.
--   `saxutil lm.score`: Invoke a language model to score the given prefix and
-    suffix.
--   `saxutil lm.generate`: Invoke a language model to generate a few suffixes
-    given the prefix.
--   `saxutil lm.embed`: Invoke a language model to embed a text into a vector.
--   `saxutil vm.classify`: Invoke a vision model to classify an image (bytes).
--   `saxutil vm.generate`: Invoke a vision model to generate images for a text
-    input.
--   `saxutil vm.embed`: Invoke a vision model to embed an image (bytes) into a
-    vector.
+[Create](https://cloud.google.com/compute/docs/create-linux-vm-instance) a
+Compute Engine VM instance:
 
-As an example, suppose there is a working language model, a Q/A type of query
-would look like the following:
+```
+gcloud compute instances create sax-admin \
+  --zone=us-central1-b \
+  --machine-type=e2-standard-8 \
+  --boot-disk-size=1TB \
+  --scopes=https://www.googleapis.com/auth/cloud-platform
+```
 
-```shell
-$ saxutil lm.generate /sax/bar/model64b "Q: Who is Harry Porter's mother? A:"
+### Create a Cloud TPU VM instance for a model server
 
-$
+Use this [guide](https://cloud.google.com/tpu/docs/users-guide-tpu-vm) to
+enable the Cloud TPU API in a Google Cloud project.
+
+Create an 8-core Cloud TPU VM instance:
+
+```
+
+gcloud compute tpus tpu-vm create sax-tpu \
+  --zone=us-central2-b \
+  --accelerator-type=v4-8 \
+  --version=tpu-vm-v4-base \
+  --scopes=https://www.googleapis.com/auth/cloud-platform
+```
+
+### Start the Sax admin server
+
+SSH to the Compute Engine VM instance:
+
+```
+gcloud compute ssh --zone=us-central1-b sax-admin
+```
+
+Inside the VM instance, clone the Sax repo and initialize the environment:
+
+```
+git clone https://github.com/google/saxml.git
+cd saxml
+saxml/tools/init_cloud_vm.sh
+```
+
+Configure the Sax admin server. This only needs to be done once:
+
+```
+bazel run saxml/bin:admin_config -- \
+  --sax_cell=/sax/test \
+  --sax_root=gs://sax-data/sax-root \
+  --fs_root=gs://sax-data/sax-fs-root \
+  --alsologtostderr
+```
+
+Start the Sax admin server:
+
+```
+bazel run saxml/bin:admin_server -- \
+  --sax_cell=/sax/test \
+  --sax_root=gs://sax-data/sax-root \
+  --port=10000 \
+  --alsologtostderr
+```
+
+### Start the Sax model server
+
+SSH to the Cloud TPU VM instance:
+
+```
+gcloud compute tpus tpu-vm ssh --zone=us-central2-b sax-tpu
+```
+
+Inside the VM instance, clone the Sax repo and initialize the environment:
+
+```
+git clone https://github.com/google/saxml.git
+cd saxml
+saxml/tools/init_cloud_vm.sh
+```
+
+Start the Sax model server:
+
+```
+bazel run saxml/server/server -- \
+  --sax_cell=/sax/test \
+  --sax_root=gs://sax-data/sax-root \
+  --port=10001 \
+  --platform_chip=tpuv4 \
+  --platform_topology=1x1x8 \
+  --alsologtostderr
+```
+
+## Use Sax
+
+Sax comes with a command-line tool called `saxutil` for easy usage:
+
+```
+# From the `saxml` repo root directory:
+alias saxutil='bazel run saxml/bin:saxutil -- --sax_root=gs://sax-data/sax-root'
+```
+
+`saxutil` supports the following commands:
+
+- `saxutil help`: Show general help or help about a particular command.
+- `saxutil ls`: List all cells, all models in a cell, or a particular model.
+- `saxutil publish`: Publish a model.
+- `saxutil unpublish`: Unpublish a model.
+- `saxutil update`: Update a model.
+- `saxutil lm.generate`: Use a language model generate suffixes from a prefix.
+- `saxutil lm.score`: Use a language model to score a prefix and suffix.
+- `saxutil lm.embed`: Use a language model to embed text into a vector.
+- `saxutil vm.generate`: Use a vision model to generate images from text.
+- `saxutil vm.classify`: Use a vision model to classify an image.
+- `saxutil vm.embed`: Use a vision model to embed an image into a vector.
+
+As an example, publish a Sax model by loading a
+[Paxml model](https://github.com/google/paxml/blob/6627c5b4a1c9da5d7b4e87416cdf82e8cd0e9072/paxml/tasks/lm/params/lm_cloud.py#L164)
+checkpoint:
+
+```
+saxutil publish \
+  /sax/test/lm2b
+  saxml.server.pax.lm.cloud.params.LmCloudSpmd2B \
+  gs://sax-data/<checkpoint_path> \
+  1
+```
+
+When the model is loaded, issue a query:
+
+```
+saxutil lm.generate /sax/test/lm2b "Q: Who is Harry Porter's mother? A: "
+```
+
+The result may be this:
+
+```
 +--------------+-----------+
 |    SAMPLE    |   SCORE   |
 +--------------+-----------+
