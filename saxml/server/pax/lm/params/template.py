@@ -23,6 +23,7 @@ from praxis import decoder_hparams
 from praxis import pax_fiddle
 from praxis import py_utils
 from praxis.layers import attentions
+from praxis.layers import multi_query_attention
 from praxis.layers import transformers
 from saxml.server import servable_model_registry
 from saxml.server.pax.lm import lm_tokenizer
@@ -309,9 +310,15 @@ def make_servable(servable_class=ServingTemplate):
           layer_p = xformer.transformer_layer_params_tpl
           lbp_tr_atten_tpl = pax_fiddle.Config(
               attentions.DotProductAttentionWithLPB,)
+          lbp_multi_query_atten_tpl = pax_fiddle.Config(
+              multi_query_attention.MultiQueryDotProductAttentionLPB,)
+          mqa_cls = multi_query_attention.MultiQueryDotProductAttention
           if layer_p.tr_atten_tpl.cls == attentions.DotProductAttention:
             lbp_tr_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
             layer_p.tr_atten_tpl = lbp_tr_atten_tpl
+          elif layer_p.tr_atten_tpl.cls == mqa_cls:
+            lbp_multi_query_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
+            layer_p.tr_atten_tpl = lbp_multi_query_atten_tpl
           else:
             assert (layer_p.tr_atten_tpl.cls == lbp_tr_atten_tpl.cls), (
                 f'Attention layer does not support lazy prefix broadcast '

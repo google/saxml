@@ -26,6 +26,7 @@ pytype_strict_library(
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis/layers:attentions",
+        "//third_party/py/praxis/layers:multi_query_attention",
         "//third_party/py/praxis/layers:transformers",
     ],
 )
