@@ -19,6 +19,7 @@ from typing import Optional
 from absl import flags
 import numpy as np
 from paxml import base_task
+from praxis import base_layer
 from praxis import decoder_hparams
 from praxis import pax_fiddle
 from praxis import py_utils
@@ -30,6 +31,8 @@ from saxml.server.pax.lm import lm_tokenizer
 from saxml.server.pax.lm import servable_lm_model
 
 # Unused internal library
+
+LayerTpl = pax_fiddle.Config[base_layer.BaseLayer]
 
 # pytype: disable=attribute-error
 
@@ -238,6 +241,30 @@ class ServingWithGradientTemplate(ServingTemplate):
     )
 
 
+def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
+  """Set params to enable lazy prefix broadcast for attention."""
+  xformer = lm_tpl.stacked_transformer_tpl  # pytype: disable=attribute-error  # enable-nested-classes
+  if xformer.cls == transformers.StackedTransformerRepeated:
+    xformer = xformer.block
+  assert xformer.cls == transformers.StackedTransformer
+  layer_p = xformer.transformer_layer_params_tpl
+  lbp_tr_atten_tpl = pax_fiddle.Config(
+      attentions.DotProductAttentionWithLPB,)
+  lbp_multi_query_atten_tpl = pax_fiddle.Config(
+      multi_query_attention.MultiQueryDotProductAttentionLPB,)
+  mqa_cls = multi_query_attention.MultiQueryDotProductAttention
+  if layer_p.tr_atten_tpl.cls == attentions.DotProductAttention:
+    lbp_tr_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
+    layer_p.tr_atten_tpl = lbp_tr_atten_tpl
+  elif layer_p.tr_atten_tpl.cls == mqa_cls:
+    lbp_multi_query_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
+    layer_p.tr_atten_tpl = lbp_multi_query_atten_tpl
+  else:
+    assert (layer_p.tr_atten_tpl.cls == lbp_tr_atten_tpl.cls), (
+        f'Attention layer does not support lazy prefix broadcast '
+        f'{layer_p.tr_atten_tpl.cls}.')
+
+
 def make_servable(servable_class=ServingTemplate):
   """Returns a class decorator that wraps a PAX experiment to a servable.
 
@@ -303,26 +330,7 @@ def make_servable(servable_class=ServingTemplate):
             lazy_prefix_broadcast = True
 
         if lazy_prefix_broadcast:
-          xformer = task_p.model.lm_tpl.stacked_transformer_tpl  # pytype: disable=attribute-error  # enable-nested-classes
-          if xformer.cls == transformers.StackedTransformerRepeated:
-            xformer = xformer.block
-          assert xformer.cls == transformers.StackedTransformer
-          layer_p = xformer.transformer_layer_params_tpl
-          lbp_tr_atten_tpl = pax_fiddle.Config(
-              attentions.DotProductAttentionWithLPB,)
-          lbp_multi_query_atten_tpl = pax_fiddle.Config(
-              multi_query_attention.MultiQueryDotProductAttentionLPB,)
-          mqa_cls = multi_query_attention.MultiQueryDotProductAttention
-          if layer_p.tr_atten_tpl.cls == attentions.DotProductAttention:
-            lbp_tr_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
-            layer_p.tr_atten_tpl = lbp_tr_atten_tpl
-          elif layer_p.tr_atten_tpl.cls == mqa_cls:
-            lbp_multi_query_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
-            layer_p.tr_atten_tpl = lbp_multi_query_atten_tpl
-          else:
-            assert (layer_p.tr_atten_tpl.cls == lbp_tr_atten_tpl.cls), (
-                f'Attention layer does not support lazy prefix broadcast '
-                f'{layer_p.tr_atten_tpl.cls}.')
+          set_lazy_prefix_broadcast_params(task_p.model.lm_tpl)  # pytype: disable=attribute-error  # enable-nested-classes
         return task_p
 
     return Wrapped

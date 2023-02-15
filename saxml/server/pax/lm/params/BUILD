@@ -22,6 +22,7 @@ pytype_strict_library(
         "//third_party/py/absl-py/flags",
         "//third_party/py/numpy",
         "//third_party/py/paxml:base_task",
+        "//third_party/py/praxis:base_layer",
         "//third_party/py/praxis:decoder_hparams",
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
