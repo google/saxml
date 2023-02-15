@@ -682,7 +682,9 @@ class ModeletService:
           self._loadable_model_paths.append(alias)
 
     self._ipport = ipaddr.Join(ipaddr.MyIPAddr(), service_port)
-    self._debug_addr = ipaddr.Join(ipaddr.MyIPAddr(), debug_port)
+    self._debug_addr = (
+        '' if debug_port is None else ipaddr.Join(ipaddr.MyIPAddr(), debug_port)
+    )
 
   def model_services(self) -> Dict[str, ModelService]:
     return self._services
@@ -916,7 +918,7 @@ class ModelServicesRunner:
         platform_topology=platform_topology)
     all_grpc_services = [self._modelet_service]
     service_names = [
-        modelet_pb2.Modelet.DESCRIPTOR.full_name,
+        modelet_pb2.DESCRIPTOR.services_by_name['Modelet'].full_name,
         reflection.SERVICE_NAME,
     ]
 

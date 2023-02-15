@@ -52,7 +52,7 @@ class CustomServiceGRPC(model_service_base.ModelServiceGRPC, CustomService,
   """CustomService gRPC service."""
 
   def ServiceName(self) -> str:
-    return custom_pb2.CustomService.DESCRIPTOR.full_name
+    return custom_pb2.DESCRIPTOR.services_by_name['CustomService'].full_name
 
   def AddToServer(self, server: Any) -> None:
     custom_pb2_grpc.add_CustomServiceServicer_to_server(self, server)
