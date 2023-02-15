@@ -20,7 +20,6 @@ absl-py==1.3.0
     #   praxis
     #   rouge-score
     #   seqio
-    #   seqio-nightly
     #   t5
     #   tensorboard
     #   tensorflow
@@ -73,7 +72,6 @@ clu==0.0.7
     #   paxml
     #   praxis
     #   seqio
-    #   seqio-nightly
 colorama==0.4.6
     # via sacrebleu
 commonmark==0.9.1
@@ -205,7 +203,6 @@ jax[tpu]==0.4.3
     #   paxml
     #   praxis
     #   seqio
-    #   seqio-nightly
 jax-bitempered-loss==0.0.2
     # via praxis
 jaxlib==0.4.3
@@ -216,7 +213,6 @@ jaxlib==0.4.3
     #   optax
     #   orbax
     #   seqio
-    #   seqio-nightly
 jedi==0.18.1
     # via ipython
 jinja2==3.1.2
@@ -367,7 +363,6 @@ numpy==1.23.4
     #   scikit-learn
     #   scipy
     #   seqio
-    #   seqio-nightly
     #   t5
     #   tensorboard
     #   tensorflow
@@ -398,7 +393,7 @@ optax==0.1.3
     #   praxis
 optax-shampoo==0.0.6
     # via praxis
-orbax==0.0.18
+orbax==0.1.1
     # via
     #   -r requirements.in
     #   paxml
@@ -412,7 +407,6 @@ packaging==21.3
     #   nbconvert
     #   qtpy
     #   seqio
-    #   seqio-nightly
     #   tensorflow
     #   transformers
 pandas==1.5.1
@@ -421,7 +415,7 @@ pandocfilters==1.5.0
     # via nbconvert
 parso==0.8.3
     # via jedi
-paxml==0.2.1
+paxml==0.3.0
     # via -r requirements.in
 pexpect==4.8.0
     # via ipython
@@ -437,7 +431,7 @@ portalocker==2.6.0
     # via sacrebleu
 portpicker==1.5.2
     # via -r requirements.in
-praxis==0.2.1
+praxis==0.3.0
     # via
     #   -r requirements.in
     #   paxml
@@ -571,12 +565,11 @@ sentencepiece==0.1.97
     # via
     #   lingvo
     #   seqio
-    #   seqio-nightly
     #   t5
 seqio==0.0.12
-    # via t5
-seqio-nightly==0.0.12.dev20221116
-    # via paxml
+    # via
+    #   paxml
+    #   t5
 six==1.16.0
     # via
     #   asttokens
@@ -648,7 +641,6 @@ tensorflow-text==2.9.0
     #   paxml
     #   praxis
     #   seqio
-    #   seqio-nightly
     #   t5
 tensorstore==0.1.27
     # via
@@ -668,7 +660,6 @@ terminado==0.17.0
 tfds-nightly==4.7.0.dev202211160045
     # via
     #   seqio
-    #   seqio-nightly
     #   t5
 threadpoolctl==3.1.0
     # via scikit-learn
