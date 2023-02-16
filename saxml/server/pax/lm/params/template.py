@@ -250,13 +250,15 @@ def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
   layer_p = xformer.transformer_layer_params_tpl
   lbp_tr_atten_tpl = pax_fiddle.Config(
       attentions.DotProductAttentionWithLPB,)
-  lbp_multi_query_atten_tpl = pax_fiddle.Config(
-      multi_query_attention.MultiQueryDotProductAttentionLPB,)
   mqa_cls = multi_query_attention.MultiQueryDotProductAttention
+  mqs_lpb_cls = multi_query_attention.MultiQueryDotProductAttentionLPB
+  lbp_multi_query_atten_tpl = pax_fiddle.Config(
+      mqs_lpb_cls,
+  )
   if layer_p.tr_atten_tpl.cls == attentions.DotProductAttention:
     lbp_tr_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
     layer_p.tr_atten_tpl = lbp_tr_atten_tpl
-  elif layer_p.tr_atten_tpl.cls == mqa_cls:
+  elif layer_p.tr_atten_tpl.cls in [mqa_cls, mqs_lpb_cls]:
     lbp_multi_query_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
     layer_p.tr_atten_tpl = lbp_multi_query_atten_tpl
   else:
