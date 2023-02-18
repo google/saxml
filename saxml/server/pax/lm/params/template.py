@@ -37,11 +37,8 @@ LayerTpl = pax_fiddle.Config[base_layer.BaseLayer]
 # pytype: disable=attribute-error
 
 
-class ServingTemplate(servable_lm_model.ServableLMModelParams):
-  """Template servable config.
-
-  Language model parameters can be found at go/sax-lm-decode-params.
-  """
+class CommonServingTemplate:
+  """Common Serving template for language models."""
 
   ICI_MESH_SHAPE = [1, 1, 8]
   USE_BEAM_SEARCH = False
@@ -76,7 +73,7 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   EMB_LOOKUP_STYPE = 'index'
   FETCH_PREFIX_LENGTHS_FROM_INPUTS = False
 
-  def input_for_model_init(self):
+  def input_for_model_init(self) -> py_utils.NestedMap:
     batch_size = self.BATCH_SIZE
     if isinstance(batch_size, (list, tuple)):
       batch_size = batch_size[0]
@@ -96,6 +93,15 @@ class ServingTemplate(servable_lm_model.ServableLMModelParams):
   @classmethod
   def serving_mesh_shape(cls):
     return cls.ICI_MESH_SHAPE
+
+
+class ServingTemplate(
+    CommonServingTemplate, servable_lm_model.ServableLMModelParams
+):
+  """Template servable config.
+
+  Language model parameters can be found at go/sax-lm-decode-params.
+  """
 
   def score(self) -> Optional[servable_lm_model.ScoreHParams]:
     if self.GENERATE_ONLY:
