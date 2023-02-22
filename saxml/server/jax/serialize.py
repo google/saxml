@@ -66,8 +66,7 @@ def serialize_pjittable_function(
     The converted SerializedPjitFunction.
   """
   # pjit-ed function. We always replicate the output.
-  pjitted = pjit.pjit(
-      fun, in_axis_resources=input_pspecs, out_axis_resources=None)
+  pjitted = pjit.pjit(fun, in_shardings=input_pspecs, out_shardings=None)
   with mesh:
     lowered = pjitted.lower(*global_inputs_shape_dtype)
     mesh_comp = lowered._lowering  # pylint: disable=protected-access

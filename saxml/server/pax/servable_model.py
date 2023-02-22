@@ -463,8 +463,9 @@ class ServableModel(servable_model.ServableModel):
 
         pjit_quant_pspec_fn = pjit.pjit(
             quant_pspec_fn,
-            in_axis_resources=(mdl_var_pspecs, None),
-            out_axis_resources=None)
+            in_shardings=(mdl_var_pspecs, None),
+            out_shardings=None,
+        )
         new_pspec, _ = pjit_quant_pspec_fn(mdl_vars, prng_key)
         # pylint: disable=g-long-lambda
         new_pspec = jax.tree_map(
@@ -499,8 +500,9 @@ class ServableModel(servable_model.ServableModel):
 
         pjit_quant_fn = pjit.pjit(
             quant_fn,
-            in_axis_resources=(mdl_var_pspecs, None),
-            out_axis_resources=(new_pspec, None))
+            in_shardings=(mdl_var_pspecs, None),
+            out_shardings=(new_pspec, None),
+        )
         mdl_vars, _ = pjit_quant_fn(mdl_vars, prng_key)
         new_task_p = self._model_config.task()
         quantize.set_inference_mode(new_task_p.model)
