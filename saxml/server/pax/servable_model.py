@@ -413,6 +413,7 @@ class ServableModel(servable_model.ServableModel):
                 jax_task,
                 init_key,
                 sample_input_for_init,
+                discard_opt_states=discard_opt_states,
                 global_mesh=global_mesh))
         step = 0
       assert partitioned_train_state is not None
