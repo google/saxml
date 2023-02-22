@@ -35,6 +35,7 @@ cc_proto_library(
 py_proto_library(
     name = "common_py_pb2",
     api_version = 2,
+    visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )
 
@@ -213,6 +214,7 @@ py_proto_library(
 py_grpc_library(
     name = "lm_py_pb2_grpc",
     srcs = [":lm_proto"],
+    visibility = ["//visibility:public"],
     deps = [":lm_py_pb2"],
 )
 
