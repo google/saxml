@@ -389,13 +389,13 @@ class LMScoreMethod(ServableLMMethod):
     # value so that higher score is better.
     if 'per_token_xent' not in model_fn_outputs[0]:
       assert 'per_example_xent' in model_fn_outputs[0]
-      assert model_fn_outputs[0].per_example_xent.ndim == 1
-      return -model_fn_outputs[0].per_example_xent
-    assert len(model_fn_outputs[0].per_token_xent.shape) > 1
-    xnent_len = model_fn_outputs[0].per_token_xent.shape[1]
-    assert xnent_len == model_fn_inputs.ids.shape[1]
-    per_token_logprobs = -model_fn_outputs[0].per_token_xent
-    non_paddings = 1.0 - model_fn_inputs.paddings
+      assert model_fn_outputs[0].per_example_xent.ndim == 1  # pytype: disable=attribute-error  # jax-ndarray
+      return -model_fn_outputs[0].per_example_xent  # pytype: disable=attribute-error  # jax-ndarray
+    assert len(model_fn_outputs[0].per_token_xent.shape) > 1  # pytype: disable=attribute-error  # jax-ndarray
+    xnent_len = model_fn_outputs[0].per_token_xent.shape[1]  # pytype: disable=attribute-error  # jax-ndarray
+    assert xnent_len == model_fn_inputs.ids.shape[1]  # pytype: disable=attribute-error  # jax-ndarray
+    per_token_logprobs = -model_fn_outputs[0].per_token_xent  # pytype: disable=attribute-error  # jax-ndarray
+    non_paddings = 1.0 - model_fn_inputs.paddings  # pytype: disable=attribute-error  # jax-ndarray
     if (not self._score_params.include_eos_score and
         self._tokenizer.hparams.append_eos):
       non_paddings = jnp.pad(
@@ -406,7 +406,7 @@ class LMScoreMethod(ServableLMMethod):
           [[0, 0], [0, 1]],
       )
     return jnp.sum(
-        per_token_logprobs * model_fn_inputs.score_masks * non_paddings,
+        per_token_logprobs * model_fn_inputs.score_masks * non_paddings,  # pytype: disable=attribute-error  # jax-ndarray
         axis=-1,
         keepdims=True)
 

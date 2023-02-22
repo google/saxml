@@ -101,7 +101,7 @@ class JaxSPMDBackend(SPMDBackend):
   def receive_via_device(self) -> str:
     with self._mesh:
       result = _all_reduce(self._zero_jax_array)
-    return _decode_tensor_to_str(np.array(result.addressable_data(0)))
+    return _decode_tensor_to_str(np.array(result.addressable_data(0)))  # pytype: disable=wrong-arg-types  # jax-ndarray
 
   def receive_via_device_async(self, thread_pool: utils.ThreadPool,
                                done: Callable[[str], None]) -> None:
@@ -109,7 +109,7 @@ class JaxSPMDBackend(SPMDBackend):
       result = _all_reduce(self._zero_jax_array)
 
     def _done():
-      data = _decode_tensor_to_str(np.array(result.addressable_data(0)))
+      data = _decode_tensor_to_str(np.array(result.addressable_data(0)))  # pytype: disable=wrong-arg-types  # jax-ndarray
       done(data)
 
     thread_pool.run(_done)

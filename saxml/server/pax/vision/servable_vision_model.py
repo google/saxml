@@ -445,7 +445,7 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
   def fetch_output(self, model_fn_outputs: NestedJTensor,
                    model_fn_inputs: NestedJTensor) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
-    image_embedding = model_fn_outputs[0].GetItem(self._embedding_name)
+    image_embedding = model_fn_outputs[0].GetItem(self._embedding_name)  # pytype: disable=attribute-error  # jax-ndarray
     return NestedMap(image_embedding=image_embedding)
 
   @tf.function

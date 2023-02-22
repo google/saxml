@@ -209,7 +209,7 @@ class ServableMethod(servable_model.ServableMethod):
     with base_layer.JaxContext.new_context(hparams=context_p):
 
       def _model_fn(inputs):
-        outputs = self.call_model_function(inputs, mdl_vars, [k1, k2])
+        outputs = self.call_model_function(inputs, mdl_vars, [k1, k2])  # pytype: disable=wrong-arg-types  # jax-ndarray
         # DECODE_CACHE are not read by caller. But they can be large. Tell XLA
         # to remove it from output. Note MLP decoder don't have DECODE_CACHE.
         updated_vars = outputs[1]
@@ -283,7 +283,7 @@ class ServableMethod(servable_model.ServableMethod):
       mdl_vars = jax.tree_util.tree_map(pjit.with_sharding_constraint, mdl_vars,
                                         self.model_state.mdl_var_pspecs)
       inputs, seed = inputs_with_rng_seed
-      prng_key = jax.random.PRNGKey(seed)
+      prng_key = jax.random.PRNGKey(seed)  # pytype: disable=wrong-arg-types  # jax-ndarray
       return self.jax_func(mdl_vars, prng_key, inputs, ())
 
     # pjit-ed function.
