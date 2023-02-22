@@ -287,3 +287,7 @@ def resource_exhausted(errmsg: str) -> Status:
 
 def unimplemented(errmsg: str) -> Status:
   return Status(grpc.StatusCode.UNIMPLEMENTED, errmsg)
+
+
+def already_exists(errmsg: str) -> Status:
+  return Status(grpc.StatusCode.ALREADY_EXISTS, errmsg)

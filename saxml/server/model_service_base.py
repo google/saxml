@@ -1110,6 +1110,16 @@ class ModelServicesRunner:
     """Exports a method of a model."""
     raise NotImplementedError()
 
+  def _export_error_to_status(self, e: Exception) -> utils.Status:
+    """Converts an error during model export to a Status."""
+    msg = f'Exporting error: {e}'
+    if isinstance(e, ValueError):
+      return utils.invalid_arg(msg)
+    elif isinstance(e, FileExistsError):
+      return utils.already_exists(msg)
+    else:
+      return utils.internal_error(msg)
+
   def _save_model(self, model_key: str, checkpoint_path: str):
     """Saves a model checkpoint."""
     if not self._loaded_models.contains(model_key):
@@ -1296,17 +1306,19 @@ class ModelServicesRunner:
             )
             self._export_model(request)
             task.done(utils.ok())
-          except ValueError as e:
-            logging.exception(
-                'Invalid export request. model_key %s, method_name %s, '
-                'error: %s', request.model_key, request.method_name, e)
-            task.done(utils.invalid_arg(f'Exporting error: {e}'))
           except Exception as e:  # pylint: disable=broad-except
             logging.exception(
-                'Internal error during Exporting. model_key: %s, '
-                'method_name %s, error: %s', request.model_key,
-                request.method_name, e)
-            task.done(utils.internal_error(f'Exporting error: {e}'))
+                (
+                    '%s during Exporting. model_key: %s, method_name %s,'
+                    ' export_path: %s, error: %s'
+                ),
+                type(e),
+                request.model_key,
+                request.method_name,
+                request.export_path,
+                e,
+            )
+            task.done(self._export_error_to_status(e))
       elif batch.method.name == _SAVE_MODEL_KEY:
         with batch:
           assert len(batch.rpc_tasks) == 1
