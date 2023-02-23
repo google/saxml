@@ -99,7 +99,7 @@ class CustomMethodName:
 
 
 class CustomCallHParams(servable_model_params.ServableMethodParams):
-  """HParameters for LM score method.
+  """HParameters for a custom call method.
 
   Attributes:
     model_fn_name: function name from the model to call.
