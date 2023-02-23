@@ -489,7 +489,7 @@ func modelTableRows(models []*pb.PublishedModel) []tmplModelTableRow {
 		ckpt := model.GetModel().GetCheckpointPath()
 		requested := fmt.Sprintf("%v", model.GetModel().GetRequestedNumReplicas())
 		assigned := fmt.Sprintf("%v", len(model.GetModeletAddresses()))
-		items = append(items, tmplModelTableRow{id, path, ckpt, requested, assigned})
+		items = append(items, tmplModelTableRow{id, requested, assigned, path, ckpt})
 	}
 	return items
 }
