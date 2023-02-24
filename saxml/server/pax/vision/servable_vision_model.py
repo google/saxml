@@ -40,7 +40,8 @@ NestedPartitionSpec = pytypes.NestedPartitionSpec
 NestedTfTensor = pytypes.Nested[tf.Tensor]
 NestedTfTensorSpec = pytypes.Nested[tf.TensorSpec]
 NestedTfTrackable = pytypes.Nested[
-    tf.saved_model.experimental.TrackableResource]
+    tf.saved_model.experimental.TrackableResource
+]
 NpTensor = pytypes.NpTensor
 VisionMethodName = vision_service.VisionMethodName
 
@@ -51,6 +52,7 @@ class ClassifyHParams(servable_model_params.ServableMethodParams):
   Attributes:
     top_k: top k results from classification.
   """
+
   top_k: int = 0
 
 
@@ -74,12 +76,14 @@ class TextToImageHParams(servable_model_params.ServableMethodParams):
     tf_input_tokenized: whether the exported SavedModel's signature accepts
       tokenized inputs.
   """
+
   max_seq_length: int = 0
   num_samples: int = 0
   top_samples_to_keep: Optional[int] = None
   text_preprocessor: Optional[Callable[[str], str]] = None
-  image_postprocessor: Optional[Callable[[List[List[bytes]]],
-                                         List[List[bytes]]]] = None
+  image_postprocessor: Optional[
+      Callable[[List[List[bytes]]], List[List[bytes]]]
+  ] = None
   tf_text_preprocessor: Optional[Callable[[tf.Tensor], tf.Tensor]] = None
   tf_image_postprocessor: Optional[Callable[[tf.Tensor], tf.Tensor]] = None
   tf_input_tokenized: bool = False
@@ -96,6 +100,7 @@ class EmbedHParams(servable_model_params.ServableMethodParams):
     output_embedding_name: The name of the embedding to use from the model's
       outputs.  Required.
   """
+
   image_preprocessor: Optional[Callable[[str], tf.Tensor]] = None
   model_method_name: Optional[str] = None
   output_embedding_name: Optional[str] = None
@@ -110,6 +115,7 @@ class DetectHParams(servable_model_params.ServableMethodParams):
     model_method_name: The name of the method to call to extract embeddings from
       an input image.  Required.
   """
+
   is_open_set: bool = False
   model_method_name: Optional[str] = None
 
@@ -121,6 +127,7 @@ class ImageToTextHParams(servable_model_params.ServableMethodParams):
     model_method_name: The name of the method to call to extract embeddings from
       an input image.  Required.
   """
+
   model_method_name: Optional[str] = None
 
 
@@ -131,6 +138,7 @@ class VideoToTextHParams(servable_model_params.ServableMethodParams):
     model_method_name: The name of the method to call to extract embeddings from
       an input image.  Required.
   """
+
   model_method_name: Optional[str] = None
 
 
@@ -231,9 +239,16 @@ class TextToImageModelParams(VisionModelParamsBase):
 class ImageBytesToLabelScorePairs(servable_model.ServableMethod):
   """Method for implementing image_bytes -> (label,score) extraction."""
 
-  def __init__(self, model, model_fn_name: str, model_state,
-               method_hparams: ClassifyHParams, prng_key,
-               dummy_input_sample: Any, model_config: Any):
+  def __init__(
+      self,
+      model,
+      model_fn_name: str,
+      model_state,
+      method_hparams: ClassifyHParams,
+      prng_key,
+      dummy_input_sample: Any,
+      model_config: Any,
+  ):
     self._model_config = model_config
     self._dataset = model_config.serving_dataset()
     self._cluster = copy.deepcopy(cluster_factory.Current())
@@ -241,15 +256,22 @@ class ImageBytesToLabelScorePairs(servable_model.ServableMethod):
     with self._cluster:
       self._input_processor = self._dataset.input.Instantiate()
 
-    super().__init__(model, model_fn_name, model_state, method_hparams,
-                     prng_key, dummy_input_sample)
+    super().__init__(
+        model,
+        model_fn_name,
+        model_state,
+        method_hparams,
+        prng_key,
+        dummy_input_sample,
+    )
 
   @classmethod
   def service_id(cls) -> str:
     return vision_service.SERVICE_ID
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
     return NestedMap(
         logp=model_fn_outputs[0]['logp'],
@@ -309,10 +331,16 @@ def _sort_and_encode_images(images, scores, samples_to_keep):
 class TextToImageMethod(servable_model.ServableMethod):
   """Method for implementing text -> [(image_bytes,score)] extraction."""
 
-  def __init__(self, model: base_model.BaseModel, model_fn_name: str,
-               model_state: servable_model.ServableModelState,
-               method_hparams: TextToImageHParams, prng_key: PRNGKey,
-               dummy_input_sample: Any, model_config: Any):
+  def __init__(
+      self,
+      model: base_model.BaseModel,
+      model_fn_name: str,
+      model_state: servable_model.ServableModelState,
+      method_hparams: TextToImageHParams,
+      prng_key: PRNGKey,
+      dummy_input_sample: Any,
+      model_config: Any,
+  ):
     self._tokenizer = model_config.serving_tokenizer().Instantiate()
     self._max_length = method_hparams.max_seq_length
     self._text_preprocessor = method_hparams.text_preprocessor
@@ -322,17 +350,26 @@ class TextToImageMethod(servable_model.ServableMethod):
     self._tf_input_tokenized = method_hparams.tf_input_tokenized
     self._top_samples_to_keep = method_hparams.top_samples_to_keep
     exportable = (
-        self._tf_text_preprocessor is not None and
-        self._tf_image_postprocessor is not None)
-    super().__init__(model, model_fn_name, model_state, method_hparams,
-                     prng_key, dummy_input_sample, exportable)
+        self._tf_text_preprocessor is not None
+        and self._tf_image_postprocessor is not None
+    )
+    super().__init__(
+        model,
+        model_fn_name,
+        model_state,
+        method_hparams,
+        prng_key,
+        dummy_input_sample,
+        exportable,
+    )
 
   @classmethod
   def service_id(cls) -> str:
     return vision_service.SERVICE_ID
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     # Fetech useful information from output.
     images = model_fn_outputs[0]['generated_images']
     # TODO(jianlijianli): check model output contract.
@@ -343,14 +380,17 @@ class TextToImageMethod(servable_model.ServableMethod):
     if self._text_preprocessor is not None:
       raw_inputs = [self._text_preprocessor(inp) for inp in raw_inputs]
     ids, _, paddings = self._tokenizer.StringsToIds(
-        raw_inputs, max_length=self._max_length)
+        raw_inputs, max_length=self._max_length
+    )
     ids = np.array(ids)
     paddings = np.array(paddings)
     return NestedMap(ids=ids, paddings=paddings)
 
-  def _sort_and_encode(self,
-                       compute_outputs: Union[NestedNpTensor, NestedTfTensor],
-                       tf_mode=False) -> tuple[Any, Any]:
+  def _sort_and_encode(
+      self,
+      compute_outputs: Union[NestedNpTensor, NestedTfTensor],
+      tf_mode=False,
+  ) -> tuple[Any, Any]:
     images = compute_outputs['images']
     scores = compute_outputs['scores']
 
@@ -363,8 +403,9 @@ class TextToImageMethod(servable_model.ServableMethod):
 
     samples_to_keep = self._top_samples_to_keep or n
     samples_to_keep = min(samples_to_keep, n)
-    image_bytes, scores = _sort_and_encode_images(images, scores,
-                                                  samples_to_keep)
+    image_bytes, scores = _sort_and_encode_images(
+        images, scores, samples_to_keep
+    )
     return image_bytes, scores
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
@@ -385,32 +426,35 @@ class TextToImageMethod(servable_model.ServableMethod):
       if self._text_preprocessor is not None:
         inputs = self._tf_text_preprocessor(inputs)
       ids, _, paddings = self._tokenizer.StringsToIds(
-          inputs, max_length=self._max_length)
+          inputs, max_length=self._max_length
+      )
     ids = tf.ensure_shape(ids, [self.batch_size, self._max_length])
     paddings = tf.ensure_shape(paddings, [self.batch_size, self._max_length])
     return NestedMap(ids=ids, paddings=paddings)
 
-  def tf_post_processing(self,
-                         compute_outputs: NestedTfTensor) -> NestedTfTensor:
+  def tf_post_processing(
+      self, compute_outputs: NestedTfTensor
+  ) -> NestedTfTensor:
     image_bytes, scores = self._sort_and_encode(compute_outputs)
     if self._image_postprocessor is not None:
       image_bytes = self._tf_image_postprocessor(image_bytes)
     return {'images': image_bytes, 'scores': scores}
 
-  def input_signature(self,
-                      batch_size: Optional[int]) -> List[NestedTfTensorSpec]:
+  def input_signature(
+      self, batch_size: Optional[int]
+  ) -> List[NestedTfTensorSpec]:
     if self._tf_input_tokenized:
       return [{
-          'token_ids':
-              tf.TensorSpec(
-                  shape=[batch_size, self._max_length],
-                  dtype=tf.int32,
-                  name='token_ids'),
-          'paddings':
-              tf.TensorSpec(
-                  shape=[batch_size, self._max_length],
-                  dtype=tf.float32,
-                  name='paddings'),
+          'token_ids': tf.TensorSpec(
+              shape=[batch_size, self._max_length],
+              dtype=tf.int32,
+              name='token_ids',
+          ),
+          'paddings': tf.TensorSpec(
+              shape=[batch_size, self._max_length],
+              dtype=tf.float32,
+              name='paddings',
+          ),
       }]
     else:
       return [
@@ -425,25 +469,39 @@ class TextToImageMethod(servable_model.ServableMethod):
 class ImageBytesToEmbedding(servable_model.ServableMethod):
   """Method to go from image_bytes to image embedding."""
 
-  def __init__(self, model: base_model.BaseModel, model_fn_name: str,
-               model_state: servable_model.ServableModelState,
-               method_hparams: EmbedHParams, prng_key: PRNGKey,
-               dummy_input_sample: Any, model_config: Any):
+  def __init__(
+      self,
+      model: base_model.BaseModel,
+      model_fn_name: str,
+      model_state: servable_model.ServableModelState,
+      method_hparams: EmbedHParams,
+      prng_key: PRNGKey,
+      dummy_input_sample: Any,
+      model_config: Any,
+  ):
     self._model_config = model_config
     if method_hparams.image_preprocessor is None:
-      raise ValueError('image_preprocessor method must be defined '
-                       'in EmbedHParams')
+      raise ValueError(
+          'image_preprocessor method must be defined in EmbedHParams'
+      )
     self._image_preprocessor = method_hparams.image_preprocessor
     self._embedding_name = method_hparams.output_embedding_name
-    super().__init__(model, model_fn_name, model_state, method_hparams,
-                     prng_key, dummy_input_sample)
+    super().__init__(
+        model,
+        model_fn_name,
+        model_state,
+        method_hparams,
+        prng_key,
+        dummy_input_sample,
+    )
 
   @classmethod
   def service_id(cls) -> str:
     return vision_service.SERVICE_ID
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
     image_embedding = model_fn_outputs[0].GetItem(self._embedding_name)  # pytype: disable=attribute-error  # jax-ndarray
     return NestedMap(image_embedding=image_embedding)
@@ -451,12 +509,14 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
   @tf.function
   def _preprocess_batch(self, image_bytes_batch):
     return tf.map_fn(
-        self._image_preprocessor, image_bytes_batch, dtype=tf.float32)
+        self._image_preprocessor, image_bytes_batch, dtype=tf.float32
+    )
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
     image_bytes_batch = tf.convert_to_tensor(
-        [inp['image_bytes'] for inp in raw_inputs])
+        [inp['image_bytes'] for inp in raw_inputs]
+    )
     images = self._preprocess_batch(image_bytes_batch).numpy()
     processed_input_batch = NestedMap(image=images)
     return processed_input_batch
@@ -472,20 +532,34 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
 class ImageBytesToDetect(servable_model.ServableMethod):
   """Method for implementing detection."""
 
-  def __init__(self, model, model_fn_name: str, model_state,
-               method_hparams: DetectHParams, prng_key, dummy_input_sample: Any,
-               model_config: Any):
+  def __init__(
+      self,
+      model,
+      model_fn_name: str,
+      model_state,
+      method_hparams: DetectHParams,
+      prng_key,
+      dummy_input_sample: Any,
+      model_config: Any,
+  ):
     self._model_config = model_config
     model_config.init_for_serving()
-    super().__init__(model, model_fn_name, model_state, method_hparams,
-                     prng_key, dummy_input_sample)
+    super().__init__(
+        model,
+        model_fn_name,
+        model_state,
+        method_hparams,
+        prng_key,
+        dummy_input_sample,
+    )
 
   @classmethod
   def service_id(cls) -> str:
     return vision_service.SERVICE_ID
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
     return self._model_config.fetch_output(model_fn_outputs, model_fn_inputs)
 
@@ -501,9 +575,16 @@ class ImageBytesToDetect(servable_model.ServableMethod):
 class ImageBytesToText(servable_model.ServableMethod):
   """Method for implementing image->text."""
 
-  def __init__(self, model, model_fn_name: str, model_state,
-               method_hparams: Union[ImageToTextHParams, VideoToTextHParams],
-               prng_key, dummy_input_sample: Any, model_config: Any):
+  def __init__(
+      self,
+      model,
+      model_fn_name: str,
+      model_state,
+      method_hparams: Union[ImageToTextHParams, VideoToTextHParams],
+      prng_key,
+      dummy_input_sample: Any,
+      model_config: Any,
+  ):
     self._model_config = model_config
 
     self._dataset = model_config.serving_dataset()
@@ -514,20 +595,27 @@ class ImageBytesToText(servable_model.ServableMethod):
     with self._cluster:
       self._input_processor = self._dataset.input.Instantiate()
 
-    super().__init__(model, model_fn_name, model_state, method_hparams,
-                     prng_key, dummy_input_sample)
+    super().__init__(
+        model,
+        model_fn_name,
+        model_state,
+        method_hparams,
+        prng_key,
+        dummy_input_sample,
+    )
 
   @classmethod
   def service_id(cls) -> str:
     return vision_service.SERVICE_ID
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
     _, results = model_fn_outputs[0]
     logprobs = results['logprobs']  # [batch, num_hyps, max_len]
     # Sum valid log probs for each hyp to produce a score.
-    valid = (logprobs != 1.) * 1.
+    valid = (logprobs != 1.0) * 1.0
     logprobs = jnp.sum(logprobs * valid, axis=-1)
     return NestedMap(
         hyps=results['hyp'], hyplen=results['hyplen'], logprobs=logprobs
@@ -560,7 +648,8 @@ class ImageBytesToText(servable_model.ServableMethod):
     #
     # Potential optimization: use _empty_ids / paddings if all texts are empty.
     ids, _, paddings = self._tokenizer.StringsToIds(
-        texts, self._model_config.TEXT_MAX_LEN)
+        texts, self._model_config.TEXT_MAX_LEN
+    )
 
     # Add dimension to make [B, N, T] (N=1), which is better supported in the
     # pax codebase.
@@ -597,8 +686,10 @@ class ImageBytesToText(servable_model.ServableMethod):
     for i in range(batch_size):
       text = self._tokenizer.IdsToStrings(hyps[i], hyplen[i]).numpy()
       output_text.append(text)
-    return [(list(text), list(score))
-            for text, score in zip(output_text, list(logprobs))]
+    return [
+        (list(text), list(score))
+        for text, score in zip(output_text, list(logprobs))
+    ]
 
 
 class VideoBytesToText(ImageBytesToText):
@@ -615,10 +706,14 @@ class VideoBytesToText(ImageBytesToText):
 class VisionModel(servable_model.ServableModel):
   """Model for vision tasks."""
 
-  def init_method(self, method: str, model: base_model.BaseModel,
-                  model_state: servable_model.ServableModelState,
-                  method_params: servable_model_params.ServableMethodParams,
-                  prng_key: PRNGKey) -> servable_model.ServableMethod:
+  def init_method(
+      self,
+      method: str,
+      model: base_model.BaseModel,
+      model_state: servable_model.ServableModelState,
+      method_params: servable_model_params.ServableMethodParams,
+      prng_key: PRNGKey,
+  ) -> servable_model.ServableMethod:
     if method == VisionMethodName.CLASSIFY:
       assert isinstance(method_params, ClassifyHParams)
       # Create dummy encoded jpeg of all ones.

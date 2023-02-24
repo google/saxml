@@ -29,6 +29,7 @@ from saxml.server.pax.lm.params.lm_cloud import LmCloudSpmd2B
 @quantization.for_transformer()
 class QuantizationModel(LmCloudSpmd2B):
   """Quantize transformer for GLaM100MTarzanC30PF1x1x2Serving."""
+
   pass
 
 
@@ -49,32 +50,31 @@ class DecoratorTest(test_utils.TestCase):
     config = model_config()
     task_p = config.task()
     self.assertEqual(
-        task_p.model.lm_tpl.stacked_transformer_tpl.block
-        .transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.cls,
-        qlayer.attentions.AttentionProjection)
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.cls,
+        qlayer.attentions.AttentionProjection,
+    )
     self.assertEqual(
-        task_p.model.lm_tpl.stacked_transformer_tpl.block
-        .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.cls,
-        qlayer.linears.Linear)
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.cls,
+        qlayer.linears.Linear,
+    )
     self.assertEqual(
-        task_p.model.lm_tpl.stacked_transformer_tpl.block
-        .transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.quantization
-        .quantization_type, quantization_hparams.QuantizationType.PTQ)
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.quantization.quantization_type,
+        quantization_hparams.QuantizationType.PTQ,
+    )
 
     self.assertEqual(
-        task_p.model.lm_tpl.stacked_transformer_tpl.block
-        .transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.quantization.mode,
-        quantization_hparams.QuantizationMode.MATERIALIZE)
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.quantization.mode,
+        quantization_hparams.QuantizationMode.MATERIALIZE,
+    )
 
     self.assertEqual(
-        task_p.model.lm_tpl.stacked_transformer_tpl.block
-        .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl
-        .quantization.quantization_type,
-        quantization_hparams.QuantizationType.PTQ)
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.quantization.quantization_type,
+        quantization_hparams.QuantizationType.PTQ,
+    )
     self.assertEqual(
-        task_p.model.lm_tpl.stacked_transformer_tpl.block
-        .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl
-        .quantization.mode, quantization_hparams.QuantizationMode.MATERIALIZE)
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.quantization.mode,
+        quantization_hparams.QuantizationMode.MATERIALIZE,
+    )
     self.assertEqual(
         task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.quantization.weight_params.use_symmetric,
         expect_symmetric,
@@ -88,6 +88,7 @@ class DecoratorTest(test_utils.TestCase):
 @quantization.for_transformer(linear_only=True)
 class QuantizationModelLinearOnly(LmCloudSpmd2B):
   """Quantize linear layers for GLaM100MTarzanC30PF1x1x2Serving."""
+
   pass
 
 
@@ -97,22 +98,22 @@ class DecoratorTestLinearOnly(test_utils.TestCase):
     config = QuantizationModelLinearOnly()
     task_p = config.task()
     self.assertEqual(
-        task_p.model.lm_tpl.stacked_transformer_tpl.block
-        .transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.cls,
-        layers.attentions.AttentionProjection)
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.cls,
+        layers.attentions.AttentionProjection,
+    )
     self.assertEqual(
-        task_p.model.lm_tpl.stacked_transformer_tpl.block
-        .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.cls,
-        qlayer.linears.Linear)
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.cls,
+        qlayer.linears.Linear,
+    )
     self.assertEqual(
-        task_p.model.lm_tpl.stacked_transformer_tpl.block
-        .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl
-        .quantization.quantization_type,
-        quantization_hparams.QuantizationType.PTQ)
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.quantization.quantization_type,
+        quantization_hparams.QuantizationType.PTQ,
+    )
     self.assertEqual(
-        task_p.model.lm_tpl.stacked_transformer_tpl.block
-        .transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl
-        .quantization.mode, quantization_hparams.QuantizationMode.MATERIALIZE)
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.quantization.mode,
+        quantization_hparams.QuantizationMode.MATERIALIZE,
+    )
+
 
 if __name__ == '__main__':
   absltest.main()

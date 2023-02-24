@@ -87,7 +87,8 @@ class CommonServingTemplate:
     input_batch.labels = targets
     input_batch.segment_ids = targets
     input_batch.segment_pos = np.tile(
-        np.arange(0, seq_len)[np.newaxis, :], [batch_size, 1])
+        np.arange(0, seq_len)[np.newaxis, :], [batch_size, 1]
+    )
     return input_batch
 
   @classmethod
@@ -117,7 +118,8 @@ class ServingTemplate(
         max_input_seq_len=input_seq_len,
         max_suffix_seq_len=suffix_seq_len,
         extra_inputs=self.SCORE_EXTRA_INPUTS,
-        fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS)
+        fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
+    )
 
   def serving_tokenizer(self):
     if self.SPM_MODEL is None:
@@ -129,11 +131,15 @@ class ServingTemplate(
         spm_model=spm_model,
         target_sos_id=self.SOS_ID,
         target_eos_id=self.EOS_ID,
-        slice_left=self.SLICE_LEFT)
+        slice_left=self.SLICE_LEFT,
+    )
 
   def generate(self) -> Optional[servable_lm_model.DecodeHParams]:
-    max_decode_steps = max(self.MAX_DECODE_STEPS) if isinstance(
-        self.MAX_DECODE_STEPS, list) else self.MAX_DECODE_STEPS
+    max_decode_steps = (
+        max(self.MAX_DECODE_STEPS)
+        if isinstance(self.MAX_DECODE_STEPS, list)
+        else self.MAX_DECODE_STEPS
+    )
     stop_token_ids = (
         self.STOP_TOKEN_IDS if self.STOP_TOKEN_IDS else [self.EOS_ID]
     )
@@ -178,11 +184,15 @@ class ServingTemplate(
         include_prefix_in_result=self.INCLUDE_PREFIX_IN_RESULT,
         max_live_batches=self.MAX_LIVE_BATCHES,
         extra_inputs=self.EXTRA_INPUTS,
-        fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS)
+        fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
+    )
 
   def generate_stream(self) -> Optional[servable_lm_model.DecodeHParams]:
-    max_decode_steps = max(self.MAX_DECODE_STEPS) if isinstance(
-        self.MAX_DECODE_STEPS, list) else self.MAX_DECODE_STEPS
+    max_decode_steps = (
+        max(self.MAX_DECODE_STEPS)
+        if isinstance(self.MAX_DECODE_STEPS, list)
+        else self.MAX_DECODE_STEPS
+    )
     stop_token_ids = (
         self.STOP_TOKEN_IDS if self.STOP_TOKEN_IDS else [self.EOS_ID]
     )
@@ -219,7 +229,8 @@ class ServingTemplate(
         max_live_batches=self.MAX_LIVE_BATCHES,
         extra_inputs=self.EXTRA_INPUTS,
         stream_interval_steps=self.STREAM_INTERVAL_STEPS,
-        fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS)
+        fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
+    )
 
 
 class ServingWithGradientTemplate(ServingTemplate):
@@ -255,7 +266,8 @@ def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
   assert xformer.cls == transformers.StackedTransformer
   layer_p = xformer.transformer_layer_params_tpl
   lbp_tr_atten_tpl = pax_fiddle.Config(
-      attentions.DotProductAttentionWithLPB,)
+      attentions.DotProductAttentionWithLPB,
+  )
   mqa_cls = multi_query_attention.MultiQueryDotProductAttention
   mqs_lpb_cls = multi_query_attention.MultiQueryDotProductAttentionLPB
   lbp_multi_query_atten_tpl = pax_fiddle.Config(
@@ -268,9 +280,10 @@ def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
     lbp_multi_query_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
     layer_p.tr_atten_tpl = lbp_multi_query_atten_tpl
   else:
-    assert (layer_p.tr_atten_tpl.cls == lbp_tr_atten_tpl.cls), (
-        f'Attention layer does not support lazy prefix broadcast '
-        f'{layer_p.tr_atten_tpl.cls}.')
+    assert layer_p.tr_atten_tpl.cls == lbp_tr_atten_tpl.cls, (
+        'Attention layer does not support lazy prefix broadcast '
+        f'{layer_p.tr_atten_tpl.cls}.'
+    )
 
 
 def make_servable(servable_class=ServingTemplate):
@@ -298,12 +311,11 @@ def make_servable(servable_class=ServingTemplate):
   """
 
   def _decorator(pax_exp_class):
-
     # pax_exp_class comes before servable_class so that overrides in
     # pax_exp_class are used.
+
     class Wrapped(pax_exp_class, servable_class):
-      """A wrapper that uses the template and overrides some common LM configs.
-      """
+      """A wrapper that uses the template and overrides some common LM configs."""
 
       @classmethod
       def sax_registration_name(cls) -> Optional[str]:
@@ -326,9 +338,11 @@ def make_servable(servable_class=ServingTemplate):
         # Override attention with lazy prefix broadcast.
         lazy_prefix_broadcast = False
         decode_params = self.generate()
-        if hasattr(task_p.model.lm_tpl, 'softmax_tpl') and hasattr(
-            task_p.model.lm_tpl.softmax_tpl, 'lookup_style'
-        ) and hasattr(decode_params, 'decoder'):
+        if (
+            hasattr(task_p.model.lm_tpl, 'softmax_tpl')
+            and hasattr(task_p.model.lm_tpl.softmax_tpl, 'lookup_style')
+            and hasattr(decode_params, 'decoder')
+        ):
           task_p.model.lm_tpl.softmax_tpl.lookup_style = (
               decode_params.decoder.emb_lookup_style
           )

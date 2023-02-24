@@ -39,8 +39,9 @@ def get_pax_checkpoint_type() -> checkpoints.CheckpointType:
 logged_jax_device = False
 
 
-class ServableModelParams(base_experiment.BaseExperiment,
-                          servable_model_params.ServableModelParams):
+class ServableModelParams(
+    base_experiment.BaseExperiment, servable_model_params.ServableModelParams
+):
   """A base class that each model config needs to implement for serving."""
 
   quantization_type: QuantizationType = QuantizationType.PTQ
@@ -83,7 +84,9 @@ class ServableModelParams(base_experiment.BaseExperiment,
     return self.quantization_type, self.quant_mode  # pytype: disable=attribute-error
 
   def set_quantization_type(self, quantization_type: QuantizationType) -> None:
-    self.quantization_type = quantization_type  # pytype: disable=attribute-error
+    self.quantization_type = (
+        quantization_type  # pytype: disable=attribute-error
+    )
 
   def set_quant_mode(self, mode: QuantizationMode) -> None:
     self.quant_mode = mode  # pytype: disable=attribute-error
@@ -92,8 +95,13 @@ class ServableModelParams(base_experiment.BaseExperiment,
   def get_checkpoint_type(cls) -> checkpoints.CheckpointType:
     return get_pax_checkpoint_type()
 
-  def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
-           prng_key: int) -> Any:
+  def load(
+      self,
+      model_key: str,
+      checkpoint_path: str,
+      primary_process_id: int,
+      prng_key: int,
+  ) -> Any:
     """Loads and returns the ServableModel."""
     model = self.create_model(primary_process_id)
     model.load(checkpoint_path, jax.random.PRNGKey(prng_key))
@@ -107,8 +115,9 @@ class ServableModelParams(base_experiment.BaseExperiment,
 ServableModelParamsT = Type[ServableModelParams]
 
 
-class ServableMethodParams(base_hyperparams.BaseHyperParams,
-                           servable_model_params.ServableMethodParams):
+class ServableMethodParams(
+    base_hyperparams.BaseHyperParams, servable_model_params.ServableMethodParams
+):
   """A base config class for a method.
 
   Attributes:
@@ -120,6 +129,7 @@ class ServableMethodParams(base_hyperparams.BaseHyperParams,
       Usually, the suggested waiting seconds for batching could set to less than
       10% device latency for the given batch size.
   """
+
   batch_size: Union[int, List[int]] = 1
   max_live_batches: int = 4
   extra_inputs: Optional[Dict[str, float]] = None

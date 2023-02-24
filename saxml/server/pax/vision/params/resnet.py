@@ -22,8 +22,9 @@ from saxml.server.pax.vision import servable_vision_model
 
 
 @servable_model_registry.register
-class ImageNetResNet50(imagenet_resnets.ResNet50Pjit,
-                       servable_vision_model.VisionModelParams):
+class ImageNetResNet50(
+    imagenet_resnets.ResNet50Pjit, servable_vision_model.VisionModelParams
+):
   """ImageNet ResNet50 base model for classification tasks."""
 
   IMAGE_SIZE = 224
@@ -43,7 +44,8 @@ class ImageNetResNet50(imagenet_resnets.ResNet50Pjit,
 
   def classify(self):
     return servable_vision_model.ClassifyHParams(
-        top_k=self.TOP_K, batch_size=self.BATCH_SIZE)
+        top_k=self.TOP_K, batch_size=self.BATCH_SIZE
+    )
 
   def input_for_model_init(self):
     # Batch-2 is sufficient for model init. Imagenet num_classes=1000

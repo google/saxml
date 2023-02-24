@@ -108,7 +108,8 @@ class ServableMethod(servable_model.ServableMethod):
 
     # TODO(b/261075587): remove conditional based input prefix bucketization.
     self._branch_selector = branch_selection.BranchSelector(
-        keys=[self._dummy_bucket_key])
+        keys=[self._dummy_bucket_key]
+    )
     if load:
       self.load()
 
@@ -143,30 +144,36 @@ class ServableMethod(servable_model.ServableMethod):
     branch_index = self._branch_selector.get_branch_index(bucket_key)
     return np.asarray(branch_index, dtype=np.int32)
 
-  def get_branch_inputs(self, inputs: NestedJTensor,
-                        branch_key: int) -> NestedJTensor:
+  def get_branch_inputs(
+      self, inputs: NestedJTensor, branch_key: int
+  ) -> NestedJTensor:
     """Returns the inputs for a branch key."""
     del branch_key
     return inputs
 
-  def post_process_branch_outputs(self, outputs: NestedJTensor,
-                                  branch_key: int) -> NestedJTensor:
+  def post_process_branch_outputs(
+      self, outputs: NestedJTensor, branch_key: int
+  ) -> NestedJTensor:
     """Post processes branch outputs."""
     del branch_key
     return outputs
 
-  def get_nonbatch_inputs(self,
-                          one_core_inputs: NestedNpTensor) -> NestedNpTensor:
+  def get_nonbatch_inputs(
+      self, one_core_inputs: NestedNpTensor
+  ) -> NestedNpTensor:
     branch_index = self._assign_branch_index(one_core_inputs)
     if branch_index is not None:
       return np.array(branch_index, dtype=np.int32)
     return ()
 
   def add_extra_inputs(
-      self, input_batch: NestedNpTensor,
-      extra_input_tensors: Dict[str, np.ndarray]) -> NestedNpTensor:
-    assert isinstance(input_batch,
-                      (NestedMap, dict)), 'extra_inputs unsupported on non-dict'
+      self,
+      input_batch: NestedNpTensor,
+      extra_input_tensors: Dict[str, np.ndarray],
+  ) -> NestedNpTensor:
+    assert isinstance(
+        input_batch, (NestedMap, dict)
+    ), 'extra_inputs unsupported on non-dict'
     for k, v in extra_input_tensors.items():
       if isinstance(input_batch, NestedMap):
         input_batch.Set(k, v)
@@ -174,10 +181,9 @@ class ServableMethod(servable_model.ServableMethod):
         input_batch[k] = v
     return input_batch
 
-  def call_model_function(self,
-                          inputs: NestedJTensor,
-                          mdl_vars: NestedJTensor,
-                          prng_key: PRNGKey) -> NestedJTensor:
+  def call_model_function(
+      self, inputs: NestedJTensor, mdl_vars: NestedJTensor, prng_key: PRNGKey
+  ) -> NestedJTensor:
     k1, k2 = prng_key
     outputs = self._model.apply(
         mdl_vars,
@@ -195,14 +201,19 @@ class ServableMethod(servable_model.ServableMethod):
     )
     return outputs
 
-  def jax_func(self, mdl_vars: NestedJTensor, prng_key: PRNGKey,
-               batched_inputs: NestedJTensor,
-               non_batched_inputs: NestedJTensor) -> NestedJTensor:
+  def jax_func(
+      self,
+      mdl_vars: NestedJTensor,
+      prng_key: PRNGKey,
+      batched_inputs: NestedJTensor,
+      non_batched_inputs: NestedJTensor,
+  ) -> NestedJTensor:
     if self._model.fprop_dtype == jnp.bfloat16:
       # Convert float inputs/vars if fprop dtype is bfloat16.
       batched_inputs, mdl_vars = jax.tree_map(
           (lambda x: x.astype(jnp.bfloat16) if x.dtype == jnp.float32 else x),
-          (batched_inputs, mdl_vars))
+          (batched_inputs, mdl_vars),
+      )
 
     context_p = base_layer.JaxContext.HParams(do_eval=True)
     k1, k2 = jax.random.split(prng_key)
@@ -254,8 +265,9 @@ class ServableMethod(servable_model.ServableMethod):
     super().unload()
     self._model = None
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
     raise NotImplementedError('fetch_output not implemented')
 
@@ -269,19 +281,25 @@ class ServableMethod(servable_model.ServableMethod):
 
   @property
   def exportable_model_fn(
-      self
+      self,
   ) -> Callable[[NestedJTensor, tuple[NestedJTensor, JTensor]], NestedJTensor]:
     """Exportable model function for `ExportableToSavedModel` protocol."""
 
     def _wrapped_fn(
         mdl_vars: NestedJTensor,
-        inputs_with_rng_seed: tuple[NestedJTensor, JTensor]) -> NestedJTensor:
+        inputs_with_rng_seed: tuple[NestedJTensor, JTensor],
+    ) -> NestedJTensor:
       # Remove padding on the vars.
       mdl_vars = jax.tree_util.tree_map(
-          servable_model.remove_padding, mdl_vars,
-          self.model_state.mdl_var_unpadded_shapes)
-      mdl_vars = jax.tree_util.tree_map(pjit.with_sharding_constraint, mdl_vars,
-                                        self.model_state.mdl_var_pspecs)
+          servable_model.remove_padding,
+          mdl_vars,
+          self.model_state.mdl_var_unpadded_shapes,
+      )
+      mdl_vars = jax.tree_util.tree_map(
+          pjit.with_sharding_constraint,
+          mdl_vars,
+          self.model_state.mdl_var_pspecs,
+      )
       inputs, seed = inputs_with_rng_seed
       prng_key = jax.random.PRNGKey(seed)  # pytype: disable=wrong-arg-types  # jax-ndarray
       return self.jax_func(mdl_vars, prng_key, inputs, ())
@@ -291,15 +309,18 @@ class ServableMethod(servable_model.ServableMethod):
         _wrapped_fn,
         in_axis_resources=(self.model_state.mdl_var_pspecs, None),
         out_axis_resources=None,
-        donate_argnums=(1,))
+        donate_argnums=(1,),
+    )
 
   @property
   def model_fn_input_polymorphic_shape(self) -> pytypes.Nested[str]:
     """Returns a batch polymorphic shape for jax2tf."""
     batched_host_dummy = self.get_dummy_inputs(InputShapeInfo(self.batch_size))
     batched_host_dummy = self.update_extra_inputs(
-        batched_host_dummy, self.batch_size,
-        [self.default_extra_inputs] * self.batch_size)
+        batched_host_dummy,
+        self.batch_size,
+        [self.default_extra_inputs] * self.batch_size,
+    )
     batch_pattern = 'b, ...' if len(self.sorted_batch_sizes) > 1 else None
     return jax.tree_util.tree_map(lambda _: batch_pattern, batched_host_dummy)
 
@@ -315,11 +336,13 @@ class ServableModel(servable_model.ServableModel):
   ServableMethod.
   """
 
-  def __init__(self,
-               model_config: servable_model_params.ServableModelParams,
-               primary_process_id: int,
-               ckpt_type: CheckpointType,
-               test_mode: bool = False):
+  def __init__(
+      self,
+      model_config: servable_model_params.ServableModelParams,
+      primary_process_id: int,
+      ckpt_type: CheckpointType,
+      test_mode: bool = False,
+  ):
     super().__init__()
     self._test_mode = test_mode
     self._primary_process_id = primary_process_id
@@ -336,10 +359,12 @@ class ServableModel(servable_model.ServableModel):
   def model_config(self) -> servable_model_params.ServableModelParams:
     return self._model_config
 
-  def load(self,
-           checkpoint_path: Optional[str],
-           prng_key: PRNGKey,
-           precompile: bool = True) -> None:
+  def load(
+      self,
+      checkpoint_path: Optional[str],
+      prng_key: PRNGKey,
+      precompile: bool = True,
+  ) -> None:
     prng_key, init_key = jax.random.split(prng_key)
     model, model_state = self.load_state(checkpoint_path, init_key, precompile)
     self.load_methods(model, model_state, prng_key)
@@ -348,7 +373,7 @@ class ServableModel(servable_model.ServableModel):
       self,
       checkpoint_path: Optional[str],
       prng_key: PRNGKey,
-      precompile: bool = True
+      precompile: bool = True,
   ) -> Tuple[base_model.BaseModel, ServableModelState]:
     """Initializes the model state."""
     task_p = self._model_config.task()
@@ -365,12 +390,13 @@ class ServableModel(servable_model.ServableModel):
     # TODO(zhangqiaorjc, yuanzx): Retrieve unpadded var shapes from checkpoint.
     sample_input_for_init = self.model_config.input_for_model_init()
     with global_mesh:
-      vars_weight_params = (
-          jax_task.model.abstract_init_with_metadata(sample_input_for_init))
+      vars_weight_params = jax_task.model.abstract_init_with_metadata(
+          sample_input_for_init
+      )
       discard_opt_states = True
-      train_state_global_shapes = (
-          jax_task.create_train_state_padded_shapes(
-              vars_weight_params, discard_opt_states=discard_opt_states))
+      train_state_global_shapes = jax_task.create_train_state_padded_shapes(
+          vars_weight_params, discard_opt_states=discard_opt_states
+      )
 
       if model_p.fprop_dtype == jnp.bfloat16:
 
@@ -379,8 +405,9 @@ class ServableModel(servable_model.ServableModel):
             return jax.ShapeDtypeStruct(x.shape, jnp.bfloat16)
           return x
 
-        train_state_global_shapes = jax.tree_map(maybe_to_bfloat16_dtype,
-                                                 train_state_global_shapes)
+        train_state_global_shapes = jax.tree_map(
+            maybe_to_bfloat16_dtype, train_state_global_shapes
+        )
 
       partition_specs = jax_task.create_train_state_partition_specs(
           vars_weight_params, discard_opt_states=discard_opt_states
@@ -397,7 +424,8 @@ class ServableModel(servable_model.ServableModel):
         except Exception as e:
           raise ValueError(
               f'Invalid checkpoint path {checkpoint_path}. Expected a step '
-              'directory, e.g., /some/path/checkpoint_00100000') from e
+              'directory, e.g., /some/path/checkpoint_00100000'
+          ) from e
         partitioned_train_state = CKPT_MODULE.restore_checkpoint(
             train_state_global_shapes,
             checkpoint_path,
@@ -414,16 +442,22 @@ class ServableModel(servable_model.ServableModel):
                 init_key,
                 sample_input_for_init,
                 discard_opt_states=discard_opt_states,
-                global_mesh=global_mesh))
+                global_mesh=global_mesh,
+            )
+        )
         step = 0
       assert partitioned_train_state is not None
       mdl_vars = partitioned_train_state.mdl_vars
       del partitioned_train_state
       mdl_var_pspecs = partition_specs.mdl_vars
-      mdl_var_unpadded_shapes = (jax_task.create_train_state_unpadded_shapes(
-          vars_weight_params, discard_opt_states=discard_opt_states)).mdl_vars
-      mdl_var_unpadded_shapes = jax.tree_map(lambda x: x.shape,
-                                             mdl_var_unpadded_shapes)
+      mdl_var_unpadded_shapes = (
+          jax_task.create_train_state_unpadded_shapes(
+              vars_weight_params, discard_opt_states=discard_opt_states
+          )
+      ).mdl_vars
+      mdl_var_unpadded_shapes = jax.tree_map(
+          lambda x: x.shape, mdl_var_unpadded_shapes
+      )
 
       model = jax_task.model
       logging.info('quant_mode: %s', self.model_config.quant_mode)
@@ -471,9 +505,11 @@ class ServableModel(servable_model.ServableModel):
         # pylint: disable=g-long-lambda
         new_pspec = jax.tree_map(
             lambda x: x.meta
-            if isinstance(x, base_layer.BoxedPartitionSpec) else x,
+            if isinstance(x, base_layer.BoxedPartitionSpec)
+            else x,
             new_pspec,
-            is_leaf=lambda x: isinstance(x, base_layer.BoxedPartitionSpec))
+            is_leaf=lambda x: isinstance(x, base_layer.BoxedPartitionSpec),
+        )
 
         # pylint: enable=g-long-lambda
 
@@ -497,7 +533,8 @@ class ServableModel(servable_model.ServableModel):
               rngs={
                   base_layer.PARAMS: k1,
                   base_layer.RANDOM: k2,
-              })
+              },
+          )
 
         pjit_quant_fn = pjit.pjit(
             quant_fn,
@@ -533,8 +570,12 @@ class ServableModel(servable_model.ServableModel):
       )
       return model, model_state
 
-  def load_methods(self, model: base_model.BaseModel,
-                   model_state: ServableModelState, prng_key: PRNGKey) -> None:
+  def load_methods(
+      self,
+      model: base_model.BaseModel,
+      model_state: ServableModelState,
+      prng_key: PRNGKey,
+  ) -> None:
     try:
       method_params = self.model_config.methods()
       for method in sorted(method_params.keys()):
@@ -543,15 +584,21 @@ class ServableModel(servable_model.ServableModel):
         assert isinstance(params, servable_model_params.ServableMethodParams)
         self.add_method(
             method,
-            self.init_method(method, model, model_state, params,
-                             method_prng_key))
+            self.init_method(
+                method, model, model_state, params, method_prng_key
+            ),
+        )
     except Exception as e:
       self.unload()
       raise e
     logging.info('loading completed.')
 
-  def init_method(self, method: str, model: base_model.BaseModel,
-                  model_state: ServableModelState,
-                  method_params: servable_model_params.ServableMethodParams,
-                  prng_key: PRNGKey) -> ServableMethod:
+  def init_method(
+      self,
+      method: str,
+      model: base_model.BaseModel,
+      model_state: ServableModelState,
+      method_params: servable_model_params.ServableMethodParams,
+      prng_key: PRNGKey,
+  ) -> ServableMethod:
     raise NotImplementedError(f'method {method} not implemented')

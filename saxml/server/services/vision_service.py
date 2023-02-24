@@ -60,8 +60,9 @@ class VisionService(model_service_base.ModelService):
       }
     raise NotImplementedError(f'Method {method_name} unimplemented.')
 
-  def FillRPCResponse(self, method_name: str, method_outputs: Any,
-                      response: Any) -> None:
+  def FillRPCResponse(
+      self, method_name: str, method_outputs: Any, response: Any
+  ) -> None:
     if method_name == VisionMethodName.CLASSIFY:
       # Convert tuple of labels / scores to output format.
       texts, scores = method_outputs
@@ -72,7 +73,8 @@ class VisionService(model_service_base.ModelService):
       images, scores = method_outputs
       for image, score in zip(images, scores):
         response.images.append(
-            vision_pb2.ImageGenerations(image=image, score=score))
+            vision_pb2.ImageGenerations(image=image, score=score)
+        )
       return
     if method_name == VisionMethodName.EMBED:
       embeddings = method_outputs
@@ -80,20 +82,19 @@ class VisionService(model_service_base.ModelService):
       if embeddings.dtype in [np.float32, np.double]:
         response.embedding.extend(list(embeddings))
       else:
-        raise NotImplementedError('EMBED does not support returned '
-                                  f'embeddings of type {embeddings.dtype}.')
+        raise NotImplementedError(
+            'EMBED does not support returned '
+            f'embeddings of type {embeddings.dtype}.'
+        )
       return
     if method_name == VisionMethodName.DETECT:
       boxes, scores, texts = method_outputs
       for box, score, text in zip(boxes, scores, texts):
         response.bounding_boxes.append(
             vision_pb2.BoundingBox(
-                cx=box[0],
-                cy=box[1],
-                w=box[2],
-                h=box[3],
-                text=text,
-                score=score))
+                cx=box[0], cy=box[1], w=box[2], h=box[3], text=text, score=score
+            )
+        )
       return
     if method_name == VisionMethodName.IMAGE_TO_TEXT:
       texts, scores = method_outputs
@@ -109,8 +110,11 @@ class VisionService(model_service_base.ModelService):
 
 
 @model_service_base.register_service(SERVICE_ID)
-class VisionServiceGRPC(model_service_base.ModelServiceGRPC, VisionService,
-                        vision_pb2_grpc.VisionServiceServicer):
+class VisionServiceGRPC(
+    model_service_base.ModelServiceGRPC,
+    VisionService,
+    vision_pb2_grpc.VisionServiceServicer,
+):
   """gRPC VisionService."""
 
   def ServiceName(self) -> str:
@@ -121,36 +125,54 @@ class VisionServiceGRPC(model_service_base.ModelServiceGRPC, VisionService,
 
   async def Classify(self, request, context):
     resp = vision_pb2.ClassifyResponse()
-    await self.EnqueueRequest(VisionMethodName.CLASSIFY, request.model_key,
-                              context, request, resp)
+    await self.EnqueueRequest(
+        VisionMethodName.CLASSIFY, request.model_key, context, request, resp
+    )
     return resp
 
   async def TextToImage(self, request, context):
     resp = vision_pb2.TextToImageResponse()
-    await self.EnqueueRequest(VisionMethodName.TEXT_TO_IMAGE, request.model_key,
-                              context, request, resp)
+    await self.EnqueueRequest(
+        VisionMethodName.TEXT_TO_IMAGE,
+        request.model_key,
+        context,
+        request,
+        resp,
+    )
     return resp
 
   async def Embed(self, request, context):
     resp = vision_pb2.EmbedResponse()
-    await self.EnqueueRequest(VisionMethodName.EMBED, request.model_key,
-                              context, request, resp)
+    await self.EnqueueRequest(
+        VisionMethodName.EMBED, request.model_key, context, request, resp
+    )
     return resp
 
   async def Detect(self, request, context):
     resp = vision_pb2.DetectResponse()
-    await self.EnqueueRequest(VisionMethodName.DETECT, request.model_key,
-                              context, request, resp)
+    await self.EnqueueRequest(
+        VisionMethodName.DETECT, request.model_key, context, request, resp
+    )
     return resp
 
   async def ImageToText(self, request, context):
     resp = vision_pb2.ImageToTextResponse()
-    await self.EnqueueRequest(VisionMethodName.IMAGE_TO_TEXT, request.model_key,
-                              context, request, resp)
+    await self.EnqueueRequest(
+        VisionMethodName.IMAGE_TO_TEXT,
+        request.model_key,
+        context,
+        request,
+        resp,
+    )
     return resp
 
   async def VideoToText(self, request, context):
     resp = vision_pb2.VideoToTextResponse()
-    await self.EnqueueRequest(VisionMethodName.VIDEO_TO_TEXT, request.model_key,
-                              context, request, resp)
+    await self.EnqueueRequest(
+        VisionMethodName.VIDEO_TO_TEXT,
+        request.model_key,
+        context,
+        request,
+        resp,
+    )
     return resp

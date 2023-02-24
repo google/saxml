@@ -61,6 +61,7 @@ class ScoreHParams(servable_model_params.ServableMethodParams):
       truncated to (max_input_seq_len + max_suffix_seq_len) size.
     include_eos_score: whether to add EOS score to the result.
   """
+
   max_input_seq_len: int = 0
   max_suffix_seq_len: int = 0
   include_eos_score: bool = False
@@ -77,6 +78,7 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
     include_prefix_in_result: whether to include the input prefix in the result.
     encoder_decoder_model: whether this is an encoder decoder model.
   """
+
   max_input_seq_len: int = 0
   decoder: decoder_hparams.DecoderHParams = decoder_hparams.DecoderHParams()
   include_prefix_in_result: bool = False
@@ -96,6 +98,7 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
     model_method_name: The name of the method to call to extract embeddings from
       an input image.  Required.
   """
+
   max_input_seq_len: int = 0
   output_embedding_name: Optional[str] = None
   model_method_name: Optional[str] = None
@@ -112,6 +115,7 @@ class GradientHParams(servable_model_params.ServableMethodParams):
     mdl_vars_tensors_names: tensors to take gradients with respect to in
       mdl_vars.
   """
+
   max_input_seq_len: int = 0
   include_eos_score: bool = False
   inputs_tensor_names: Optional[List[str]] = None
@@ -119,7 +123,8 @@ class GradientHParams(servable_model_params.ServableMethodParams):
 
 
 class ServableLMModelParams(
-    servable_model_params.ServableModelParams, metaclass=abc.ABCMeta):
+    servable_model_params.ServableModelParams, metaclass=abc.ABCMeta
+):
   """A base class that each LM model config needs to implement for serving."""
 
   @abc.abstractmethod
@@ -193,8 +198,9 @@ class ServableLMMethod(servable_model.ServableMethod):
         unpadded_shape_str, self._dummy_bucket_key
     )
 
-  def get_unpadded_shape(self, unpadded_batch_size,
-                         inputs: HostTensors) -> InputShapeInfo:
+  def get_unpadded_shape(
+      self, unpadded_batch_size, inputs: HostTensors
+  ) -> InputShapeInfo:
     return InputShapeInfo(
         unpadded_batch_size,
         servable_lm_common.get_max_seq_len_in_batch(
@@ -202,8 +208,9 @@ class ServableLMMethod(servable_model.ServableMethod):
         ),
     )
 
-  def get_padded_input_shape(self,
-                             unpadded_shape: InputShapeInfo) -> InputShapeInfo:
+  def get_padded_input_shape(
+      self, unpadded_shape: InputShapeInfo
+  ) -> InputShapeInfo:
     """Get padded input shape.
 
     Args:
@@ -225,8 +232,9 @@ class ServableLMMethod(servable_model.ServableMethod):
 
   def get_dummy_inputs(self, input_shape: InputShapeInfo) -> HostTensors:
     """Returns host tensors with dummy data at a batch size."""
-    batched_input = self.pre_processing([self._dummy_input_sample] *
-                                        input_shape.batch_size)
+    batched_input = self.pre_processing(
+        [self._dummy_input_sample] * input_shape.batch_size
+    )
 
     return servable_lm_common.handle_host_input_with_input_shape(
         batched_input, input_shape
@@ -261,16 +269,18 @@ class ServableLMMethod(servable_model.ServableMethod):
   def _get_longest_seqlen(self, inputs: NestedNpTensor) -> int:
     """Gets the longest sequence length in a batch."""
     if 'paddings' in inputs:
-      prefix_lengths = np.sum(
-          1.0 - inputs['paddings'], axis=-1).astype(np.int32)  # pytype: disable=attribute-error
+      prefix_lengths = np.sum(1.0 - inputs['paddings'], axis=-1).astype(
+          np.int32
+      )  # pytype: disable=attribute-error
       return np.max(prefix_lengths).item()
     return inputs['ids'].shape[1]
 
   def get_unpadded_branch_key(self, inputs: NestedNpTensor) -> int:
     return self._get_longest_seqlen(inputs)
 
-  def get_branch_inputs(self, inputs: NestedJTensor,
-                        branch_key: int) -> NestedJTensor:
+  def get_branch_inputs(
+      self, inputs: NestedJTensor, branch_key: int
+  ) -> NestedJTensor:
     """Returns the inputs for a branch key.
 
     Args:
@@ -300,13 +310,15 @@ class ServableLMMethod(servable_model.ServableMethod):
     """Gets the sequence dim in the output result."""
     raise NotImplementedError('output_seq_dim not implemented')
 
-  def extra_pad_result(self, result: NestedJTensor,
-                       branch_key: int) -> NestedJTensor:
+  def extra_pad_result(
+      self, result: NestedJTensor, branch_key: int
+  ) -> NestedJTensor:
     """Special paddings for some tensors."""
     return result
 
-  def pad_result(self, result: NestedJTensor, pad_len: int,
-                 seq_dim: int) -> NestedJTensor:
+  def pad_result(
+      self, result: NestedJTensor, pad_len: int, seq_dim: int
+  ) -> NestedJTensor:
     """Pads the result at sequence dimension."""
 
     def _pad_fn(x):
@@ -319,14 +331,16 @@ class ServableLMMethod(servable_model.ServableMethod):
 
     return jax.tree_map(_pad_fn, result)
 
-  def post_process_branch_outputs(self, outputs: NestedJTensor,
-                                  branch_key: int) -> NestedJTensor:
+  def post_process_branch_outputs(
+      self, outputs: NestedJTensor, branch_key: int
+  ) -> NestedJTensor:
     """Post process branch outputs."""
     seqlen = branch_key
     maxlen = self.get_maxlen()
     result, state = outputs
-    padded_result = self.pad_result(result, maxlen - seqlen,
-                                    self.output_seq_dim())
+    padded_result = self.pad_result(
+        result, maxlen - seqlen, self.output_seq_dim()
+    )
     padded_result = self.extra_pad_result(padded_result, branch_key)
     padded_state = self.pad_result(state, maxlen - seqlen, 1)
     return padded_result, padded_state
@@ -355,13 +369,15 @@ class ServableLMMethod(servable_model.ServableMethod):
 class LMScoreMethod(ServableLMMethod):
   """Implements the score method of an LM."""
 
-  def __init__(self,
-               model: base_model.BaseModel,
-               model_state: servable_model.ServableModelState,
-               prng_key: PRNGKey,
-               score_params: ScoreHParams,
-               tokenizer_p: Any,
-               exportable: bool = False):
+  def __init__(
+      self,
+      model: base_model.BaseModel,
+      model_state: servable_model.ServableModelState,
+      prng_key: PRNGKey,
+      score_params: ScoreHParams,
+      tokenizer_p: Any,
+      exportable: bool = False,
+  ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._score_params = score_params
     dummy_input_sample = ('', [''])
@@ -378,10 +394,12 @@ class LMScoreMethod(ServableLMMethod):
         score_params,
         prng_key,
         dummy_input_sample,
-        exportable=exportable)
+        exportable=exportable,
+    )
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     if 'scores' in model_fn_outputs[0]:
       # Custom scores.
       return model_fn_outputs[0]['scores']
@@ -396,19 +414,23 @@ class LMScoreMethod(ServableLMMethod):
     assert xnent_len == model_fn_inputs.ids.shape[1]  # pytype: disable=attribute-error  # jax-ndarray
     per_token_logprobs = -model_fn_outputs[0].per_token_xent  # pytype: disable=attribute-error  # jax-ndarray
     non_paddings = 1.0 - model_fn_inputs.paddings  # pytype: disable=attribute-error  # jax-ndarray
-    if (not self._score_params.include_eos_score and
-        self._tokenizer.hparams.append_eos):
+    if (
+        not self._score_params.include_eos_score
+        and self._tokenizer.hparams.append_eos
+    ):
       non_paddings = jnp.pad(
           # TODO(b/263808957): change back to non_paddings[:, 1:] once the bug
           # is fixed.
           jax.lax.dynamic_slice_in_dim(
-              non_paddings, 1, non_paddings.shape[1] - 1, axis=1),
+              non_paddings, 1, non_paddings.shape[1] - 1, axis=1
+          ),
           [[0, 0], [0, 1]],
       )
     return jnp.sum(
         per_token_logprobs * model_fn_inputs.score_masks * non_paddings,  # pytype: disable=attribute-error  # jax-ndarray
         axis=-1,
-        keepdims=True)
+        keepdims=True,
+    )
 
   def get_maxlen(self) -> int:
     return (
@@ -419,12 +441,12 @@ class LMScoreMethod(ServableLMMethod):
   def output_seq_dim(self) -> int:
     return 1
 
-  def pre_processing(self,
-                     raw_inputs: List[Tuple[str, List[str]]]) -> NestedNpTensor:
+  def pre_processing(
+      self, raw_inputs: List[Tuple[str, List[str]]]
+  ) -> NestedNpTensor:
     prefixes = np.array([prefix for prefix, _ in raw_inputs])
     for _, suffix in raw_inputs:
-      assert len(suffix) <= 1, (
-          'Only one suffix score is supported in lm.score')
+      assert len(suffix) <= 1, 'Only one suffix score is supported in lm.score'
     suffixes = np.array([suffix[0] for _, suffix in raw_inputs])
     return self._tf_sess_pre_processing(prefixes, suffixes)
 
@@ -486,7 +508,8 @@ class LMScoreMethod(ServableLMMethod):
     return preprocessed
 
   def tf_post_processing(
-      self, compute_outputs: NestedNpOrTfTensor) -> NestedNpOrTfTensor:
+      self, compute_outputs: NestedNpOrTfTensor
+  ) -> NestedNpOrTfTensor:
     """Implements `ExportableToSavedModel.tf_post_processing`."""
     return {'scores': compute_outputs}
 
@@ -534,7 +557,8 @@ class LMDecodeMethod(ServableLMMethod):
         lambda *args: self.tf_pre_processing(*args, bucketize_inputs=False)
     )
     logging.info(
-        'Using np_tf_sess_wrapper on LMDecodeMethod.tf_post_processing')
+        'Using np_tf_sess_wrapper on LMDecodeMethod.tf_post_processing'
+    )
     self._tf_sess_post_processing = np_tf_sess_wrapper.wrap_tf_session(
         # pylint: disable=g-long-lambda
         lambda *args: decode_tf_post_processing(
@@ -587,8 +611,10 @@ class LMDecodeMethod(ServableLMMethod):
 
       kwargs['result_callback'] = decoder_utils.StreamingResultCallback(
           functools.partial(
-              hcb.id_tap, callback_fn, device_index=self.callback_device_index),
-          interval_steps=self._method_hparams.stream_interval_steps)
+              hcb.id_tap, callback_fn, device_index=self.callback_device_index
+          ),
+          interval_steps=self._method_hparams.stream_interval_steps,
+      )
 
     outputs = self._model.apply(
         mdl_vars,
@@ -612,8 +638,9 @@ class LMDecodeMethod(ServableLMMethod):
   def streamable(self) -> bool:
     return self._streamable
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     return servable_lm_common.decode_fetch_output(
         model_fn_outputs,
         model_fn_inputs,
@@ -631,8 +658,9 @@ class LMDecodeMethod(ServableLMMethod):
   def output_seq_dim(self) -> int:
     return 2
 
-  def extra_pad_result(self, result: NestedJTensor,
-                       branch_key: int) -> NestedJTensor:
+  def extra_pad_result(
+      self, result: NestedJTensor, branch_key: int
+  ) -> NestedJTensor:
     """Extra pad result from decoding."""
     seqlen = branch_key
 
@@ -646,17 +674,18 @@ class LMDecodeMethod(ServableLMMethod):
     return tuple([_pad_fn(sub_result) for sub_result in result])
 
   def post_processing(
-      self,
-      compute_outputs: NestedNpTensor) -> List[Tuple[List[str], List[float]]]:
+      self, compute_outputs: NestedNpTensor
+  ) -> List[Tuple[List[str], List[float]]]:
     # A list of results for the inputs. Each element has multiple samples from
     # the decoding algorithm, which has a list of strings and a list of scores.
     post_processed = self._tf_sess_post_processing(compute_outputs)
     # post_processed = self.tf_post_processing(compute_outputs)
     batched_decoded = post_processed['topk_decoded']
     batched_scores = post_processed['topk_scores']
-    return [([d.decode()
-              for d in decoded], list(scores))
-            for decoded, scores in zip(batched_decoded, batched_scores)]
+    return [
+        ([d.decode() for d in decoded], list(scores))
+        for decoded, scores in zip(batched_decoded, batched_scores)
+    ]
 
   def post_processing_stream(
       self,
@@ -696,21 +725,26 @@ class LMDecodeMethod(ServableLMMethod):
     if 'suffix_prompt_lengths' in result and 'suffix_lengths' in result:
       # Get scores for suffix rating ids.
       is_valid_output = np_op.logical_and(
-          np_op.arange(result.output_ids.shape[-1]) >=
-          result.decode_lengths[:, :, None] +
-          result.suffix_prompt_lengths[:, :, None] - 1,
-          np_op.arange(
-              result.output_ids.shape[-1]) < result.decode_lengths[:, :, None] +
-          result.suffix_lengths[:, :, None] - 1)
+          np_op.arange(result.output_ids.shape[-1])
+          >= result.decode_lengths[:, :, None]
+          + result.suffix_prompt_lengths[:, :, None]
+          - 1,
+          np_op.arange(result.output_ids.shape[-1])
+          < result.decode_lengths[:, :, None]
+          + result.suffix_lengths[:, :, None]
+          - 1,
+      )
     else:
       is_valid_output = np_op.logical_and(
-          np_op.arange(result.output_ids.shape[-1]) >=
-          result.prefix_lengths[:, None, None],
-          np_op.arange(
-              result.output_ids.shape[-1]) < result.decode_lengths[:, :, None])
+          np_op.arange(result.output_ids.shape[-1])
+          >= result.prefix_lengths[:, None, None],
+          np_op.arange(result.output_ids.shape[-1])
+          < result.decode_lengths[:, :, None],
+      )
     # [batch_size, num_samples, seqlen]
-    scores = np_op.where(is_valid_output, result.logprobs,
-                         np_op.zeros_like(result.logprobs))
+    scores = np_op.where(
+        is_valid_output, result.logprobs, np_op.zeros_like(result.logprobs)
+    )
     # Scores are computed by excluding the prefix and padding.
     # [batch_size, num_samples]
     return np_op.sum(scores, axis=-1)
@@ -753,13 +787,15 @@ class LMDecodeMethod(ServableLMMethod):
       target_length = self._method_hparams.decoder.seqlen
       preprocessed = py_utils.NestedMap(
           encoder_input_tokens=ids,
-          decoder_input_tokens=tf.ones((batch_size, target_length)))
+          decoder_input_tokens=tf.ones((batch_size, target_length)),
+      )
     else:
       preprocessed = py_utils.NestedMap(
           ids=ids,
           paddings=paddings,
           prefix_lengths=tf.cast(prefix_lengths, tf.int32),
-          weights=weights)
+          weights=weights,
+      )
 
     if bucketize_inputs:
       preprocessed = servable_lm_common.bucketize_tokenized_inputs(
@@ -772,7 +808,8 @@ class LMDecodeMethod(ServableLMMethod):
     return preprocessed
 
   def tf_post_processing(
-      self, compute_outputs: NestedNpOrTfTensor) -> NestedNpOrTfTensor:
+      self, compute_outputs: NestedNpOrTfTensor
+  ) -> NestedNpOrTfTensor:
     """Post-process the outputs using TF ops.
 
     This also implements `ExportableToSavedModel.tf_post_processing`.
@@ -811,36 +848,52 @@ class LMDecodeMethod(ServableLMMethod):
 class TextToEmbedding(servable_model.ServableMethod):
   """Implements text embedding method."""
 
-  def __init__(self, model: base_model.BaseModel, model_fn_name: str,
-               model_state: servable_model.ServableModelState,
-               method_hparams: TextToEmbeddingHParams, prng_key: PRNGKey,
-               dummy_input_sample: Any, model_config: Any):
+  def __init__(
+      self,
+      model: base_model.BaseModel,
+      model_fn_name: str,
+      model_state: servable_model.ServableModelState,
+      method_hparams: TextToEmbeddingHParams,
+      prng_key: PRNGKey,
+      dummy_input_sample: Any,
+      model_config: Any,
+  ):
     self._model_config = model_config
     self._model_config.init_for_serving()
     self._max_length = method_hparams.max_input_seq_len
     self._embedding_name = method_hparams.output_embedding_name
-    super().__init__(model, model_fn_name, model_state, method_hparams,
-                     prng_key, dummy_input_sample)
+    super().__init__(
+        model,
+        model_fn_name,
+        model_state,
+        method_hparams,
+        prng_key,
+        dummy_input_sample,
+    )
 
   @classmethod
   def service_id(cls) -> str:
     return lm_service.SERVICE_ID
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
     return py_utils.NestedMap(
-        text_embedding=model_fn_outputs[0][self._embedding_name],)
+        text_embedding=model_fn_outputs[0][self._embedding_name],
+    )
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
     ids, labels, weights, paddings = self._model_config.tokenize(
-        np.array(raw_inputs), self._max_length)
+        np.array(raw_inputs), self._max_length
+    )
     return py_utils.NestedMap(
         ids=np.array(ids),
         labels=np.array(labels),
         weights=np.array(weights),
-        paddings=np.array(paddings))
+        paddings=np.array(paddings),
+    )
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
@@ -850,19 +903,22 @@ class TextToEmbedding(servable_model.ServableMethod):
 class LMGradientMethod(ServableLMMethod):
   """Implements the gradient method of LM."""
 
-  def __init__(self,
-               model: base_model.BaseModel,
-               model_state: servable_model.ServableModelState,
-               prng_key: PRNGKey,
-               gradient_params: GradientHParams,
-               tokenizer_p: Any,
-               exportable: bool = False):
+  def __init__(
+      self,
+      model: base_model.BaseModel,
+      model_state: servable_model.ServableModelState,
+      prng_key: PRNGKey,
+      gradient_params: GradientHParams,
+      tokenizer_p: Any,
+      exportable: bool = False,
+  ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._gradient_params = gradient_params
     self._delimiter = '/'
     dummy_input_sample = ('', '')
-    logging.info('Using np_tf_sess_wrapper on '
-                 'LMGradientMethod.tf_pre_processing')
+    logging.info(
+        'Using np_tf_sess_wrapper on LMGradientMethod.tf_pre_processing'
+    )
     self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
         # `bucketize_inputs` is only used in SavedModel export. The sax-native
         # serving has an equivalent bucketization after `pre_processing`.
@@ -875,12 +931,12 @@ class LMGradientMethod(ServableLMMethod):
         gradient_params,
         prng_key,
         dummy_input_sample,
-        exportable=exportable)
+        exportable=exportable,
+    )
 
-  def call_model_function(self,
-                          inputs: NestedJTensor,
-                          mdl_vars: NestedJTensor,
-                          prng_key: PRNGKey) -> NestedJTensor:
+  def call_model_function(
+      self, inputs: NestedJTensor, mdl_vars: NestedJTensor, prng_key: PRNGKey
+  ) -> NestedJTensor:
     tensors_to_take_gradients = {
         'inputs': {},
         'mdl_vars': {},
@@ -896,9 +952,11 @@ class LMGradientMethod(ServableLMMethod):
         else {}
     )
     split_inputs_tensor_names = {
-        name: name.split(self._delimiter) for name in inputs_tensor_names}
+        name: name.split(self._delimiter) for name in inputs_tensor_names
+    }
     split_mdl_vars_tensor_names = {
-        name: name.split(self._delimiter) for name in mdl_vars_tensor_names}
+        name: name.split(self._delimiter) for name in mdl_vars_tensor_names
+    }
 
     def fetch(tree, keys):
       for key in keys:
@@ -931,16 +989,18 @@ class LMGradientMethod(ServableLMMethod):
         insert(mdl_vars_no_grad, split_mdl_vars_tensor_names[k], v)
       outputs = call_fn(inputs_no_grad, mdl_vars_no_grad, prng_key)
       return outputs[0][0]['total_loss'][0], outputs
-    compute_gradient_fn = jax.value_and_grad(
-        forward_fn, has_aux=True)
+
+    compute_gradient_fn = jax.value_and_grad(forward_fn, has_aux=True)
     (_, outputs), grads = compute_gradient_fn(
-        tensors_to_take_gradients, inputs, mdl_vars)
+        tensors_to_take_gradients, inputs, mdl_vars
+    )
     outputs = (outputs[0], outputs[1])  # 1 is for mutable.
     outputs[0][0]['gradients'] = grads
     return outputs
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     # fetch loss and gradients from the model output
     metrics, per_example_output = model_fn_outputs[0]
     output = dict(scores=per_example_output['scores'])
@@ -957,16 +1017,17 @@ class LMGradientMethod(ServableLMMethod):
   def output_seq_dim(self) -> int:
     return 1
 
-  def pre_processing(self,
-                     raw_inputs: List[Tuple[str, str]]) -> NestedNpTensor:
+  def pre_processing(self, raw_inputs: List[Tuple[str, str]]) -> NestedNpTensor:
     prefixes = np.array([prefix for prefix, _ in raw_inputs])
     suffixes = np.array([suffix for _, suffix in raw_inputs])
     return self._tf_sess_pre_processing(prefixes, suffixes)
 
   def post_processing(
-      self, compute_outputs: NestedNpTensor) -> List[Dict[str, List[float]]]:
+      self, compute_outputs: NestedNpTensor
+  ) -> List[Dict[str, List[float]]]:
     flattened_outputs = jax.tree_util.tree_map(
-        lambda x: x.flatten().tolist(), compute_outputs)
+        lambda x: x.flatten().tolist(), compute_outputs
+    )
 
     return [flattened_outputs]  # The extra list is to just conform to base api.
 
@@ -1056,10 +1117,14 @@ class ServableLMModel(servable_model.ServableModel):
   This class is responsible for model loading, batch padding, etc.
   """
 
-  def init_method(self, method: str, model: base_model.BaseModel,
-                  model_state: servable_model.ServableModelState,
-                  method_params: servable_model_params.ServableMethodParams,
-                  prng_key: PRNGKey) -> servable_model.ServableMethod:
+  def init_method(
+      self,
+      method: str,
+      model: base_model.BaseModel,
+      model_state: servable_model.ServableModelState,
+      method_params: servable_model_params.ServableMethodParams,
+      prng_key: PRNGKey,
+  ) -> servable_model.ServableMethod:
     assert isinstance(self.model_config, ServableLMModelParams)
     tokenizer_p = self.model_config.serving_tokenizer()
     if method == LMMethodName.SCORE:
@@ -1070,7 +1135,8 @@ class ServableLMModel(servable_model.ServableModel):
           prng_key,
           method_params,
           tokenizer_p,
-          exportable=True)
+          exportable=True,
+      )
     elif method == LMMethodName.GENERATE:
       assert isinstance(method_params, DecodeHParams)
       return LMDecodeMethod(
@@ -1079,7 +1145,8 @@ class ServableLMModel(servable_model.ServableModel):
           prng_key,
           method_params,
           tokenizer_p,
-          exportable=True)
+          exportable=True,
+      )
     elif method == LMMethodName.GENERATE_STREAM:
       assert isinstance(method_params, DecodeHParams)
       return LMDecodeMethod(
@@ -1089,7 +1156,8 @@ class ServableLMModel(servable_model.ServableModel):
           method_params,
           tokenizer_p,
           exportable=False,
-          streamable=True)
+          streamable=True,
+      )
     elif method == LMMethodName.EMBED:
       assert isinstance(method_params, TextToEmbeddingHParams)
       assert method_params.output_embedding_name is not None
@@ -1118,7 +1186,7 @@ class ServableLMModel(servable_model.ServableModel):
           prng_key,
           method_params,
           tokenizer_p,
-          exportable=True
+          exportable=True,
       )
     else:
       raise NotImplementedError(f'method {method} not implemented')
@@ -1128,9 +1196,10 @@ class ServableLMModel(servable_model.ServableModel):
       return True
     for method in list(self.methods.values()):
       has_multiple_seq_lens = (
-          hasattr(method, 'sorted_seq_lens') and
-          method.sorted_seq_lens is not None and
-          len(method.sorted_seq_lens) > 1)
+          hasattr(method, 'sorted_seq_lens')
+          and method.sorted_seq_lens is not None
+          and len(method.sorted_seq_lens) > 1
+      )
       if has_multiple_seq_lens:
         return False
     return True

@@ -25,6 +25,7 @@ from jax.experimental import pjit
 @dataclasses.dataclass
 class SerializedPjitFunction:
   """Represents a single serializable function with fixed shapes."""
+
   # Serializable IR for the device computation.
   ir: Any
   # Abstract arrays for the flattend inputs.
@@ -86,11 +87,13 @@ def serialize_pjittable_function(
       flat_global_out_avals=global_out_avals,
       tuple_args=tuple_args,
       flat_in_op_shardings=flat_in_shardings,
-      out_tree=lowered.out_tree)
+      out_tree=lowered.out_tree,
+  )
 
 
-def deserialize_pjitted_function(serialized: SerializedPjitFunction,
-                                 mesh: jax.sharding.Mesh) -> Callable[..., Any]:
+def deserialize_pjitted_function(
+    serialized: SerializedPjitFunction, mesh: jax.sharding.Mesh
+) -> Callable[..., Any]:
   """Converts a SerializedPjitFunction to a callable compiled function.
 
   Args:
@@ -105,7 +108,8 @@ def deserialize_pjitted_function(serialized: SerializedPjitFunction,
     backend = devices[0].client
     in_shardings = (
         jax.sharding.OpShardingSharding(devices, s)
-        for s in serialized.flat_in_op_shardings)
+        for s in serialized.flat_in_op_shardings
+    )
     rep_sharding = xc.OpSharding()
     rep_sharding.type = xc.OpSharding.Type.REPLICATED
     num_ins = len(serialized.flat_in_op_shardings)
@@ -114,7 +118,8 @@ def deserialize_pjitted_function(serialized: SerializedPjitFunction,
     mc = jax.pxla.MeshComputation(
         'step_fn',
         serialized.ir,
-        False, (False,) * num_ins,
+        False,
+        (False,) * num_ins,
         in_shardings=in_shardings,
         out_shardings=(rep_sharding,) * num_outs,
         global_in_avals=serialized.flat_global_in_avals,
@@ -131,7 +136,8 @@ def deserialize_pjitted_function(serialized: SerializedPjitFunction,
         mesh=None,
         backend=backend,
         device_assignment=devices,
-        committed=True)
+        committed=True,
+    )
 
     compiled = mc.compile()
 

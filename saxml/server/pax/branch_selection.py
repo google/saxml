@@ -51,5 +51,5 @@ class BranchSelector(object):
 
   def get_branch_index_tf(self, key: tf.Tensor) -> tf.Tensor:
     return tf.math.minimum(
-        tf.searchsorted(self._keys, [key])[0],
-        len(self._keys) - 1)
+        tf.searchsorted(self._keys, [key])[0], len(self._keys) - 1
+    )

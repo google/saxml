@@ -31,8 +31,8 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
     """Associated hyper-params for the tokenizer.
 
     Attributes:
-      append_eos: Whether to append </s> at the end and treat it as a
-        non-padded label, always set to True.
+      append_eos: Whether to append </s> at the end and treat it as a non-padded
+        label, always set to True.
       spm_model: File name for a sentencepiece model.
       target_sos_id: Start of sentence id.
       target_eos_id: End of sentence id.
@@ -43,6 +43,7 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
         removed by sentencepiece; after decoding the step, it will be removed
         from the string result. It must be a regular token in the vocabulary.
     """
+
     append_eos: bool = True
     spm_model: str = None
     target_sos_id: int = 0
@@ -55,8 +56,9 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
     assert hparams.append_eos
     self._vocab = seqio.SentencePieceVocabulary(self.hparams.spm_model, 0)
 
-  def StringsToIds(self, strs: tf.Tensor,
-                   max_length: int) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
+  def StringsToIds(
+      self, strs: tf.Tensor, max_length: int
+  ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
     """Tokenizes strs into vocab ids.
 
     Args:
@@ -78,9 +80,9 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
     # labels is a ragged Tensor.
     labels = self._vocab.tf_tokenizer.tokenize(strs)
     if p.slice_left:
-      labels = labels[:, :max_length - 1]
+      labels = labels[:, : max_length - 1]
     else:
-      labels = labels[:, -(max_length - 1):]
+      labels = labels[:, -(max_length - 1) :]
 
     sos_ids = tf.fill([batch, 1], tf.constant(p.target_sos_id, dtype=tf.int32))
     ids = tf.concat([sos_ids, labels], axis=1)
@@ -110,12 +112,15 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
 
     # Calculate paddings for each example based on eos_id locations.
     eos_indices = tf.argmax(
-        tf.equal(labels, p.target_eos_id), axis=1, output_type=tf.int32)
+        tf.equal(labels, p.target_eos_id), axis=1, output_type=tf.int32
+    )
     eos_indices = tf.stack([eos_indices] * max_length, axis=1)
     indices = tf.repeat([tf.range(max_length)], batch, axis=0)
-    paddings = tf.where(indices <= eos_indices,
-                        tf.zeros_like(indices, tf.float32),
-                        tf.ones_like(indices, tf.float32))
+    paddings = tf.where(
+        indices <= eos_indices,
+        tf.zeros_like(indices, tf.float32),
+        tf.ones_like(indices, tf.float32),
+    )
 
     return ids, labels, paddings
 
@@ -202,22 +207,28 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
         tf.cast(
             tf.equal(
                 tf.cumsum(1 - tf.cast(is_byte, tf.int32), axis=1, reverse=True),
-                0), tf.int32),
-        axis=1)
+                0,
+            ),
+            tf.int32,
+        ),
+        axis=1,
+    )
     without_trailing_bytes = tf.RaggedTensor.from_tensor(
-        new_ids, new_seqlen - trailing_byte_count)
+        new_ids, new_seqlen - trailing_byte_count
+    )
     is_all_bytes = tf.equal(trailing_byte_count, new_seqlen)
 
     # Add a fake prefix to preserve leading whitespace if earlier prefix was
     # generated.
     fake_prefix_str = p.streaming_whitespace_preserving_prefix
-    fake_prefix = self._vocab.tf_tokenizer.tokenize([fake_prefix_str
-                                                    ]).to_tensor()
+    fake_prefix = self._vocab.tf_tokenizer.tokenize(
+        [fake_prefix_str]
+    ).to_tensor()
     fake_prefix = tf.repeat(fake_prefix, b, axis=0)
     fake_prefix_len = tf.fill([b], tf.shape(fake_prefix)[1])
-    fake_prefix_str_len = tf.fill([b],
-                                  tf.constant(
-                                      len(fake_prefix_str), dtype=tf.int32))
+    fake_prefix_str_len = tf.fill(
+        [b], tf.constant(len(fake_prefix_str), dtype=tf.int32)
+    )
     fake_prefix_len = tf.where(started, fake_prefix_len, 0)
     fake_prefix_str_len = tf.where(started, fake_prefix_str_len, 0)
     fake_prefix = tf.RaggedTensor.from_tensor(fake_prefix, fake_prefix_len)
@@ -232,14 +243,16 @@ class LMTokenizer(base_hyperparams.BaseParameterizable):
     )
     new_strs = self._vocab.tf_tokenizer.detokenize(to_process)
     # Remove fake prefix.
-    new_strs = tf.strings.substr(new_strs, fake_prefix_str_len, tf.fill([b],
-                                                                        -1))
+    new_strs = tf.strings.substr(
+        new_strs, fake_prefix_str_len, tf.fill([b], -1)
+    )
     new_strs = tf.where(is_all_bytes, tf.constant(''), new_strs)
 
     new_started = tf.logical_or(started, tf.strings.length(new_strs) > 0)
 
     trailing_bytes = tf.RaggedTensor.from_tensor(
-        tf.reverse(new_ids, axis=[1]), trailing_byte_count)
+        tf.reverse(new_ids, axis=[1]), trailing_byte_count
+    )
     trailing_bytes = tf.reverse(trailing_bytes, axis=[1])
 
     remaining_prefix_len = tf.where(is_all_bytes, unprocessed_prefix_len, 0)

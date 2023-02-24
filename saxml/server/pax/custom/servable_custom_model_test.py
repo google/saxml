@@ -58,7 +58,8 @@ class TestModel(base_model.BaseModel):
         init=base_layer.WeightInit.Constant(1),
         dtype=jnp.int32,
         mesh_shape=[1, 1, 1],
-        tensor_split_dims_mapping=(-1,))
+        tensor_split_dims_mapping=(-1,),
+    )
     self.create_variable('b', var_hparams=var_p, trainable=True)
     return self.test_method(input_batch)
 
@@ -82,14 +83,16 @@ class TestExpt(base_experiment.BaseExperiment):
     lrs = [1, 0.1]
     boundaries = [10, 100]
     return schedules.LinearRampupPiecewiseConstant.HParams(
-        boundaries=boundaries, values=lrs)
+        boundaries=boundaries, values=lrs
+    )
 
   def datasets(self) -> List[base_input.BaseInput.HParams]:
     """Returns a list of dataset parameters."""
     pass
 
   def get_input_specs_provider_params(
-      self) -> base_input.BaseInputSpecsProvider.HParams:
+      self,
+  ) -> base_input.BaseInputSpecsProvider.HParams:
     pass
 
   def task(self) -> tasks_lib.SingleTask.HParams:
@@ -110,8 +113,9 @@ class TestCustomCall:
   def get_fetch_output_fn(self) -> servable_custom_model.FetchOutputFn:
     """Gets fetch_output_fn."""
 
-    def fetch_output(model_fn_outputs: NestedJTensor,
-                     model_fn_inputs: NestedJTensor) -> NestedJTensor:
+    def fetch_output(
+        model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+    ) -> NestedJTensor:
       del model_fn_inputs
       outs, custom_state = model_fn_outputs[0]
       return outs.plus_one, custom_state
@@ -121,8 +125,9 @@ class TestCustomCall:
   def get_pre_process_fn(self) -> servable_custom_model.PreProcessingFn:
     """Gets pre_process_fn."""
 
-    def pre_process(raw_inputs: List[str],
-                    method_state: List[List[int]]) -> NestedNpTensor:
+    def pre_process(
+        raw_inputs: List[str], method_state: List[List[int]]
+    ) -> NestedNpTensor:
       nums = [int(raw_input) for raw_input in raw_inputs]
       nums = np.array(nums, dtype=np.int32)
       method_state.append([len(method_state)] * len(raw_inputs))
@@ -133,8 +138,9 @@ class TestCustomCall:
   def get_post_process_fn(self) -> servable_custom_model.PostProcessingFn:
     """Gets post_process_fn."""
 
-    def post_process(compute_outputs: NestedNpTensor,
-                     method_state: List[List[int]]) -> List[str]:
+    def post_process(
+        compute_outputs: NestedNpTensor, method_state: List[List[int]]
+    ) -> List[str]:
       logging.info('compute_outputs: %s', compute_outputs)
       method_state.pop()
       return [str(compute_output) for compute_output in compute_outputs]
@@ -153,7 +159,6 @@ class TestCustomCall:
     return create_init_state_fn
 
   def get_call_model_fn(self) -> servable_custom_model.CallModelFn:
-
     def call_model_fn(model, inputs, mdl_vars, prng_key, method_state):
       k1, k2 = prng_key
       outputs, updated_vars = model.apply(
@@ -175,9 +180,11 @@ class TestCustomCall:
     return call_model_fn
 
 
-class TestServableModel(TestExpt,
-                        servable_custom_model.ServableCustomModelParams):
+class TestServableModel(
+    TestExpt, servable_custom_model.ServableCustomModelParams
+):
   """SPMD model with small params."""
+
   ICI_MESH_SHAPE = [1, 1, 1]
   BATCH_SIZE = 4
 
@@ -195,15 +202,17 @@ class TestServableModel(TestExpt,
         pre_process_fn=custom_call_wrapper.get_pre_process_fn(),
         post_process_fn=custom_call_wrapper.get_post_process_fn(),
         create_init_state_fn=custom_call_wrapper.get_create_init_state_fn(),
-        call_model_fn=custom_call_wrapper.get_call_model_fn())
+        call_model_fn=custom_call_wrapper.get_call_model_fn(),
+    )
     return {
         'test_call': custom_call_hparams,
-        'test_another_call': custom_call_hparams
+        'test_another_call': custom_call_hparams,
     }
 
   def input_for_model_init(self):
     input_batch = py_utils.NestedMap(
-        nums=jnp.zeros((self.BATCH_SIZE,), jnp.int32))
+        nums=jnp.zeros((self.BATCH_SIZE,), jnp.int32)
+    )
     return input_batch
 
 
@@ -227,7 +236,8 @@ class ServableCustomModelTest(test_utils.TestCase):
     self.assertLen(custom_call_result, 2)
 
     custom_call_result = model.method('test_another_call').compute(
-        ['10', '112'])
+        ['10', '112']
+    )
     logging.info('custom_call_result: %s', custom_call_result)
     self.assertLen(custom_call_result, 2)
 

@@ -55,7 +55,7 @@ def get_aliases(full_model_name: str) -> List[str]:
   paths = []
   prefix = REGISTRY_ROOT + '.'
   if full_model_name.startswith(prefix):
-    full_model_name = full_model_name[len(prefix):]
+    full_model_name = full_model_name[len(prefix) :]
     paths.append(full_model_name)
   return paths
 
@@ -87,8 +87,10 @@ def _get_full_model_name_from_alias(alias: str) -> Optional[str]:
 
 def get(model_name: str) -> Optional[ServableModelParamsT]:
   """Returns a model with the name."""
-  if (MODEL_FILTER_REGEX is not None and
-      MODEL_FILTER_REGEX.fullmatch(model_name) is None):
+  if (
+      MODEL_FILTER_REGEX is not None
+      and MODEL_FILTER_REGEX.fullmatch(model_name) is None
+  ):
     # Filtered.
     return None
   maybe_params = _registry.get(model_name)

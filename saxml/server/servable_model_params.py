@@ -59,8 +59,13 @@ class ServableModelParams(metaclass=abc.ABCMeta):
     """Returns OK status if the current platform supports this model."""
 
   @abc.abstractmethod
-  def load(self, model_key: str, checkpoint_path: str, primary_process_id: int,
-           prng_key: int) -> Any:
+  def load(
+      self,
+      model_key: str,
+      checkpoint_path: str,
+      primary_process_id: int,
+      prng_key: int,
+  ) -> Any:
     """Loads and returns the ServableModel."""
 
   @abc.abstractmethod

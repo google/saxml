@@ -31,9 +31,11 @@ def _CreateParams():
       spm_model=os.path.join(
           FLAGS.test_srcdir,
           'google3/learning/multipod/sax/server/lm/test_data',
-          'meena_0611.32000.model'),
+          'meena_0611.32000.model',
+      ),
       target_sos_id=0,
-      target_eos_id=1)
+      target_eos_id=1,
+  )
   return p
 
 
@@ -47,9 +49,11 @@ class LMTokenizerTest(tf.test.TestCase, parameterized.TestCase):
     ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
     self.assertAllEqual([[0, 9873, 640, 0, 0], [0, 261, 1242, 3350, 9806]], ids)
     self.assertAllEqual(
-        [[9873, 640, 1, 0, 0], [261, 1242, 3350, 9806, 1]], labels)
-    self.assertAllEqual([[0.0, 0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0, 0.0]],
-                        paddings)
+        [[9873, 640, 1, 0, 0], [261, 1242, 3350, 9806, 1]], labels
+    )
+    self.assertAllEqual(
+        [[0.0, 0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0, 0.0]], paddings
+    )
 
   def testStringsToIdsLongMaxLen(self):
     p = _CreateParams()
@@ -57,12 +61,27 @@ class LMTokenizerTest(tf.test.TestCase, parameterized.TestCase):
     max_length = 8
     strs = ['hello world', 'the quick brown fox jumps']
     ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
-    self.assertAllEqual([[0, 9873, 640, 0, 0, 0, 0, 0],
-                         [0, 261, 1242, 3350, 9806, 11144, 0, 0]], ids)
-    self.assertAllEqual([[9873, 640, 1, 0, 0, 0, 0, 0],
-                         [261, 1242, 3350, 9806, 11144, 1, 0, 0]], labels)
-    self.assertAllEqual([[0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0]], paddings)
+    self.assertAllEqual(
+        [
+            [0, 9873, 640, 0, 0, 0, 0, 0],
+            [0, 261, 1242, 3350, 9806, 11144, 0, 0],
+        ],
+        ids,
+    )
+    self.assertAllEqual(
+        [
+            [9873, 640, 1, 0, 0, 0, 0, 0],
+            [261, 1242, 3350, 9806, 11144, 1, 0, 0],
+        ],
+        labels,
+    )
+    self.assertAllEqual(
+        [
+            [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
+        ],
+        paddings,
+    )
 
   def testStringsToIdsShortMaxLenSliceLeft(self):
     p = _CreateParams()
@@ -88,8 +107,10 @@ class LMTokenizerTest(tf.test.TestCase, parameterized.TestCase):
   def testIdsToStrings(self):
     p = _CreateParams()
     tokenizer = instantiate(p)
-    ids = [[9873, 640, 1, 0, 0, 0, 0, 0, 0, 0],
-           [261, 1242, 3350, 9806, 11144, 1, 0, 0, 0, 0]]
+    ids = [
+        [9873, 640, 1, 0, 0, 0, 0, 0, 0, 0],
+        [261, 1242, 3350, 9806, 11144, 1, 0, 0, 0, 0],
+    ]
     strs = tokenizer.IdsToStrings(ids)
     self.assertEqual([b'hello world', b'the quick brown fox jumps'], list(strs))
 
@@ -117,7 +138,9 @@ class LMTokenizerTest(tf.test.TestCase, parameterized.TestCase):
     byte_ids = list(
         tokenizer._vocab.tf_tokenizer.string_to_id(
             #   g           h           i
-            [b'<0x67>', b'<0x68>', b'<0x69>']))
+            [b'<0x67>', b'<0x68>', b'<0x69>']
+        )
+    )
     state = tokenizer.InitStream(2)
 
     strs, state = tokenizer.DecodeOnStream([[9873], [261]], state)

@@ -22,7 +22,6 @@ import tensorflow as tf
 class TFSessWrapperTest(absltest.TestCase):
 
   def test_simple(self):
-
     def fn(x, y):
       return tf.add(x, y) * x
 
@@ -42,7 +41,6 @@ class TFSessWrapperTest(absltest.TestCase):
     self.assertTrue(np.allclose(ref_out, wrapper_out))
 
   def test_nested(self):
-
     def fn(x, y):
       return {'c': tf.add(x['a'], y) * x['b'], 'd': x['a'] * x['b']}
 
@@ -64,7 +62,6 @@ class TFSessWrapperTest(absltest.TestCase):
     self.assertTrue(np.allclose(ref_out['d'], wrapper_out['d']))
 
   def test_class_member(self):
-
     class _TestClass:
 
       @np_tf_sess_wrapper.wrap_tf_session_class_member

@@ -19,11 +19,13 @@ from typing import Optional
 from saxml.common.python import pybind_location
 
 
-def Join(sax_cell: str,
-         ip_port: str,
-         debug_addr: str,
-         specs: bytes,
-         admin_port: Optional[int] = None) -> None:
+def Join(
+    sax_cell: str,
+    ip_port: str,
+    debug_addr: str,
+    specs: bytes,
+    admin_port: Optional[int] = None,
+) -> None:
   """Join is called by model servers to join the admin server in a SAX cell.
 
   A background address watcher starts running indefinitely on successful calls.
@@ -43,7 +45,11 @@ def Join(sax_cell: str,
     RuntimeError: The caller failed to join the admin server.
   """
   result: str = pybind_location.Join(
-      sax_cell, ip_port, debug_addr, specs,
-      admin_port if admin_port is not None else 0)
+      sax_cell,
+      ip_port,
+      debug_addr,
+      specs,
+      admin_port if admin_port is not None else 0,
+  )
   if result:
     raise RuntimeError(result)

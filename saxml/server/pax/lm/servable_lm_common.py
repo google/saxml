@@ -271,9 +271,7 @@ def score_tf_tokenize_inputs(
     full_lengths = pfx_lengths + sfx_lengths + 1
     pfx_lengths += 1
     sfx_lengths += 1
-    assert (
-        not include_eos
-    ), 'tokenizer cannot append EOS'
+    assert not include_eos, 'tokenizer cannot append EOS'
 
   # Remove SOS from suffix
   sfx_ids = sfx_labels

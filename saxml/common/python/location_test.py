@@ -69,7 +69,8 @@ class LocationTest(absltest.TestCase):
     model_addr = 'localhost:10000'
     specs = admin_pb2.ModelServer()
     location.Join(
-        sax_cell, model_addr, '', specs.SerializeToString(), admin_port=port)
+        sax_cell, model_addr, '', specs.SerializeToString(), admin_port=port
+    )
 
     time.sleep(3)  # wait for the initial Join to happen
     admin_addr = 'localhost:' + str(port)

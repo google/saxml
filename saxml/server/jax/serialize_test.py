@@ -39,8 +39,9 @@ class SerializeTest(absltest.TestCase):
     shape_dtype = jax.ShapeDtypeStruct((8,), jnp.float32)
     pspec = jax.sharding.PartitionSpec('x')
 
-    s = serialize.serialize_pjittable_function(fn, (shape_dtype, shape_dtype),
-                                               (pspec, pspec), mesh)
+    s = serialize.serialize_pjittable_function(
+        fn, (shape_dtype, shape_dtype), (pspec, pspec), mesh
+    )
     des = serialize.deserialize_pjitted_function(s, mesh)
     result = des(in_x, in_y)
     self.assertTrue(np.allclose(result, fn(in_x, in_y)))
@@ -57,13 +58,12 @@ class SerializeTest(absltest.TestCase):
     shape_dtype = jax.ShapeDtypeStruct((8,), jnp.float32)
     pspec = jax.sharding.PartitionSpec('x')
 
-    s = serialize.serialize_pjittable_function(fn, (shape_dtype, {
-        'y': shape_dtype,
-        'z': shape_dtype
-    }), (pspec, {
-        'y': pspec,
-        'z': pspec
-    }), mesh)
+    s = serialize.serialize_pjittable_function(
+        fn,
+        (shape_dtype, {'y': shape_dtype, 'z': shape_dtype}),
+        (pspec, {'y': pspec, 'z': pspec}),
+        mesh,
+    )
     des = serialize.deserialize_pjitted_function(s, mesh)
     result = des(in_x, {'y': in_y, 'z': in_z})
     self.assertTrue(np.allclose(result, fn(in_x, {'y': in_y, 'z': in_z})))

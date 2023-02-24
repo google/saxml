@@ -40,8 +40,9 @@ class SPMDBackend(abc.ABC):
     """Receives data from a sending host via the reliable device network."""
 
   @abc.abstractmethod
-  def receive_via_device_async(self, thread_pool: utils.ThreadPool,
-                               done: Callable[[str], None]) -> None:
+  def receive_via_device_async(
+      self, thread_pool: utils.ThreadPool, done: Callable[[str], None]
+  ) -> None:
     """Receives via device communication, and calls done in a thread pool."""
 
 
@@ -60,6 +61,7 @@ class SingleHostBackend(SPMDBackend):
   def receive_via_device(self) -> str:
     raise NotImplementedError('Multihost support not implemented')
 
-  def receive_via_device_async(self, thread_pool: utils.ThreadPool,
-                               done: Callable[[str], None]) -> None:
+  def receive_via_device_async(
+      self, thread_pool: utils.ThreadPool, done: Callable[[str], None]
+  ) -> None:
     raise NotImplementedError('Multihost support not implemented')

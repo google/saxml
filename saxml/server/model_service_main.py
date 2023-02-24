@@ -29,56 +29,84 @@ from saxml.server import servable_model_registry
 from saxml.server import spmd_backend
 
 _SAX_CELL = flags.DEFINE_string(
-    'sax_cell', None, 'Optional SAX cell of the admin server. '
-    'If set, heartbeat is enabled.')
+    'sax_cell',
+    None,
+    'Optional SAX cell of the admin server. If set, heartbeat is enabled.',
+)
 _MODEL_FILTER_REGEX = flags.DEFINE_string(
-    'model_filter_regex', None,
-    'A regex to filter (full match) models in the registry by their names.')
+    'model_filter_regex',
+    None,
+    'A regex to filter (full match) models in the registry by their names.',
+)
 _ADMIN_PORT = flags.DEFINE_integer(
-    'admin_port', None, 'Optional port for the built-in admin server.')
+    'admin_port', None, 'Optional port for the built-in admin server.'
+)
 
 _PORT = flags.DEFINE_integer(
-    'port', None, 'Port for the RPC service.', required=True)
-_PLATFORM_CHIP = flags.DEFINE_string('platform_chip', None,
-                                     'Optional chip name.')
-_PLATFORM_TOPOLOGY = flags.DEFINE_string('platform_topology', None,
-                                         'Optional topology description.')
+    'port', None, 'Port for the RPC service.', required=True
+)
+_PLATFORM_CHIP = flags.DEFINE_string(
+    'platform_chip', None, 'Optional chip name.'
+)
+_PLATFORM_TOPOLOGY = flags.DEFINE_string(
+    'platform_topology', None, 'Optional topology description.'
+)
 _JAX_PROFILER_PORT = flags.DEFINE_integer(
-    'jax_profiler_port', None,
-    'If set, the jax.profiler port to use. Only needed for profiling in open source.'
+    'jax_profiler_port',
+    None,
+    (
+        'If set, the jax.profiler port to use. Only needed for profiling in'
+        ' open source.'
+    ),
 )
 
 # Internal tuning knobs. Consult sax-dev@ before tweaking these.
-_MODELS = flags.DEFINE_list('models', [],
-                            'Optional model paths to load at startup time.')
+_MODELS = flags.DEFINE_list(
+    'models', [], 'Optional model paths to load at startup time.'
+)
 _MODEL_KEYS = flags.DEFINE_list(
-    'model_keys', [],
-    'Optional keys to identify loaded models at startup time.')
+    'model_keys', [], 'Optional keys to identify loaded models at startup time.'
+)
 _CHECKPOINTS = flags.DEFINE_list(
-    'checkpoints', [], 'Optional model checkpoints to load at startup time.')
+    'checkpoints', [], 'Optional model checkpoints to load at startup time.'
+)
 _DETERMINISTIC_RNG = flags.DEFINE_bool(
-    'deterministic_rng', False,
-    'Whether to use a fixed RNG seed for all models.')
+    'deterministic_rng',
+    False,
+    'Whether to use a fixed RNG seed for all models.',
+)
 _HOST_ORDINAL = flags.DEFINE_integer(
-    'host_ordinal', None, 'Ordinal of the current host in a multi-host setup. '
-    'Host 0 is the worker server that handles requests, and others will run '
-    'the secondary worker loop.')
+    'host_ordinal',
+    None,
+    (
+        'Ordinal of the current host in a multi-host setup. Host 0 is the'
+        ' worker server that handles requests, and others will run the'
+        ' secondary worker loop.'
+    ),
+)
 
 
 @flags.multi_flags_validator(
     ['models', 'model_keys', 'checkpoints'],
-    message='models, model_keys, and checkpoints must have the same length')
+    message='models, model_keys, and checkpoints must have the same length',
+)
 def _check_model_checkpoint_flags(flags_dict):
-  return len(flags_dict['models']) == len(flags_dict['checkpoints']) and (len(
-      flags_dict['models']) == len(flags_dict['model_keys']))
+  return len(flags_dict['models']) == len(flags_dict['checkpoints']) and (
+      len(flags_dict['models']) == len(flags_dict['model_keys'])
+  )
 
 
 def _load_static_model(
-    port, model: str, model_key: str, checkpoint: str,
-    channel_creds: Optional[grpc.ChannelCredentials]) -> None:
+    port,
+    model: str,
+    model_key: str,
+    checkpoint: str,
+    channel_creds: Optional[grpc.ChannelCredentials],
+) -> None:
   """Loads statically specified model to a started service."""
-  logging.info('Loading key %s, model %s, checkpoint %s.', model_key, model,
-               checkpoint)
+  logging.info(
+      'Loading key %s, model %s, checkpoint %s.', model_key, model, checkpoint
+  )
   if channel_creds is None:
     channel = grpc.insecure_channel(f'localhost:{port}')
   else:
@@ -87,7 +115,8 @@ def _load_static_model(
     grpc.channel_ready_future(channel).result(timeout=10)
     stub = modelet_pb2_grpc.ModeletStub(channel)
     req = modelet_pb2.LoadRequest(
-        model_key=model_key, model_path=model, checkpoint_path=checkpoint)
+        model_key=model_key, model_path=model, checkpoint_path=checkpoint
+    )
     stub.Load(req)
 
 
@@ -107,7 +136,8 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
   if _MODEL_FILTER_REGEX.value is not None:
     logging.info('Setting model filter to %s', _MODEL_FILTER_REGEX.value)
     servable_model_registry.MODEL_FILTER_REGEX = re.compile(
-        _MODEL_FILTER_REGEX.value)
+        _MODEL_FILTER_REGEX.value
+    )
   set_up()
   if _HOST_ORDINAL.value is None:
     is_primary = jax.process_index() == 0
@@ -117,6 +147,7 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
 
   if jax.process_count() > 1:
     from saxml.server.jax import jax_spmd_backend  # pylint: disable=g-import-not-at-top
+
     spmd_bknd = jax_spmd_backend.JaxSPMDBackend()
   else:
     spmd_bknd = spmd_backend.SingleHostBackend()
@@ -129,7 +160,8 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
       admin_port=_ADMIN_PORT.value,
       platform_chip=_PLATFORM_CHIP.value,
       platform_topology=_PLATFORM_TOPOLOGY.value,
-      spmd_backend=spmd_bknd)
+      spmd_backend=spmd_bknd,
+  )
   # Start jax.profiler for TensorBoard and profiling in open source.
   if _JAX_PROFILER_PORT.value:
     jax.profiler.start_server(_JAX_PROFILER_PORT.value)
@@ -137,8 +169,9 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
     logging.info('Starting runner %d.', jax.process_index())
     runner.start()
     if is_primary:
-      for model, key, ckpt in zip(_MODELS.value, _MODEL_KEYS.value,
-                                  _CHECKPOINTS.value):
+      for model, key, ckpt in zip(
+          _MODELS.value, _MODEL_KEYS.value, _CHECKPOINTS.value
+      ):
         _load_static_model(_PORT.value, model, key, ckpt, channel_creds)
     runner.wait()
   finally:

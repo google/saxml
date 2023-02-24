@@ -52,8 +52,9 @@ class ServableMethod(abc.ABC):
     self._batching_wait_secs = method_params.get_batching_wait_secs()
     self._extra_inputs = method_params.get_default_extra_inputs()
     # If an element is None, it marks the end of the stream.
-    self._stream_queue: queue.SimpleQueue[
-        Optional[HostTensors]] = queue.SimpleQueue()
+    self._stream_queue: queue.SimpleQueue[Optional[HostTensors]] = (
+        queue.SimpleQueue()
+    )
 
   @classmethod
   @abc.abstractmethod
@@ -75,19 +76,21 @@ class ServableMethod(abc.ABC):
     """Clears references held by this method."""
 
   @abc.abstractmethod
-  def input_to_device(self, one_core_inputs: HostTensors,
-                      unpadded_shape: InputShapeInfo) -> DeviceTensors:
+  def input_to_device(
+      self, one_core_inputs: HostTensors, unpadded_shape: InputShapeInfo
+  ) -> DeviceTensors:
     """Transfers input data to device. Pads incomplete batches."""
 
   @abc.abstractmethod
-  def output_to_host(self,
-                     output_tensors: DeviceTensors,
-                     unpadded_batch_size: int) -> HostTensors:
+  def output_to_host(
+      self, output_tensors: DeviceTensors, unpadded_batch_size: int
+  ) -> HostTensors:
     """Fetches device outputs to host. Removes batch padding."""
 
   @abc.abstractmethod
-  def remove_batch_padding(self, host_tensors: HostTensors,
-                           unpadded_batch_size: int) -> HostTensors:
+  def remove_batch_padding(
+      self, host_tensors: HostTensors, unpadded_batch_size: int
+  ) -> HostTensors:
     """Removes batch padding."""
 
   @property
@@ -113,7 +116,8 @@ class ServableMethod(abc.ABC):
       self,
       input_batch: HostTensors,
       batch_size: int,
-      extra_inputs: Optional[List[ExtraInput]] = None) -> HostTensors:
+      extra_inputs: Optional[List[ExtraInput]] = None,
+  ) -> HostTensors:
     """Updates mutable input keys to input batch.
 
     Users would like to update some input keys for the input batch through
@@ -158,8 +162,9 @@ class ServableMethod(abc.ABC):
     raise NotImplementedError('post_processing_stream not implemented')
 
   @abc.abstractmethod
-  def device_compute(self, input_batch: DeviceTensors,
-                     unpadded_shape: InputShapeInfo) -> DeviceTensors:
+  def device_compute(
+      self, input_batch: DeviceTensors, unpadded_shape: InputShapeInfo
+  ) -> DeviceTensors:
     """Executes the device computation."""
 
   @property
@@ -184,8 +189,9 @@ class ServableMethod(abc.ABC):
     unpadded_shape_dict = json.loads(unpadded_shape_str)
     return InputShapeInfo(batch_size=unpadded_shape_dict['batch_size'])
 
-  def get_padded_input_shape(self,
-                             unpadded_shape: InputShapeInfo) -> InputShapeInfo:
+  def get_padded_input_shape(
+      self, unpadded_shape: InputShapeInfo
+  ) -> InputShapeInfo:
     """Get padded input shape.
 
     Args:
@@ -203,27 +209,34 @@ class ServableMethod(abc.ABC):
 
     raise ValueError(
         f'Batch size larger than maximum: {unpadded_shape.batch_size} vs '
-        f'{self.batch_size}')
+        f'{self.batch_size}'
+    )
 
-  def get_unpadded_shape(self, unpadded_batch_size,
-                         inputs: HostTensors) -> InputShapeInfo:
+  def get_unpadded_shape(
+      self, unpadded_batch_size, inputs: HostTensors
+  ) -> InputShapeInfo:
     del inputs
     return InputShapeInfo(unpadded_batch_size)
 
-  def compute(self,
-              raw_inputs: List[Any],
-              extra_inputs: Optional[List[ExtraInput]] = None) -> List[Any]:
+  def compute(
+      self,
+      raw_inputs: List[Any],
+      extra_inputs: Optional[List[ExtraInput]] = None,
+  ) -> List[Any]:
     """Executes pre_processing, device_compute, and post_processing."""
     assert not self.streamable
     unpadded_batch_size = len(raw_inputs)
     if unpadded_batch_size > self.batch_size:
-      raise ValueError('Inputs to compute() had a larger batch size ('
-                       f'{unpadded_batch_size}) than was '
-                       f'configured ({self.batch_size})')
+      raise ValueError(
+          'Inputs to compute() had a larger batch size ('
+          f'{unpadded_batch_size}) than was '
+          f'configured ({self.batch_size})'
+      )
     inputs = self.pre_processing(raw_inputs)
     unpadded_shape = self.get_unpadded_shape(unpadded_batch_size, inputs)
-    inputs = self.update_extra_inputs(inputs, unpadded_shape.batch_size,
-                                      extra_inputs)
+    inputs = self.update_extra_inputs(
+        inputs, unpadded_shape.batch_size, extra_inputs
+    )
     inputs = self.input_to_device(inputs, unpadded_shape)
     padded_shape = self.get_padded_input_shape(unpadded_shape)
     outputs = self.device_compute(inputs, padded_shape)
@@ -231,8 +244,9 @@ class ServableMethod(abc.ABC):
     return self.post_processing(outputs)
 
   @abc.abstractmethod
-  def compute_with_dummy_data(self,
-                              unpadded_shape: InputShapeInfo) -> DeviceTensors:
+  def compute_with_dummy_data(
+      self, unpadded_shape: InputShapeInfo
+  ) -> DeviceTensors:
     """Executes device computation with dummy inputs."""
     # This is needed for multi-host SPMD programs to execute in sync.
 

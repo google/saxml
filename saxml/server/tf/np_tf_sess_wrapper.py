@@ -43,8 +43,12 @@ class _NumpyTFSessionWrapper:
   order.
   """
 
-  def __init__(self, fun: Callable[..., Any], fix_non_batch_dims: bool,
-               is_class_member: bool) -> None:
+  def __init__(
+      self,
+      fun: Callable[..., Any],
+      fix_non_batch_dims: bool,
+      is_class_member: bool,
+  ) -> None:
     """Creates the wrapper.
 
     Args:
@@ -121,16 +125,18 @@ class _NumpyTFSessionWrapper:
     flat_args = [a for a in tree_flatten(args)[0] if a is not None]
     assert len(flat_args) == len(self._feed_names), 'Unexpected arg count'
     outs = self._runner.run(self._feed_names, self._fetch_names, flat_args)
-    return tree_map(lambda i: (None if i is None else outs[i]),
-                    self._out_to_fetch_idx)
+    return tree_map(
+        lambda i: (None if i is None else outs[i]), self._out_to_fetch_idx
+    )
 
   def __get__(self, obj: Any, objtype: Any) -> Any:
     """Supports instance methods."""
     return functools.partial(self.__call__, obj)
 
 
-def wrap_tf_session(fun: Callable[..., Any],
-                    fix_non_batch_dims=True) -> _NumpyTFSessionWrapper:
+def wrap_tf_session(
+    fun: Callable[..., Any], fix_non_batch_dims=True
+) -> _NumpyTFSessionWrapper:
   """Wraps a TF function with a session to reduce launch overhead.
 
   Args:
@@ -144,12 +150,14 @@ def wrap_tf_session(fun: Callable[..., Any],
     A wrapped callable that initializes the graph only once.
   """
   return _NumpyTFSessionWrapper(
-      fun, fix_non_batch_dims=fix_non_batch_dims, is_class_member=False)
+      fun, fix_non_batch_dims=fix_non_batch_dims, is_class_member=False
+  )
 
 
-def wrap_tf_session_class_member(fun: Callable[..., Any],
-                                 fix_non_batch_dims=True
-                                ) -> _NumpyTFSessionWrapper:
+def wrap_tf_session_class_member(
+    fun: Callable[..., Any], fix_non_batch_dims=True
+) -> _NumpyTFSessionWrapper:
   """Same as wrap_tf_session but used on a class member function."""
   return _NumpyTFSessionWrapper(
-      fun, fix_non_batch_dims=fix_non_batch_dims, is_class_member=True)
+      fun, fix_non_batch_dims=fix_non_batch_dims, is_class_member=True
+  )

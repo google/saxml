@@ -35,7 +35,6 @@ transformer blocks.
 
 TODO(jianlijianli): extend this part to include end-to-end workflow when it's
 ready.
-
 """
 
 import functools
@@ -63,12 +62,11 @@ def for_transformer(
   Note that this decorator is only for weight-only quantization.
 
   Args:
-    quantize_on_the_fly: If the model is to be quantized on the fly.
-      - Defaults to True, and the input model is float, and quantization happen
-        on the fly.
+    quantize_on_the_fly: If the model is to be quantized on the fly. - Defaults
+      to True, and the input model is float, and quantization happen on the fly.
       - When set to False, the input model is already quantized.
     num_bits: number of bits for quantized weights. Currently supports 8 and 4
-      but any interger [1, 8] works.
+      but any integer [1, 8] works.
     linear_only: Quantize only the linear layers.
     use_symmetric: use symmetric weight quantization.
 
@@ -94,7 +92,8 @@ def for_transformer(
 
         quantization_type_str, _ = config.get_quant_configs()
         quantization_type = quantization_hparams.QuantizationType(
-            quantization_type_str)
+            quantization_type_str
+        )
         assert num_bits == 8 or num_bits == 4
         quantize.set_quantization(
             task_p.model,

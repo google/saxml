@@ -46,8 +46,9 @@ class LmService(model_service_base.ModelService):
       return request.text
     raise NotImplementedError(f'Method {method_name} unimplemented.')
 
-  def FillRPCResponse(self, method_name: str, method_outputs: Any,
-                      response: Any) -> None:
+  def FillRPCResponse(
+      self, method_name: str, method_outputs: Any, response: Any
+  ) -> None:
     if method_name == LMMethodName.SCORE:
       if isinstance(method_outputs, Iterable):
         response.logp.extend(method_outputs)
@@ -71,16 +72,21 @@ class LmService(model_service_base.ModelService):
       if embeddings.dtype in [np.float32, np.double]:
         response.embedding.extend(list(embeddings))
       else:
-        raise NotImplementedError('EMBED does not support returned '
-                                  f'embeddings of type {embeddings.dtype}.')
+        raise NotImplementedError(
+            'EMBED does not support returned '
+            f'embeddings of type {embeddings.dtype}.'
+        )
       return
 
     raise NotImplementedError(f'Method {method_name} unimplemented.')
 
 
 @model_service_base.register_service(SERVICE_ID)
-class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
-                    lm_pb2_grpc.LMServiceServicer):
+class LmServiceGRPC(
+    model_service_base.ModelServiceGRPC,
+    LmService,
+    lm_pb2_grpc.LMServiceServicer,
+):
   """LmService gRPC service."""
 
   def ServiceName(self) -> str:
@@ -91,22 +97,28 @@ class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
 
   async def Score(self, request, context):
     resp = lm_pb2.ScoreResponse()
-    await self.EnqueueRequest(LMMethodName.SCORE, request.model_key, context,
-                              request, resp)
+    await self.EnqueueRequest(
+        LMMethodName.SCORE, request.model_key, context, request, resp
+    )
     return resp
 
   async def Generate(self, request, context):
     resp = lm_pb2.GenerateResponse()
-    await self.EnqueueRequest(LMMethodName.GENERATE, request.model_key, context,
-                              request, resp)
+    await self.EnqueueRequest(
+        LMMethodName.GENERATE, request.model_key, context, request, resp
+    )
     return resp
 
   async def GenerateStream(self, request, context):
     curr_lengths = []
     empty_resp = lm_pb2.GenerateStreamResponse()
-    q = self.EnqueueStreamRequest(LMMethodName.GENERATE_STREAM,
-                                  request.model_key, context, request,
-                                  empty_resp)
+    q = self.EnqueueStreamRequest(
+        LMMethodName.GENERATE_STREAM,
+        request.model_key,
+        context,
+        request,
+        empty_resp,
+    )
     while True:
       msg = await q.get()
       if msg is None:
@@ -125,6 +137,7 @@ class LmServiceGRPC(model_service_base.ModelServiceGRPC, LmService,
 
   async def Embed(self, request, context):
     resp = lm_pb2.EmbedResponse()
-    await self.EnqueueRequest(LMMethodName.EMBED, request.model_key, context,
-                              request, resp)
+    await self.EnqueueRequest(
+        LMMethodName.EMBED, request.model_key, context, request, resp
+    )
     return resp

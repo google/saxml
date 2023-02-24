@@ -71,9 +71,11 @@ _SAX_PREFIX = '/sax/'
 # pylint: disable=invalid-name
 
 
-def _maybe_all_cancelled(rpc_tasks: Sequence[utils.RpcQueueTask],
-                         log_msg: str,
-                         pool: Optional[utils.ThreadPool] = None) -> bool:
+def _maybe_all_cancelled(
+    rpc_tasks: Sequence[utils.RpcQueueTask],
+    log_msg: str,
+    pool: Optional[utils.ThreadPool] = None,
+) -> bool:
   """If all rpc_tasks are cancelled already, calls done() and returns True."""
 
   def _cancelled(rpc):
@@ -102,6 +104,7 @@ class MethodKey:
   Methods here can be from different models, and their keys are represented as a
   tuple of (method_name, service_id, model_key) in this module.
   """
+
   name: str
   service_id: Optional[str] = None
   model_key: Optional[str] = None
@@ -109,6 +112,7 @@ class MethodKey:
 
 class Method:
   """Data structure used by PerMethodBatcher for each method."""
+
   model: Optional[servable_model.ServableModel] = None
 
   # Batch size the batcher should attempt to create.
@@ -146,6 +150,7 @@ class Method:
 @dataclasses.dataclass
 class Batch:
   """A batch with multiple incoming requests."""
+
   method: MethodKey
   rpc_tasks: Sequence[utils.RpcQueueTask]
   input_tensors: Optional[DeviceTensors]
@@ -232,7 +237,8 @@ class PerMethodBatcher:
     # preprocessing fails, we can let the primary to run the device function
     # using dummy data together with enqueued programs on secondary hosts.
     can_presync = (
-        model is not None and model.supports_dummy_compute_on_primary())
+        model is not None and model.supports_dummy_compute_on_primary()
+    )
 
     # Start the batching loop.
     def _batching():
@@ -263,7 +269,8 @@ class PerMethodBatcher:
             rpc_tasks,
             None,
             _finish_batch,
-            unpadded_shape=InputShapeInfo(batch_size=len(rpc_tasks)))
+            unpadded_shape=InputShapeInfo(batch_size=len(rpc_tasks)),
+        )
         # If there is no other unprocessed batch, we enqueue to batch before
         # preprocessing finishes.
         with self._global_live_batches_lock:
@@ -299,12 +306,17 @@ class PerMethodBatcher:
           self._batch_queue.put(batch)
         utils.traceprint_all(
             batch.rpc_tasks,
-            f'Enqueued and preprocessed batch (batch size {batch.size()})')
-        logging.info('Enqueued and preprocessed batch (batch size %s) for %s.',
-                     batch.size(), key)
+            f'Enqueued and preprocessed batch (batch size {batch.size()})',
+        )
+        logging.info(
+            'Enqueued and preprocessed batch (batch size %s) for %s.',
+            batch.size(),
+            key,
+        )
 
     t = threading.Thread(
-        target=_batching, daemon=True, name=f'batching_{str(key)}')
+        target=_batching, daemon=True, name=f'batching_{str(key)}'
+    )
     t.start()
 
   def unregister_method(self, key: MethodKey):
@@ -317,12 +329,14 @@ class PerMethodBatcher:
   def has_method(self, key: MethodKey) -> bool:
     return key in self._per_method_queues
 
-  def add_item(self,
-               key: MethodKey,
-               rpc: Optional[utils.RPCContext] = None,
-               req: Optional[message.Message] = None,
-               resp: Optional[message.Message] = None,
-               optional_done: Optional[StatusCallback] = None):
+  def add_item(
+      self,
+      key: MethodKey,
+      rpc: Optional[utils.RPCContext] = None,
+      req: Optional[message.Message] = None,
+      resp: Optional[message.Message] = None,
+      optional_done: Optional[StatusCallback] = None,
+  ):
     """Adds an item to the method's queue."""
 
     def done(status, *args):
@@ -346,11 +360,14 @@ class PerMethodBatcher:
         return done(
             utils.permission_denied(
                 f'Model {key.model_key} method {key.name} acl {aclname}'
-                f' disallows {username}'))
+                f' disallows {username}'
+            )
+        )
       # Check if extra_input keys are in servable_method.default_extra_inputs.
       servable_method: servable_model.ServableMethod = model.method(key.name)
       validate_status = validate.ValidateRequestForExtraInputs(
-          req, servable_method.default_extra_inputs)
+          req, servable_method.default_extra_inputs
+      )
       if not validate_status.ok():
         return done(validate_status)
 
@@ -360,8 +377,8 @@ class PerMethodBatcher:
 
     if not success:
       return done(
-          utils.resource_exhausted(
-              f'Too many requests: {key} {method.limit()}'))
+          utils.resource_exhausted(f'Too many requests: {key} {method.limit()}')
+      )
 
     def _done(status: utils.Status, *args):
       done(status, *args)
@@ -375,7 +392,8 @@ class PerMethodBatcher:
     batch = self._batch_queue.get()
     utils.traceprint_all(
         batch.rpc_tasks,
-        f'Dequeued from batch_queue: (qlen {qlen} bs {batch.size()})')
+        f'Dequeued from batch_queue: (qlen {qlen} bs {batch.size()})',
+    )
     return batch
 
 
@@ -428,8 +446,9 @@ class LoadedModelManager:
       if not issubclass(model_class, servable_model_params.ServableModelParams):
         raise ValueError(f'{model_path} is not a ServableModelParams')
       # pytype: disable=not-instantiable
-      loaded = model_class().load(key, ckpt_path, self._primary_process_id,
-                                  prng_key)
+      loaded = model_class().load(
+          key, ckpt_path, self._primary_process_id, prng_key
+      )
       # pytype: enable=not-instantiable
       loaded.set_acls(acls)
     except Exception as e:  # pylint: disable=broad-except
@@ -490,8 +509,14 @@ class LoadedModelManager:
 class ModelService(metaclass=abc.ABCMeta):
   """Model RPC server base class."""
 
-  def __init__(self, service_id: str, batcher: PerMethodBatcher,
-               loader: LoadedModelManager, *args, **kwargs):
+  def __init__(
+      self,
+      service_id: str,
+      batcher: PerMethodBatcher,
+      loader: LoadedModelManager,
+      *args,
+      **kwargs,
+  ):
     self._batcher = batcher
     self._loader = loader
     self._service_id = service_id
@@ -508,8 +533,9 @@ class ModelService(metaclass=abc.ABCMeta):
     """Parses an RPC request into the input of a method before preprocessing."""
 
   @abc.abstractmethod
-  def FillRPCResponse(self, method_name: str, method_outputs: Any,
-                      response: Any) -> None:
+  def FillRPCResponse(
+      self, method_name: str, method_outputs: Any, response: Any
+  ) -> None:
     """Fills an RPC response based on a method's postprocessing outputs."""
 
   def _EnqueueRequestInternal(
@@ -556,9 +582,14 @@ class ModelServiceGRPC(ModelService):
   def AddToServer(self, server: Any) -> None:
     """Adds the service to the GRPC server."""
 
-  def EnqueueRequest(self, method: str, model_key: str,
-                     context: grpc.ServicerContext, req: message.Message,
-                     resp: message.Message) -> asyncio.futures.Future[Any]:
+  def EnqueueRequest(
+      self,
+      method: str,
+      model_key: str,
+      context: grpc.ServicerContext,
+      req: message.Message,
+      resp: message.Message,
+  ) -> asyncio.futures.Future[Any]:
     """Enqueues request, and returns a done future."""
     loop = asyncio.get_running_loop()
     fut = loop.create_future()
@@ -580,9 +611,14 @@ class ModelServiceGRPC(ModelService):
     )
     return fut
 
-  def EnqueueStreamRequest(self, method: str, model_key: str,
-                           context: grpc.ServicerContext, req: message.Message,
-                           empty_resp: message.Message) -> asyncio.Queue:
+  def EnqueueStreamRequest(
+      self,
+      method: str,
+      model_key: str,
+      context: grpc.ServicerContext,
+      req: message.Message,
+      empty_resp: message.Message,
+  ) -> asyncio.Queue:
     """Enqueues a streaming request, and returns a done future."""
     loop = asyncio.get_running_loop()
     q = asyncio.Queue()
@@ -607,7 +643,8 @@ class ModelServiceGRPC(ModelService):
 
 
 def register_service(
-    service_id: str) -> Callable[[Type[ModelService]], Type[ModelService]]:
+    service_id: str,
+) -> Callable[[Type[ModelService]], Type[ModelService]]:
   """Returns a decorator to register a service with a given service_id."""
 
   def _register(service_class: Type[ModelService]) -> Type[ModelService]:
@@ -623,11 +660,19 @@ def register_service(
 class ModeletService:
   """Main service holding different model RPCs and loading/unloading models."""
 
-  def __init__(self, service_port: int, debug_port: Optional[int],
-               batcher: PerMethodBatcher, loader: LoadedModelManager,
-               sax_cell: Optional[str], admin_port: Optional[int],
-               platform_chip: Optional[str], platform_topology: Optional[str],
-               *args, **kwargs):
+  def __init__(
+      self,
+      service_port: int,
+      debug_port: Optional[int],
+      batcher: PerMethodBatcher,
+      loader: LoadedModelManager,
+      sax_cell: Optional[str],
+      admin_port: Optional[int],
+      platform_chip: Optional[str],
+      platform_topology: Optional[str],
+      *args,
+      **kwargs,
+  ):
     self._services = {}
     self._batcher = batcher
     self._loader = loader
@@ -636,25 +681,36 @@ class ModeletService:
 
     super().__init__(*args, **kwargs)
     self._batcher.register_method(
-        None, MethodKey(_LOAD_METHOD_KEY), batch_size=1, max_live_batches=4)
+        None, MethodKey(_LOAD_METHOD_KEY), batch_size=1, max_live_batches=4
+    )
     self._batcher.register_method(
-        None, MethodKey(_UNLOAD_METHOD_KEY), batch_size=1, max_live_batches=4)
+        None, MethodKey(_UNLOAD_METHOD_KEY), batch_size=1, max_live_batches=4
+    )
     self._batcher.register_method(
-        None, MethodKey(_EXPORT_METHOD_KEY), batch_size=1, max_live_batches=1)
+        None, MethodKey(_EXPORT_METHOD_KEY), batch_size=1, max_live_batches=1
+    )
     self._batcher.register_method(
-        None, MethodKey(_SAVE_MODEL_KEY), batch_size=1, max_live_batches=1)
+        None, MethodKey(_SAVE_MODEL_KEY), batch_size=1, max_live_batches=1
+    )
 
     self._platform_chip = proto_util.to_chip_type(platform_chip)
     self._platform_topology = proto_util.to_chip_topology(platform_topology)
     logging.info('Sax cell %s', sax_cell)
     logging.info('Admin port %s', admin_port)
     logging.info('Platform chip %s, %s', platform_chip, self._platform_chip)
-    logging.info('Platform topology %s, %s', platform_topology,
-                 self._platform_topology)
+    logging.info(
+        'Platform topology %s, %s', platform_topology, self._platform_topology
+    )
     if sax_cell:
-      if self._platform_chip == admin_pb2.ModelServer.ChipType.CHIP_TYPE_UNKNOWN:
+      if (
+          self._platform_chip
+          == admin_pb2.ModelServer.ChipType.CHIP_TYPE_UNKNOWN
+      ):
         raise ValueError('chip type unknown')
-      if self._platform_topology == admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_UNKNOWN:
+      if (
+          self._platform_topology
+          == admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_UNKNOWN
+      ):
         raise ValueError('chip topology unknown')
     # If self._sax_cell is set to not None below, loadable model paths will get
     # imported, and location.Join will be called after the server starts.
@@ -707,22 +763,32 @@ class ModeletService:
             self._ipport,
             self._debug_addr,
             specs.SerializeToString(),
-            admin_port=self._admin_port)
+            admin_port=self._admin_port,
+        )
       except RuntimeError as e:
         logging.exception('location.Join failed')
         raise e
       logging.info('Started joining SAX cell %s', self._sax_cell)
 
-  def load(self, rpc_context: utils.RPCContext, req: modelet_pb2.LoadRequest,
-           resp: modelet_pb2.LoadResponse,
-           done_with_status: StatusCallback) -> None:
+  def load(
+      self,
+      rpc_context: utils.RPCContext,
+      req: modelet_pb2.LoadRequest,
+      resp: modelet_pb2.LoadResponse,
+      done_with_status: StatusCallback,
+  ) -> None:
     """Loads a model."""
     self._batcher.add_item(
-        MethodKey(_LOAD_METHOD_KEY), rpc_context, req, resp, done_with_status)
+        MethodKey(_LOAD_METHOD_KEY), rpc_context, req, resp, done_with_status
+    )
 
-  def unload(self, rpc_context: utils.RPCContext,
-             req: modelet_pb2.UnloadRequest, resp: modelet_pb2.UnloadResponse,
-             done_with_status: StatusCallback) -> None:
+  def unload(
+      self,
+      rpc_context: utils.RPCContext,
+      req: modelet_pb2.UnloadRequest,
+      resp: modelet_pb2.UnloadResponse,
+      done_with_status: StatusCallback,
+  ) -> None:
     """Unloads a model."""
     if not req.model_key:
       done_with_status(utils.invalid_arg('model_key is not specified.'))
@@ -731,11 +797,14 @@ class ModeletService:
       if req.model_key in self._models_being_unloaded:
         done_with_status(
             utils.invalid_arg(
-                f'Model already being unloaded. Key: {req.model_key}'))
+                f'Model already being unloaded. Key: {req.model_key}'
+            )
+        )
         return
       if not self._loader.contains(req.model_key):
         done_with_status(
-            utils.invalid_arg(f'{req.model_key} not found, cannot unload.'))
+            utils.invalid_arg(f'{req.model_key} not found, cannot unload.')
+        )
         return
       self._models_being_unloaded.add(req.model_key)
 
@@ -743,35 +812,57 @@ class ModeletService:
       model = self._loader.get_model(req.model_key)
       for method_name in model.methods:
         self._batcher.unregister_method(
-            MethodKey(method_name,
-                      model.method(method_name).service_id(), req.model_key))
+            MethodKey(
+                method_name,
+                model.method(method_name).service_id(),
+                req.model_key,
+            )
+        )
 
     self._batcher.add_item(
-        MethodKey(_UNLOAD_METHOD_KEY), rpc_context, req, resp, done_with_status)
+        MethodKey(_UNLOAD_METHOD_KEY), rpc_context, req, resp, done_with_status
+    )
     with self._unload_lock:
       self._models_being_unloaded.remove(req.model_key)
 
-  def export(self, rpc_context: utils.RPCContext,
-             req: modelet_pb2.ExportRequest, resp: modelet_pb2.ExportResponse,
-             done_with_status: StatusCallback) -> None:
+  def export(
+      self,
+      rpc_context: utils.RPCContext,
+      req: modelet_pb2.ExportRequest,
+      resp: modelet_pb2.ExportResponse,
+      done_with_status: StatusCallback,
+  ) -> None:
     """Exports a model to a serialized format."""
     self._batcher.add_item(
-        MethodKey(_EXPORT_METHOD_KEY), rpc_context, req, resp, done_with_status)
+        MethodKey(_EXPORT_METHOD_KEY), rpc_context, req, resp, done_with_status
+    )
 
-  def save(self, rpc_context: utils.RPCContext, req: modelet_pb2.SaveRequest,
-           resp: modelet_pb2.SaveResponse,
-           done_with_status: StatusCallback) -> None:
+  def save(
+      self,
+      rpc_context: utils.RPCContext,
+      req: modelet_pb2.SaveRequest,
+      resp: modelet_pb2.SaveResponse,
+      done_with_status: StatusCallback,
+  ) -> None:
     """Save a model."""
     self._batcher.add_item(
-        MethodKey(_SAVE_MODEL_KEY), rpc_context, req, resp, done_with_status)
+        MethodKey(_SAVE_MODEL_KEY), rpc_context, req, resp, done_with_status
+    )
 
-  def get_status(self, req: modelet_pb2.GetStatusRequest,
-                 resp: modelet_pb2.GetStatusResponse) -> None:
+  def get_status(
+      self,
+      req: modelet_pb2.GetStatusRequest,
+      resp: modelet_pb2.GetStatusResponse,
+  ) -> None:
     """Retrieves the server status."""
     for key, status in self._loader.get_status().items():
       model = modelet_pb2.GetStatusResponse.ModelWithStatus(
-          model_key=key, model_status=status)
-      if status == common_pb2.ModelStatus.FAILED and req.include_failure_reasons:
+          model_key=key, model_status=status
+      )
+      if (
+          status == common_pb2.ModelStatus.FAILED
+          and req.include_failure_reasons
+      ):
         model.failure_reason = self._loader.get_error(key)
       resp.models.append(model)
 
@@ -842,16 +933,18 @@ class ModelServicesRunner:
     runner.wait()
   """
 
-  def __init__(self,
-               is_primary_process: bool = True,
-               port: int = 0,
-               debug_port: Optional[int] = None,
-               deterministic_prng_seed: Optional[int] = None,
-               sax_cell: Optional[str] = None,
-               admin_port: Optional[int] = None,
-               platform_chip: Optional[str] = None,
-               platform_topology: Optional[str] = None,
-               spmd_backend: Optional[SPMDBackend] = None):
+  def __init__(
+      self,
+      is_primary_process: bool = True,
+      port: int = 0,
+      debug_port: Optional[int] = None,
+      deterministic_prng_seed: Optional[int] = None,
+      sax_cell: Optional[str] = None,
+      admin_port: Optional[int] = None,
+      platform_chip: Optional[str] = None,
+      platform_topology: Optional[str] = None,
+      spmd_backend: Optional[SPMDBackend] = None,
+  ):
     self._is_primary = is_primary_process
     # If deterministic_prng_seed is provided, all models will use this as the
     # initial seed.
@@ -861,7 +954,8 @@ class ModelServicesRunner:
         None,
         MethodKey(_KEEP_DEVICES_WARM_METHOD_KEY, '_no_service_id', '_no_model'),
         batch_size=1,
-        max_live_batches=1)
+        max_live_batches=1,
+    )
     if spmd_backend is None:
       if not self._is_primary:
         raise NotImplementedError('No spmd_backend provided for mult-host.')
@@ -870,7 +964,8 @@ class ModelServicesRunner:
       self._spmd_backend = spmd_backend
     if self._is_primary:
       self._pool = utils.ThreadPool(
-          num_threads=16, thread_name_prefix='model_service_runner')
+          num_threads=16, thread_name_prefix='model_service_runner'
+      )
 
       # Device execution ensures the enqueue operations of streaming outputs
       # across different requests are serializable. By constraining
@@ -886,11 +981,13 @@ class ModelServicesRunner:
       self._worker_thread = threading.Thread(
           target=self._run_primary_worker_loop,
           daemon=False,
-          name='model_service_runner_primary_worker')
+          name='model_service_runner_primary_worker',
+      )
       self._keep_warm_thread = threading.Thread(
           target=self._run_keep_warm_loop,
           daemon=True,
-          name='model_service_runner_keep_warm')
+          name='model_service_runner_keep_warm',
+      )
     else:
       self._pool = None
       self._stream_pool = None
@@ -900,13 +997,12 @@ class ModelServicesRunner:
       self._worker_thread = threading.Thread(
           target=self._run_secondary_worker_loop,
           daemon=False,
-          name='model_service_runner_secondary_worker')
+          name='model_service_runner_secondary_worker',
+      )
     self._loaded_models = LoadedModelManager(primary_host)
     self._batcher.register_method(
-        None,
-        MethodKey(_TERMINATE_METHOD_KEY),
-        batch_size=1,
-        max_live_batches=1)
+        None, MethodKey(_TERMINATE_METHOD_KEY), batch_size=1, max_live_batches=1
+    )
     self._modelet_service = ModeletServiceGRPC(
         port,
         debug_port,
@@ -915,7 +1011,8 @@ class ModelServicesRunner:
         sax_cell=sax_cell,
         admin_port=admin_port,
         platform_chip=platform_chip,
-        platform_topology=platform_topology)
+        platform_topology=platform_topology,
+    )
     all_grpc_services = [self._modelet_service]
     service_names = [
         modelet_pb2.DESCRIPTOR.services_by_name['Modelet'].full_name,
@@ -930,7 +1027,8 @@ class ModelServicesRunner:
           service = service_class(
               service_id=service_id,
               batcher=self._batcher,
-              loader=self._loaded_models)
+              loader=self._loaded_models,
+          )
           if issubclass(service_class, ModelServiceGRPC):
             all_grpc_services.append(service)
             service_names.append(service.ServiceName())
@@ -940,9 +1038,10 @@ class ModelServicesRunner:
           # services should have the same implementation for
           # ParseMethodRPCRequest and FillRPCResponse. We prefer
           # ModelServiceGRPC as it's opensource.
-          if issubclass(
-              service_class,
-              ModelServiceGRPC) or service_id not in self._model_services:
+          if (
+              issubclass(service_class, ModelServiceGRPC)
+              or service_id not in self._model_services
+          ):
             self._model_services[service_id] = service
 
     self._aio_loop = asyncio.new_event_loop()
@@ -952,8 +1051,11 @@ class ModelServicesRunner:
       service.AddToServer(self._grpc_server)
     reflection.enable_server_reflection(service_names, self._grpc_server)
     self._multihost_sync = multi_host_sync.MultiHostSync(
-        is_primary_process, self._grpc_server, self._modelet_service.ipport,
-        self._spmd_backend)
+        is_primary_process,
+        self._grpc_server,
+        self._modelet_service.ipport,
+        self._spmd_backend,
+    )
     server_credentials = self._get_server_credentials()  # pylint: disable=assignment-from-none
     if server_credentials is None:
       self._grpc_server.add_insecure_port(f'[::]:{port}')
@@ -966,7 +1068,8 @@ class ModelServicesRunner:
     self._worker_thread_exception: Optional[Exception] = None
 
   def _create_grpc_server(
-      self, non_grpc_services: List[ModelService]) -> grpc.aio.Server:
+      self, non_grpc_services: List[ModelService]
+  ) -> grpc.aio.Server:
     assert not non_grpc_services
     return grpc.aio.server()
 
@@ -975,15 +1078,18 @@ class ModelServicesRunner:
     return None
 
   def _get_client_channel_credentials(
-      self) -> Optional[grpc.ChannelCredentials]:
+      self,
+  ) -> Optional[grpc.ChannelCredentials]:
     # TODO(sax-dev): Add credentials for OSS.
     return None
 
   def _run_keep_warm_loop(self):
     while True:
       self._batcher.add_item(
-          MethodKey(_KEEP_DEVICES_WARM_METHOD_KEY, '_no_service_id',
-                    '_no_model'))
+          MethodKey(
+              _KEEP_DEVICES_WARM_METHOD_KEY, '_no_service_id', '_no_model'
+          )
+      )
       time.sleep(120)  # 2 minutes
 
   @property
@@ -1049,8 +1155,14 @@ class ModelServicesRunner:
   def _decode_message(self, encoded: str) -> List[str]:
     return encoded.split('|')
 
-  def _load_model(self, model_key: str, model_path: str, checkpoint_path: str,
-                  acls: Dict[str, str], prng_key: int) -> None:
+  def _load_model(
+      self,
+      model_key: str,
+      model_path: str,
+      checkpoint_path: str,
+      acls: Dict[str, str],
+      prng_key: int,
+  ) -> None:
     """Loads a model and initializes its methods."""
     if self._loaded_models.contains(model_key):
       return
@@ -1133,9 +1245,13 @@ class ModelServicesRunner:
   def _inform_secondary_hosts(self, *msgs: str, skip_host_sync=True) -> None:
     self._multihost_sync.send(self._encode_message(*msgs), skip_host_sync)
 
-  def _postprocess_async(self, model: servable_model.ServableModel,
-                         batch: Batch, out_tensors: DeviceTensors,
-                         streaming_done: Optional[utils.Notification]) -> None:
+  def _postprocess_async(
+      self,
+      model: servable_model.ServableModel,
+      batch: Batch,
+      out_tensors: DeviceTensors,
+      streaming_done: Optional[utils.Notification],
+  ) -> None:
     """Runs post processing and RPC dones asynchronously."""
     # Use a list to allow deleting out_tensors earlier in the thread pool.
     out_tensors_container = [out_tensors]
@@ -1156,14 +1272,17 @@ class ModelServicesRunner:
           logging.info('Processing final results.')
         try:
           method_obj = model.method(batch.method.name)
-          utils.traceprint_all(batch.rpc_tasks,
-                               f'in _postprocess_async: {batch.method}')
-          host_tensors = method_obj.output_to_host(out_tensors_container[0],
-                                                   len(batch.rpc_tasks))
+          utils.traceprint_all(
+              batch.rpc_tasks, f'in _postprocess_async: {batch.method}'
+          )
+          host_tensors = method_obj.output_to_host(
+              out_tensors_container[0], len(batch.rpc_tasks)
+          )
           # Free device tensors.
           del out_tensors_container[0]
-          utils.traceprint_all(batch.rpc_tasks,
-                               f'After output_to_host: {batch.method}')
+          utils.traceprint_all(
+              batch.rpc_tasks, f'After output_to_host: {batch.method}'
+          )
           if not pre_process_failure:
             # No more result for streaming.
             if streaming_done is not None:
@@ -1173,27 +1292,35 @@ class ModelServicesRunner:
             # TODO(zhifengc): Might make more sense to split this phase into
             # two. One calls output_to_host and the other calls post_processing.
             outputs = method_obj.post_processing(host_tensors)
-            utils.traceprint_all(batch.rpc_tasks,
-                                 f'After post_processing: {batch.method}')
+            utils.traceprint_all(
+                batch.rpc_tasks, f'After post_processing: {batch.method}'
+            )
             for out, task in zip(outputs, batch.rpc_tasks):
               self._model_services[batch.method.service_id].FillRPCResponse(
-                  batch.method.name, out, task.response)
+                  batch.method.name, out, task.response
+              )
               task.done(utils.ok())
               done_rpcs += 1
         except Exception as e:  # pylint: disable=broad-except
           if not pre_process_failure:
             logging.exception(
                 'Postprocessing error. model_key: %s, method: %s, error: %s',
-                batch.method.model_key, batch.method.name, e)
+                batch.method.model_key,
+                batch.method.name,
+                e,
+            )
             error_msg = f'Postprocessing error: {e}\n{traceback.format_exc()}'
             for task in batch.rpc_tasks[done_rpcs:]:
               task.done(utils.internal_error(error_msg))
 
     self._pool.run(_postprocess)
 
-  def _postprocess_stream_async(self, model: servable_model.ServableModel,
-                                batch: Batch,
-                                streaming_done: utils.Notification):
+  def _postprocess_stream_async(
+      self,
+      model: servable_model.ServableModel,
+      batch: Batch,
+      streaming_done: utils.Notification,
+  ):
     """Runs post processing and RPC dones on streamed tensors asynchronously."""
 
     def _postprocess():
@@ -1223,13 +1350,17 @@ class ModelServicesRunner:
               # Use a new response each time.
               resp = copy.deepcopy(task.response)
               self._model_services[batch.method.service_id].FillRPCResponse(
-                  batch.method.name, out, resp)
+                  batch.method.name, out, resp
+              )
               task.done(utils.ok(), resp)
               done_rpcs += 1
           except Exception as e:  # pylint: disable=broad-except
             logging.exception(
                 'Postprocessing error. model_key: %s, method: %s, error: %s',
-                batch.method.model_key, batch.method.name, e)
+                batch.method.model_key,
+                batch.method.name,
+                e,
+            )
             error_msg = f'Postprocessing error: {e}\n{traceback.format_exc()}'
             for task in batch.rpc_tasks[done_rpcs:]:
               task.done(utils.internal_error(error_msg))
@@ -1254,23 +1385,42 @@ class ModelServicesRunner:
           try:
             # Generate a seed for the model and pass to secondary hosts.
             prng_seed = self._generate_rng_seed()
-            self._inform_secondary_hosts(batch.method.name, model_key,
-                                         request.model_path,
-                                         request.checkpoint_path,
-                                         str(prng_seed))
-            self._load_model(model_key,
-                             request.model_path, request.checkpoint_path,
-                             dict(request.acls.items), prng_seed)
+            self._inform_secondary_hosts(
+                batch.method.name,
+                model_key,
+                request.model_path,
+                request.checkpoint_path,
+                str(prng_seed),
+            )
+            self._load_model(
+                model_key,
+                request.model_path,
+                request.checkpoint_path,
+                dict(request.acls.items),
+                prng_seed,
+            )
             task.done(utils.ok())
           except ValueError as e:
             logging.exception(
-                'Invalid load request. model_key: %s, model_path: %s, error: %s',
-                model_key, request.model_path, e)
+                (
+                    'Invalid load request. model_key: %s, model_path: %s,'
+                    ' error: %s'
+                ),
+                model_key,
+                request.model_path,
+                e,
+            )
             task.done(utils.invalid_arg(f'{e}'))
           except Exception as e:  # pylint: disable=broad-except
             logging.exception(
-                'Internal error during loading. model_key: %s, model_path: %s, '
-                'error: %s', model_key, request.model_path, e)
+                (
+                    'Internal error during loading. model_key: %s, model_path:'
+                    ' %s, error: %s'
+                ),
+                model_key,
+                request.model_path,
+                e,
+            )
             task.done(utils.internal_error(f'Loading error: {e}'))
       elif batch.method.name == _UNLOAD_METHOD_KEY:
         with batch:
@@ -1286,13 +1436,16 @@ class ModelServicesRunner:
             self._loaded_models.unload(model_key)
             task.done(utils.ok())
           except ValueError as e:
-            logging.exception('Invalid unload request. model_key %s, error: %s',
-                              model_key, e)
+            logging.exception(
+                'Invalid unload request. model_key %s, error: %s', model_key, e
+            )
             task.done(utils.invalid_arg(f'Unloading error: {e}'))
           except Exception as e:  # pylint: disable=broad-except
             logging.exception(
                 'Internal error during unloading. model_key: %s, error: %s',
-                model_key, e)
+                model_key,
+                e,
+            )
             task.done(utils.internal_error(f'Unloading error: {e}'))
       elif batch.method.name == _EXPORT_METHOD_KEY:
         with batch:
@@ -1325,18 +1478,27 @@ class ModelServicesRunner:
           task = batch.rpc_tasks[0]
           request = typing.cast(modelet_pb2.SaveRequest, task.request)
           try:
-            self._inform_secondary_hosts(batch.method.name, request.model_key,
-                                         request.checkpoint_path)
+            self._inform_secondary_hosts(
+                batch.method.name, request.model_key, request.checkpoint_path
+            )
             self._save_model(request.model_key, request.checkpoint_path)
             task.done(utils.ok())
           except ValueError as e:
-            logging.exception('Invalid save request. model_key %s, error: %s, ',
-                              request.model_key, e)
+            logging.exception(
+                'Invalid save request. model_key %s, error: %s, ',
+                request.model_key,
+                e,
+            )
             task.done(utils.invalid_arg(f'Save checkpoint error: {e}'))
           except Exception as e:  # pylint: disable=broad-except
             logging.exception(
-                'Internal error during Saving checkpoint. model_key: %s, '
-                'error: %s', request.model_key, e)
+                (
+                    'Internal error during Saving checkpoint. model_key: %s, '
+                    'error: %s'
+                ),
+                request.model_key,
+                e,
+            )
             task.done(utils.internal_error(f'Saving checkpoint error: {e}'))
       elif batch.method.name == _TERMINATE_METHOD_KEY:
         with batch:
@@ -1356,11 +1518,13 @@ class ModelServicesRunner:
               batch.method.name,
               batch.method.model_key,
               str(batch.unpadded_shape),
-              skip_host_sync=batch.skip_host_sync)
+              skip_host_sync=batch.skip_host_sync,
+          )
           model = self._loaded_models.get_model(batch.method.model_key)
           batch.wait_for_ready()
-          utils.traceprint_all(batch.rpc_tasks,
-                               f'Before device compute {batch.method}')
+          utils.traceprint_all(
+              batch.rpc_tasks, f'Before device compute {batch.method}'
+          )
           method_obj = model.method(batch.method.name)
 
           streaming_done = None
@@ -1377,13 +1541,15 @@ class ModelServicesRunner:
           else:
             result = method_obj.device_compute(
                 input_batch=batch.input_tensors,
-                unpadded_shape=batch.unpadded_shape)
+                unpadded_shape=batch.unpadded_shape,
+            )
 
             if method_obj.streamable:
               streaming_done = utils.Notification()
               self._postprocess_stream_async(model, batch, streaming_done)
-          utils.traceprint_all(batch.rpc_tasks,
-                               f'After device compute {batch.method}')
+          utils.traceprint_all(
+              batch.rpc_tasks, f'After device compute {batch.method}'
+          )
 
           if result is None:
             batch.finish()
@@ -1412,18 +1578,21 @@ class ModelServicesRunner:
                 model_path,
                 ckpt_path,
                 {},  # Empty ACLs because only the primary worker needs it.
-                prng_seed)
+                prng_seed,
+            )
         except Exception as e:  # pylint: disable=broad-except
-          logging.exception('Error occurred during loading: %s, error: %s',
-                            model_key, e)
+          logging.exception(
+              'Error occurred during loading: %s, error: %s', model_key, e
+          )
       elif method == _UNLOAD_METHOD_KEY:
         model_key = msgs[0]
         logging.info('Received unload: %s', model_key)
         try:
           self._loaded_models.unload(model_key)
         except Exception as e:  # pylint: disable=broad-except
-          logging.exception('Error occurred during unloading: %s, error: %s',
-                            model_key, e)
+          logging.exception(
+              'Error occurred during unloading: %s, error: %s', model_key, e
+          )
       elif method == _TERMINATE_METHOD_KEY:
         logging.info('Received terminate')
         break
@@ -1435,8 +1604,9 @@ class ModelServicesRunner:
         try:
           self._save_model(model_key, ckpt_path)
         except Exception as e:  # pylint: disable=broad-except
-          logging.exception('Error occurred during save: %s, error: %s',
-                            model_key, e)
+          logging.exception(
+              'Error occurred during save: %s, error: %s', model_key, e
+          )
       elif method == _EXPORT_METHOD_KEY:
         request = modelet_pb2.ExportRequest.FromString(
             base64.decodebytes(msgs[0].encode())
@@ -1450,11 +1620,16 @@ class ModelServicesRunner:
         try:
           model_key = msgs.pop(0)
           unpadded_shape_str = msgs.pop(0)
-          logging.info('Received model_key %s method %s, unpadded_shape %s',
-                       model_key, method, unpadded_shape_str)
+          logging.info(
+              'Received model_key %s method %s, unpadded_shape %s',
+              model_key,
+              method,
+              unpadded_shape_str,
+          )
           method_obj = self._loaded_models.get_model(model_key).method(method)
           unpadded_shape = method_obj.deserialize_input_shape(
-              unpadded_shape_str)
+              unpadded_shape_str
+          )
           method_obj.compute_with_dummy_data(unpadded_shape)
         except Exception as e:  # pylint: disable=broad-except
           self._worker_thread_exception = e

@@ -39,15 +39,16 @@ def to_chip_type(chip: Optional[str]) -> admin_pb2.ModelServer.ChipType:
 
 # TODO(jiawenhao): Add regex matching to handle more string variaties.
 def to_chip_topology(
-    topology: Optional[str]) -> admin_pb2.ModelServer.ChipTopology:
+    topology: Optional[str],
+) -> admin_pb2.ModelServer.ChipTopology:
   """Returns the protobuf value for the given topology description string."""
   default = admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_UNKNOWN
   if topology is None:
     return default
   if topology.endswith('_twisted'):
-    topology = topology[:-len('_twisted')]
+    topology = topology[: -len('_twisted')]
   if topology.endswith('_untwisted'):
-    topology = topology[:-len('_untwisted')]
+    topology = topology[: -len('_untwisted')]
   topology_map = {
       '1': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_1,
       '2': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_2,

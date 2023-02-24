@@ -32,7 +32,8 @@ NestedMap = py_utils.NestedMap
 
 
 class UnionModelParams(
-    servable_model_params.ServableModelParams, metaclass=abc.ABCMeta):
+    servable_model_params.ServableModelParams, metaclass=abc.ABCMeta
+):
   """Params for grouping multiple service interfaces.
 
   It specifies a list of children model params, which must be able to share the
@@ -79,10 +80,12 @@ class UnionModel(servable_model.ServableModel):
     super().__init__(model_config, primary_process_id, ckpt_type, test_mode)
     self._models: List[servable_model.ServableModel] = []
 
-  def load(self,
-           checkpoint_path: Optional[str],
-           prng_key: PRNGKey,
-           precompile: bool = True) -> None:
+  def load(
+      self,
+      checkpoint_path: Optional[str],
+      prng_key: PRNGKey,
+      precompile: bool = True,
+  ) -> None:
     union_config = self.model_config
     assert isinstance(union_config, UnionModelParams)
     children = union_config.children()
@@ -95,14 +98,18 @@ class UnionModel(servable_model.ServableModel):
     ]
     # pytype: enable=not-instantiable
     prng_key, init_key = jax.random.split(prng_key)
-    pax_model, model_state = self._models[0].load_state(checkpoint_path,
-                                                        init_key, precompile)
+    pax_model, model_state = self._models[0].load_state(
+        checkpoint_path, init_key, precompile
+    )
     for model in self._models:
       prng_key, my_key = jax.random.split(prng_key)
       model.load_methods(pax_model, model_state, my_key)
       for k, m in model.methods.items():
-        logging.info('Initialized method %s from %s', k,
-                     model.model_config.__class__.__name__)
+        logging.info(
+            'Initialized method %s from %s',
+            k,
+            model.model_config.__class__.__name__,
+        )
         if k in self.methods:
           raise ValueError(f'Duplicate method name: {k}')
         self.methods[k] = m
@@ -111,13 +118,16 @@ class UnionModel(servable_model.ServableModel):
       self,
       checkpoint_path: Optional[str],
       prng_key: PRNGKey,
-      precompile: bool = True
+      precompile: bool = True,
   ) -> Tuple[base_model.BaseModel, servable_model.ServableModelState]:
     raise NotImplementedError('should not be called')
 
-  def load_methods(self, model: base_model.BaseModel,
-                   model_state: servable_model.ServableModelState,
-                   prng_key: PRNGKey) -> None:
+  def load_methods(
+      self,
+      model: base_model.BaseModel,
+      model_state: servable_model.ServableModelState,
+      prng_key: PRNGKey,
+  ) -> None:
     raise NotImplementedError('should not be called')
 
   def unload(self) -> None:

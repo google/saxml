@@ -80,7 +80,8 @@ CreateInitStateFn = Callable[['ServableCustomMethod'], Any]
 #  (model, inputs, mdl_vars, prng_key, method_state) -> (outputs, updated_vars).
 CallModelFn = Callable[
     [base_model.BaseModel, NestedJTensor, NestedJTensor, PRNGKey, Any],
-    Tuple[NestedJTensor, NestedJTensor]]
+    Tuple[NestedJTensor, NestedJTensor],
+]
 
 TfProcessingFn = Callable[..., NestedTfTensor]
 TfInputSignatureGenerator = Callable[[Optional[int]], NestedTfTensorSpec]
@@ -123,6 +124,7 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
     deserialize_input_shape_fn: Optional function to deserialize InputShapeInfo.
     resize_host_array_fn: Optional function to resize host array.
   """
+
   model_fn_name: str = ''
   dummy_input_sample: Any = None
   fetch_output_fn: Optional[FetchOutputFn] = None
@@ -148,25 +150,30 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
 
 
 class ServableCustomModelParams(
-    servable_model_params.ServableModelParams, metaclass=abc.ABCMeta):
-  """A base class that each Custom model config needs to implement for serving.
-  """
+    servable_model_params.ServableModelParams, metaclass=abc.ABCMeta
+):
+  """A base class that each Custom model config needs to implement for serving."""
 
   def methods(self) -> Dict[str, CustomCallHParams]:
     return {}
 
   def create_model(self, primary_process_id: int) -> 'ServableCustomModel':
-    return ServableCustomModel(self, primary_process_id,
-                               self.get_checkpoint_type())
+    return ServableCustomModel(
+        self, primary_process_id, self.get_checkpoint_type()
+    )
 
 
 class ServableCustomMethod(servable_model.ServableMethod):
   """Implements custom method."""
 
-  def __init__(self, model: base_model.BaseModel,
-               model_state: servable_model.ServableModelState,
-               method_hparams: CustomCallHParams, prng_key: PRNGKey,
-               model_config: Any):
+  def __init__(
+      self,
+      model: base_model.BaseModel,
+      model_state: servable_model.ServableModelState,
+      method_hparams: CustomCallHParams,
+      prng_key: PRNGKey,
+      model_config: Any,
+  ):
     self._model_config = model_config
     self._method_hparams = method_hparams
     self._state = None
@@ -191,11 +198,13 @@ class ServableCustomMethod(servable_model.ServableMethod):
   def service_id(cls) -> str:
     return custom_service.SERVICE_ID
 
-  def fetch_output(self, model_fn_outputs: NestedJTensor,
-                   model_fn_inputs: NestedJTensor) -> NestedJTensor:
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
-    return self._method_hparams.fetch_output_fn(model_fn_outputs,
-                                                model_fn_inputs)
+    return self._method_hparams.fetch_output_fn(
+        model_fn_outputs, model_fn_inputs
+    )
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
@@ -209,11 +218,13 @@ class ServableCustomMethod(servable_model.ServableMethod):
       return self._method_hparams.post_process_fn(compute_outputs, self._state)
     return self._method_hparams.post_process_fn(compute_outputs)
 
-  def call_model_function(self, inputs: NestedJTensor, mdl_vars: NestedJTensor,
-                          prng_key: PRNGKey) -> NestedJTensor:
+  def call_model_function(
+      self, inputs: NestedJTensor, mdl_vars: NestedJTensor, prng_key: PRNGKey
+  ) -> NestedJTensor:
     if self._method_hparams.call_model_fn is not None:
-      return self._method_hparams.call_model_fn(self.pax_model, inputs,
-                                                mdl_vars, prng_key, self._state)
+      return self._method_hparams.call_model_fn(
+          self.pax_model, inputs, mdl_vars, prng_key, self._state
+      )
     return super().call_model_function(inputs, mdl_vars, prng_key)
 
   def tf_pre_processing(self, *args: NestedTfTensor) -> NestedTfTensor:
@@ -324,10 +335,15 @@ class ServableCustomModel(servable_model.ServableModel):
   This class is responsible for model loading, batch padding, etc.
   """
 
-  def init_method(self, method: str, model: base_model.BaseModel,
-                  model_state: servable_model.ServableModelState,
-                  method_params: servable_model_params.ServableMethodParams,
-                  prng_key: PRNGKey) -> servable_model.ServableMethod:
+  def init_method(
+      self,
+      method: str,
+      model: base_model.BaseModel,
+      model_state: servable_model.ServableModelState,
+      method_params: servable_model_params.ServableMethodParams,
+      prng_key: PRNGKey,
+  ) -> servable_model.ServableMethod:
     assert isinstance(method_params, CustomCallHParams)
-    return ServableCustomMethod(model, model_state, method_params, prng_key,
-                                self._model_config)
+    return ServableCustomMethod(
+        model, model_state, method_params, prng_key, self._model_config
+    )

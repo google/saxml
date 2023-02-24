@@ -52,7 +52,9 @@ def ValidateRequestForExtraInputs(
 
   req_extra_inputs = (
       dict(req.extra_inputs.items)
-      if hasattr(req, 'extra_inputs') and req.extra_inputs else None)
+      if hasattr(req, 'extra_inputs') and req.extra_inputs
+      else None
+  )
 
   if req_extra_inputs is None:
     return utils.ok()
@@ -74,8 +76,8 @@ def ValidateRequestForExtraInputs(
       )
     if key in req_extra_inputs:
       return utils.invalid_arg(
-          'It is invalid for the same key to appear in both items '
-          'and tensors.')
+          'It is invalid for the same key to appear in both items and tensors.'
+      )
     if not isinstance(extra_inputs[key], list):
       return utils.invalid_arg(
           f'Extra inputs `{key}` is a list but the default value is not.'

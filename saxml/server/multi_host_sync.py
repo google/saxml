@@ -57,8 +57,10 @@ class MessageRingBuffer:
       if self._head_seqno > seqno and seqno not in self._pending_out_of_order:
         # This is a duplicate. Consider this as a successful push.
         return True
-      while (self._buffer[offset] is not None or
-             seqno >= self._tail_seqno + self._max_size):
+      while (
+          self._buffer[offset] is not None
+          or seqno >= self._tail_seqno + self._max_size
+      ):
         if not blocking:
           return False
         self._cv.wait()
@@ -94,8 +96,9 @@ class MultiHostSyncService(internal_pb2_grpc.MultiHostSyncService):
   def __init__(self, rb: MessageRingBuffer):
     self._rb = rb
 
-  async def Sync(self, request: internal_pb2.SyncRequest,
-                 context: grpc.ServicerContext):
+  async def Sync(
+      self, request: internal_pb2.SyncRequest, context: grpc.ServicerContext
+  ):
     if not self._rb.push(request.seqno, request.text, blocking=False):
       context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
       context.set_details(f'Message ringbuffer full for seqno {request.seqno}')
@@ -105,8 +108,13 @@ class MultiHostSyncService(internal_pb2_grpc.MultiHostSyncService):
 class MultiHostSync:
   """Implements cross-host synchronization on a sequence of messages."""
 
-  def __init__(self, is_primary: bool, server: grpc.aio.Server, my_ipport: str,
-               spmd_backend: SPMDBackend):
+  def __init__(
+      self,
+      is_primary: bool,
+      server: grpc.aio.Server,
+      my_ipport: str,
+      spmd_backend: SPMDBackend,
+  ):
     self._rb = MessageRingBuffer(_MAX_RING_BUF_SIZE)
     self._is_primary = is_primary
     self._my_ipport = my_ipport
@@ -116,7 +124,8 @@ class MultiHostSync:
     self._device_receive_thread_pool: Optional[utils.ThreadPool] = None
     if not is_primary:
       internal_pb2_grpc.add_MultiHostSyncServiceServicer_to_server(
-          MultiHostSyncService(self._rb), server)
+          MultiHostSyncService(self._rb), server
+      )
       self._device_receive_thread_pool = utils.ThreadPool(num_threads=2)
     self._host_send_threads: List[threading.Thread] = []
     self._stubs = []
@@ -126,8 +135,9 @@ class MultiHostSync:
     self._end_special_seqno = -2
     self._live_outgoing_rpcs: int = 0
 
-  def initialize(self,
-                 channel_creds: Optional[grpc.ChannelCredentials]) -> None:
+  def initialize(
+      self, channel_creds: Optional[grpc.ChannelCredentials]
+  ) -> None:
     """Initializes the connections between hosts."""
     if self._spmd_backend.spmd_host_count() == 1:
       return
@@ -182,7 +192,8 @@ class MultiHostSync:
         ready_future.result()
         stub = internal_pb2_grpc.MultiHostSyncServiceStub(channel)
         self._host_send_threads.append(
-            threading.Thread(target=_send_loop, args=(stub,)))
+            threading.Thread(target=_send_loop, args=(stub,))
+        )
         self._host_send_threads[-1].start()
       logging.info('Connected to all secondary hosts')
 
@@ -214,8 +225,10 @@ class MultiHostSync:
       return
     with self._host_send_cv:
       if self._live_outgoing_rpcs > 0:
-        logging.info('Skipping send via host, %s unfinished RPC requests',
-                     self._live_outgoing_rpcs)
+        logging.info(
+            'Skipping send via host, %s unfinished RPC requests',
+            self._live_outgoing_rpcs,
+        )
         return
       # Notify the sender threads of the new message.
       self._live_outgoing_rpcs = len(self._host_send_threads)
@@ -231,6 +244,7 @@ class MultiHostSync:
       self._rb.push(seqno, message, blocking=True)
 
     self._spmd_backend.receive_via_device_async(
-        self._device_receive_thread_pool, _done)
+        self._device_receive_thread_pool, _done
+    )
     self._device_receive_seqno += 1
     return self._rb.pop()

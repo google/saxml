@@ -63,6 +63,7 @@ class StepCounter:
 @dataclasses.dataclass
 class ServableModelState:
   """A data structure holding the state of a loaded model."""
+
   # Whether the current host is the primary in a multi-jax-client setup. It is
   # set to True for Pathways.
   is_primary_host: bool
@@ -87,6 +88,7 @@ class ServableModelState:
 @dataclasses.dataclass
 class MethodInputInfo:
   """Holds metadata and placeholder data for a method at a batch size."""
+
   # Partition specs for the inputs of the device function.
   input_pspecs: PSpecs
   # Global shape and dtype for the inputs of the device function.
@@ -116,9 +118,13 @@ class ServableMethod(servable_model.ServableMethod):
   host calls inside jax_func() to guarantee correct ordering.
   """
 
-  def __init__(self, method_params: servable_model_params.ServableMethodParams,
-               model_state: ServableModelState, prng_key: jnp.ndarray,
-               dummy_input_sample: Any) -> None:
+  def __init__(
+      self,
+      method_params: servable_model_params.ServableMethodParams,
+      model_state: ServableModelState,
+      prng_key: jnp.ndarray,
+      dummy_input_sample: Any,
+  ) -> None:
     super().__init__(method_params)
     self._model_state = model_state
     self._per_bs_infos: Dict[InputShapeInfo, MethodInputInfo] = {}
@@ -127,8 +133,11 @@ class ServableMethod(servable_model.ServableMethod):
     self._step = StepCounter()
     self._local_devices = list(model_state.global_mesh.local_devices)
     self._callback_device_index = 0
-    logging.info('Primary host: %d, Current: %d',
-                 model_state.primary_process_id, jax.process_index())
+    logging.info(
+        'Primary host: %d, Current: %d',
+        model_state.primary_process_id,
+        jax.process_index(),
+    )
 
     devices = model_state.global_mesh.devices.flatten()
     for i, d in enumerate(devices):
@@ -154,23 +163,30 @@ class ServableMethod(servable_model.ServableMethod):
 
   def get_dummy_inputs(self, input_shape: InputShapeInfo) -> HostTensors:
     """Returns host tensors with dummy data at a batch size."""
-    return self.pre_processing([self._dummy_input_sample] *
-                               input_shape.batch_size)
+    return self.pre_processing(
+        [self._dummy_input_sample] * input_shape.batch_size
+    )
 
   def _register_for_input_shape(self, input_shape: InputShapeInfo) -> None:
     batched_host_dummy = self.get_dummy_inputs(input_shape)
     batched_host_dummy = self.update_extra_inputs(
-        batched_host_dummy, input_shape.batch_size,
-        [self.default_extra_inputs] * input_shape.batch_size)
+        batched_host_dummy,
+        input_shape.batch_size,
+        [self.default_extra_inputs] * input_shape.batch_size,
+    )
 
     def _assert_type(x):
-      assert isinstance(x, np.ndarray), (
-          f'Output of pre_processing contained an invalid type: {type(x)}')
+      assert isinstance(
+          x, np.ndarray
+      ), f'Output of pre_processing contained an invalid type: {type(x)}'
       return x
 
     dummy_step = np.array(0, dtype=np.int32)
-    host_dummy = (dummy_step, batched_host_dummy,
-                  self.get_nonbatch_inputs(batched_host_dummy))
+    host_dummy = (
+        dummy_step,
+        batched_host_dummy,
+        self.get_nonbatch_inputs(batched_host_dummy),
+    )
     host_dummy = jax.tree_util.tree_map(_assert_type, host_dummy)
 
     def _get_pspec(x):
@@ -192,9 +208,11 @@ class ServableMethod(servable_model.ServableMethod):
     )
     info = self._per_bs_infos[input_shape]
     info.dummy_inputs_per_device_buffers = self._input_to_device_buffers(
-        batched_host_dummy, input_shape, is_dummy=True)
+        batched_host_dummy, input_shape, is_dummy=True
+    )
     info.dummy_inputs = self._device_buffers_to_jax_arrays(
-        info.dummy_inputs_per_device_buffers, input_shape)
+        info.dummy_inputs_per_device_buffers, input_shape
+    )
     # Initialize the device function.
     info.device_fn = self._pjit_device_fn(input_pspecs, input_shape.batch_size)
 
@@ -238,9 +256,12 @@ class ServableMethod(servable_model.ServableMethod):
     """
     return ()
 
-  def resize_host_array(self, x: np.ndarray,
-                        global_input_shape_dtype: ShapesAndDtypes,
-                        unpadded_input_shape: InputShapeInfo):
+  def resize_host_array(
+      self,
+      x: np.ndarray,
+      global_input_shape_dtype: ShapesAndDtypes,
+      unpadded_input_shape: InputShapeInfo,
+  ):
     """Checks the shape of x and resizes to the desired shape.
 
     Args:
@@ -265,9 +286,12 @@ class ServableMethod(servable_model.ServableMethod):
       x = np.concatenate([x, np.repeat(x[:1], full_b - b, 0)], axis=0)
     return x
 
-  def _input_to_device_buffers(self, one_core_inputs: HostTensors,
-                               unpadded_input_shape: InputShapeInfo,
-                               is_dummy: bool) -> DeviceTensors:
+  def _input_to_device_buffers(
+      self,
+      one_core_inputs: HostTensors,
+      unpadded_input_shape: InputShapeInfo,
+      is_dummy: bool,
+  ) -> DeviceTensors:
     info = self._per_bs_infos[self.get_padded_input_shape(unpadded_input_shape)]
     step = np.array(self._step.next(), dtype=np.int32)
     host_inputs = jax.tree_util.tree_map(
@@ -284,14 +308,15 @@ class ServableMethod(servable_model.ServableMethod):
       # Keep x on only one device, and use zeros on other devices.
       return np.pad(
           np.expand_dims(x, (0, 1)),
-          [[0, len(self._local_devices) - 1]] + [[0, 0]] * (x.ndim + 1))
+          [[0, len(self._local_devices) - 1]] + [[0, 0]] * (x.ndim + 1),
+      )
 
     if not self.model_state.input_prefetch:
-
       if is_dummy:
         return jax.tree_util.tree_map(
             lambda x: np.zeros((len(self._local_devices),) + x.shape, x.dtype),
-            host_inputs)
+            host_inputs,
+        )
       return jax.tree_util.tree_map(_pad_for_devices, host_inputs)
 
     if is_dummy:
@@ -299,7 +324,8 @@ class ServableMethod(servable_model.ServableMethod):
       def _to_buffers(x):
         if self.model_state.is_primary_host:
           return pxla.device_put(
-              _pad_for_devices(x), self._local_devices, replicate=False)
+              _pad_for_devices(x), self._local_devices, replicate=False
+          )
         else:
           x = np.zeros((1,) + x.shape, x.dtype)
           return pxla.device_put(x, self._local_devices, replicate=True)
@@ -312,14 +338,18 @@ class ServableMethod(servable_model.ServableMethod):
       x = np.expand_dims(x, axis=0)
       # Dummy buffers already created before. We only need to update the first
       # device.
-      return pxla.device_put(
-          x, [self._local_devices[0]], replicate=True) + existing_buffers[1:]
+      return (
+          pxla.device_put(x, [self._local_devices[0]], replicate=True)
+          + existing_buffers[1:]
+      )
 
-    return jax.tree_util.tree_map(_update_buffers, host_inputs,
-                                  info.dummy_inputs_per_device_buffers)
+    return jax.tree_util.tree_map(
+        _update_buffers, host_inputs, info.dummy_inputs_per_device_buffers
+    )
 
   def _device_buffers_to_jax_arrays(
-      self, buffers: Any, input_shape: InputShapeInfo) -> DeviceTensors:
+      self, buffers: Any, input_shape: InputShapeInfo
+  ) -> DeviceTensors:
     if not self.model_state.input_prefetch:
       return buffers
     info = self._per_bs_infos[input_shape]
@@ -327,8 +357,10 @@ class ServableMethod(servable_model.ServableMethod):
     def _to_jax_array(pspec, bufs, shape_dtype):
       shape, _ = shape_dtype
       return jax.make_array_from_single_device_arrays(
-          shape, jax.sharding.NamedSharding(self.model_state.global_mesh,
-                                            pspec), bufs)
+          shape,
+          jax.sharding.NamedSharding(self.model_state.global_mesh, pspec),
+          bufs,
+      )
 
     return jax.tree_util.tree_map(
         _to_jax_array,
@@ -337,37 +369,44 @@ class ServableMethod(servable_model.ServableMethod):
         info.global_inputs_shape_dtype,
     )
 
-  def input_to_device(self, one_core_inputs: HostTensors,
-                      unpadded_input_shape: InputShapeInfo) -> DeviceTensors:
+  def input_to_device(
+      self, one_core_inputs: HostTensors, unpadded_input_shape: InputShapeInfo
+  ) -> DeviceTensors:
     """Transfers input data to device. Pads incomplete batches."""
     buffers = self._input_to_device_buffers(
-        one_core_inputs, unpadded_input_shape, is_dummy=False)
+        one_core_inputs, unpadded_input_shape, is_dummy=False
+    )
     padded_shape = self.get_padded_input_shape(unpadded_input_shape)
     return self._device_buffers_to_jax_arrays(buffers, padded_shape)
 
-  def output_to_host(self, output_tensors: DeviceTensors,
-                     unpadded_batch_size: int) -> HostTensors:
+  def output_to_host(
+      self, output_tensors: DeviceTensors, unpadded_batch_size: int
+  ) -> HostTensors:
     """Fetches device outputs to host. Removes batch padding."""
     return jax.tree_util.tree_map(
         lambda x: np.array(x.addressable_data(0))[:unpadded_batch_size],
-        output_tensors)
+        output_tensors,
+    )
 
-  def remove_batch_padding(self, host_tensors: HostTensors,
-                           unpadded_batch_size: int) -> HostTensors:
-    return jax.tree_util.tree_map(lambda x: x[:unpadded_batch_size],
-                                  host_tensors)
+  def remove_batch_padding(
+      self, host_tensors: HostTensors, unpadded_batch_size: int
+  ) -> HostTensors:
+    return jax.tree_util.tree_map(
+        lambda x: x[:unpadded_batch_size], host_tensors
+    )
 
   @abc.abstractmethod
   def add_extra_inputs(
-      self, input_batch: HostTensors,
-      extra_input_tensors: Dict[str, np.ndarray]) -> HostTensors:
+      self, input_batch: HostTensors, extra_input_tensors: Dict[str, np.ndarray]
+  ) -> HostTensors:
     """Adds extra inputs to input_batch (maybe inplace) and returns it."""
 
   def update_extra_inputs(
       self,
       input_batch: HostTensors,
       batch_size: int,
-      extra_inputs: Optional[List[ExtraInput]] = None) -> HostTensors:
+      extra_inputs: Optional[List[ExtraInput]] = None,
+  ) -> HostTensors:
     """Updates mutable input keys to input batch.
 
     Users would like to update some input keys for the input batch through
@@ -403,26 +442,34 @@ class ServableMethod(servable_model.ServableMethod):
       extra_input_tensors[input_key] = np.array(input_value, dtype=np.float32)
     return self.add_extra_inputs(input_batch, extra_input_tensors)
 
-  def device_compute(self, input_batch: DeviceTensors,
-                     unpadded_shape: InputShapeInfo) -> DeviceTensors:
+  def device_compute(
+      self, input_batch: DeviceTensors, unpadded_shape: InputShapeInfo
+  ) -> DeviceTensors:
     """Executes the device computation."""
     padded_shape = self.get_padded_input_shape(unpadded_shape)
     with self.model_state.global_mesh:
       output_batch = self._per_bs_infos[padded_shape].device_fn(
-          self.model_state.mdl_vars, input_batch)
+          self.model_state.mdl_vars, input_batch
+      )
       return output_batch
 
-  def compute_with_dummy_data(self,
-                              unpadded_shape: InputShapeInfo) -> DeviceTensors:
+  def compute_with_dummy_data(
+      self, unpadded_shape: InputShapeInfo
+  ) -> DeviceTensors:
     """Executes device computation with dummy inputs."""
     padded_shape = self.get_padded_input_shape(unpadded_shape)
-    return self.device_compute(self._per_bs_infos[padded_shape].dummy_inputs,
-                               padded_shape)
+    return self.device_compute(
+        self._per_bs_infos[padded_shape].dummy_inputs, padded_shape
+    )
 
   @abc.abstractmethod
-  def jax_func(self, mdl_vars: JaxTensors, prng_key: jnp.ndarray,
-               batched_inputs: JaxTensors,
-               non_batched_inputs: JaxTensors) -> JaxTensors:
+  def jax_func(
+      self,
+      mdl_vars: JaxTensors,
+      prng_key: jnp.ndarray,
+      batched_inputs: JaxTensors,
+      non_batched_inputs: JaxTensors,
+  ) -> JaxTensors:
     """Invokes the JAX function that implements the device computation."""
 
   def _pjit_device_fn(
@@ -433,21 +480,27 @@ class ServableMethod(servable_model.ServableMethod):
     def _wrapped_fn(mdl_vars, inputs):
       # Remove padding on the vars.
       mdl_vars = jax.tree_util.tree_map(
-          remove_padding, mdl_vars, self.model_state.mdl_var_unpadded_shapes)
-      mdl_vars = jax.tree_util.tree_map(pjit.with_sharding_constraint, mdl_vars,
-                                        self.model_state.mdl_var_pspecs)
+          remove_padding, mdl_vars, self.model_state.mdl_var_unpadded_shapes
+      )
+      mdl_vars = jax.tree_util.tree_map(
+          pjit.with_sharding_constraint,
+          mdl_vars,
+          self.model_state.mdl_var_pspecs,
+      )
 
       # Only one core has real data, others have zeros. Summing on the leading
       # leading `cores` dimension can make data replicated.
       def _replicate(x):
         return pjit.with_sharding_constraint(
-            jnp.sum(x, axis=0, promote_integers=False), None)
+            jnp.sum(x, axis=0, promote_integers=False), None
+        )
 
       inputs = jax.tree_util.tree_map(_replicate, inputs)
       step, batched_inputs, non_batched_inputs = inputs
       prng_key = jax.random.fold_in(self._prng_key, step)
-      outputs = self.jax_func(mdl_vars, prng_key, batched_inputs,
-                              non_batched_inputs)
+      outputs = self.jax_func(
+          mdl_vars, prng_key, batched_inputs, non_batched_inputs
+      )
       # This assumes that outputs are generated after previous host calls, and
       # it is guaranteed by data dependency.
       if self.streamable:

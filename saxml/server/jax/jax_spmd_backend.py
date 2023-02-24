@@ -61,10 +61,13 @@ class JaxSPMDBackend(SPMDBackend):
   def __init__(self):
     mesh = mesh_utils.create_device_mesh((jax.device_count(),))
     self._mesh = jax.sharding.Mesh(mesh, ('all',))
-    zero = np.zeros((
-        1,
-        _MESSAGE_BUF_LEN,
-    ), dtype=np.uint8)
+    zero = np.zeros(
+        (
+            1,
+            _MESSAGE_BUF_LEN,
+        ),
+        dtype=np.uint8,
+    )
     self._local_devices = list(self._mesh.local_devices)
     self._zero_bufs = [jax.device_put(zero, d) for d in self._local_devices]
     self._sharding = jax.sharding.NamedSharding(
@@ -72,7 +75,8 @@ class JaxSPMDBackend(SPMDBackend):
     )
     self._global_shape = (len(self._mesh.devices.flat), _MESSAGE_BUF_LEN)
     self._zero_jax_array = jax.make_array_from_single_device_arrays(
-        self._global_shape, self._sharding, self._zero_bufs)
+        self._global_shape, self._sharding, self._zero_bufs
+    )
     self._process_idx = jax.process_index()
     self._process_count = jax.process_count()
 
@@ -81,7 +85,8 @@ class JaxSPMDBackend(SPMDBackend):
       data = np.expand_dims(_encode_str_to_tensor(message), 0)
       buf = jax.device_put(data, self._local_devices[0])
       return jax.make_array_from_single_device_arrays(
-          self._global_shape, self._sharding, [buf] + self._zero_bufs[1:])
+          self._global_shape, self._sharding, [buf] + self._zero_bufs[1:]
+      )
 
     self._str_to_jax_array = _cached_str_to_jax_array
 
@@ -103,8 +108,9 @@ class JaxSPMDBackend(SPMDBackend):
       result = _all_reduce(self._zero_jax_array)
     return _decode_tensor_to_str(np.array(result.addressable_data(0)))  # pytype: disable=wrong-arg-types  # jax-ndarray
 
-  def receive_via_device_async(self, thread_pool: utils.ThreadPool,
-                               done: Callable[[str], None]) -> None:
+  def receive_via_device_async(
+      self, thread_pool: utils.ThreadPool, done: Callable[[str], None]
+  ) -> None:
     with self._mesh:
       result = _all_reduce(self._zero_jax_array)
 

@@ -42,15 +42,22 @@ class CustomService(model_service_base.ModelService):
   ) -> bytes:
     return request.request
 
-  def FillRPCResponse(self, method_name: str, method_outputs: bytes,
-                      response: custom_pb2.CustomResponse) -> None:
+  def FillRPCResponse(
+      self,
+      method_name: str,
+      method_outputs: bytes,
+      response: custom_pb2.CustomResponse,
+  ) -> None:
     response.response = method_outputs
     return
 
 
 @model_service_base.register_service(SERVICE_ID)
-class CustomServiceGRPC(model_service_base.ModelServiceGRPC, CustomService,
-                        custom_pb2_grpc.CustomServiceServicer):
+class CustomServiceGRPC(
+    model_service_base.ModelServiceGRPC,
+    CustomService,
+    custom_pb2_grpc.CustomServiceServicer,
+):
   """CustomService gRPC service."""
 
   def ServiceName(self) -> str:
@@ -61,6 +68,7 @@ class CustomServiceGRPC(model_service_base.ModelServiceGRPC, CustomService,
 
   async def Custom(self, request, context):
     resp = custom_pb2.CustomResponse()
-    await self.EnqueueRequest(request.method_name, request.model_key, context,
-                              request, resp)
+    await self.EnqueueRequest(
+        request.method_name, request.model_key, context, request, resp
+    )
     return resp
