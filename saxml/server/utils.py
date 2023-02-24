@@ -13,14 +13,14 @@
 # limitations under the License.
 """Utilities routines."""
 
+import collections
 import dataclasses
 import queue
 import threading
 import time
 from typing import Any, Callable, Optional, Protocol, Sequence, Tuple
-
 import grpc
-
+import numpy as np
 from google.protobuf import message
 
 
@@ -81,6 +81,7 @@ class RPCContextGRPC(RPCContext):
 @dataclasses.dataclass
 class RpcQueueTask:
   """Represents one RPC request in the queue."""
+
   rpc: Optional[RPCContext]
   request: Optional[message.Message]
   response: Optional[message.Message]
@@ -95,19 +96,21 @@ def traceprint_all(rpc_tasks: Sequence[RpcQueueTask], msg: str):
       rpc_task.tc(msg)
 
 
-class RpcQueue():
+class RpcQueue:
   """A queue of RPC requests."""
 
   def __init__(self, batching_wait_secs: Optional[float] = None):
     self._queue: queue.SimpleQueue[RpcQueueTask] = queue.SimpleQueue()
     self._batching_wait_secs = batching_wait_secs
 
-  def send(self,
-           rpc: Optional[RPCContext],
-           request: Optional[message.Message],
-           response: Optional[message.Message],
-           done: Optional[StatusCallback],
-           tc: Optional[TracerPrintCallback] = None):
+  def send(
+      self,
+      rpc: Optional[RPCContext],
+      request: Optional[message.Message],
+      response: Optional[message.Message],
+      done: Optional[StatusCallback],
+      tc: Optional[TracerPrintCallback] = None,
+  ):
     """Called from RPC handler to schedule a task for processing.
 
     Args:
@@ -179,7 +182,8 @@ class ThreadPool:
     self._queue: queue.SimpleQueue[Tuple[Callback, Any]] = queue.SimpleQueue()
     for i in range(num_threads):
       t = threading.Thread(
-          target=self._do_work, daemon=True, name=f'{thread_name_prefix}_{i}')
+          target=self._do_work, daemon=True, name=f'{thread_name_prefix}_{i}'
+      )
       t.start()
 
   def run(self, func: Callback, args: Any = ()):
@@ -291,3 +295,109 @@ def unimplemented(errmsg: str) -> Status:
 
 def already_exists(errmsg: str) -> Status:
   return Status(grpc.StatusCode.ALREADY_EXISTS, errmsg)
+
+
+ClockTime = Callable[[], float]
+
+
+class RequestStats:
+  """RequestStats keeps track of request latencies in the recent past.
+
+  E.g.,
+    # Keeps track of request latencies in the last 60 seconds.
+    stats = RequestStats(60)
+
+    # request just finished
+    stats.add(request_finish_time - request_start_time)
+
+    # Looks at the statistics such as mean/std of the latency together
+    # with a few samples. These samples can be used in computing latency
+    # percentile.
+    result = stats.get(100)
+    print(result.mean(), result.std, np.percentile(result.samples, 50))
+  """
+
+  clock_time: ClockTime
+  timespan_nsec: np.float64
+
+  @dataclasses.dataclass(frozen=True)
+  class _Item:
+    timestamp_sec: np.float64
+    duration_sec: np.float64
+
+  queue: collections.deque[_Item]
+
+  # Basic statistics of items in deque.
+  total: np.int64  # sum(deque[*].duration_sec)
+  summ: np.float64  # sum(deque[*].duration_sec)
+  summ2: np.float64  # sum(deque[*].duration_sec^2)
+
+  def __init__(self, timespan_sec: np.float64, clock: ClockTime = time.time):
+    """Constructs a RequestStats object.
+
+    Args:
+      timespan_sec: Keeps track latencies observed in the last these many
+        seconds.
+      clock: A callback returns the current time. Useful for testing.
+    """
+    self.timespan_sec = timespan_sec
+    self.clock_time = clock
+    self.queue = collections.deque()
+    self.total = 0
+    self.summ = 0.0
+    self.summ2 = 0.0
+
+  def _gc(self, now_sec):
+    """Garbage collection routine to keep self.queue finite size."""
+    while self.queue and (
+        now_sec - self.queue[0].timestamp_sec >= self.timespan_sec
+    ):
+      item = self.queue.popleft()
+      self.total -= 1
+      self.summ -= item.duration_sec
+      self.summ2 -= np.square(item.duration_sec)
+
+  def add(self, duration_sec: float):
+    """Records one request's latency."""
+    now_sec = self.clock_time()
+    if self.queue:
+      # Makes sure clock doesn't go back.
+      now_sec = max(now_sec, self.queue[-1].timestamp_sec)
+    item = self._Item(timestamp_sec=now_sec, duration_sec=duration_sec)
+    self.queue.append(item)
+    self.total += 1
+    self.summ += item.duration_sec
+    self.summ2 += np.square(item.duration_sec)
+    self._gc(now_sec)
+
+  @dataclasses.dataclass(frozen=True)
+  class Stats:
+    """Statistics summary for request latencies during the timespan."""
+
+    # The total number of recorded requests during the timespan.
+    total: np.int64
+
+    # The sum of request latencies during the timespan.
+    summ: np.float64
+
+    # The sum of request latencies squared during the timespan.
+    summ2: np.float64
+
+    # The selected samples of request latencies.
+    samples: Sequence[np.float64]
+
+    def mean(self) -> np.float64:
+      return self.summ / self.total
+
+    def std(self) -> np.float64:
+      return np.sqrt(self.summ2 / self.total - np.square(self.mean()))
+
+  def get(self, max_samples: int) -> Stats:
+    """Returns a summarized view of the latency statistics."""
+    self._gc(self.clock_time())
+    samples = [i.duration_sec for i in self.queue]
+    if len(samples) > max_samples:
+      samples = np.random.choice(samples, max_samples, replace=False)
+    return self.Stats(
+        total=self.total, summ=self.summ, summ2=self.summ2, samples=samples
+    )

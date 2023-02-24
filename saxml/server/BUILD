@@ -107,7 +107,20 @@ pytype_strict_library(
     srcs_version = "PY3",
     deps = [
         "//third_party/py/grpcio",
+        "//third_party/py/numpy",
         "@com_google_protobuf//:protobuf_python",
+    ],
+)
+
+py_strict_test(
+    name = "utils_test",
+    srcs = ["utils_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":utils",
+        "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/numpy",
     ],
 )
 
