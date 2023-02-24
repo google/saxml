@@ -158,6 +158,17 @@ func (s *stubAdminServer) Join(ctx context.Context, in *apb.JoinRequest) (*apb.J
 	return &apb.JoinResponse{}, nil
 }
 
+func (s *stubAdminServer) Stats(ctx context.Context, in *apb.StatsRequest) (*apb.StatsResponse, error) {
+	var modelServerTypeStats []*apb.ModelServerTypeStat
+	modelServerTypeStats = append(modelServerTypeStats, &apb.ModelServerTypeStat{
+		ChipType:     apb.ModelServer_CHIP_TYPE_TPU_V2,
+		ChipTopology: apb.ModelServer_CHIP_TOPOLOGY_1X1,
+		NumReplicas:  int32(len(s.modelAddressesList(ctx))),
+	})
+
+	return &apb.StatsResponse{ModelServerTypeStats: modelServerTypeStats}, nil
+}
+
 // StartStubAdminServer starts a new admin server with stub implementations.
 // Close the returned channel to close the server.
 func StartStubAdminServer(adminPort int, modelPorts []int, saxCell string) (chan struct{}, error) {

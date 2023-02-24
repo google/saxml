@@ -208,6 +208,23 @@ func (a *Admin) ListAll(ctx context.Context) (*pb.ListResponse, error) {
 	return res, nil
 }
 
+// Stats returns the status of the cell
+func (a *Admin) Stats(ctx context.Context, modelID string) (*pb.StatsResponse, error) {
+	req := &pb.StatsRequest{
+		ModelId: modelID,
+	}
+	var res *pb.StatsResponse
+	err := a.retry(ctx, func(client pbgrpc.AdminClient) error {
+		var err error
+		res, err = client.Stats(ctx, req)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 // addrReplica maintains a set of server addresses for a model.
 type addrReplica struct {
 	modelID string

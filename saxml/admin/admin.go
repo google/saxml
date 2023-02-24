@@ -176,6 +176,57 @@ func (s *Server) List(ctx context.Context, in *pb.ListRequest) (*pb.ListResponse
 	return &pb.ListResponse{PublishedModels: s.Mgr.ListAll()}, nil
 }
 
+func (s *Server) locate(ctx context.Context, modelFullName string) ([]*pb.JoinedModelServer, error) {
+	// Locate joined model servers.
+	if modelFullName != "" {
+		if err := validator.ValidateModelFullName(modelFullName, s.saxCell); err != nil {
+			return nil, err
+		}
+		fullName, err := naming.NewModelFullName(modelFullName)
+		if err != nil {
+			return nil, err
+		}
+
+		pubModel, err := s.Mgr.List(fullName)
+		if err != nil {
+			return nil, err
+		}
+		addrs := pubModel.GetModeletAddresses()
+		return s.Mgr.LocateSome(addrs)
+	}
+	return s.Mgr.LocateAll()
+}
+
+func (s *Server) Stats(ctx context.Context, in *pb.StatsRequest) (*pb.StatsResponse, error) {
+	modelFullName := in.GetModelId()
+
+	servers, err := s.locate(ctx, modelFullName)
+	if err != nil {
+		return nil, err
+	}
+
+	type ServerType struct {
+		chipType pb.ModelServer_ChipType
+		chipTopo pb.ModelServer_ChipTopology
+	}
+	replicasPerServerType := make(map[ServerType]int32)
+
+	for _, server := range servers {
+		serverType := ServerType{server.GetModelServer().GetChipType(), server.GetModelServer().GetChipTopology()}
+		replicasPerServerType[serverType] = replicasPerServerType[serverType] + 1
+	}
+
+	modelServerTypeStats := []*pb.ModelServerTypeStat{}
+	for serverType, replicas := range replicasPerServerType {
+		modelServerTypeStats = append(modelServerTypeStats, &pb.ModelServerTypeStat{
+			ChipType:     serverType.chipType,
+			ChipTopology: serverType.chipTopo,
+			NumReplicas:  replicas,
+		})
+	}
+	return &pb.StatsResponse{ModelServerTypeStats: modelServerTypeStats}, nil
+}
+
 // WatchLoc handles WatchLoc rpc requests.
 func (s *Server) WatchLoc(ctx context.Context, in *pb.WatchLocRequest) (*pb.WatchLocResponse, error) {
 	if err := validator.ValidateWatchLocRequest(in); err != nil {

@@ -141,6 +141,12 @@ message ModelServer {
   repeated string servable_model_paths = 3;  // e.g. ["lingvo.lm.glam_8b", ...]
 }
 
+message ModelServerTypeStat {
+  ModelServer.ChipType chip_type = 1;
+  ModelServer.ChipTopology chip_topology = 2;
+  int32 num_replicas = 3;  // Number of active replicas.
+}
+
 // The state of a joined model server.
 message JoinedModelServer {
   ModelServer model_server = 1;
@@ -176,6 +182,15 @@ message ListRequest {
 
 message ListResponse {
   repeated PublishedModel published_models = 1;
+}
+
+message StatsRequest {
+  // If empty, returns stats for all actively serving models in the system.
+  string model_id = 1;
+}
+
+message StatsResponse {
+  repeated ModelServerTypeStat model_server_type_stats = 1;
 }
 
 message WatchLocRequest {
@@ -244,6 +259,9 @@ service Admin {
 
   // Lists actively serving models.
   rpc List(ListRequest) returns (ListResponse);
+
+  // Get Stats of a cell.
+  rpc Stats(StatsRequest) returns (StatsResponse);
 
   // Watches for changes of model server address(es) for a given model.
   rpc WatchLoc(WatchLocRequest) returns (WatchLocResponse);
