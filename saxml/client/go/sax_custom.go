@@ -30,7 +30,7 @@ type CustomModel struct {
 }
 
 // Custom call against a Custom model.
-func (m *CustomModel) Custom(ctx context.Context, request []byte, methodName string, options ...ModelOptionSetter) ([]byte, error) {
+func (m *CustomModel) Custom(ctx context.Context, request string, methodName string, options ...ModelOptionSetter) (string, error) {
 	opts := NewModelOptions(options...)
 	req := &pb.CustomRequest{
 		ModelKey:    m.model.modelID,
@@ -46,7 +46,7 @@ func (m *CustomModel) Custom(ctx context.Context, request []byte, methodName str
 		return customCallErr
 	})
 	if err != nil {
-		return []byte{}, err
+		return "", err
 	}
 	return resp.Response, nil
 }

@@ -37,17 +37,11 @@ SERVICE_ID = 'custom'
 class CustomService(model_service_base.ModelService):
   """CustomService implementation."""
 
-  def ParseMethodRPCRequest(
-      self, method_name: str, request: custom_pb2.CustomRequest
-  ) -> bytes:
+  def ParseMethodRPCRequest(self, method_name: str, request: Any) -> Any:
     return request.request
 
-  def FillRPCResponse(
-      self,
-      method_name: str,
-      method_outputs: bytes,
-      response: custom_pb2.CustomResponse,
-  ) -> None:
+  def FillRPCResponse(self, method_name: str, method_outputs: Any,
+                      response: Any) -> None:
     response.response = method_outputs
     return
 

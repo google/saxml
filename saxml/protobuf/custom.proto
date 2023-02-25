@@ -32,13 +32,13 @@ import "saxml/protobuf/common.proto";
 
 message CustomRequest {
   string model_key = 1;
-  bytes request = 2;
+  string request = 2;
   .sax.ExtraInputs extra_inputs = 3;
   string method_name = 4;
 }
 
 message CustomResponse {
-  bytes response = 1;
+  string response = 1;
 }
 
 service CustomService {
