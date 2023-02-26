@@ -8,6 +8,7 @@ licenses(["notice"])
 package(
     default_visibility = [
         "//saxml:internal",
+        "//saxml/server:users",
     ],
 )
 

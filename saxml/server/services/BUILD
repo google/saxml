@@ -3,6 +3,7 @@ load("//saxml:saxml.bzl", "pytype_strict_library")
 package(
     default_visibility = [
         "//saxml:internal",
+        "//saxml/server:users",
     ],
 )
 

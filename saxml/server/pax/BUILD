@@ -5,7 +5,10 @@ load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_library")
 licenses(["notice"])
 
 package(
-    default_visibility = ["//saxml:internal"],
+    default_visibility = [
+        "//saxml:internal",
+        "//saxml/server:users",
+    ],
 )
 
 pytype_strict_library(
