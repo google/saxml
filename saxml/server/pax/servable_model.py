@@ -19,7 +19,6 @@ from absl import logging
 from etils import epath
 import jax
 from jax import numpy as jnp
-from jax.experimental import mesh_utils
 from jax.experimental import pjit
 import numpy as np
 from paxml import checkpoints
@@ -348,7 +347,6 @@ class ServableModel(servable_model.ServableModel):
     self._primary_process_id = primary_process_id
     assert ckpt_type in (CheckpointType.GDA, CheckpointType.PERSISTENCE)
     self._ckpt_type = ckpt_type
-    self._mesh_shape = model_config.serving_mesh_shape()
     self._model_config = model_config
 
   @property
@@ -379,9 +377,12 @@ class ServableModel(servable_model.ServableModel):
     task_p = self._model_config.task()
     jax_task = task_p.Instantiate()
     model_p = task_p.model  # pytype: disable=attribute-error  # enable-nested-classes
-    device_mesh = mesh_utils.create_device_mesh(self._mesh_shape)
 
     prng_key, init_key = jax.random.split(prng_key)
+
+    status, device_mesh = self._model_config.get_supported_device_mesh()
+    if not status.ok():
+      raise ValueError(status.errmsg)
 
     logging.info('device_mesh: %s', device_mesh)
     global_mesh = jax.sharding.Mesh(device_mesh, model_p.mesh_axis_names)

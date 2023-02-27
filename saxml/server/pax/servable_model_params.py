@@ -19,6 +19,7 @@ from absl import logging
 
 import jax
 from jax.experimental import mesh_utils
+import numpy as np
 from paxml import base_experiment
 from paxml import checkpoints
 from praxis import base_hyperparams
@@ -48,23 +49,41 @@ class ServableModelParams(
   quant_mode: QuantizationMode = QuantizationMode.INFERENCE
 
   @classmethod
-  def check_serving_platform(cls) -> utils.Status:
+  def get_supported_device_mesh(
+      cls,
+  ) -> Tuple[utils.Status, Optional[np.ndarray]]:
     global logged_jax_device
     if not logged_jax_device:
       logging.info('jax devices: %s', jax.devices())
       logged_jax_device = True
-    mesh_shape = cls.serving_mesh_shape()
-    try:
-      # If mesh_shape is supported, create_device_mesh should succeed.
-      mesh_utils.create_device_mesh(mesh_shape)
-    except Exception as e:  # pylint: disable=broad-except
-      return utils.invalid_arg(f'Unsupported mesh shape: {e}')
-    return utils.ok()
+
+    # If mesh_shapes is a single shape, turn it into a list of a
+    # singleton.
+    mesh_shapes = cls.serving_mesh_shape()
+    if isinstance(mesh_shapes, (tuple, list)) and all(
+        isinstance(x, int) for x in mesh_shapes
+    ):
+      mesh_shapes = [mesh_shapes]
+
+    errmsg = ''
+    for mesh_shape in mesh_shapes:
+      try:
+        # If mesh_shape is supported, create_device_mesh should succeed.
+        device_mesh = mesh_utils.create_device_mesh(mesh_shape)
+        return utils.ok(), device_mesh
+      except Exception as e:  # pylint: disable=broad-except
+        errmsg += f' {e}'
+    return utils.invalid_arg(f'Unsupported mesh shape:{errmsg}'), None
+
+  @classmethod
+  def check_serving_platform(cls) -> utils.Status:
+    status, _ = cls.get_supported_device_mesh()
+    return status
 
   @classmethod
   @abc.abstractmethod
-  def serving_mesh_shape(cls) -> List[int]:
-    """Logical shape of the device mesh used for serving."""
+  def serving_mesh_shape(cls) -> Union[List[int], List[int]]:
+    """Logical shape or shapes of the device mesh used for serving."""
 
   # TODO(zhangqiaorjc, yuanzx): Deprecated and replace with unpadded shapes
   # from checkpoints directly.

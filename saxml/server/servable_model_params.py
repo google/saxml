@@ -15,8 +15,9 @@
 """Base class for servable model configs."""
 
 import abc
-from typing import Any, Dict, List, Optional, Union, Type
+from typing import Any, Dict, List, Optional, Union, Type, Tuple
 
+import numpy as np
 from saxml.server import utils
 
 
@@ -52,6 +53,13 @@ class ServableMethodParams(metaclass=abc.ABCMeta):
 
 class ServableModelParams(metaclass=abc.ABCMeta):
   """A base class that each model config needs to implement for serving."""
+
+  @classmethod
+  @abc.abstractmethod
+  def get_supported_device_mesh(
+      cls,
+  ) -> Tuple[utils.Status, Optional[np.ndarray]]:
+    """Returns OK status and the supported device mesh, non-OK if this model is not supported."""
 
   @classmethod
   @abc.abstractmethod

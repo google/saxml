@@ -33,7 +33,11 @@ class ImageNetResNet50(
 
   @classmethod
   def serving_mesh_shape(cls):
-    return [1, 1, 8]
+    return [
+        [1, 1, 1],  # A single device or just on CPU
+        [1, 1, 4],  # 4 accelerators.
+        [1, 1, 8],  # 8 accelerators.
+    ]
 
   def serving_dataset(self):
     """Dataset used to define serving preprocessing by the model."""
@@ -58,12 +62,3 @@ class ImageNetResNet50(
     label_inputs = label_inputs / np.sum(label_inputs, axis=1, keepdims=True)
     mdl_inputs = py_utils.NestedMap(image=img_inputs, label_probs=label_inputs)
     return mdl_inputs
-
-
-@servable_model_registry.register
-class ImageNetResNet50T1(ImageNetResNet50):
-
-  @classmethod
-  def serving_mesh_shape(cls):
-    # Just one core.
-    return [1, 1, 1]
