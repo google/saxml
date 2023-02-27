@@ -250,9 +250,18 @@ class ServingWithGradientTemplate(ServingTemplate):
           'how to introduce the batch dims for export signatures.'
       )
 
+    input_seq_len = self.INPUT_SEQ_LEN
+    suffix_seq_len = self.SUFFIX_SEQ_LEN
+    if not suffix_seq_len:
+      assert self.INPUT_SEQ_LEN % 2 == 0
+      input_seq_len = self.INPUT_SEQ_LEN // 2
+      suffix_seq_len = self.INPUT_SEQ_LEN // 2
+
     return servable_lm_model.GradientHParams(
         batch_size=self.BATCH_SIZE,
-        max_input_seq_len=self.INPUT_SEQ_LEN,
+        max_input_seq_len=input_seq_len,
+        max_suffix_seq_len=suffix_seq_len,
+        bucket_keys=self.BUCKET_KEYS,
         include_eos_score=self.INCLUDE_EOS_SCORE,
         inputs_tensor_names=self.GRADIENT_WRT_INPUT_TENSOR_NAMES,
         mdl_vars_tensor_names=None,

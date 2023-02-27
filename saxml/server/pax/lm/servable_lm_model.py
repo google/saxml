@@ -117,6 +117,7 @@ class GradientHParams(servable_model_params.ServableMethodParams):
   """
 
   max_input_seq_len: int = 0
+  max_suffix_seq_len: int = 0
   include_eos_score: bool = False
   inputs_tensor_names: Optional[List[str]] = None
   mdl_vars_tensor_names: Optional[List[str]] = None
@@ -1058,8 +1059,8 @@ class LMGradientMethod(ServableLMMethod):
             prefixes,
             suffixes,
             self._tokenizer,
-            self._gradient_params.max_input_seq_len // 2,
-            self._gradient_params.max_input_seq_len // 2,
+            self._gradient_params.max_input_seq_len,
+            self._gradient_params.max_suffix_seq_len,
             self._gradient_params.include_eos_score,
         )
     )
