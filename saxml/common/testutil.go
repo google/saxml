@@ -513,7 +513,7 @@ type stubCustomModelServer struct{}
 func (s *stubCustomModelServer) Custom(ctx context.Context, in *cmpb.CustomRequest) (*cmpb.CustomResponse, error) {
 	text := in.GetRequest()
 	return &cmpb.CustomResponse{
-		Response: text + "_1",
+		Response: append(text, []byte("_1")...),
 	}, nil
 }
 

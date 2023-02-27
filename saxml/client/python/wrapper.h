@@ -66,8 +66,8 @@ class CustomModel {
   ~CustomModel();
 
   // Custom model with string to string cutom call.
-  absl::StatusOr<std::string> Custom(
-      absl::string_view request, absl::string_view method_name,
+  absl::StatusOr<pybind11::bytes> Custom(
+      pybind11::bytes request, absl::string_view method_name,
       const ModelOptions* options = nullptr) const;
 
  private:

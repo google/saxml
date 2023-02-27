@@ -54,7 +54,7 @@ class PreProcessingFn(Protocol):
   """
 
   def __call__(
-      self, raw_inputs: List[Any], method_state: Optional[Any] = None
+      self, raw_inputs: List[bytes], method_state: Optional[Any] = None
   ) -> NestedNpTensor:
     ...
 
@@ -68,7 +68,7 @@ class PostProcessingFn(Protocol):
 
   def __call__(
       self, raw_inputs: NestedNpTensor, method_state: Optional[Any] = None
-  ) -> List[Any]:
+  ) -> List[bytes]:
     ...
 
 
@@ -206,13 +206,13 @@ class ServableCustomMethod(servable_model.ServableMethod):
         model_fn_outputs, model_fn_inputs
     )
 
-  def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
+  def pre_processing(self, raw_inputs: List[bytes]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
     if self._state is not None:
       return self._method_hparams.pre_process_fn(raw_inputs, self._state)
     return self._method_hparams.pre_process_fn(raw_inputs)
 
-  def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
+  def post_processing(self, compute_outputs: NestedNpTensor) -> List[bytes]:
     """Postprocesses the output numpy arrays to final host output."""
     if self._state is not None:
       return self._method_hparams.post_process_fn(compute_outputs, self._state)

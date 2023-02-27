@@ -23,6 +23,7 @@
 #include "saxml/client/cc/sax.h"
 #include "pybind11/gil.h"
 #include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 
 namespace sax {
 namespace client {
@@ -93,8 +94,8 @@ CustomModel::~CustomModel() {
   if (model_) delete model_;
 }
 
-absl::StatusOr<std::string> CustomModel::Custom(
-    absl::string_view request, absl::string_view method_name,
+absl::StatusOr<pybind11::bytes> CustomModel::Custom(
+    pybind11::bytes request, absl::string_view method_name,
     const ModelOptions* options) const {
   if (!status_.ok()) return status_;
 
@@ -105,7 +106,8 @@ absl::StatusOr<std::string> CustomModel::Custom(
   } else {
     RETURN_IF_ERROR(model_->Custom(*options, request, method_name, &result));
   }
-  return result;
+  // TODO(changlan): Avoid memcpy here.
+  return pybind11::bytes(result);
 }
 
 // Construct LanguageModel with sax::client::Model. LanguageModel does not take

@@ -57,10 +57,10 @@ PYBIND11_MODULE(sax, m) {
            py::arg("options") = nullptr)
       .def(
           "Custom",
-          [](sax::client::pybind::CustomModel& cm, absl::string_view request,
+          [](sax::client::pybind::CustomModel& cm, py::bytes request,
              absl::string_view method_name,
              const sax::client::ModelOptions* options)
-              -> absl::StatusOr<std::string> {
+              -> absl::StatusOr<py::bytes> {
             return cm.Custom(request, method_name, options);
           },
           py::arg("request"), py::arg("method_name"),
