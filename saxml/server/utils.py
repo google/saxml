@@ -318,7 +318,7 @@ class RequestStats:
   """
 
   clock_time: ClockTime
-  timespan_nsec: np.float64
+  timespan_sec: np.float64
 
   @dataclasses.dataclass(frozen=True)
   class _Item:
@@ -374,6 +374,9 @@ class RequestStats:
   class Stats:
     """Statistics summary for request latencies during the timespan."""
 
+    # The time span this stats covers.
+    timespan_sec: np.float64
+
     # The total number of recorded requests during the timespan.
     total: np.int64
 
@@ -385,6 +388,9 @@ class RequestStats:
 
     # The selected samples of request latencies.
     samples: Sequence[np.float64]
+
+    def rate(self) -> np.float64:
+      return self.total / self.timespan_sec
 
     def mean(self) -> np.float64:
       return self.summ / self.total
@@ -399,5 +405,9 @@ class RequestStats:
     if len(samples) > max_samples:
       samples = np.random.choice(samples, max_samples, replace=False)
     return self.Stats(
-        total=self.total, summ=self.summ, summ2=self.summ2, samples=samples
+        timespan_sec=self.timespan_sec,
+        total=self.total,
+        summ=self.summ,
+        summ2=self.summ2,
+        samples=samples,
     )

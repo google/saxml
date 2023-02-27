@@ -76,6 +76,7 @@ class RequestStatsTest(absltest.TestCase):
     np.testing.assert_allclose(mean, np.mean(result.samples), rtol=1e-1)
     np.testing.assert_allclose(std, result.std(), rtol=1e-1)
     np.testing.assert_allclose(std, np.std(result.samples), rtol=1e-1)
+    np.testing.assert_allclose(1.0 / tick, result.rate())
 
 
 if __name__ == '__main__':
