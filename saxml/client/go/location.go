@@ -72,7 +72,7 @@ func (t *Table) shouldTryRefill() (bool, int) {
 func (t *Table) refill(ctx context.Context) {
 	shouldRetry, ask := t.shouldTryRefill()
 	if !shouldRetry {
-		log.Info("No need to refill")
+		log.V(2).Infof("No need to refill")
 		return
 	}
 
@@ -83,10 +83,14 @@ func (t *Table) refill(ctx context.Context) {
 
 	addresses, err := t.admin.FindAddresses(ctx, t.model, ask)
 	if err != nil {
-		log.Infof("Refill fired but FindAddresses failed for model %s because %v\n", t.model, err)
+		log.V(2).Infof("Refill fired but FindAddresses failed for model %s because %v\n", t.model, err)
 		return
 	}
-	log.Infof("Got addresses %v", addresses)
+	if len(addresses) == 0 {
+		log.Infof("No addresses found for %v", t.model)
+	} else {
+		log.V(2).Infof("Got addresses %v for model %v", addresses, t.model)
+	}
 	t.add(addresses)
 }
 
@@ -116,7 +120,7 @@ func (t *Table) Poison(addr string) {
 	}
 	// reduce list size by 1.
 	t.addrList = t.addrList[:currLen-1]
-	log.V(3).Infof("Poison(%s) for model %s succeeded. Now model has %d addresses\n", addr, t.model, len(t.addrList))
+	log.V(2).Infof("Poison(%s) for model %s succeeded. Now model has %d addresses\n", addr, t.model, len(t.addrList))
 }
 
 // Pick picks a random server address for a model.
