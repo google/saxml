@@ -340,6 +340,7 @@ class RequestStats:
         seconds.
       clock: A callback returns the current time. Useful for testing.
     """
+    assert timespan_sec > 0.0
     self.timespan_sec = timespan_sec
     self.clock_time = clock
     self.queue = collections.deque()
@@ -387,21 +388,27 @@ class RequestStats:
     summ2: np.float64
 
     # The selected samples of request latencies.
-    samples: Sequence[np.float64]
+    samples: np.ndarray[Any, np.float64]
 
     def rate(self) -> np.float64:
       return self.total / self.timespan_sec
 
     def mean(self) -> np.float64:
-      return self.summ / self.total
+      if self.total == 0:
+        return 0.0
+      else:
+        return self.summ / self.total
 
     def std(self) -> np.float64:
-      return np.sqrt(self.summ2 / self.total - np.square(self.mean()))
+      if self.total == 0:
+        return 0.0
+      else:
+        return np.sqrt(self.summ2 / self.total - np.square(self.mean()))
 
   def get(self, max_samples: int) -> Stats:
     """Returns a summarized view of the latency statistics."""
     self._gc(self.clock_time())
-    samples = [i.duration_sec for i in self.queue]
+    samples = np.array([i.duration_sec for i in self.queue])
     if len(samples) > max_samples:
       samples = np.random.choice(samples, max_samples, replace=False)
     return self.Stats(

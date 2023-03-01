@@ -38,6 +38,10 @@ class RequestStatsTest(absltest.TestCase):
     tick = 1.0
     stats = utils.RequestStats(timespan, clock.now)
 
+    result = stats.get(100)
+    self.assertEqual(0.0, result.mean())
+    self.assertEqual(0.0, result.std())
+
     for i in range(100):
       clock.advance(tick)
       stats.add(i * 0.1)
