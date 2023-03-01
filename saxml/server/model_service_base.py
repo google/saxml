@@ -130,6 +130,9 @@ class Method:
   # at any time for this method, and handle synchronization during shutdown.
   admissioner: utils.Admissioner
 
+  # statistic tracker.
+  stats: utils.RequestStats
+
   def limit(self) -> int:
     return max(self.batch_size * self.max_live_batches, 1)
 
@@ -145,6 +148,7 @@ class Method:
     self.max_live_batches = max_live_batches
     self.queue = utils.RpcQueue(batching_wait_secs=batching_wait_secs)
     self.admissioner = utils.Admissioner(limit=self.limit())
+    self.stats = utils.RequestStats(timespan_sec=60.0)
 
 
 @dataclasses.dataclass
@@ -329,6 +333,16 @@ class PerMethodBatcher:
   def has_method(self, key: MethodKey) -> bool:
     return key in self._per_method_queues
 
+  def get_method_stats(
+      self,
+  ) -> List[Tuple[MethodKey, utils.RequestStats.Stats]]:
+    """Returns the latest stats for every method key."""
+    ret = []
+    for mkey, method in self._per_method_queues.items():
+      # TODO(zhifengc): Consider making 100 samples tunable.
+      ret.append((mkey, method.stats.get(100)))
+    return ret
+
   def add_item(
       self,
       key: MethodKey,
@@ -338,16 +352,16 @@ class PerMethodBatcher:
       optional_done: Optional[StatusCallback] = None,
   ):
     """Adds an item to the method's queue."""
+    start_ts = time.time()
+    method: Method = self._per_method_queues[key]
+    tc = utils.get_current_trace_printer()
+    tc(f'Add item {key}')
 
     def done(status, *args):
       """Helper to run the done callback if it's not None."""
       if optional_done:
         optional_done(status, *args)
-
-    method: Method = self._per_method_queues[key]
-
-    tc = utils.get_current_trace_printer()
-    tc(f'Add item {key}')
+      method.stats.add(time.time() - start_ts)
 
     # Check ACLs.
     model: servable_model.ServableModel = method.model
