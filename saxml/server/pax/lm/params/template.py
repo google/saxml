@@ -161,6 +161,15 @@ class ServingTemplate(
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
           emb_lookup_style=self.EMB_LOOKUP_STYPE,
       )
+    elif self.NUM_SAMPLES == 1 and self.TOP_K == 1:
+      generate_hparams = decoder_hparams.GreedyDecoderHParams(
+          fprop_for_prefix=self.FPROP_FOR_PREFIX,
+          max_decode_steps=self.MAX_DECODE_STEPS,
+          seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
+          eos_id=stop_token_ids,
+          decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
+          emb_lookup_style=self.EMB_LOOKUP_STYPE,
+      )
     else:
       generate_hparams = decoder_hparams.SampleDecoderHParams(
           fprop_for_prefix=self.FPROP_FOR_PREFIX,
