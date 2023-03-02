@@ -274,7 +274,7 @@ class ServingWithGradientTemplate(ServingTemplate):
         include_eos_score=self.INCLUDE_EOS_SCORE,
         inputs_tensor_names=self.GRADIENT_WRT_INPUT_TENSOR_NAMES,
         mdl_vars_tensor_names=None,
-        extra_inputs=self.EXTRA_INPUTS,
+        extra_inputs=self.SCORE_EXTRA_INPUTS,
     )
 
 
