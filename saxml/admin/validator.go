@@ -33,10 +33,10 @@ const (
 	// Valid FS root pattern.
 	fsRootPattern = "^[a-zA-Z0-9_./-]+$"
 
-	// Valid model path patten.
+	// Valid model path pattern.
 	modelPathPattern = "^[a-zA-Z]+[a-zA-Z0-9_.-]*$"
 
-	// Valid checkpoint patten.
+	// Valid checkpoint pattern.
 	checkpointPattern = `^(/|\d|\w|_|\.|-|%|:|=)+$`
 )
 
