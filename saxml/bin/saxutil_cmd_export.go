@@ -16,6 +16,7 @@ package saxcommand
 
 import (
 	"context"
+	"strings"
 
 	"flag"
 	log "github.com/golang/glog"
@@ -26,6 +27,7 @@ import (
 // ExportCmd is the command for WatchAddresses. Useful for debugging.
 type ExportCmd struct {
 	rngSeedMode string
+	signatures  []string
 }
 
 // Name returns the name of ExportCmd.
@@ -44,6 +46,8 @@ func (*ExportCmd) Usage() string {
 // SetFlags sets flags for ExportCmd.
 func (c *ExportCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.rngSeedMode, "rng_seed_mode", "stateful", "RNG seed mode. Either 'stateful' or 'stateless'.")
+	f.StringListVar(&c.signatures, "signatures", nil,
+		"A list of signatures to export to. Must equal to the length of Methods to export and ordering.")
 }
 
 // Execute executes ExportCmd.
@@ -59,7 +63,7 @@ func (c *ExportCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		return subcommands.ExitFailure
 	}
 
-	if err := m.Exporter().Export(ctx, f.Args()[1], f.Args()[2], c.rngSeedMode); err != nil {
+	if err := m.Exporter().Export(ctx, strings.Split(f.Args()[1], ","), f.Args()[2], c.rngSeedMode, c.signatures); err != nil {
 		log.Errorf("Failed to export model: %v", err)
 		return subcommands.ExitFailure
 	}

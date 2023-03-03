@@ -1476,12 +1476,12 @@ class ModelServicesRunner:
           except Exception as e:  # pylint: disable=broad-except
             logging.exception(
                 (
-                    '%s during Exporting. model_key: %s, method_name %s,'
+                    '%s during Exporting. model_key: %s, method_names %s,'
                     ' export_path: %s, error: %s'
                 ),
                 type(e),
                 request.model_key,
-                request.method_name,
+                request.method_names,
                 request.export_path,
                 e,
             )

@@ -69,9 +69,18 @@ message ExportRequest {
   // Key identifying the model to export.
   string model_key = 1;
 
-  // The name of the method to export.
-  string method_name = 2;
+  // The names of the method to export.
+  repeated string method_names = 6;
 
+  // The Signatures of the exported methods.
+  // If unspecified, default to `serving_default` and only works when having
+  // one method_name specified.
+  // If exporting multiple method_names, the signatures need to be a list that
+  // corresponds to method names.
+  // e.g., if we export with `method_names : [Generate, GenerateStream]`,
+  // the signatures here need to be:
+  // ['signature_for_generate', 'signature_for_generate_stream'].
+  repeated string signatures = 7;
   // Path in which to save the exported model.
   string export_path = 3;
 
@@ -80,6 +89,8 @@ message ExportRequest {
 
   // The RNG seed mode.
   RngSeedMode rng_seed_mode = 5;
+
+  reserved 2;
 }
 
 message ExportResponse {}

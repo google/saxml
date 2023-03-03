@@ -31,7 +31,7 @@ type Exporter struct {
 }
 
 // Export exports a method of the model managed by the Exporter.
-func (e *Exporter) Export(ctx context.Context, methodName, exportPath, rngSeedMode string) error {
+func (e *Exporter) Export(ctx context.Context, methodNames []string, exportPath, rngSeedMode string, signatures []string) error {
 	var reqRngSeedMode pb.ExportRequest_RngSeedMode
 	switch strings.ToLower(rngSeedMode) {
 	case "stateless":
@@ -43,10 +43,11 @@ func (e *Exporter) Export(ctx context.Context, methodName, exportPath, rngSeedMo
 	}
 	req := &pb.ExportRequest{
 		ModelKey:              e.model.modelID,
-		MethodName:            methodName,
+		MethodNames:           methodNames,
 		ExportPath:            exportPath,
 		SerializedModelFormat: pb.ExportRequest_TF_SAVEDMODEL_V0,
 		RngSeedMode:           reqRngSeedMode,
+		Signatures:            signatures,
 	}
 	export := func(conn *grpc.ClientConn) error {
 		_, err := pbgrpc.NewModeletClient(conn).Export(ctx, req)
