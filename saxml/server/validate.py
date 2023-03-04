@@ -62,16 +62,16 @@ def ValidateRequestForExtraInputs(
   for input_key in req_extra_inputs:
     if extra_inputs is None or input_key not in extra_inputs:
       return utils.invalid_arg(
-          f"key {input_key} in RPC request's extra_inputs field is not in"
-          'ServableModel.extra_inputs. extra_inputs in ServableModel are'
+          f"key {input_key} in RPC request's extra_inputs field is not in "
+          'ServableModel.extra_inputs.extra_inputs in ServableModel are '
           f'{extra_inputs}'
       )
 
   for key, tensor in dict(req.extra_inputs.tensors).items():
     if extra_inputs is None or key not in extra_inputs:
       return utils.invalid_arg(
-          f"key {key} in RPC request's extra_inputs field is not in"
-          'ServableModel.extra_inputs. extra_inputs in ServableModel are'
+          f"key {key} in RPC request's extra_inputs field is not in "
+          'ServableModel.extra_inputs.extra_inputs in ServableModel are '
           f'{extra_inputs}'
       )
     if key in req_extra_inputs:
