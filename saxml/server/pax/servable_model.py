@@ -382,7 +382,7 @@ class ServableModel(servable_model.ServableModel):
 
     status, device_mesh = self._model_config.get_supported_device_mesh()
     if not status.ok():
-      raise ValueError(status.errmsg)
+      raise ValueError(status.details)
 
     logging.info('device_mesh: %s', device_mesh)
     global_mesh = jax.sharding.Mesh(device_mesh, model_p.mesh_axis_names)
