@@ -51,6 +51,8 @@ def for_transformer(
     num_bits: int = 8,
     linear_only: bool = False,
     use_symmetric: bool = True,
+    quantize_embedding_softmax: bool = False,
+    transposed_embedding_softmax: bool = False,
 ):
   """Find and quantize transformer.
 
@@ -69,6 +71,11 @@ def for_transformer(
       but any integer [1, 8] works.
     linear_only: Quantize only the linear layers.
     use_symmetric: use symmetric weight quantization.
+    quantize_embedding_softmax: If true, Quantize embedding table of embedding
+      softmax layer. Regardless of `target` argument, this results in rewriting
+      TransformerLm.softmax_tpl in `config`.
+    transposed_embedding_softmax: If the model is using transposed embedding for
+      embedding softmax layer.
 
   Returns:
     a modifier that quantizes transformers when applied to a config.
@@ -103,6 +110,8 @@ def for_transformer(
             num_bits=num_bits,
             linear_only=linear_only,
             use_symmetric=use_symmetric,
+            quantize_embedding_softmax=quantize_embedding_softmax,
+            transposed_embedding_softmax=transposed_embedding_softmax,
         )
         return task_p
 
