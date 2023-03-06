@@ -159,7 +159,10 @@ class ServableCustomModelParams(
 
   def create_model(self, primary_process_id: int) -> 'ServableCustomModel':
     return ServableCustomModel(
-        self, primary_process_id, self.get_checkpoint_type()
+        self,
+        primary_process_id,
+        self.get_checkpoint_type(),
+        test_mode=self.test_mode,
     )
 
 

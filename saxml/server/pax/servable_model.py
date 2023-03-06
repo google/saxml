@@ -363,6 +363,9 @@ class ServableModel(servable_model.ServableModel):
       prng_key: PRNGKey,
       precompile: bool = True,
   ) -> None:
+    if self._test_mode:
+      logging.info('Ignoring checkpoint_path %s in test mode.', checkpoint_path)
+      checkpoint_path = None
     prng_key, init_key = jax.random.split(prng_key)
     model, model_state = self.load_state(checkpoint_path, init_key, precompile)
     self.load_methods(model, model_state, prng_key)

@@ -83,7 +83,6 @@ pytype_strict_library(
         "//third_party/py/absl-py/logging",
         "//third_party/py/etils/epath",
         "//third_party/py/jax",
-        "//third_party/py/jax:mesh_utils",
         "//third_party/py/numpy",
         "//third_party/py/paxml:checkpoints",
         "//third_party/py/paxml:trainer_lib",

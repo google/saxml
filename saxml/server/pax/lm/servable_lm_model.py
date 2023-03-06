@@ -171,7 +171,12 @@ class ServableLMModelParams(
     return None
 
   def create_model(self, primary_process_id: int) -> 'ServableLMModel':
-    return ServableLMModel(self, primary_process_id, self.get_checkpoint_type())
+    return ServableLMModel(
+        self,
+        primary_process_id,
+        self.get_checkpoint_type(),
+        test_mode=self.test_mode,
+    )
 
 
 class ServableLMMethod(servable_model.ServableMethod):

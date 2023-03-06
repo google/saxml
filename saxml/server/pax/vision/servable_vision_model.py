@@ -212,7 +212,12 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
     return None
 
   def create_model(self, primary_process_id: int) -> 'VisionModel':
-    return VisionModel(self, primary_process_id, self.get_checkpoint_type())
+    return VisionModel(
+        self,
+        primary_process_id,
+        self.get_checkpoint_type(),
+        test_mode=self.test_mode,
+    )
 
 
 class VisionModelParams(VisionModelParamsBase):
