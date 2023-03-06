@@ -1,4 +1,4 @@
-// Copyright 2023 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 // Internal Go build tag
 
-// Package register registers a Cloud platform.
+// Package registers a Cloud platform.
 package register
 
 import _ "saxml/common/platform/cloud" // registers a platform
