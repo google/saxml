@@ -24,10 +24,36 @@ import (
 	"saxml/client/go/sax"
 )
 
+// Signatures is used to parse comma-separated input strings for specified signatures.
+type Signatures []string
+
+// Set implements flag.Value#Set method.
+func (s *Signatures) Set(v string) error {
+	split := strings.Split(v, ",")
+
+	if *s == nil {
+		*s = make(Signatures, 0, len(split))
+	}
+	for _, fv := range split {
+		*s = append(*s, fv)
+	}
+	return nil
+}
+
+// Get implements flag.Value#Get method.
+func (s *Signatures) Get() any {
+	return []string(*s)
+}
+
+// String implements flag.Value#String method.
+func (s *Signatures) String() string {
+	return strings.Join(*s, ",")
+}
+
 // ExportCmd is the command for WatchAddresses. Useful for debugging.
 type ExportCmd struct {
 	rngSeedMode string
-	signatures  []string
+	signatures  Signatures
 }
 
 // Name returns the name of ExportCmd.
@@ -46,8 +72,7 @@ func (*ExportCmd) Usage() string {
 // SetFlags sets flags for ExportCmd.
 func (c *ExportCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.rngSeedMode, "rng_seed_mode", "stateful", "RNG seed mode. Either 'stateful' or 'stateless'.")
-	f.StringListVar(&c.signatures, "signatures", nil,
-		"A list of signatures to export to. Must equal to the length of Methods to export and ordering.")
+	f.Var(&c.signatures, "signatures", "comma-separated list of signatures to export to. Must equal to the length of Methods to export and ordering.")
 }
 
 // Execute executes ExportCmd.
