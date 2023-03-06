@@ -18,8 +18,8 @@ import dataclasses
 from typing import Any, Callable, Sequence
 
 import jax
-from jax._src.lib import xla_client as xc
 from jax.experimental import pjit
+from jax.lib import xla_client as xc
 
 
 @dataclasses.dataclass
