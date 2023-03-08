@@ -44,7 +44,7 @@ class CommonServingTemplate:
   USE_BEAM_SEARCH = False
   BATCH_SIZE = 1
   INPUT_SEQ_LEN = 256
-  SUFFIX_SEQ_LEN = 0  # Defaults to `INPUT_SEQ_LEN`.
+  SUFFIX_SEQ_LEN = 0  # Defaults to half of`INPUT_SEQ_LEN`.
   MAX_DECODE_STEPS = 32
   NUM_SAMPLES = 2
   TOP_K = 40
@@ -73,6 +73,7 @@ class CommonServingTemplate:
   SUPPORT_LAZY_PREFIX_BROADCAST = True
   EMB_LOOKUP_STYPE = 'index'
   FETCH_PREFIX_LENGTHS_FROM_INPUTS = False
+  POLYMORPHIC_SEQ_LEN_EXCLUSION = None
 
   def input_for_model_init(self) -> py_utils.NestedMap:
     batch_size = self.BATCH_SIZE
@@ -116,6 +117,7 @@ class ServingTemplate(
       suffix_seq_len = self.INPUT_SEQ_LEN // 2
     return servable_lm_model.ScoreHParams(
         batch_size=self.BATCH_SIZE,
+        polymorphic_seq_len_exclusion=self.POLYMORPHIC_SEQ_LEN_EXCLUSION,
         max_input_seq_len=input_seq_len,
         max_suffix_seq_len=suffix_seq_len,
         extra_inputs=self.SCORE_EXTRA_INPUTS,
@@ -189,6 +191,7 @@ class ServingTemplate(
       )
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
+        polymorphic_seq_len_exclusion=self.POLYMORPHIC_SEQ_LEN_EXCLUSION,
         max_input_seq_len=self.INPUT_SEQ_LEN,
         bucket_keys=self.BUCKET_KEYS,
         decoder=generate_hparams,
@@ -233,6 +236,7 @@ class ServingTemplate(
 
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
+        polymorphic_seq_len_exclusion=self.POLYMORPHIC_SEQ_LEN_EXCLUSION,
         max_input_seq_len=self.INPUT_SEQ_LEN,
         bucket_keys=self.BUCKET_KEYS,
         decoder=generate_hparams,
@@ -254,7 +258,7 @@ class ServingWithGradientTemplate(ServingTemplate):
   def gradient(self) -> Optional[servable_lm_model.GradientHParams]:
     if self.GRADIENT_WRT_MDL_VAR_TENSOR_NAMES:
       raise ValueError(
-          'Running graident method with gradients to model '
+          'Running graident method with gradients to model is not '
           'supported since it is undefined '
           'how to introduce the batch dims for export signatures.'
       )
@@ -268,6 +272,7 @@ class ServingWithGradientTemplate(ServingTemplate):
 
     return servable_lm_model.GradientHParams(
         batch_size=self.BATCH_SIZE,
+        polymorphic_seq_len_exclusion=self.POLYMORPHIC_SEQ_LEN_EXCLUSION,
         max_input_seq_len=input_seq_len,
         max_suffix_seq_len=suffix_seq_len,
         bucket_keys=self.BUCKET_KEYS,

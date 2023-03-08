@@ -366,10 +366,16 @@ class ServableLMMethod(servable_model.ServableMethod):
       seq_pattern = f'{batch_pattern}, t'
     else:
       seq_pattern = f'{batch_pattern}, _'
-    return jax.tree_util.tree_map(
+    shape_patterns = jax.tree_util.tree_map(
         lambda x: seq_pattern if len(x.shape) == 2 else f'{batch_pattern}, ...',
         batched_host_dummy,
     )
+    # apply seq len polymorphism exclusion.
+    if self.method_params.polymorphic_seq_len_exclusion:
+      for key in self.method_params.polymorphic_seq_len_exclusion:
+        shape_patterns[key] = f'{batch_pattern}, ...'
+
+    return shape_patterns
 
 
 class LMScoreMethod(ServableLMMethod):

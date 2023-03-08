@@ -158,6 +158,7 @@ class ServableMethodParams(
   extra_inputs: Optional[Dict[str, float]] = None
   bucket_keys: Optional[List[int]] = None
   batching_wait_secs: Optional[float] = None
+  polymorphic_seq_len_exclusion: Optional[List[str]] = None
 
   def get_batch_size(self) -> Union[int, List[int]]:
     return self.batch_size
