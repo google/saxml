@@ -935,6 +935,26 @@ class ModeletServiceGRPC(ModeletService, modelet_pb2_grpc.ModeletServicer):
     return resp
 
 
+class Exporter:
+  """Injectable class for implementing exporting of models."""
+
+  def __init__(self, model_services_runner):
+    pass
+
+  def export_model(self, req: modelet_pb2.ExportRequest):
+    raise NotImplementedError()
+
+  def export_error_to_status(self, e: Exception) -> utils.Status:
+    """Converts an error during model export to a Status."""
+    msg = f'Exporting error: {e}'
+    if isinstance(e, ValueError):
+      return utils.invalid_arg(msg)
+    elif isinstance(e, FileExistsError):
+      return utils.already_exists(msg)
+    else:
+      return utils.internal_error(msg)
+
+
 class ModelServicesRunner:
   """Implements the main loop for request processing with multiple services.
 
@@ -1234,17 +1254,11 @@ class ModelServicesRunner:
 
   def _export_model(self, req: modelet_pb2.ExportRequest):
     """Exports a method of a model."""
-    raise NotImplementedError()
+    return Exporter(self).export_model(req)
 
   def _export_error_to_status(self, e: Exception) -> utils.Status:
     """Converts an error during model export to a Status."""
-    msg = f'Exporting error: {e}'
-    if isinstance(e, ValueError):
-      return utils.invalid_arg(msg)
-    elif isinstance(e, FileExistsError):
-      return utils.already_exists(msg)
-    else:
-      return utils.internal_error(msg)
+    return Exporter(self).export_error_to_status(e)
 
   def _save_model(self, model_key: str, checkpoint_path: str):
     """Saves a model checkpoint."""

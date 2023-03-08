@@ -30,7 +30,6 @@ pytype_strict_library(
         "//saxml/protobuf:lm_py_pb2",
         "//saxml/protobuf:lm_py_pb2_grpc",
         "//saxml/server:model_service_base",
-        "//saxml/server/pax:servable_model_params",
         "//third_party/py/numpy",
     ],
 )
