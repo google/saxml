@@ -26,6 +26,8 @@ StreamState = Tuple[tf.Tensor, tf.Tensor, tf.Tensor]
 class LMTokenizer(base_hyperparams.BaseParameterizable):
   """Tokenizer for language models."""
 
+  _USE_DEPRECATED_HPARAMS_BASE_PARAMETERIZABLE = True
+
   class HParams(base_hyperparams.InstantiableHyperParams):
     """Associated hyper-params for the tokenizer.
 
