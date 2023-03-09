@@ -15,7 +15,6 @@
 
 import abc
 import asyncio
-import base64
 import copy
 import dataclasses
 import queue
@@ -941,14 +940,25 @@ class Exporter:
   def __init__(self, model_services_runner):
     pass
 
-  def export_model(self, req: modelet_pb2.ExportRequest):
+  def parse_export_request(self, req: modelet_pb2.ExportRequest) -> list[str]:
+    """Parses export request."""
     raise NotImplementedError()
+
+  def export_model(self, *args):
+    """Exports a model."""
+    raise NotImplementedError()
+
+  def finalize_export(self, *args) -> None:
+    """Actions after model exporting."""
+    pass
 
   def export_error_to_status(self, e: Exception) -> utils.Status:
     """Converts an error during model export to a Status."""
     msg = f'Exporting error: {e}'
     if isinstance(e, ValueError):
       return utils.invalid_arg(msg)
+    elif isinstance(e, NotImplementedError):
+      return utils.not_implemented(msg)
     elif isinstance(e, FileExistsError):
       return utils.already_exists(msg)
     else:
@@ -1252,14 +1262,6 @@ class ModelServicesRunner:
         model_key, model_path, checkpoint_path, acls, prng_key, register_methods
     )
 
-  def _export_model(self, req: modelet_pb2.ExportRequest):
-    """Exports a method of a model."""
-    return Exporter(self).export_model(req)
-
-  def _export_error_to_status(self, e: Exception) -> utils.Status:
-    """Converts an error during model export to a Status."""
-    return Exporter(self).export_error_to_status(e)
-
   def _save_model(self, model_key: str, checkpoint_path: str):
     """Saves a model checkpoint."""
     if not self._loaded_models.contains(model_key):
@@ -1480,12 +1482,20 @@ class ModelServicesRunner:
           assert len(batch.rpc_tasks) == 1
           task = batch.rpc_tasks[0]
           request = typing.cast(modelet_pb2.ExportRequest, task.request)
+          exporter = Exporter(self)
           try:
-            self._inform_secondary_hosts(
-                batch.method.name,
-                base64.encodebytes(request.SerializeToString()).decode(),
-            )
-            self._export_model(request)
+            export_args = exporter.parse_export_request(request)
+            # Starts a multi-host export job. Any exception must be from
+            # low-level software/hardware stack and or secondary workers not
+            # being informed. Thus we crash the server to avoid hanging if
+            # there is any exception.
+            try:
+              self._inform_secondary_hosts(batch.method.name, *export_args)
+              exporter.export_model(*export_args)
+            except Exception as e:  # pylint: disable=broad-except
+              self._worker_thread_exception = e
+              break
+            exporter.finalize_export(*export_args)
             task.done(utils.ok())
           except Exception as e:  # pylint: disable=broad-except
             logging.exception(
@@ -1499,7 +1509,7 @@ class ModelServicesRunner:
                 request.export_path,
                 e,
             )
-            task.done(self._export_error_to_status(e))
+            task.done(exporter.export_error_to_status(e))
       elif batch.method.name == _SAVE_MODEL_KEY:
         with batch:
           assert len(batch.rpc_tasks) == 1
@@ -1636,10 +1646,15 @@ class ModelServicesRunner:
               'Error occurred during save: %s, error: %s', model_key, e
           )
       elif method == _EXPORT_METHOD_KEY:
-        request = modelet_pb2.ExportRequest.FromString(
-            base64.decodebytes(msgs[0].encode())
-        )
-        self._export_model(request)
+        # Starts a multi-host export job. Any exception must be from low-level
+        # software/hardware stack. Thus we crash the server to avoid hanging if
+        # there is any exception.
+        exporter = Exporter(self)
+        try:
+          exporter.export_model(*msgs)
+        except Exception as e:  # pylint: disable=broad-except
+          self._worker_thread_exception = e
+          break
       else:
         # Model methods at secondary hosts are simply invoking a device program
         # with pre-defined dummy inputs, so we do not expect any known exception
