@@ -21,12 +21,12 @@ from absl import flags
 from absl import logging
 import grpc
 import jax
-from paxml import setup_jax
 from saxml.protobuf import modelet_pb2
 from saxml.protobuf import modelet_pb2_grpc
 from saxml.server import model_service_base
 from saxml.server import servable_model_registry
 from saxml.server import spmd_backend
+import tensorflow as tf
 
 _SAX_CELL = flags.DEFINE_string(
     'sax_cell',
@@ -120,9 +120,49 @@ def _load_static_model(
     stub.Load(req)
 
 
+def setup_jax(
+    globally_use_hardware_rng: bool,
+    jax_backend_target: Optional[str],
+    jax_xla_backend: Optional[str],
+    jax_enable_checks: bool,
+) -> None:
+  """Setups JAX and logs information about this job."""
+  # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
+  # it unavailable to JAX.
+  tf.config.set_visible_devices([], 'GPU')
+  if globally_use_hardware_rng:
+    jax.config.update('jax_default_prng_impl', 'rbg')
+
+  # Log tracing and compilation time.
+  jax.config.update('jax_log_compiles', True)
+  # We use xmap only with SPMD.
+  jax.config.update('experimental_xmap_spmd_lowering', True)
+  # Use the manual partitioning lowering of xmap to avoid vectorization.
+  jax.config.update('experimental_xmap_spmd_lowering_manual', True)
+
+  if jax_enable_checks:
+    jax.config.update('jax_enable_checks', True)
+    logging.info('jax_enable_checks has been enabled.')
+
+  if jax_backend_target:
+    logging.info('Using JAX backend target %s', jax_backend_target)
+    jax_xla_backend = 'None' if jax_xla_backend is None else jax_xla_backend
+    logging.info('Using JAX XLA backend %s', jax_xla_backend)
+
+  # LINT.IfChange
+  # Initialize distributed jax in OSS
+  # LINT.ThenChange(//depot/google3/third_party/py/paxml/export/copy.bara.sky)
+
+  logging.info('JAX process: %d / %d', jax.process_index(), jax.process_count())
+  logging.info('JAX devices: %r', jax.devices())
+  logging.info('jax.device_count(): %d', jax.device_count())
+  logging.info('jax.local_device_count(): %d', jax.local_device_count())
+  logging.info('jax.process_count(): %d', jax.process_count())
+
+
 def set_up():
   """Sets up the server."""
-  setup_jax.setup_jax(
+  setup_jax(
       globally_use_hardware_rng=True,
       jax_backend_target=flags.FLAGS.jax_backend_target,
       jax_xla_backend=flags.FLAGS.jax_xla_backend,

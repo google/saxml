@@ -232,7 +232,7 @@ pytype_strict_library(
         "//third_party/py/absl-py/logging",
         "//third_party/py/grpcio",
         "//third_party/py/jax",
-        "//third_party/py/paxml:setup_jax",
+        "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )
 
