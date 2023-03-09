@@ -109,8 +109,7 @@ def deserialize_pjitted_function(
         jax.sharding.OpShardingSharding(devices, s)
         for s in serialized.flat_in_op_shardings
     )
-    rep_sharding = xc.OpSharding()
-    rep_sharding.type = xc.OpSharding.Type.REPLICATED
+    rep_sharding = jax.sharding.OpShardingSharding.get_replicated(devices)
     num_ins = len(serialized.flat_in_op_shardings)
     num_outs = len(serialized.flat_global_out_avals)
 
