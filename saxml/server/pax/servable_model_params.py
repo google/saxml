@@ -151,6 +151,8 @@ class ServableMethodParams(
       latency for this model is fast (<2s), do not need to set this value.
       Usually, the suggested waiting seconds for batching could set to less than
       10% device latency for the given batch size.
+    cast_bfloat16_outputs: if the output tensors from device are in bfloat16,
+      convert them to float32.
   """
 
   batch_size: Union[int, List[int]] = 1
@@ -159,6 +161,7 @@ class ServableMethodParams(
   bucket_keys: Optional[List[int]] = None
   batching_wait_secs: Optional[float] = None
   polymorphic_seq_len_exclusion: Optional[List[str]] = None
+  cast_bfloat16_outputs: bool = True
 
   def get_batch_size(self) -> Union[int, List[int]]:
     return self.batch_size

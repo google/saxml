@@ -250,7 +250,10 @@ class ServableMethod(servable_model.ServableMethod):
         branch_index = non_batched_inputs
         outputs = jax.lax.switch(branch_index, branch_fns, batched_inputs)
 
-      if self._model.fprop_dtype == jnp.bfloat16:
+      if (
+          self.method_params.cast_bfloat16_outputs
+          and self._model.fprop_dtype == jnp.bfloat16
+      ):
         # Convert bfloat16 back to fat32 other numpy may be confused.
         def maybe_to_float32(x):
           if x.dtype == jnp.bfloat16:
