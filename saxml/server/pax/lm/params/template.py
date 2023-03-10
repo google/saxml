@@ -120,6 +120,7 @@ class ServingTemplate(
         polymorphic_seq_len_exclusion=self.POLYMORPHIC_SEQ_LEN_EXCLUSION,
         max_input_seq_len=input_seq_len,
         max_suffix_seq_len=suffix_seq_len,
+        bucket_keys=self.BUCKET_KEYS,
         extra_inputs=self.SCORE_EXTRA_INPUTS,
         fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
     )
