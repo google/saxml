@@ -254,7 +254,7 @@ class ServableMethod(servable_model.ServableMethod):
           self.method_params.cast_bfloat16_outputs
           and self._model.fprop_dtype == jnp.bfloat16
       ):
-        # Convert bfloat16 back to fat32 other numpy may be confused.
+        # Convert bfloat16 back to float32.
         def maybe_to_float32(x):
           if x.dtype == jnp.bfloat16:
             return x.astype(jnp.float32)
