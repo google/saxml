@@ -39,10 +39,6 @@ py_strict_test(
     python_version = "PY3",
     srcs_version = "PY3",
     tags = ["manual"],
-    visibility = [
-        "//saxml:internal",
-        "//saxml/server/pax:__pkg__",
-    ],
     deps = [
         ":serialize",
         "//third_party/py/absl-py/testing:absltest",
