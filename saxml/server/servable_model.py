@@ -257,6 +257,11 @@ class ServableModel(abc.ABC):
   def __init__(self):
     self._methods: Dict[str, ServableMethod] = {}
     self._acls: Dict[str, str] = {}
+    self._unloaded = False
+
+  @property
+  def unloaded(self) -> bool:
+    return self._unloaded
 
   @property
   def methods(self) -> Dict[str, ServableMethod]:
@@ -268,6 +273,7 @@ class ServableModel(abc.ABC):
 
   def unload(self) -> None:
     """Clears references held by this model."""
+    self._unloaded = True
     for method in self._methods.values():
       method.unload()
     self._methods = {}

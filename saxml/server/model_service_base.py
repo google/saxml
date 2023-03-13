@@ -137,7 +137,7 @@ class Method:
 
   def __init__(
       self,
-      model: servable_model.ServableModel,
+      model: Optional[servable_model.ServableModel],
       batch_size: int,
       max_live_batches: int,
       batching_wait_secs: Optional[float] = None,
@@ -352,7 +352,7 @@ class PerMethodBatcher:
   ):
     """Adds an item to the method's queue."""
     start_ts = time.time()
-    method: Method = self._per_method_queues[key]
+    method = self._per_method_queues.get(key)
     tc = utils.get_current_trace_printer()
     tc(f'Add item {key}')
 
@@ -360,7 +360,11 @@ class PerMethodBatcher:
       """Helper to run the done callback if it's not None."""
       if optional_done:
         optional_done(status, *args)
-      method.stats.add(time.time() - start_ts)
+      if method is not None:
+        method.stats.add(time.time() - start_ts)
+
+    if method is None:
+      return done(utils.not_found(f'method {key} is unloaded'))
 
     # Check ACLs.
     model: servable_model.ServableModel = method.model
@@ -512,6 +516,9 @@ class LoadedModelManager:
   def get_model(self, key: str) -> servable_model.ServableModel:
     return self._models[key]
 
+  def maybe_get_model(self, key: str) -> Optional[servable_model.ServableModel]:
+    return self._models.get(key)
+
   def has_error(self, key: str) -> bool:
     return key in self._errors
 
@@ -564,23 +571,27 @@ class ModelService(metaclass=abc.ABCMeta):
     """Enqueues a request to the processing loop."""
     # Request may arrive before the corresponding _load_model() finishes or
     # after an unload. In this case, return NotFound.
-    if not self._loader.has_model(model_key):
+    model = self._loader.maybe_get_model(model_key)
+    if model is None or model.unloaded:
       done(utils.not_found(f'Model key {model_key} not found'))
       return
-
     # Even if a model is loaded, the model may not support all methods.
-    batcher_item_key = MethodKey(method, self._service_id, model_key)
-    if not self._batcher.has_method(batcher_item_key):
-      done(utils.invalid_arg(f'{model_key} does not support {method}'))
+    method_obj = model.methods.get(method)
+    if method_obj is None:
+      # Model may get unloaded since last maybe_get_model().
+      if model.unloaded:
+        done(utils.not_found(f'Model key {model_key} not found'))
+      else:
+        done(utils.invalid_arg(f'{model_key} does not support {method}'))
       return
 
     # The method may not support streaming.
     if streaming:
-      model = self._loader.get_model(model_key)
-      if not model.method(method).streamable:
+      if not method_obj.streamable:
         done(utils.invalid_arg(f'Method {method} does not support streaming'))
         return
 
+    batcher_item_key = MethodKey(method, self._service_id, model_key)
     self._batcher.add_item(batcher_item_key, rpc_context, req, resp, done)
 
 
