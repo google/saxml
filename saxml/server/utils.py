@@ -20,6 +20,7 @@ import threading
 import time
 from typing import Any, Callable, Optional, Protocol, Sequence, Tuple
 import grpc
+import jax
 import numpy as np
 from google.protobuf import message
 
@@ -418,3 +419,12 @@ class RequestStats:
         summ2=self.summ2,
         samples=samples,
     )
+
+
+def is_mock_tpu_backend() -> bool:
+  """Checks if a mock TPU backend is detected.
+
+  Returns:
+    True if Mock TPU backend detected.
+  """
+  return 'MOCK' in str(jax.devices()[0])

@@ -117,6 +117,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     deps = [
         "//third_party/py/grpcio",
+        "//third_party/py/jax",
         "//third_party/py/numpy",
         "@com_google_protobuf//:protobuf_python",
     ],

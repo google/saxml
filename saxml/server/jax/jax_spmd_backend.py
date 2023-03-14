@@ -77,7 +77,11 @@ class JaxSPMDBackend(SPMDBackend):
         self._global_shape, self._sharding, self._zero_bufs
     )
     self._process_idx = jax.process_index()
+
     self._process_count = jax.process_count()
+    # Mock TPU requires single host to avoid syncs
+    if utils.is_mock_tpu_backend():
+      self._process_count = 1
 
     @functools.lru_cache()
     def _cached_str_to_jax_array(message: str) -> jax.Array:
