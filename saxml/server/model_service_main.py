@@ -117,7 +117,10 @@ def _load_static_model(
     req = modelet_pb2.LoadRequest(
         model_key=model_key, model_path=model, checkpoint_path=checkpoint
     )
-    stub.Load(req)
+    try:
+      stub.Load(req)
+    except grpc.RpcError as e:
+      logging.exception('Exception during loading: %s', e)
 
 
 def setup_jax(
