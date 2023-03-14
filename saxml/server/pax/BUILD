@@ -27,11 +27,7 @@ pytype_strict_library(
     name = "branch_selection",
     srcs = ["branch_selection.py"],
     srcs_version = "PY3",
-    visibility = [
-        "//learning/multipod/sax/server/vision:__pkg__",
-        "//saxml:internal",
-        "//saxml/server/pax:__pkg__",
-    ],
+    visibility = ["//saxml:internal"],
     deps = [
         "//third_party/py/numpy",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
@@ -43,10 +39,7 @@ py_strict_test(
     srcs = ["branch_selection_test.py"],
     python_version = "PY3",
     srcs_version = "PY3",
-    visibility = [
-        "//saxml:internal",
-        "//saxml/server/pax:__pkg__",
-    ],
+    visibility = ["//saxml:internal"],
     deps = [
         ":branch_selection",
         "//third_party/py/absl-py/testing:absltest",
