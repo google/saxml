@@ -64,7 +64,7 @@ func (m *Model) run(ctx context.Context, methodName string, callMethod func(conn
 			err = callMethod(modelServerConn)
 		}
 		if err != nil {
-			log.Infof("%s %s() failed: %s", m.modelID, methodName, err)
+			log.Infof("%s %s() failed: %s %d", m.modelID, methodName, err, errors.Code(err))
 		}
 		if errors.ServerShouldPoison(err) {
 			log.Infof("%s poisons %s", m.modelID, address)
