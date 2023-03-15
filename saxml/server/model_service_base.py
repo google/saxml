@@ -425,6 +425,8 @@ class LoadedModelManager:
     # Indexed by key.
     self._models = {}
     # Indexed by key.
+    self._model_metadata = {}
+    # Indexed by key.
     self._errors = {}
     self._primary_process_id = primary_process_id
 
@@ -479,6 +481,9 @@ class LoadedModelManager:
       register_methods_callback(loaded)
 
     self._status[key] = common_pb2.ModelStatus.LOADED
+    self._model_metadata[key] = dict(
+        checkpoint_path=ckpt_path, model_path=model_path
+    )
     self._models[key] = loaded
     return loaded
 
@@ -502,6 +507,7 @@ class LoadedModelManager:
       # response when requested.
       raise
     del self._status[key]
+    del self._model_metadata[key]
     del self._models[key]
 
   def contains(self, key: str) -> bool:
@@ -515,6 +521,9 @@ class LoadedModelManager:
 
   def get_model(self, key: str) -> servable_model.ServableModel:
     return self._models[key]
+
+  def get_model_metadata(self, key: str) -> Mapping[str, str]:
+    return self._model_metadata[key]
 
   def maybe_get_model(self, key: str) -> Optional[servable_model.ServableModel]:
     return self._models.get(key)
