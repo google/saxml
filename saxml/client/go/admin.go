@@ -239,7 +239,7 @@ type addrReplica struct {
 // chanWatchResult.
 func (a *addrReplica) Update(chanWatchResult chan *WatchResult) error {
 	for wr := range chanWatchResult {
-		log.Infof("addrReplica.Update(%s) %v", a.modelID, wr)
+		log.Infof("addrReplica.Update(%s) %v %v", a.modelID, wr.Err, *wr.Result)
 		if wr.Err != nil {
 			return wr.Err
 		}
@@ -272,6 +272,7 @@ func (a *addrReplica) Update(chanWatchResult chan *WatchResult) error {
 				log.Warningf("Unexpected Kind: %v", m.Kind)
 			}
 		}
+		log.Infof("addrReplica.Update(%s) %s", a.modelID, a.addr)
 		a.mu.Unlock()
 	}
 	return nil
