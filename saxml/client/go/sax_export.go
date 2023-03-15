@@ -38,6 +38,8 @@ func (e *Exporter) Export(ctx context.Context, methodNames []string, exportPath,
 		reqRngSeedMode = pb.ExportRequest_STATELESS
 	case "stateful":
 		reqRngSeedMode = pb.ExportRequest_STATEFUL
+	case "fixed":
+		reqRngSeedMode = pb.ExportRequest_FIXED
 	default:
 		return fmt.Errorf("invalid RNG seed mode \"%s\"", rngSeedMode)
 	}

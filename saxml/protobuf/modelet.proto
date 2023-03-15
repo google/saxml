@@ -64,6 +64,8 @@ message ExportRequest {
     // # The exported method uses an in-graph tf.random.uniform internally to
     // generate the rng seed.
     STATEFUL = 2;
+    // The exported method uses an in-graph tf.constant() as the random seed.
+    FIXED = 3;
   }
 
   // Key identifying the model to export.

@@ -64,14 +64,14 @@ func (*ExportCmd) Synopsis() string { return "Export a model to a TF SavedModel.
 
 // Usage returns the full usage of ExportCmd.
 func (*ExportCmd) Usage() string {
-	return `export [--rng_seed_mode=<stateful|stateless>] <model ID> <method name> <CNS path>:
+	return `export [--rng_seed_mode=<stateful|stateless|fixed>] <model ID> <method name> <CNS path>:
     Export the given method of the given model to the CNS path.
 `
 }
 
 // SetFlags sets flags for ExportCmd.
 func (c *ExportCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.rngSeedMode, "rng_seed_mode", "stateful", "RNG seed mode. Either 'stateful' or 'stateless'.")
+	f.StringVar(&c.rngSeedMode, "rng_seed_mode", "stateful", "RNG seed mode. 'stateful', 'stateless', or 'fixed'.")
 	f.Var(&c.signatures, "signatures", "comma-separated list of signatures to export to. Must equal to the length of Methods to export and ordering.")
 }
 
