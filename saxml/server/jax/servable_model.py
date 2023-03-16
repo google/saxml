@@ -24,7 +24,6 @@ import jax
 from jax import numpy as jnp
 from jax.experimental import host_callback as hcb
 from jax.experimental import pjit
-from jax.interpreters import pxla
 import numpy as np
 from saxml.server import servable_model
 from saxml.server import servable_model_params
@@ -323,12 +322,13 @@ class ServableMethod(servable_model.ServableMethod):
 
       def _to_buffers(x):
         if self.model_state.is_primary_host:
-          return pxla.device_put(
-              _pad_for_devices(x), self._local_devices, replicate=False
-          )
+          return [
+              jax.device_put(x, d)
+              for x, d in zip(_pad_for_devices(x), self._local_devices)
+          ]
         else:
           x = np.zeros((1,) + x.shape, x.dtype)
-          return pxla.device_put(x, self._local_devices, replicate=True)
+          return [jax.device_put(x, d) for d in self._local_devices]
 
       return jax.tree_util.tree_map(_to_buffers, host_inputs)
 
@@ -338,10 +338,7 @@ class ServableMethod(servable_model.ServableMethod):
       x = np.expand_dims(x, axis=0)
       # Dummy buffers already created before. We only need to update the first
       # device.
-      return (
-          pxla.device_put(x, [self._local_devices[0]], replicate=True)
-          + existing_buffers[1:]
-      )
+      return [jax.device_put(x, self._local_devices[0])] + existing_buffers[1:]
 
     return jax.tree_util.tree_map(
         _update_buffers, host_inputs, info.dummy_inputs_per_device_buffers
