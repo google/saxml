@@ -167,6 +167,13 @@ class ServableMethod(abc.ABC):
   ) -> DeviceTensors:
     """Executes the device computation."""
 
+  @abc.abstractmethod
+  def device_compute_with_dummy_data(
+      self, unpadded_shape: InputShapeInfo
+  ) -> DeviceTensors:
+    """Executes device computation with dummy inputs."""
+    # This is needed for multi-host SPMD programs to execute in sync.
+
   @property
   @abc.abstractmethod
   def streamable(self) -> bool:
@@ -243,13 +250,6 @@ class ServableMethod(abc.ABC):
     outputs = self.output_to_host(outputs, unpadded_shape.batch_size)
     return self.post_processing(outputs)
 
-  @abc.abstractmethod
-  def compute_with_dummy_data(
-      self, unpadded_shape: InputShapeInfo
-  ) -> DeviceTensors:
-    """Executes device computation with dummy inputs."""
-    # This is needed for multi-host SPMD programs to execute in sync.
-
 
 class ServableModel(abc.ABC):
   """Base class for service implementation, backed by a model."""
@@ -308,7 +308,7 @@ class ServableModel(abc.ABC):
 
   @abc.abstractmethod
   def supports_dummy_compute_on_primary(self) -> bool:
-    """Returns if compute_with_dummy_data() can be used by the primary host."""
+    """Returns if the primary host can use device_compute_with_dummy_data()."""
     # This allows optimizations that performs mult-host sync before the
     # preprocessing, and if error occurred during preprocessing, dummy data can
     # be used to allow the primary host to execute the same program which was

@@ -1590,7 +1590,9 @@ class ModelServicesRunner:
             # Failed preprosessing. Since we have already informed secondary
             # hosts, we need to compute on tensors.
             if self._spmd_backend.spmd_host_count() > 1:
-              result = method_obj.compute_with_dummy_data(batch.unpadded_shape)
+              result = method_obj.device_compute_with_dummy_data(
+                  batch.unpadded_shape
+              )
               if method_obj.streamable:
                 streaming_done = utils.Notification()
                 self._postprocess_stream_async(model, batch, streaming_done)
@@ -1693,7 +1695,7 @@ class ModelServicesRunner:
           unpadded_shape = method_obj.deserialize_input_shape(
               unpadded_shape_str
           )
-          method_obj.compute_with_dummy_data(unpadded_shape)
+          method_obj.device_compute_with_dummy_data(unpadded_shape)
         except Exception as e:  # pylint: disable=broad-except
           self._worker_thread_exception = e
           break

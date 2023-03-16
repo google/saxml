@@ -453,7 +453,7 @@ class ServableMethod(servable_model.ServableMethod):
       )
       return output_batch
 
-  def compute_with_dummy_data(
+  def device_compute_with_dummy_data(
       self, unpadded_shape: InputShapeInfo
   ) -> DeviceTensors:
     """Executes device computation with dummy inputs."""

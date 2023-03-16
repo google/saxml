@@ -108,7 +108,7 @@ class ServableMethod(servable_model.ServableMethod):
   def streamable(self) -> bool:
     return False
 
-  def compute_with_dummy_data(
+  def device_compute_with_dummy_data(
       self, unpadded_shape: InputShapeInfo
   ) -> DeviceTensors:
     raise NotImplementedError
