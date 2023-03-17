@@ -96,6 +96,7 @@ def decode_tf_post_processing(
     # Post process for the encoder decoder model.
     # output_ids: [b, seqlen]
     # scores: [b]
+    # decode_lengths: [b]
     decoded = tf.map_fn(
         tokenizer.IdsToStrings,
         compute_outputs.output_ids,
@@ -104,6 +105,8 @@ def decode_tf_post_processing(
     decoded = tf.expand_dims(decoded, axis=-1)
     output_ids = tf.expand_dims(compute_outputs.output_ids, axis=-1)
     scores = tf.expand_dims(compute_outputs.scores, axis=-1)
+    # Place holder since decode_lengths is None from decode_fetch_output.
+    decode_lengths = tf.zeros_like(scores)
   else:
     # prefix_lengths: [b]
     # decode_lengths: [b, num_samples]
@@ -141,6 +144,7 @@ def decode_tf_post_processing(
       'topk_decoded': decoded,
       'topk_scores': scores,
       'topk_ids': output_ids,
+      'topk_decode_lengths': decode_lengths,
   }
 
 
