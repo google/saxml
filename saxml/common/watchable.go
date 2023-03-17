@@ -14,41 +14,44 @@
 
 // Package watchable provides an abstraction Watchable.
 //
-// Watchable keeps track of a set of strings. It allows producers to
-// add or remove strings. These mutations can be replicated
-// asynchronously to other consumers. Each mutation is assigned with a
-// unique, ascending sequence number. Consumers can call
-// Watchable.Watch to receive all mutations lazily after a given
-// sequence number.
+// Watchable keeps track of a set of strings, whose initial state is
+// just an empty set. It allows producers to add or remove
+// strings. These mutations can be replicated asynchronously to other
+// consumers. Each mutation is assigned with a unique, ascending
+// sequence number. Consumers can call Watchable.Watch to receive all
+// mutations lazily after a given sequence number.
 //
 // E.g.,
 //
-//	w := watchable.New()
+//		w := watchable.New()
 //
-//	// Producer
-//	... many w.Add() or w.Del()
-//	w.Add("ip:portA")
-//	w.Add("ip:PortB")
+//		// Producer
+//		... many w.Add() or w.Del()
+//		w.Add("ip:portA")
+//		w.Add("ip:PortB")
 //
-//	// Consumer
-//	// The consumer uses a map to keep track of the set of strings.
-//	state := NewDataSet()
-//	next := 0
-//	for {
-//	  err, result := w.Watch(ctx, next)
-//	  if err != nil {
-//	    ...
-//	  }
-//	  if result.Data != nil {
-//	    // Watch() tells us a full state.
-//	    state = result.Data
-//	  }
-//	  // Watch() tells us the mutations needed to
-//	  // update our local state.
-//	  state.Apply(result.Log)
-//	  // Now we are caught up the sequence number.
-//	  next = result.Next
-//	}
+//	   // Shutdown the watcher and resets the watcher.
+//	   w.Close()
+//
+//		// Consumer
+//		// The consumer uses a map to keep track of the set of strings.
+//		state := NewDataSet()
+//		next := 0
+//		for {
+//		  err, result := w.Watch(ctx, next)
+//		  if err != nil {
+//		    ...
+//		  }
+//		  if result.Data != nil {
+//		    // Watch() tells us a full state.
+//		    state = result.Data
+//		  }
+//		  // Watch() tells us the mutations needed to
+//		  // update our local state.
+//		  state.Apply(result.Log)
+//		  // Now we are caught up the sequence number.
+//		  next = result.Next
+//		}
 //
 // In the sax admin/client protocol, we expect to use one Watchable on
 // the admin server to maintain the live set of servers serving a
@@ -151,8 +154,14 @@ func (d *DataSet) Apply(muts ChangeLog) {
 // Watchable keeps track of a set of strings and allows its clients to
 // watch mutations to the set.
 type Watchable struct {
-	mu   sync.Mutex
-	cond *sync.Cond
+	chDone chan bool
+	mu     sync.Mutex
+	cond   *sync.Cond
+
+	// Protected by mu.
+	//
+	// True iff Close() is called.
+	done bool
 
 	// Protected by mu.
 	//
@@ -175,6 +184,7 @@ func New() *Watchable {
 	m := &Watchable{
 		data: *NewDataSet(),
 	}
+	m.chDone = make(chan bool)
 	m.cond = sync.NewCond(&m.mu)
 	return m
 }
@@ -273,6 +283,18 @@ func FromProto(p *pb.WatchResult) *WatchResult {
 	return &WatchResult{Next: p.GetNextSeqno(), Data: data, Log: changes}
 }
 
+// Close shutdowns this Watchable.
+func (w *Watchable) Close() {
+	close(w.chDone)
+	w.cond.L.Lock()
+	defer w.cond.L.Unlock()
+	w.done = true
+	w.nextSeqno = 0
+	w.data = *NewDataSet()
+	w.mutation = nil
+	w.cond.Broadcast()
+}
+
 // Watch returns all mutations[startSeqno:] if the change log
 // mutation[...]  still contain all mutations[startSeqno:]. Otherwise,
 // returns a string set (result.Data), which is the result of
@@ -287,6 +309,8 @@ func (w *Watchable) Watch(ctx context.Context, startSeqno int32) (*WatchResult, 
 		for {
 			seqno := w.nextSeqno - int32(len(w.mutation))
 			switch {
+			case w.done:
+				break Loop
 			case startSeqno < seqno:
 				// mutation[] no longer contains all mutations after
 				// startSeqno. We returns a full set (the result of
@@ -318,8 +342,10 @@ func (w *Watchable) Watch(ctx context.Context, startSeqno int32) (*WatchResult, 
 		}
 		w.cond.L.Unlock()
 
-		// Send result without holding the lock.
-		ch <- result
+		if result != nil {
+			// Send result without holding the lock.
+			ch <- result
+		}
 	}()
 
 	select {
@@ -328,5 +354,8 @@ func (w *Watchable) Watch(ctx context.Context, startSeqno int32) (*WatchResult, 
 		return nil, ctx.Err()
 	case ret := <-ch:
 		return ret, nil
+	case <-w.chDone:
+		// Tells the consumer to reset its state.
+		return &WatchResult{NewDataSet(), nil, 0}, nil
 	}
 }

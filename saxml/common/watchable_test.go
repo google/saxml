@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -107,6 +108,22 @@ func TestBasic(t *testing.T) {
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("Watch(%d) err %v, wanted %v", num, err, context.DeadlineExceeded)
 	}
+
+	w.Close()
+	ctx = context.Background()
+	result, err = w.Watch(ctx, int32(num))
+	if err != nil {
+		t.Errorf("w.Watch() got an error(%v), want no err", err)
+	}
+	if result.Data == nil || result.Data.Size() != 0 {
+		t.Errorf("result.Data = %v, want empty", result.Data)
+	}
+	if result.Log != nil {
+		t.Errorf("result.Log = %v, want nil", result.Log)
+	}
+	if result.Next != 0 {
+		t.Errorf("result.Next = %v, want 0", result.Next)
+	}
 }
 
 func TestCancelWatch(t *testing.T) {
@@ -178,4 +195,66 @@ func TestMultipleReplicas(t *testing.T) {
 			t.Errorf("Watched client state mismatch (-want +got)\n%s", diff)
 		}
 	}
+}
+
+func TestMultipleReplicasOnClose(t *testing.T) {
+	w := watchable.New()
+
+	// Setup a few replicas (consumers) watching mutations of w.
+	// After seeing a special string "DONE", they expect that w is
+	// closed and The dataset is reset.
+	ctx := context.Background()
+	var allSeenDone sync.WaitGroup
+	var allSeenClose sync.WaitGroup
+	numCopies := 100
+	for i := 0; i < numCopies; i++ {
+		allSeenDone.Add(1)
+		allSeenClose.Add(1)
+		go func(idx int) {
+			defer allSeenClose.Done()
+			seenDone := false
+			data := watchable.NewDataSet()
+			var token int32 = 0
+			for {
+				result, err := w.Watch(ctx, token)
+				if err != nil {
+					t.Errorf("w.Watch(%d) get err %v, want nil", token, err)
+					break
+				}
+				if result.Data != nil {
+					data = result.Data
+				}
+				data.Apply(result.Log)
+				token = result.Next
+				if !seenDone {
+					if data.Exist("DONE") {
+						seenDone = true
+						allSeenDone.Done()
+					}
+				} else if data.Size() > 0 {
+					t.Errorf("w.Watch(%d) is closed, but not reset %v", token, data.ToList())
+				} else {
+					// We are done
+					break
+				}
+			}
+		}(i)
+	}
+
+	// A single producer generates changes to w.
+	numMuts := 100
+	for i := 0; i < numMuts; i++ {
+		w.Add(itoa(i))
+		if i%10 == 0 {
+			w.Del(itoa(i - i/10))
+		}
+	}
+
+	// Sends DONE.
+	w.Add("DONE")
+	allSeenDone.Wait()
+
+	// All consumers should exit.
+	w.Close()
+	allSeenClose.Wait()
 }

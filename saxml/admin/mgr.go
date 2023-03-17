@@ -153,12 +153,13 @@ func (m *Mgr) Unpublish(fullName modelFullName) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, ok := m.models[fullName]; !ok {
+	model, ok := m.models[fullName]
+	if !ok {
 		return fmt.Errorf("model %s not found: %w", fullName, errors.ErrNotFound)
 	}
 	m.pendingUnpublished[fullName] = true
-	// TODO(zhifengc): Explicitly Close m.models[fullName].addrWatcher.
 	delete(m.models, fullName)
+	model.addrWatcher.Close()
 	return nil
 }
 
