@@ -63,18 +63,14 @@ func (m *Model) run(ctx context.Context, methodName string, callMethod func(conn
 		if err == nil {
 			err = callMethod(modelServerConn)
 		}
-		if err != nil {
-			log.Infof("%s %s() failed: %s", m.modelID, methodName, err)
-		}
 		if errors.ServerShouldPoison(err) {
-			log.Infof("%s poisons %s", m.modelID, address)
 			m.location.Poison(address)
 		}
 		return err
 	}
 	err := retrier.Do(ctx, makeQuery, errors.ServerShouldRetry)
 	if err != nil {
-		log.Infof("%s() failed: %s", methodName, err)
+		log.V(1).Infof("%s() failed: %s", methodName, err)
 		return err
 	}
 	return nil

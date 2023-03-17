@@ -120,7 +120,7 @@ func (t *Table) Poison(addr string) {
 	}
 	// reduce list size by 1.
 	t.addrList = t.addrList[:currLen-1]
-	log.Infof("Poison(%s) for model %s succeeded. Now model has %d addresses: %v\n", addr, t.model, len(t.addrList), t.addrList)
+	log.V(2).Infof("Poison(%s) for model %s succeeded. Now model has %d addresses\n", addr, t.model, len(t.addrList))
 }
 
 // Pick picks a random server address for a model.
