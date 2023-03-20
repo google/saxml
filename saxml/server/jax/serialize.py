@@ -105,7 +105,7 @@ def deserialize_pjitted_function(
   with mesh:
     devices = list(mesh.devices.flat)
     backend = devices[0].client
-    in_shardings = (
+    in_shardings = tuple(
         jax.sharding.OpShardingSharding(devices, s)
         for s in serialized.flat_in_op_shardings
     )
@@ -124,7 +124,6 @@ def deserialize_pjitted_function(
         global_out_avals=serialized.flat_global_out_avals,
         spmd_lowering=True,
         tuple_args=serialized.tuple_args,
-        in_is_global=(True,) * num_ins,
         auto_spmd_lowering=False,
         unordered_effects=[],
         ordered_effects=[],
