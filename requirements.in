@@ -7,7 +7,6 @@ grpcio-reflection
 portpicker
 numpy
 jax[tpu]>=0.4.3
-flax==0.6.2
-paxml==0.2.1
-praxis==0.2.1
-orbax==0.0.18
+orbax>=0.1.5
+paxml==0.3.0
+praxis==0.3.0
