@@ -446,11 +446,12 @@ class ServableModel(servable_model.ServableModel):
         )
       else:
         assert self._test_mode, 'Must provide checkpoint unless in test mode'
-        _, partitioned_train_state = (
+        partitioned_train_state = (
             trainer_lib.initialize_partitioned_model_states(
                 jax_task,
                 init_key,
                 sample_input_for_init,
+                partition_specs,
                 discard_opt_states=discard_opt_states,
                 global_mesh=global_mesh,
             )
