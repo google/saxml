@@ -22,7 +22,7 @@ import threading
 import time
 import traceback
 import typing
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type
+from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type
 import uuid
 
 from absl import logging
@@ -622,7 +622,7 @@ class ModelServiceGRPC(ModelService):
       context: grpc.ServicerContext,
       req: message.Message,
       resp: message.Message,
-  ) -> asyncio.futures.Future[Any]:
+  ) -> Awaitable[Any]:
     """Enqueues request, and returns a done future."""
     loop = asyncio.get_running_loop()
     fut = loop.create_future()
@@ -905,7 +905,7 @@ class ModeletServiceGRPC(ModeletService, modelet_pb2_grpc.ModeletServicer):
 
   def _future_and_done_cb(
       self, context: grpc.ServicerContext
-  ) -> Tuple[asyncio.futures.Future[Any], Callable[[utils.Status], None]]:
+  ) -> Tuple[Awaitable[Any], Callable[[utils.Status], None]]:
     loop = asyncio.get_running_loop()
     fut = loop.create_future()
 
@@ -960,7 +960,7 @@ class Exporter:
   def __init__(self, model_services_runner):
     pass
 
-  def parse_export_request(self, req: modelet_pb2.ExportRequest) -> list[str]:
+  def parse_export_request(self, req: modelet_pb2.ExportRequest) -> List[str]:
     """Parses export request."""
     raise NotImplementedError()
 

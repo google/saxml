@@ -21,6 +21,7 @@ from absl import flags
 from absl import logging
 import grpc
 import jax
+import jax.experimental.maps  # needed by experimental_xmap_spmd_lowering* below
 from saxml.protobuf import modelet_pb2
 from saxml.protobuf import modelet_pb2_grpc
 from saxml.server import model_service_base

@@ -18,10 +18,13 @@ import dataclasses
 import queue
 import threading
 import time
-from typing import Any, Callable, Optional, Protocol, Sequence, Tuple
+from typing import Any, Callable, Deque, List, Optional, Protocol, Sequence, Tuple
+
 import grpc
 import jax
 import numpy as np
+import numpy.typing as npt
+
 from google.protobuf import message
 
 
@@ -123,7 +126,7 @@ class RpcQueue:
     """
     self._queue.put(RpcQueueTask(rpc, request, response, done, tc))
 
-  def take_batch(self, batch_size: int) -> list[RpcQueueTask]:
+  def take_batch(self, batch_size: int) -> List[RpcQueueTask]:
     """Returns up to batch_size RpcQueueTask objects from the queue.
 
     The call may block indefinitely when the queue is empty.
@@ -326,7 +329,7 @@ class RequestStats:
     timestamp_sec: np.float64
     duration_sec: np.float64
 
-  queue: collections.deque[_Item]
+  queue: Deque[_Item]
 
   # Basic statistics of items in deque.
   total: np.int64  # sum(deque[*].duration_sec)
@@ -389,7 +392,7 @@ class RequestStats:
     summ2: np.float64
 
     # The selected samples of request latencies.
-    samples: np.ndarray[Any, np.float64]
+    samples: npt.NDArray[np.float64]
 
     def rate(self) -> np.float64:
       return self.total / self.timespan_sec

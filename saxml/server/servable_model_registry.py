@@ -31,8 +31,7 @@ if
 it will have an alias `foo.FooExpABC`.
 """
 
-import re
-from typing import List, Mapping, Optional
+from typing import List, Mapping, Optional, Pattern
 
 from saxml.server.servable_model_params import ServableModelParams
 from saxml.server.servable_model_params import ServableModelParamsT
@@ -44,7 +43,7 @@ REGISTRY_ROOT = None
 _registry = {}
 
 # A regex to filter (full match) models by their names.
-MODEL_FILTER_REGEX: Optional[re.Pattern[str]] = None
+MODEL_FILTER_REGEX: Optional[Pattern[str]] = None
 
 
 def get_aliases(full_model_name: str) -> List[str]:
