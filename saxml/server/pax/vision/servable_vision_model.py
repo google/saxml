@@ -14,7 +14,7 @@
 """Wraps a model with VisionService APIs."""
 
 import copy
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from jax import numpy as jnp
 from lingvo.core import cluster_factory
@@ -394,7 +394,7 @@ class TextToImageMethod(servable_model.ServableMethod):
       self,
       compute_outputs: Union[NestedNpTensor, NestedTfTensor],
       tf_mode=False,
-  ) -> tuple[Any, Any]:
+  ) -> Tuple[Any, Any]:
     images = compute_outputs['images']
     scores = compute_outputs['scores']
 

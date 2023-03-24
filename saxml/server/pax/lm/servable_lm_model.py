@@ -527,7 +527,7 @@ class LMScoreMethod(ServableLMMethod):
 
   def input_signature(
       self, batch_size: Optional[int]
-  ) -> tuple[tf.TensorSpec, tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
+  ) -> Tuple[tf.TensorSpec, tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
     """Implements `ExportableToSavedModel.input_signature`."""
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),
@@ -842,7 +842,7 @@ class LMDecodeMethod(ServableLMMethod):
 
   def input_signature(
       self, batch_size: Optional[int]
-  ) -> tuple[tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
+  ) -> Tuple[tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
     """Implements `ExportableToSavedModel.input_signature`."""
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='text'),
@@ -1107,7 +1107,7 @@ class LMGradientMethod(ServableLMMethod):
 
   def input_signature(
       self, batch_size: Optional[int]
-  ) -> tuple[tf.TensorSpec, tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
+  ) -> Tuple[tf.TensorSpec, tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
     """Implements `ExportableToSavedModel.input_signature`."""
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),

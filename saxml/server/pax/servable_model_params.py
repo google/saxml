@@ -14,7 +14,7 @@
 """Base class for servable model configs."""
 
 import abc
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from absl import logging
 
 import jax
@@ -55,7 +55,7 @@ class ServableModelParams(
   @classmethod
   def get_supported_device_mesh(
       cls,
-  ) -> tuple[utils.Status, Optional[np.ndarray]]:
+  ) -> Tuple[utils.Status, Optional[np.ndarray]]:
     global logged_jax_device
     if not logged_jax_device:
       logging.info('jax devices: %s', jax.devices())
@@ -103,7 +103,7 @@ class ServableModelParams(
     small for sample inputs.
     """
 
-  def get_quant_configs(self) -> tuple[QuantizationType, QuantizationMode]:
+  def get_quant_configs(self) -> Tuple[QuantizationType, QuantizationMode]:
     return self.quantization_type, self.quant_mode  # pytype: disable=attribute-error
 
   def set_quantization_type(self, quantization_type: QuantizationType) -> None:

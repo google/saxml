@@ -15,7 +15,7 @@
 
 import dataclasses
 import json
-from typing import Any, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import jax
 from jax import numpy as jnp
@@ -76,7 +76,7 @@ def decode_tf_post_processing(
     tokenizer: Any,
     encoder_decoder_model: bool = False,
     include_prefix_in_result: bool = False,
-) -> dict[str, tf.Tensor]:
+) -> Dict[str, tf.Tensor]:
   """Post-process the outputs using TF ops.
 
   This also implements `ExportableToSavedModel.tf_post_processing`.
@@ -304,7 +304,7 @@ def score_tf_tokenize_inputs(
 
 
 def bucketize_tokenized_inputs(
-    bucket_keys: list[int], inputs: NestedMap
+    bucket_keys: List[int], inputs: NestedMap
 ) -> NestedMap:
   """Bucketize tokenized input tensors.
 

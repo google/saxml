@@ -284,12 +284,12 @@ class ServableMethod(servable_model.ServableMethod):
   @property
   def exportable_model_fn(
       self,
-  ) -> Callable[[NestedJTensor, tuple[NestedJTensor, JTensor]], NestedJTensor]:
+  ) -> Callable[[NestedJTensor, Tuple[NestedJTensor, JTensor]], NestedJTensor]:
     """Exportable model function for `ExportableToSavedModel` protocol."""
 
     def _wrapped_fn(
         mdl_vars: NestedJTensor,
-        inputs_with_rng_seed: tuple[NestedJTensor, JTensor],
+        inputs_with_rng_seed: Tuple[NestedJTensor, JTensor],
     ) -> NestedJTensor:
       # Remove padding on the vars.
       mdl_vars = jax.tree_util.tree_map(
