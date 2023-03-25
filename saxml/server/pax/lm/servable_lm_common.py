@@ -209,7 +209,7 @@ def decode_fetch_output(
     decode_lengths = result.decode_lengths
     # [batch_size]
     if fetch_prefix_length_from_inputs:
-      # Special handle google3/third_party/py/praxis/layers/flaxformer_models.py
+      # Special handle google3/learning/multipod/pax/core/flaxformer_models.py
       prefix_lengths = model_fn_inputs.prefix_lengths  # pytype: disable=attribute-error  # jax-ndarray
     else:
       prefix_lengths = result.prefix_lengths
