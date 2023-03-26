@@ -123,7 +123,8 @@ absl::StatusOr<std::vector<py::array>> PybindTFSessionRunner::Run(
   out_arrays.reserve(outputs.size());
   for (int i = 0; i < outputs.size(); i++) {
     PyObject *array;
-    absl::Status status = ToAbslStatus(TensorToNdArray(outputs[i], &array));
+    absl::Status status =
+        tensorflow::ToAbslStatus(TensorToNdArray(outputs[i], &array));
     if (!status.ok()) {
       return status;
     }
