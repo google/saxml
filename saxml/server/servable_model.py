@@ -18,6 +18,7 @@ import dataclasses
 import json
 import queue
 from typing import Any, Dict, List, Optional, Tuple
+import numpy as np
 
 from saxml.server import servable_model_params
 
@@ -51,6 +52,7 @@ class ServableMethod(abc.ABC):
     self._max_live_batches = method_params.get_max_live_batches()
     self._batching_wait_secs = method_params.get_batching_wait_secs()
     self._extra_inputs = method_params.get_default_extra_inputs()
+    self._extra_inputs_dtypes = method_params.get_extra_inputs_dtypes()
     # If an element is None, it marks the end of the stream.
     self._stream_queue: queue.SimpleQueue[Optional[HostTensors]] = (
         queue.SimpleQueue()
@@ -70,6 +72,11 @@ class ServableMethod(abc.ABC):
   def default_extra_inputs(self) -> Optional[ExtraInput]:
     """Default extra inputs for requests that do not specify them."""
     return self._extra_inputs
+
+  @property
+  def extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype[Any]]]:
+    """Extra input dtypes for extra_input."""
+    return self._extra_inputs_dtypes
 
   @abc.abstractmethod
   def unload(self) -> None:

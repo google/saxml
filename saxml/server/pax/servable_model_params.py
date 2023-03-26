@@ -144,6 +144,12 @@ class ServableMethodParams(
   """A base config class for a method.
 
   Attributes:
+    extra_inputs: Extra inputs are a dictionary of {key: default_value} pairs.
+      The input for a function is a NestedMap. The `key` in `extra_inputs` can
+      be one of the key in the input. The `default_value` is the default value
+      for input[key].
+    extra_inputs_dtypes: A dictionary of {key: np.dtype} pairs. If the dtype is
+      not defined, default type for the extra input is np.float32.
     bucket_keys: keys for branch computations such as sequence length
       bucketization, this usually represents a list of possible sizes for a
       non-batch dimension, in increasing order.
@@ -158,6 +164,7 @@ class ServableMethodParams(
   batch_size: Union[int, List[int]] = 1
   max_live_batches: int = 4
   extra_inputs: Optional[Dict[str, float]] = None
+  extra_inputs_dtypes: Optional[Dict[str, np.dtype]] = None
   bucket_keys: Optional[List[int]] = None
   batching_wait_secs: Optional[float] = None
   polymorphic_seq_len_exclusion: Optional[List[str]] = None
@@ -171,6 +178,9 @@ class ServableMethodParams(
 
   def get_default_extra_inputs(self) -> Optional[Dict[str, float]]:
     return self.extra_inputs
+
+  def get_extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype]]:
+    return self.extra_inputs_dtypes
 
   def get_batching_wait_secs(self) -> Optional[float]:
     return self.batching_wait_secs

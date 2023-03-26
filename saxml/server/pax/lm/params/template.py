@@ -61,6 +61,7 @@ class CommonServingTemplate:
   STOP_TOKEN_IDS = None
   SLICE_LEFT = True
   EXTRA_INPUTS = {'temperature': 0.1}
+  EXTRA_INPUTS_DTYPES = {}
   SCORE_EXTRA_INPUTS = {}
   BUCKET_KEYS = None
   INCLUDE_PREFIX_IN_RESULT = False
@@ -199,6 +200,7 @@ class ServingTemplate(
         include_prefix_in_result=self.INCLUDE_PREFIX_IN_RESULT,
         max_live_batches=self.MAX_LIVE_BATCHES,
         extra_inputs=self.EXTRA_INPUTS,
+        extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
         fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
     )
 
@@ -244,6 +246,7 @@ class ServingTemplate(
         include_prefix_in_result=self.INCLUDE_PREFIX_IN_RESULT,
         max_live_batches=self.MAX_LIVE_BATCHES,
         extra_inputs=self.EXTRA_INPUTS,
+        extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
         stream_interval_steps=self.STREAM_INTERVAL_STEPS,
         fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
     )

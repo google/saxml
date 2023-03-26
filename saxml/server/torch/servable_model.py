@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import dataclasses
 from typing import Any, Dict, List, Optional, Type, Union
+
+import numpy as np
 from saxml.server import servable_model
 from saxml.server import servable_model_params
 
@@ -129,6 +131,7 @@ class ServableMethodParams(servable_model_params.ServableMethodParams):
   batch_size: Union[int, List[int]] = 1
   max_live_batches: int = 4
   extra_inputs: Optional[Dict[str, float]] = None
+  extra_inputs_dtypes: Optional[Dict[str, np.dtype]] = None
 
   def get_batch_size(self) -> Union[int, List[int]]:
     return self.batch_size
@@ -138,6 +141,9 @@ class ServableMethodParams(servable_model_params.ServableMethodParams):
 
   def get_default_extra_inputs(self) -> Optional[Dict[str, float]]:
     return self.extra_inputs
+
+  def get_extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype]]:
+    return self.extra_inputs_dtypes
 
   def get_batching_wait_secs(self) -> Optional[float]:
     return None

@@ -428,6 +428,10 @@ class ServableMethod(servable_model.ServableMethod):
     if extra_inputs is None:
       extra_inputs = [self.default_extra_inputs] * batch_size
 
+    extra_input_dyptes = (
+        self.extra_inputs_dtypes if self.extra_inputs_dtypes else {}
+    )
+
     # Add extra signatures to the input_batch.
     extra_input_tensors = {}
     for input_key, default_value in self.default_extra_inputs.items():
@@ -435,8 +439,9 @@ class ServableMethod(servable_model.ServableMethod):
       for i in range(batch_size):
         input_value.append(extra_inputs[i].get(input_key, default_value))
       # Some extra inputs such as per_example_max_decode_steps are ints
-      # we would need to cast them so multihost all reduce can work.
-      extra_input_tensors[input_key] = np.array(input_value, dtype=np.float32)
+      extra_input_tensors[input_key] = np.array(
+          input_value, dtype=extra_input_dyptes.get(input_key, np.float32)
+      )
     return self.add_extra_inputs(input_batch, extra_input_tensors)
 
   def device_compute(

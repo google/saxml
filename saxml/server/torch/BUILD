@@ -21,6 +21,7 @@ pytype_strict_library(
     deps = [
         "//saxml/server:servable_model",
         "//saxml/server:servable_model_params",
+        "//third_party/py/numpy",
         "//third_party/py/torch:pytorch",
     ],
 )

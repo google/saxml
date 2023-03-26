@@ -41,6 +41,14 @@ class ServableMethodParams(metaclass=abc.ABCMeta):
     """
 
   @abc.abstractmethod
+  def get_extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype[Any]]]:
+    """Returns the dtypes for extra inputs.
+
+    Extra inputs dtypes are a dictionary of {key: np.dtype} pairs. If the
+    dtype is not defined, default type for the extra input is np.float32.
+    """
+
+  @abc.abstractmethod
   def get_batching_wait_secs(self) -> Optional[float]:
     """Returns the optional batching waiting seconds for the method.
 
