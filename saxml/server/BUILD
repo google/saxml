@@ -22,6 +22,7 @@ package(
 bzl_library(
     name = "build_defs_bzl",
     srcs = ["build_defs.bzl"],
+    visibility = ["//visibility:public"],
     deps = ["//saxml:saxml_bzl"],
 )
 
