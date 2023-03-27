@@ -147,7 +147,7 @@ class Method:
     self.max_live_batches = max_live_batches
     self.queue = utils.RpcQueue(batching_wait_secs=batching_wait_secs)
     self.admissioner = utils.Admissioner(limit=self.limit())
-    self.stats = utils.RequestStats(timespan_sec=60.0)
+    self.stats = utils.RequestStats(timespan_sec=60.0)  # pytype: disable=wrong-arg-types  # numpy-scalars
 
 
 @dataclasses.dataclass

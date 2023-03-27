@@ -348,9 +348,9 @@ class RequestStats:
     self.timespan_sec = timespan_sec
     self.clock_time = clock
     self.queue = collections.deque()
-    self.total = 0
-    self.summ = 0.0
-    self.summ2 = 0.0
+    self.total = 0  # pytype: disable=annotation-type-mismatch  # numpy-scalars
+    self.summ = 0.0  # pytype: disable=annotation-type-mismatch  # numpy-scalars
+    self.summ2 = 0.0  # pytype: disable=annotation-type-mismatch  # numpy-scalars
 
   def _gc(self, now_sec):
     """Garbage collection routine to keep self.queue finite size."""
@@ -358,7 +358,7 @@ class RequestStats:
         now_sec - self.queue[0].timestamp_sec >= self.timespan_sec
     ):
       item = self.queue.popleft()
-      self.total -= 1
+      self.total -= 1  # pytype: disable=annotation-type-mismatch  # numpy-scalars
       self.summ -= item.duration_sec
       self.summ2 -= np.square(item.duration_sec)
 
@@ -368,9 +368,9 @@ class RequestStats:
     if self.queue:
       # Makes sure clock doesn't go back.
       now_sec = max(now_sec, self.queue[-1].timestamp_sec)
-    item = self._Item(timestamp_sec=now_sec, duration_sec=duration_sec)
+    item = self._Item(timestamp_sec=now_sec, duration_sec=duration_sec)  # pytype: disable=wrong-arg-types  # numpy-scalars
     self.queue.append(item)
-    self.total += 1
+    self.total += 1  # pytype: disable=annotation-type-mismatch  # numpy-scalars
     self.summ += item.duration_sec
     self.summ2 += np.square(item.duration_sec)
     self._gc(now_sec)
@@ -399,13 +399,13 @@ class RequestStats:
 
     def mean(self) -> np.float64:
       if self.total == 0:
-        return 0.0
+        return 0.0  # pytype: disable=bad-return-type  # numpy-scalars
       else:
         return self.summ / self.total
 
     def std(self) -> np.float64:
       if self.total == 0:
-        return 0.0
+        return 0.0  # pytype: disable=bad-return-type  # numpy-scalars
       else:
         return np.sqrt(self.summ2 / self.total - np.square(self.mean()))
 
@@ -415,7 +415,7 @@ class RequestStats:
     samples = np.array([i.duration_sec for i in self.queue])
     if len(samples) > max_samples:
       samples = np.random.choice(samples, max_samples, replace=False)
-    return self.Stats(
+    return self.Stats(  # pytype: disable=wrong-arg-types  # numpy-scalars
         timespan_sec=self.timespan_sec,
         total=self.total,
         summ=self.summ,
