@@ -74,7 +74,7 @@ class ServableMethod(abc.ABC):
     return self._extra_inputs
 
   @property
-  def extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype[Any]]]:
+  def extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype]]:
     """Extra input dtypes for extra_input."""
     return self._extra_inputs_dtypes
 

@@ -41,7 +41,7 @@ class ServableMethodParams(metaclass=abc.ABCMeta):
     """
 
   @abc.abstractmethod
-  def get_extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype[Any]]]:
+  def get_extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype]]:
     """Returns the dtypes for extra inputs.
 
     Extra inputs dtypes are a dictionary of {key: np.dtype} pairs. If the
