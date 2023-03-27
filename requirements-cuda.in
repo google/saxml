@@ -1,4 +1,13 @@
--r requirements.in
 --find-links https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
-jax[cuda]
+importlib-metadata
+absl-py
+grpcio
+grpcio-reflection
+portpicker
+numpy
+lingvo==0.12.6
+jax[cuda]==0.4.6
+orbax==0.1.6
+paxml==0.3.0
+praxis==0.3.0

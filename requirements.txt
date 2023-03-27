@@ -97,7 +97,9 @@ dm-tree==0.1.7
     #   chex
     #   tfds-nightly
 editdistance==0.6.1
-    # via t5
+    # via
+    #   seqio
+    #   t5
 einops==0.6.0
     # via praxis
 entrypoints==0.4
@@ -492,7 +494,9 @@ pyasn1-modules==0.2.8
 pycparser==2.21
     # via cffi
 pyglove==0.2.0
-    # via paxml
+    # via
+    #   paxml
+    #   seqio
 pygments==2.13.0
     # via
     #   ipython
@@ -580,7 +584,7 @@ sentencepiece==0.1.97
     #   lingvo
     #   seqio
     #   t5
-seqio==0.0.12
+seqio==0.0.15
     # via
     #   paxml
     #   t5

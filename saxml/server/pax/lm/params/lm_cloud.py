@@ -22,14 +22,14 @@ from saxml.server.pax.lm.params import template
 @template.make_servable()
 class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B):
   # pylint: disable=line-too-long
-  """Servable config on 1x1x8.
+  """Servable config on 1x1x4.
 
   Checkpoint:
   gs://sax-data/lm_cloud_2b_mesh_3/1/checkpoints/checkpoint_00000000
   """
   # pylint: enable=line-too-long
   SPM_MODEL = "gs://sax-data/m4_meena_vocab_wss_0126/spm.256k.model"
-  ICI_MESH_SHAPE = [1, 1, 8]
+  ICI_MESH_SHAPE = [1, 1, 4]
   FPROP_FOR_PREFIX = True
   BATCH_SIZE = 1
   TRAINING_OPTIMIZED_SHARDING = False

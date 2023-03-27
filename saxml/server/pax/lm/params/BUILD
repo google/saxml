@@ -38,8 +38,8 @@ pytype_strict_library(
     srcs = ["lm_cloud.py"],
     srcs_version = "PY3",
     deps = [
+        ":template",
         "//saxml/server:servable_model_registry",
-        "//saxml/server/pax/lm/params:template",
         "//third_party/py/paxml/tasks/lm/params",
     ],
 )

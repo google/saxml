@@ -26,7 +26,8 @@ gcloud config set project <your-project>
 Cloud Storage bucket:
 
 ```
-gcloud storage buckets create gs://sax-data
+GSBUCKET=sax-data
+gcloud storage buckets create gs://${GSBUCKET}
 ```
 
 ### Create a Compute Engine VM instance for the admin server
@@ -38,7 +39,7 @@ Compute Engine VM instance:
 gcloud compute instances create sax-admin \
   --zone=us-central1-b \
   --machine-type=e2-standard-8 \
-  --boot-disk-size=1TB \
+  --boot-disk-size=200GB \
   --scopes=https://www.googleapis.com/auth/cloud-platform
 ```
 
@@ -47,7 +48,7 @@ gcloud compute instances create sax-admin \
 Use this [guide](https://cloud.google.com/tpu/docs/users-guide-tpu-vm) to
 enable the Cloud TPU API in a Google Cloud project.
 
-Create an 8-core Cloud TPU VM instance:
+Create a Cloud TPU VM instance:
 
 ```
 
@@ -79,8 +80,8 @@ Configure the Sax admin server. This only needs to be done once:
 ```
 bazel run saxml/bin:admin_config -- \
   --sax_cell=/sax/test \
-  --sax_root=gs://sax-data/sax-root \
-  --fs_root=gs://sax-data/sax-fs-root \
+  --sax_root=gs://${GSBUCKET}/sax-root \
+  --fs_root=gs://${GSBUCKET}/sax-fs-root \
   --alsologtostderr
 ```
 
@@ -89,7 +90,7 @@ Start the Sax admin server:
 ```
 bazel run saxml/bin:admin_server -- \
   --sax_cell=/sax/test \
-  --sax_root=gs://sax-data/sax-root \
+  --sax_root=gs://${GSBUCKET}/sax-root \
   --port=10000 \
   --alsologtostderr
 ```
@@ -113,7 +114,7 @@ saxml/tools/init_cloud_vm.sh
 Start the Sax model server:
 
 ```
-SAX_ROOT=gs://sax-data/sax-root \
+SAX_ROOT=gs://${GSBUCKET}/sax-root \
 bazel run saxml/server/server -- \
   --sax_cell=/sax/test \
   --port=10001 \
@@ -122,13 +123,15 @@ bazel run saxml/server/server -- \
   --alsologtostderr
 ```
 
+You should see a log message "Joined [admin server IP:port]" from the model server to indicate it has successfully joined the admin server.
+
 ## Use Sax
 
 Sax comes with a command-line tool called `saxutil` for easy usage:
 
 ```
 # From the `saxml` repo root directory:
-alias saxutil='bazel run saxml/bin:saxutil -- --sax_root=gs://sax-data/sax-root'
+alias saxutil='bazel run saxml/bin:saxutil -- --sax_root=gs://${GSBUCKET}/sax-root'
 ```
 
 `saxutil` supports the following commands:
@@ -145,16 +148,20 @@ alias saxutil='bazel run saxml/bin:saxutil -- --sax_root=gs://sax-data/sax-root'
 - `saxutil vm.classify`: Use a vision model to classify an image.
 - `saxutil vm.embed`: Use a vision model to embed an image into a vector.
 
-As an example, publish a Sax model by loading a
-[Paxml model](https://github.com/google/paxml/blob/6627c5b4a1c9da5d7b4e87416cdf82e8cd0e9072/paxml/tasks/lm/params/lm_cloud.py#L164)
-checkpoint:
+As an example, Sax comes with a Pax language model] servable on a Cloud TPU VM v4-8 instance. Follow the [Paxml tutorial](saxml.server.pax.lm.params.lm_cloud.LmCloudSpmd2B) to generate a checkpoint for this model. This model can then be published in Sax:
 
 ```
 saxutil publish \
-  /sax/test/lm2b
-  saxml.server.pax.lm.cloud.params.LmCloudSpmd2B \
-  gs://sax-data/<checkpoint_path> \
+  /sax/test/lm2b \
+  saxml.server.pax.lm.params.lm_cloud.LmCloudSpmd2B \
+  gs://${GSBUCKET}/checkpoints/checkpoint_00000000 \
   1
+```
+
+Check if the model is loaded by looking at the "selected replica address" column of this command's output:
+
+```
+saxutil ls /sax/test/lm2b
 ```
 
 When the model is loaded, issue a query:
