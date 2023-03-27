@@ -99,13 +99,16 @@ absl::StatusOr<pybind11::bytes> CustomModel::Custom(
     const ModelOptions* options) const {
   if (!status_.ok()) return status_;
 
-  pybind11::gil_scoped_release release;
   std::string result;
-  if (options == nullptr) {
-    RETURN_IF_ERROR(model_->Custom(request, method_name, &result));
-  } else {
-    RETURN_IF_ERROR(model_->Custom(*options, request, method_name, &result));
+  {
+    pybind11::gil_scoped_release release;
+    if (options == nullptr) {
+      RETURN_IF_ERROR(model_->Custom(request, method_name, &result));
+    } else {
+      RETURN_IF_ERROR(model_->Custom(*options, request, method_name, &result));
+    }
   }
+  // NOTE: pybind11::bytes must be called within GIL.
   // TODO(changlan): Avoid memcpy here.
   return pybind11::bytes(result);
 }
