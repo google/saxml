@@ -43,6 +43,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
+        ":lm_tokenizer",
         ":servable_lm_common",
         "//saxml/server/jax:np_tf_sess_wrapper",
         "//saxml/server/pax:servable_model",
@@ -66,6 +67,7 @@ pytype_strict_library(
     name = "lm_tokenizer",
     srcs = ["lm_tokenizer.py"],
     srcs_version = "PY3",
+    visibility = ["//visibility:public"],
     deps = [
         "//third_party/py/praxis:base_hyperparams",
         "//third_party/py/seqio",

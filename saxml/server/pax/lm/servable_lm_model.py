@@ -31,6 +31,7 @@ from praxis import pytypes
 from saxml.server.jax import np_tf_sess_wrapper
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
+from saxml.server.pax.lm import lm_tokenizer
 from saxml.server.pax.lm import servable_lm_common
 from saxml.server.services import lm_service
 import tensorflow as tf
@@ -129,7 +130,7 @@ class ServableLMModelParams(
   """A base class that each LM model config needs to implement for serving."""
 
   @abc.abstractmethod
-  def serving_tokenizer(self):
+  def serving_tokenizer(self) -> lm_tokenizer.LMTokenizer.HParams:
     """Tokenizer params used by serving."""
 
   def methods(self) -> Dict[str, servable_model_params.ServableMethodParams]:
