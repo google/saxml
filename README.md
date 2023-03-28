@@ -115,7 +115,7 @@ Start the Sax model server:
 
 ```
 SAX_ROOT=gs://${GSBUCKET}/sax-root \
-bazel run saxml/server/server -- \
+bazel run saxml/server:server -- \
   --sax_cell=/sax/test \
   --port=10001 \
   --platform_chip=tpuv4 \

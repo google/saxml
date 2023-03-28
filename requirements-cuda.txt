@@ -115,7 +115,7 @@ executing==1.2.0
     # via stack-data
 fastjsonschema==2.16.2
     # via nbformat
-fiddle==0.2.5
+fiddle @ git+https://github.com/google/fiddle
     # via praxis
 filelock==3.8.0
     # via
@@ -150,6 +150,8 @@ googleapis-common-protos==1.56.4
     # via tensorflow-metadata
 graph-compression-google-research==0.0.4
     # via lingvo
+graphviz==0.20.1
+    # via fiddle
 grpcio==1.50.0
     # via
     #   -r requirements-cuda.in
@@ -199,7 +201,7 @@ ipython-genutils==0.2.0
     #   qtconsole
 ipywidgets==8.0.2
     # via jupyter
-jax[cuda]==0.4.6
+jax @ git+https://github.com/google/jax
     # via
     #   -r requirements-cuda.in
     #   chex
@@ -212,7 +214,7 @@ jax[cuda]==0.4.6
     #   seqio
 jax-bitempered-loss==0.0.2
     # via praxis
-jaxlib==0.4.6+cuda11.cudnn86
+jaxlib==0.4.7+cuda11.cudnn86
     # via
     #   chex
     #   clu
@@ -304,6 +306,10 @@ mistune==2.0.4
     # via nbconvert
 ml-collections==0.1.1
     # via clu
+ml-dtypes==0.0.4
+    # via
+    #   jax
+    #   jaxlib
 model-pruning-google-research==0.0.5
     # via lingvo
 mpmath==1.2.1
@@ -361,6 +367,7 @@ numpy==1.23.4
     #   jaxlib
     #   keras-preprocessing
     #   matplotlib
+    #   ml-dtypes
     #   opt-einsum
     #   optax
     #   orbax
@@ -425,7 +432,7 @@ pandocfilters==1.5.0
     # via nbconvert
 parso==0.8.3
     # via jedi
-paxml==0.3.0
+paxml @ git+https://github.com/google/paxml
     # via -r requirements-cuda.in
 pexpect==4.8.0
     # via ipython
@@ -443,7 +450,7 @@ portalocker==2.6.0
     # via sacrebleu
 portpicker==1.5.2
     # via -r requirements-cuda.in
-praxis==0.3.0
+praxis @ git+https://github.com/google/praxis
     # via
     #   -r requirements-cuda.in
     #   paxml
@@ -460,13 +467,12 @@ prompt-toolkit==3.0.32
     # via
     #   ipython
     #   jupyter-console
-protobuf==3.19.5
+protobuf==3.19.6
     # via
     #   googleapis-common-protos
     #   grpcio-reflection
     #   lingvo
     #   paxml
-    #   praxis
     #   tensorboard
     #   tensorflow
     #   tensorflow-datasets
@@ -581,7 +587,7 @@ sentencepiece==0.1.97
     #   lingvo
     #   seqio
     #   t5
-seqio==0.0.15
+seqio @ git+https://github.com/google/seqio
     # via
     #   paxml
     #   t5
@@ -614,8 +620,6 @@ sympy==1.11.1
     # via lingvo
 t5==0.9.3
     # via paxml
-t5x==0.0.0
-    # via praxis
 tabulate==0.9.0
     # via sacrebleu
 tensorboard==2.9.1
