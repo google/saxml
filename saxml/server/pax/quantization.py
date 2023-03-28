@@ -38,6 +38,7 @@ ready.
 
 import functools
 
+from jax import numpy as jnp
 from praxis import layers
 from praxis.layers.quantization import quantization_hparams
 from praxis.layers.quantization import quantize
@@ -52,6 +53,7 @@ def for_transformer(
     use_symmetric: bool = True,
     quantize_embedding_softmax: bool = False,
     transposed_embedding_softmax: bool = False,
+    dtype: jnp.dtype = jnp.int8,
 ):
   """Find and quantize transformer.
 
@@ -75,6 +77,7 @@ def for_transformer(
       TransformerLm.softmax_tpl in `config`.
     transposed_embedding_softmax: If the model is using transposed embedding for
       embedding softmax layer.
+    dtype: Dtype of the quantized variables.
 
   Returns:
     a modifier that quantizes transformers when applied to a config.
@@ -111,6 +114,7 @@ def for_transformer(
             use_symmetric=use_symmetric,
             quantize_embedding_softmax=quantize_embedding_softmax,
             transposed_embedding_softmax=transposed_embedding_softmax,
+            dtype=dtype,
         )
         return task_p
 
