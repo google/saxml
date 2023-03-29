@@ -106,10 +106,10 @@ def deserialize_pjitted_function(
     devices = list(mesh.devices.flat)
     backend = devices[0].client
     in_shardings = tuple(
-        jax.sharding.OpShardingSharding(devices, s)
+        jax.sharding.GSPMDSharding(devices, s)
         for s in serialized.flat_in_op_shardings
     )
-    rep_sharding = jax.sharding.OpShardingSharding.get_replicated(devices)
+    rep_sharding = jax.sharding.GSPMDSharding.get_replicated(devices)
     num_ins = len(serialized.flat_in_op_shardings)
     num_outs = len(serialized.flat_global_out_avals)
 
