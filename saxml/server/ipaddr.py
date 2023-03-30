@@ -22,9 +22,9 @@ def MyIPAddr() -> str:
   hostname = socket.gethostname()
 
   try:
-    addrs = socket.getaddrinfo(hostname, None, socket.AF_INET6)
-    if addrs:
-      addr = addrs[0][4][0]
+    address = socket.getaddrinfo(hostname, None, socket.AF_INET6)
+    if address:
+      addr = address[0][4][0]
       ip = ipaddress.ip_address(addr)
       if not ip.is_link_local and (ip.is_private or ip.is_global):
         return addr
@@ -32,9 +32,9 @@ def MyIPAddr() -> str:
     pass
 
   try:
-    addrs = socket.getaddrinfo(hostname, None, socket.AF_INET)
-    if addrs:
-      addr = addrs[0][4][0]
+    address = socket.getaddrinfo(hostname, None, socket.AF_INET)
+    if address:
+      addr = address[0][4][0]
       ip = ipaddress.ip_address(addr)
       if not ip.is_link_local and (ip.is_private or ip.is_global):
         return addr
@@ -47,6 +47,6 @@ def MyIPAddr() -> str:
 def Join(ip: str, port: int) -> str:
   """Returns an IP address joined with a port."""
   if not ip.startswith("[") and ":" in ip:
-    return "[%s]:%d" % (ip, port)
+    return f"[{ip}]: {port}"
   else:
-    return "%s:%d" % (ip, port)
+    return f"{ip}: {port}" % (ip, port)
