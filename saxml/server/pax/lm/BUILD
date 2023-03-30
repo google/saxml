@@ -10,6 +10,11 @@ package(
     ],
 )
 
+filegroup(
+    name = "test_data",
+    srcs = glob(["test_data/*"]),
+)
+
 pytype_strict_library(
     name = "all_imports",
     srcs = ["all_imports.py"],
@@ -71,6 +76,21 @@ pytype_strict_library(
     deps = [
         "//third_party/py/praxis:base_hyperparams",
         "//third_party/py/seqio",
+        "//third_party/py/tensorflow:tensorflow_no_contrib",
+    ],
+)
+
+py_strict_test(
+    name = "lm_tokenizer_test",
+    srcs = ["lm_tokenizer_test.py"],
+    data = [":test_data"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":lm_tokenizer",
+        "//third_party/py/absl-py/flags",
+        "//third_party/py/absl-py/testing:parameterized",
+        "//third_party/py/praxis:base_layer",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )

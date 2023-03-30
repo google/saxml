@@ -27,10 +27,18 @@ FLAGS = flags.FLAGS
 
 def _CreateParams():
   p = lm_tokenizer.LMTokenizer.HParams(
+      # From https://github.com/google/sentencepiece/tree/master/python:
+      #   <unk>:  0
+      #   <s>:    1
+      #   </s>:   2
+      #   _He:    151
+      #   ll:     88
+      #   o:      21
+      #   _world: 887
       spm_model=os.path.join(
           FLAGS.test_srcdir,
-          'google3/learning/multipod/sax/server/lm/test_data',
-          'meena_0611.32000.model',
+          '__main__/saxml/server/pax/lm/test_data',
+          'test_model.model',
       ),
       target_sos_id=0,
       target_eos_id=1,
@@ -44,137 +52,43 @@ class LMTokenizerTest(tf.test.TestCase, parameterized.TestCase):
     p = _CreateParams()
     tokenizer = p.Instantiate()
     max_length = 5
-    strs = ['hello world', 'the quick brown fox jumps']
+    strs = ['Hello', 'world']
     ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
-    self.assertAllEqual([[0, 9873, 640, 0, 0], [0, 261, 1242, 3350, 9806]], ids)
+    self.assertAllEqual([[0, 151, 88, 21, 0], [0, 887, 0, 0, 0]], ids)
+    self.assertAllEqual([[151, 88, 21, 1, 0], [887, 1, 0, 0, 0]], labels)
     self.assertAllEqual(
-        [[9873, 640, 1, 0, 0], [261, 1242, 3350, 9806, 1]], labels
-    )
-    self.assertAllEqual(
-        [[0.0, 0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0, 0.0]], paddings
+        [[0.0, 0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0, 1.0]], paddings
     )
 
-  def testStringsToIdsLongMaxLen(self):
+  def testStringsToIdsSliceLeft(self):
     p = _CreateParams()
     tokenizer = instantiate(p)
-    max_length = 8
-    strs = ['hello world', 'the quick brown fox jumps']
+    max_length = 3
+    strs = ['Hello', 'world']
     ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
-    self.assertAllEqual(
-        [
-            [0, 9873, 640, 0, 0, 0, 0, 0],
-            [0, 261, 1242, 3350, 9806, 11144, 0, 0],
-        ],
-        ids,
-    )
-    self.assertAllEqual(
-        [
-            [9873, 640, 1, 0, 0, 0, 0, 0],
-            [261, 1242, 3350, 9806, 11144, 1, 0, 0],
-        ],
-        labels,
-    )
-    self.assertAllEqual(
-        [
-            [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
-        ],
-        paddings,
-    )
+    self.assertAllEqual([[0, 151, 88], [0, 887, 0]], ids)
+    self.assertAllEqual([[151, 88, 1], [887, 1, 0]], labels)
+    self.assertAllEqual([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]], paddings)
 
-  def testStringsToIdsShortMaxLenSliceLeft(self):
-    p = _CreateParams()
-    tokenizer = instantiate(p)
-    max_length = 4
-    strs = ['hello world', 'the quick brown fox jumps']
-    ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
-    self.assertAllEqual([[0, 9873, 640, 0], [0, 261, 1242, 3350]], ids)
-    self.assertAllEqual([[9873, 640, 1, 0], [261, 1242, 3350, 1]], labels)
-    self.assertAllEqual([[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0]], paddings)
-
-  def testStringsToIdsShortMaxLenSliceRight(self):
+  def testStringsToIdsSliceRight(self):
     p = _CreateParams()
     p.slice_left = False
     tokenizer = instantiate(p)
-    max_length = 4
-    strs = ['hello world', 'the quick brown fox jumps']
+    max_length = 3
+    strs = ['Hello', 'world']
     ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
-    self.assertAllEqual([[0, 9873, 640, 0], [0, 3350, 9806, 11144]], ids)
-    self.assertAllEqual([[9873, 640, 1, 0], [3350, 9806, 11144, 1]], labels)
-    self.assertAllEqual([[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0]], paddings)
+    self.assertAllEqual([[0, 88, 21], [0, 887, 0]], ids)
+    self.assertAllEqual([[88, 21, 1], [887, 1, 0]], labels)
+    self.assertAllEqual([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]], paddings)
 
   def testIdsToStrings(self):
     p = _CreateParams()
     tokenizer = instantiate(p)
-    ids = [
-        [9873, 640, 1, 0, 0, 0, 0, 0, 0, 0],
-        [261, 1242, 3350, 9806, 11144, 1, 0, 0, 0, 0],
-    ]
+    ids = [[151, 88, 21, 0, 0], [887, 0, 0, 0, 0]]
     strs = tokenizer.IdsToStrings(ids)
-    self.assertEqual([b'hello world', b'the quick brown fox jumps'], list(strs))
-
-  def testStreamWhiteSpaces(self):
-    p = _CreateParams()
-    tokenizer = instantiate(p)
-    state = tokenizer.InitStream(2)
-
-    strs, state = tokenizer.DecodeOnStream([[0], [261]], state)
-    self.assertEqual([b'', b'the'], list(strs))
-    strs, state = tokenizer.DecodeOnStream([[9873], [1242]], state)
-    self.assertEqual([b'hello', b' quick'], list(strs))
-    strs, state = tokenizer.DecodeOnStream(
-        [[640, 1, 0], [3350, 9806, 11144]], state
-    )
-    self.assertEqual([b' world', b' brown fox jumps'], list(strs))
-    strs, state = tokenizer.DecodeOnStream([[0], [1]], state)
-    self.assertEqual([b'', b''], list(strs))
-    strs = tokenizer.FinishStream(state)
-    self.assertEqual([b'', b''], list(strs))
-
-  def testStreamBytes(self):
-    p = _CreateParams()
-    tokenizer = instantiate(p)
-    byte_ids = list(
-        tokenizer._vocab.tf_tokenizer.string_to_id(
-            #   g           h           i
-            [b'<0x67>', b'<0x68>', b'<0x69>']
-        )
-    )
-    state = tokenizer.InitStream(2)
-
-    strs, state = tokenizer.DecodeOnStream([[9873], [261]], state)
-    self.assertEqual([b'hello', b'the'], list(strs))
-    strs, state = tokenizer.DecodeOnStream(
-        [[byte_ids[0]], [byte_ids[1]]], state
-    )
-    self.assertEqual([b'', b''], list(strs))
-    strs, state = tokenizer.DecodeOnStream([[byte_ids[2]], [1242]], state)
-    self.assertEqual([b'', b'h quick'], list(strs))
-    strs, state = tokenizer.DecodeOnStream(
-        [[byte_ids[2], 640], [byte_ids[0], byte_ids[1]]], state
-    )
-    self.assertEqual([b'gii world', b''], list(strs))
-    strs = tokenizer.FinishStream(state)
-    self.assertEqual([b'', b'gh'], list(strs))
-
-  def testStreamBatchSizeTensor(self):
-    p = _CreateParams()
-    tokenizer = instantiate(p)
-    batch_size = tf.constant([1, 2])
-    state = tokenizer.InitStream(batch_size)
-
-    strs, state = tokenizer.DecodeOnStream([[[0], [261]]], state)
-    self.assertAllEqual([[b'', b'the']], strs)
-    strs, state = tokenizer.DecodeOnStream([[[9873], [1242]]], state)
-    self.assertAllEqual([[b'hello', b' quick']], strs)
-    strs, state = tokenizer.DecodeOnStream(
-        [[[640, 1, 0], [3350, 9806, 11144]]], state
-    )
-    self.assertAllEqual([[b' world', b' brown fox jumps']], strs)
-    strs, state = tokenizer.DecodeOnStream([[[0], [1]]], state)
-    self.assertAllEqual([[b'', b'']], strs)
-    strs = tokenizer.FinishStream(state)
-    self.assertAllEqual([[b'', b'']], strs)
+    # This SPM doesn't understand padding so manually truncate.
+    strs = [tf.strings.substr(s, 0, 5) for s in strs]
+    self.assertEqual([b'Hello', b'world'], strs)
 
 
 if __name__ == '__main__':

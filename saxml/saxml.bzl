@@ -153,8 +153,7 @@ def pytype_strict_library(name, srcs = [], deps = [], pybind_deps = [], **kwargs
 def pytype_strict_binary(name, srcs = [], deps = [], **kwargs):
     native.py_binary(name = name, srcs = srcs, deps = clean_py_deps(deps), **kwargs)
 
-def py_strict_test(name, srcs = [], deps = [], pybind_deps = [], **kwargs):
-    data = []
+def py_strict_test(name, srcs = [], deps = [], pybind_deps = [], data = [], **kwargs):
     for pybind_dep in pybind_deps:
         data.append(pybind_dep + ".so")
     native.py_test(name = name, srcs = srcs, deps = clean_py_deps(deps), data = data, **kwargs)
