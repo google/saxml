@@ -17,7 +17,7 @@ from typing import Optional
 
 
 def Check(aclname: Optional[str], principal: Optional[str]) -> bool:
-  """Returns true iff username is allowed by the acl.
+  """Returns true if username is allowed by the acl.
 
   Args:
     aclname: The access control list. The ACL is currently just a dot-separated
