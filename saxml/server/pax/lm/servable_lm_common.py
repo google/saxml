@@ -48,14 +48,14 @@ def decode_tf_tokenize_inputs(
     texts: tf.Tensor,
     tokenizer: Any,
     max_input_seq_len: int,
-    encoder_decoder_model: bool = False,
+    t5_model: bool = False,
 ) -> Tuple[
     tf.Tensor, Optional[tf.Tensor], Optional[tf.Tensor], Optional[tf.Tensor]
 ]:
   """Tokenize inputs for decoding."""
   ids, labels, paddings = tokenizer.StringsToIds(texts, max_input_seq_len)
 
-  if encoder_decoder_model:
+  if t5_model:
     # TODO(wangtao): consider change behavior of tokenizer. Encoder-decoder
     # model needs EOS at the end of the sequence, BOS is not needed at the
     # beginning of the sequence.
@@ -74,7 +74,7 @@ def decode_tf_tokenize_inputs(
 def decode_tf_post_processing(
     compute_outputs: NestedNpOrTfTensor,
     tokenizer: Any,
-    encoder_decoder_model: bool = False,
+    t5_model: bool = False,
     include_prefix_in_result: bool = False,
 ) -> Dict[str, tf.Tensor]:
   """Post-process the outputs using TF ops.
@@ -84,7 +84,7 @@ def decode_tf_post_processing(
   Args:
     compute_outputs: the outputs of the model function.
     tokenizer: tokenizer to decode ids to strings.
-    encoder_decoder_model: if it is encoder_decoder_model.
+    t5_model: if it is T5 encoder_decoder_model.
     include_prefix_in_result: if include prefix in result or not.
 
   Returns:
@@ -92,7 +92,7 @@ def decode_tf_post_processing(
     results.
   """
   assert isinstance(compute_outputs, py_utils.NestedMap)
-  if encoder_decoder_model:
+  if t5_model:
     # Post process for the encoder decoder model.
     # output_ids: [b, seqlen]
     # scores: [b]
@@ -148,11 +148,9 @@ def decode_tf_post_processing(
   }
 
 
-def decode_get_scores(
-    result: NestedMap, encoder_decoder_model: bool = False, host=False
-):
+def decode_get_scores(result: NestedMap, t5_model: bool = False, host=False):
   """Get scores from decoding results."""
-  if encoder_decoder_model:
+  if t5_model:
     return result.logprobs
 
   if hasattr(result, 'scores'):
@@ -191,7 +189,7 @@ def decode_get_scores(
 def decode_fetch_output(
     model_fn_outputs: NestedJTensor,
     model_fn_inputs: NestedJTensor,
-    encoder_decoder_model=False,
+    t5_model=False,
     fetch_prefix_length_from_inputs: bool = False,
 ) -> NestedJTensor:
   """Fetch output for decode."""
@@ -199,9 +197,9 @@ def decode_fetch_output(
   # Extract the per example outputs and discard weighted scalars and metrics.
   _, result, _ = model_fn_outputs[0]
   output_ids = result.output_ids  # [batch_size, num_samples, seqlen].
-  scores = decode_get_scores(result, encoder_decoder_model)
+  scores = decode_get_scores(result, t5_model)
 
-  if encoder_decoder_model:
+  if t5_model:
     decode_lengths = None
     prefix_lengths = None
   else:

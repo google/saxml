@@ -97,7 +97,7 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
         np.asarray([3, 6]), tf.squeeze(out['topk_decode_lengths']).numpy()
     )
 
-  def test_decode_post_processing_encoder_decoder(self):
+  def test_decode_post_processing_t5_encoder_decoder(self):
     max_length = 8
     strs = ['hello world', 'the quick brown fox jumps']
     ids, _, _ = self.tokenizer.StringsToIds(strs, max_length)
@@ -110,7 +110,7 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
     )
 
     out = servable_lm_common.decode_tf_post_processing(
-        computed_outputs, self.tokenizer, encoder_decoder_model=True
+        computed_outputs, self.tokenizer, t5_model=True
     )
 
     self.assertContainsExactSubsequence(

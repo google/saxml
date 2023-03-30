@@ -78,12 +78,14 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
     decoder: decoder params.
     include_prefix_in_result: whether to include the input prefix in the result.
     encoder_decoder_model: whether this is an encoder decoder model.
+    t5_model: whether this is a T5 flaxformer based model.
   """
 
   max_input_seq_len: int = 0
   decoder: decoder_hparams.DecoderHParams = decoder_hparams.DecoderHParams()
   include_prefix_in_result: bool = False
   encoder_decoder_model: bool = False
+  t5_model: bool = False
   stream_interval_steps: int = 1
   fetch_prefix_lengths_from_inputs: bool = False
 
@@ -577,7 +579,7 @@ class LMDecodeMethod(ServableLMMethod):
         lambda *args: decode_tf_post_processing(
             *args,
             tokenizer=self._tokenizer,
-            encoder_decoder_model=self._method_hparams.encoder_decoder_model,
+            t5_model=self._method_hparams.t5_model,
             include_prefix_in_result=self._include_prefix_in_result,
         ),
         False,
@@ -657,7 +659,7 @@ class LMDecodeMethod(ServableLMMethod):
     return servable_lm_common.decode_fetch_output(
         model_fn_outputs,
         model_fn_inputs,
-        self._method_hparams.encoder_decoder_model,
+        self._method_hparams.t5_model,
         self._method_hparams.fetch_prefix_lengths_from_inputs,
     )
 
@@ -727,7 +729,7 @@ class LMDecodeMethod(ServableLMMethod):
 
   def get_scores(self, result: NestedMap, host=False):
     """Get scores from decoding results."""
-    if self._method_hparams.encoder_decoder_model:
+    if self._method_hparams.t5_model:
       return result.logprobs
 
     if hasattr(result, 'scores'):
@@ -790,17 +792,30 @@ class LMDecodeMethod(ServableLMMethod):
             texts,
             self._tokenizer,
             self._method_hparams.max_input_seq_len,
-            self._method_hparams.encoder_decoder_model,
+            self._method_hparams.t5_model,
         )
     )
 
-    if self._method_hparams.encoder_decoder_model:
-      # Preprocess for the encoder decoder model.
-      batch_size = tf.shape(ids)[0]
+    batch_size = tf.shape(ids)[0]
+    if self._method_hparams.t5_model:
       target_length = self._method_hparams.decoder.seqlen
       preprocessed = py_utils.NestedMap(
           encoder_input_tokens=ids,
           decoder_input_tokens=tf.ones((batch_size, target_length)),
+      )
+    elif self._method_hparams.encoder_decoder_model:
+      src = py_utils.NestedMap(
+          ids=tf.cast(ids, tf.int32),
+          paddings=paddings,
+      )
+      tgt = py_utils.NestedMap(
+          ids=tf.zeros((batch_size, 1), dtype=tf.int32),
+          paddings=tf.zeros((batch_size, 1)),
+      )
+      preprocessed = py_utils.NestedMap(
+          src=src,
+          tgt=tgt,
+          prefix_lengths=tf.ones((batch_size), tf.int32),
       )
     else:
       preprocessed = py_utils.NestedMap(
@@ -837,7 +852,7 @@ class LMDecodeMethod(ServableLMMethod):
     return decode_tf_post_processing(
         compute_outputs,
         tokenizer=self._tokenizer,
-        encoder_decoder_model=self._method_hparams.encoder_decoder_model,
+        t5_model=self._method_hparams.t5_model,
         include_prefix_in_result=self._include_prefix_in_result,
     )
 
