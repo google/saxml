@@ -316,6 +316,24 @@ http_archive(
 )
 
 http_archive(
+    name = "darts_clone",
+    urls = ["https://github.com/s-yata/darts-clone/archive/e40ce4627526985a7767444b6ed6893ab6ff8983.zip"],
+    sha256 = "c97f55d05c98da6fcaf7f9ecc6a6dc6bc5b18b8564465f77abff8879d446491c",
+    strip_prefix = "darts-clone-e40ce4627526985a7767444b6ed6893ab6ff8983",
+    build_file = "//saxml/server/tf/darts_clone:BUILD",
+)
+
+http_archive(
+    name = "com_google_sentencepiece",
+    urls = ["https://github.com/google/sentencepiece/archive/refs/tags/v0.1.96.zip"],
+    sha256 = "8409b0126ebd62b256c685d5757150cf7fcb2b92a2f2b98efb3f38fc36719754",
+    strip_prefix = "sentencepiece-0.1.96",
+    build_file = "//saxml/server/tf/sentencepiece:BUILD",
+    patches = ["//saxml/server/tf/sentencepiece:sp.patch"],
+    patch_args = ["-p1"],
+)
+
+http_archive(
   name = "com_google_paxml",
   urls = ["https://github.com/google/paxml/archive/7002d940abbfb38e0cfe40be2847859c68f45c7a.zip"],
   strip_prefix = "paxml-7002d940abbfb38e0cfe40be2847859c68f45c7a",

@@ -28,7 +28,7 @@ class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B):
   gs://sax-data/lm_cloud_2b_mesh_3/1/checkpoints/checkpoint_00000000
   """
   # pylint: enable=line-too-long
-  SPM_MODEL = "gs://sax-data/m4_meena_vocab_wss_0126/spm.256k.model"
+  SPM_MODEL = "gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model"
   ICI_MESH_SHAPE = [1, 1, 4]
   FPROP_FOR_PREFIX = True
   BATCH_SIZE = 1

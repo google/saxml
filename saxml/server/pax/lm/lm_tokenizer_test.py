@@ -16,7 +16,6 @@
 import os
 
 from absl import flags
-from absl.testing import parameterized
 from praxis import base_layer
 from saxml.server.pax.lm import lm_tokenizer
 import tensorflow as tf
@@ -46,7 +45,7 @@ def _CreateParams():
   return p
 
 
-class LMTokenizerTest(tf.test.TestCase, parameterized.TestCase):
+class LMTokenizerTest(tf.test.TestCase):
 
   def testStringsToIds(self):
     p = _CreateParams()

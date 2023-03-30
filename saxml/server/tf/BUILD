@@ -26,7 +26,6 @@ py_strict_test(
     srcs = ["np_tf_sess_wrapper_test.py"],
     python_version = "PY3",
     srcs_version = "PY3",
-    tags = ["manual"],
     deps = [
         ":np_tf_sess_wrapper",
         "//third_party/py/absl-py/testing:absltest",
@@ -40,12 +39,23 @@ pybind_extension(
     srcs = ["tf_session_runner.cc"],
     deps = [
         ":np_conversions",
+        ":sentencepiece",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@org_tensorflow//tensorflow/core:core_cpu",
+        "@org_tensorflow//tensorflow/core:direct_session",
         "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:protos_all_cc",
+        "@org_tensorflow//tensorflow/core/kernels:array",
+        "@org_tensorflow//tensorflow/core/kernels:constant_op",
+        "@org_tensorflow//tensorflow/core/kernels:control_flow_ops",
+        "@org_tensorflow//tensorflow/core/kernels:logging",
+        "@org_tensorflow//tensorflow/core/kernels:math",
+        "@org_tensorflow//tensorflow/core/kernels:ragged_ops",
+        "@org_tensorflow//tensorflow/core/kernels:required",
+        "@org_tensorflow//tensorflow/core/kernels:state",
+        "@org_tensorflow//tensorflow/core/ops",
         "@org_tensorflow//tensorflow/core/platform:status",
         "@pybind11_abseil//pybind11_abseil:import_status_module",
         "@pybind11_abseil//pybind11_abseil:status_casters",
@@ -63,6 +73,36 @@ cc_library(
         "@org_tensorflow//tensorflow/core:protos_all_cc",
         "@pybind11",  # buildcleaner: keep
     ],
+)
+
+cc_library(
+    name = "sentencepiece",
+    srcs = [
+        "sentencepiece_kernels.cc",
+        "sentencepiece_ops.cc",
+    ],
+    deps = [
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/meta:type_traits",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/types:span",
+        "@com_google_sentencepiece//:sentencepiece_cc_proto",
+        "@com_google_sentencepiece//:sentencepiece_model_cc_proto",
+        "@com_google_sentencepiece//:sentencepiece_processor",
+        "@org_tensorflow//tensorflow/core:core_cpu",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:framework_lite",
+        "@org_tensorflow//tensorflow/core:framework_types_hdr",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
+        "@org_tensorflow//tensorflow/core/platform:errors",
+        "@org_tensorflow//tensorflow/core/platform:macros",
+        "@org_tensorflow//tensorflow/core/platform:thread_annotations",
+        "@org_tensorflow//tensorflow/core/platform:types",
+    ],
+    alwayslink = 1,
 )
 
 cc_library(
