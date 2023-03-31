@@ -6,12 +6,7 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 licenses(["notice"])
 
-package_group(
-    name = "users",
-    packages = [
-        "//learning/gemini/...",
-    ],
-)
+package_group(name = "users")
 
 package(
     default_visibility = [
