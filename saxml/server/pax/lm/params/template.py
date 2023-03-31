@@ -72,7 +72,7 @@ class CommonServingTemplate:
   DECODE_MESH_TRANSPOSE = None
   # Remove this after MultipQueryAttention supports lazy prefix.
   SUPPORT_LAZY_PREFIX_BROADCAST = True
-  EMB_LOOKUP_STYPE = 'index'
+  EMB_LOOKUP_STYLE = 'index'
   FETCH_PREFIX_LENGTHS_FROM_INPUTS = False
   POLYMORPHIC_SEQ_LEN_EXCLUSION = None
 
@@ -163,7 +163,7 @@ class ServingTemplate(
           eos_id=stop_token_ids,
           length_norm_alpha=self.LENGTH_NORM_ALPHA,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
-          emb_lookup_style=self.EMB_LOOKUP_STYPE,
+          emb_lookup_style=self.EMB_LOOKUP_STYLE,
       )
     elif self.NUM_SAMPLES == 1 and self.TOP_K == 1:
       generate_hparams = decoder_hparams.GreedyDecoderHParams(
@@ -172,7 +172,7 @@ class ServingTemplate(
           seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           eos_id=stop_token_ids,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
-          emb_lookup_style=self.EMB_LOOKUP_STYPE,
+          emb_lookup_style=self.EMB_LOOKUP_STYLE,
       )
     else:
       generate_hparams = decoder_hparams.SampleDecoderHParams(
@@ -189,7 +189,7 @@ class ServingTemplate(
           k=self.TOP_K,
           global_normalize=self.GLOBAL_NORMALIZE,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
-          emb_lookup_style=self.EMB_LOOKUP_STYPE,
+          emb_lookup_style=self.EMB_LOOKUP_STYLE,
       )
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
@@ -234,7 +234,7 @@ class ServingTemplate(
         temperature=None,
         eos_id=stop_token_ids,
         k=self.TOP_K,
-        emb_lookup_style=self.EMB_LOOKUP_STYPE,
+        emb_lookup_style=self.EMB_LOOKUP_STYLE,
     )
 
     return servable_lm_model.DecodeHParams(
