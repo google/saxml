@@ -17,6 +17,7 @@ import abc
 import asyncio
 import copy
 import dataclasses
+import functools
 import queue
 import threading
 import time
@@ -1008,6 +1009,7 @@ class ModelServicesRunner:
       platform_chip: Optional[str] = None,
       platform_topology: Optional[str] = None,
       spmd_backend: Optional[SPMDBackend] = None,
+      fail_on_error: bool = False,
   ):
     self._is_primary = is_primary_process
     # If deterministic_prng_seed is provided, all models will use this as the
@@ -1020,6 +1022,10 @@ class ModelServicesRunner:
         batch_size=1,
         max_live_batches=1,
     )
+    self._log_exception = functools.partial(
+        logging.fatal if fail_on_error else logging.error,
+        exc_info=True)
+
     if spmd_backend is None:
       if not self._is_primary:
         raise NotImplementedError('No spmd_backend provided for mult-host.')
@@ -1353,7 +1359,7 @@ class ModelServicesRunner:
               done_rpcs += 1
         except Exception as e:  # pylint: disable=broad-except
           if not pre_process_failure:
-            logging.exception(
+            self._log_exception(
                 'Postprocessing error. model_key: %s, method: %s, error: %s',
                 batch.method.model_key,
                 batch.method.name,
@@ -1405,7 +1411,7 @@ class ModelServicesRunner:
               task.done(utils.ok(), resp)
               done_rpcs += 1
           except Exception as e:  # pylint: disable=broad-except
-            logging.exception(
+            self._log_exception(
                 'Postprocessing error. model_key: %s, method: %s, error: %s',
                 batch.method.model_key,
                 batch.method.name,
@@ -1451,7 +1457,7 @@ class ModelServicesRunner:
             )
             task.done(utils.ok())
           except ValueError as e:
-            logging.exception(
+            self._log_exception(
                 (
                     'Invalid load request. model_key: %s, model_path: %s,'
                     ' error: %s'
@@ -1462,7 +1468,7 @@ class ModelServicesRunner:
             )
             task.done(utils.invalid_arg(f'{e}'))
           except Exception as e:  # pylint: disable=broad-except
-            logging.exception(
+            self._log_exception(
                 (
                     'Internal error during loading. model_key: %s, model_path:'
                     ' %s, error: %s'
@@ -1491,7 +1497,7 @@ class ModelServicesRunner:
             )
             task.done(utils.invalid_arg(f'Unloading error: {e}'))
           except Exception as e:  # pylint: disable=broad-except
-            logging.exception(
+            self._log_exception(
                 'Internal error during unloading. model_key: %s, error: %s',
                 model_key,
                 e,
@@ -1518,7 +1524,7 @@ class ModelServicesRunner:
             exporter.finalize_export(*export_args)
             task.done(utils.ok())
           except Exception as e:  # pylint: disable=broad-except
-            logging.exception(
+            self._log_exception(
                 (
                     '%s during Exporting. model_key: %s, method_names %s,'
                     ' export_path: %s, error: %s'
@@ -1542,14 +1548,14 @@ class ModelServicesRunner:
             self._save_model(request.model_key, request.checkpoint_path)
             task.done(utils.ok())
           except ValueError as e:
-            logging.exception(
+            self._log_exception(
                 'Invalid save request. model_key %s, error: %s, ',
                 request.model_key,
                 e,
             )
             task.done(utils.invalid_arg(f'Save checkpoint error: {e}'))
           except Exception as e:  # pylint: disable=broad-except
-            logging.exception(
+            self._log_exception(
                 (
                     'Internal error during Saving checkpoint. model_key: %s, '
                     'error: %s'
@@ -1641,7 +1647,7 @@ class ModelServicesRunner:
                 prng_seed,
             )
         except Exception as e:  # pylint: disable=broad-except
-          logging.exception(
+          self._log_exception(
               'Error occurred during loading: %s, error: %s', model_key, e
           )
       elif method == _UNLOAD_METHOD_KEY:
@@ -1650,7 +1656,7 @@ class ModelServicesRunner:
         try:
           self._loaded_models.unload(model_key)
         except Exception as e:  # pylint: disable=broad-except
-          logging.exception(
+          self._log_exception(
               'Error occurred during unloading: %s, error: %s', model_key, e
           )
       elif method == _TERMINATE_METHOD_KEY:
@@ -1664,7 +1670,7 @@ class ModelServicesRunner:
         try:
           self._save_model(model_key, ckpt_path)
         except Exception as e:  # pylint: disable=broad-except
-          logging.exception(
+          self._log_exception(
               'Error occurred during save: %s, error: %s', model_key, e
           )
       elif method == _EXPORT_METHOD_KEY:
