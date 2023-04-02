@@ -22,6 +22,7 @@ from jax import numpy as jnp
 from jax.experimental import pjit
 import numpy as np
 from paxml import checkpoints
+from paxml import tasks_lib
 from paxml import trainer_lib
 from praxis import base_layer
 from praxis import base_model
@@ -400,7 +401,7 @@ class ServableModel(servable_model.ServableModel):
       vars_weight_params = jax_task.model.abstract_init_with_metadata(
           sample_input_for_init
       )
-      discard_opt_states = True
+      discard_opt_states = not self._model_config.load_ema()
       train_state_global_shapes = jax_task.create_train_state_padded_shapes(
           vars_weight_params, discard_opt_states=discard_opt_states
       )
@@ -458,6 +459,9 @@ class ServableModel(servable_model.ServableModel):
         )
         step = 0
       assert partitioned_train_state is not None
+      if self._model_config.load_ema():
+        logging.info('loading ema from checkpoint')
+        partitioned_train_state = tasks_lib.extract_ema(partitioned_train_state)
       mdl_vars = partitioned_train_state.mdl_vars
       del partitioned_train_state
       mdl_var_pspecs = partition_specs.mdl_vars

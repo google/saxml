@@ -78,6 +78,7 @@ pytype_strict_library(
         "//third_party/py/jax",
         "//third_party/py/numpy",
         "//third_party/py/paxml:checkpoints",
+        "//third_party/py/paxml:tasks_lib",
         "//third_party/py/paxml:trainer_lib",
         "//third_party/py/praxis:base_layer",
         "//third_party/py/praxis:base_model",
