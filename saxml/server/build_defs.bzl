@@ -21,7 +21,8 @@ def create_binary(
         imports_targets = None,
         extra_deps = None,
         name = "",
-        main = ""):
+        main = "",
+        tags = []):
     """Macro to define a binary with selected imports.
 
     Args:
@@ -29,6 +30,7 @@ def create_binary(
       extra_deps: Extra deps not included in imports_targets
       name: binary name.
       main: Main source file.
+      tags: Tags when creating binary.
     """
     if not name:
         fail("name is empty")
@@ -53,6 +55,7 @@ def create_binary(
         exp_sources = exp_sources,
         # Unused internal paropts
         # Unused internal exec_properties
+        tags = tags,
     )
 
 def create_server_binary(
