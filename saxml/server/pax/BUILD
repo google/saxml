@@ -93,13 +93,8 @@ pytype_strict_library(
     name = "quantization",
     srcs = ["quantization.py"],
     deps = [
-        "//third_party/py/fiddle",
         "//third_party/py/jax",
-        "//third_party/py/praxis:base_hyperparams",
-        "//third_party/py/praxis:py_utils",
-        "//third_party/py/praxis:pytypes",
         "//third_party/py/praxis/layers",
-        "//third_party/py/praxis/layers/quantization:layers",
         "//third_party/py/praxis/layers/quantization:quantization_hparams",
         "//third_party/py/praxis/layers/quantization:quantize",
     ],
