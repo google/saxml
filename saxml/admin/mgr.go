@@ -717,7 +717,7 @@ func (m *Mgr) Start(ctx context.Context) error {
 				log.V(3).Infof("Refreshed manager state at %v", t)
 
 				if err := m.Save(context.TODO()); err != nil {
-					log.Errorf("Failed to save manager state: %v", err)
+					log.Fatalf("Failed to save manager state: %v", err)
 				} else {
 					log.V(3).Infof("Saved manager state at %v", t)
 				}

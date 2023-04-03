@@ -50,13 +50,13 @@ func (s *State) Write(ctx context.Context, state *pb.State) error {
 func (s *State) Read(ctx context.Context) (*pb.State, error) {
 	path := path.Join(s.fsPath, stateFile)
 
-	// Return an empty state for when a server runs for the first time.
-	//
-	// TODO(zhifengc/jiawenhao): Better to make this case a hard error case.
+	// Return any file system error to let the caller handle it.
 	exist, err := env.Get().FileExists(ctx, path)
 	if err != nil {
 		return nil, err
 	}
+
+	// Return an empty state for when a server runs for the first time.
 	if !exist {
 		return &pb.State{}, nil
 	}
