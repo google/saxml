@@ -10,13 +10,17 @@
 FROM ubuntu:20.04
 
 LABEL maintainer="no-reply@google.com"
-ARG python_version="python3.10"
+ARG python_version="python3.8 python3.9 python3.10"
 ARG APT_COMMAND="apt-get -o Acquire::Retries=3 -y"
 
 # Newer versions of Bazel do not work when running as root.
 ARG USERNAME=saxml
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
+
+# Stops tzdata from asking about timezones and blocking install on user input.
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=America/Los_Angeles
 
 # Installs basics including add-apt.
 RUN ${APT_COMMAND} update && ${APT_COMMAND} install -y --no-install-recommends \
@@ -25,7 +29,8 @@ RUN ${APT_COMMAND} update && ${APT_COMMAND} install -y --no-install-recommends \
         less \
         unzip \
         sudo \
-        vim
+        vim \
+        git-all
 
 # Adds repository to pull versions of python from.
 RUN add-apt-repository ppa:deadsnakes/ppa
@@ -33,8 +38,10 @@ RUN add-apt-repository ppa:deadsnakes/ppa
 # Pick up some TF dependencies
 RUN ${APT_COMMAND} update && ${APT_COMMAND} install -y --no-install-recommends \
         build-essential \
+        python3.9-dev \
         python3.10-dev \
         # python >= 3.8 needs distutils for packaging.
+        python3.9-distutils \
         python3.10-distutils \
         && \
     apt-get clean && \
