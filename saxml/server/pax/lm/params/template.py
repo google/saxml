@@ -75,6 +75,7 @@ class CommonServingTemplate:
   EMB_LOOKUP_STYLE = 'index'
   FETCH_PREFIX_LENGTHS_FROM_INPUTS = False
   POLYMORPHIC_SEQ_LEN_EXCLUSION = None
+  SORT_SAMPLES = True
 
   def input_for_model_init(self) -> py_utils.NestedMap:
     batch_size = self.BATCH_SIZE
@@ -190,6 +191,7 @@ class ServingTemplate(
           global_normalize=self.GLOBAL_NORMALIZE,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
           emb_lookup_style=self.EMB_LOOKUP_STYLE,
+          sort_samples=self.SORT_SAMPLES,
       )
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
@@ -235,6 +237,7 @@ class ServingTemplate(
         eos_id=stop_token_ids,
         k=self.TOP_K,
         emb_lookup_style=self.EMB_LOOKUP_STYLE,
+        sort_samples=self.SORT_SAMPLES,
     )
 
     return servable_lm_model.DecodeHParams(
