@@ -764,6 +764,22 @@ class LMDecodeMethod(ServableLMMethod):
     # [batch_size, num_samples]
     return np_op.sum(scores, axis=-1)
 
+  @tf.function(autograph=True, jit_compile=False)
+  def tf_pre_batching_processing(
+      self,
+      texts: NestedNpOrTfTensor,
+      extra_inputs: Optional[Mapping[str, Any]] = None,
+  ):
+    """Preprocessing step to turn extra inputs into batched tensors."""
+    batched_extra_inputs = {}
+    if extra_inputs:
+      for k, v in extra_inputs.items():
+        assert v.shape
+        if tf.shape(v)[0] == 1:
+          v = tf.repeat(v, tf.shape(texts)[0], axis=0)
+        batched_extra_inputs[k] = v
+    return texts, batched_extra_inputs
+
   def tf_pre_processing(
       self,
       texts: NestedNpOrTfTensor,
