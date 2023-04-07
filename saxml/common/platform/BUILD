@@ -39,6 +39,7 @@ config_setting(
 go_library(
     name = "register",
     srcs = ["register_cloud.go"],
+    visibility = ["//visibility:public"],
     deps = select({
         ":vertex": [":cloud"],
         "//conditions:default": [":cloud"],
