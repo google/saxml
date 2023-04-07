@@ -6,8 +6,8 @@ grpcio
 grpcio-reflection
 portpicker
 numpy
-lingvo==0.12.6
-jax[cuda] @ git+https://github.com/google/jax
-orbax==0.1.6
-paxml @ git+https://github.com/google/paxml
-praxis @ git+https://github.com/google/praxis
+lingvo
+jax[cuda]
+orbax
+paxml
+praxis

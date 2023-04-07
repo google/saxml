@@ -6,9 +6,10 @@
 #
 --find-links https://storage.googleapis.com/jax-releases/libtpu_releases.html
 
-absl-py==1.3.0
+absl-py==1.4.0
     # via
     #   -r requirements.in
+    #   array-record
     #   chex
     #   clu
     #   fiddle
@@ -35,6 +36,8 @@ argon2-cffi==21.3.0
     #   notebook
 argon2-cffi-bindings==21.2.0
     # via argon2-cffi
+array-record==0.2.0
+    # via tfds-nightly
 asttokens==2.1.0
     # via stack-data
 astunparse==1.6.3
@@ -52,9 +55,7 @@ beautifulsoup4==4.11.1
 bleach==5.0.1
     # via nbconvert
 cached-property==1.5.2
-    # via
-    #   clu
-    #   orbax
+    # via orbax
 cachetools==5.2.0
     # via google-auth
 certifi==2022.9.24
@@ -66,8 +67,11 @@ charset-normalizer==2.1.1
 chex==0.1.5
     # via optax
 click==8.1.3
-    # via nltk
-clu==0.0.7
+    # via
+    #   nltk
+    #   tensorflow-datasets
+    #   tfds-nightly
+clu==0.0.8
     # via
     #   paxml
     #   praxis
@@ -88,13 +92,10 @@ decorator==5.1.1
     # via ipython
 defusedxml==0.7.1
     # via nbconvert
-dill==0.3.6
-    # via
-    #   tensorflow-datasets
-    #   tfds-nightly
 dm-tree==0.1.7
     # via
     #   chex
+    #   tensorflow-datasets
     #   tfds-nightly
 editdistance==0.6.1
     # via
@@ -104,8 +105,9 @@ einops==0.6.0
     # via praxis
 entrypoints==0.4
     # via jupyter-client
-etils[epath]==0.8.0
+etils[enp,epath]==1.1.1
     # via
+    #   array-record
     #   clu
     #   orbax
     #   paxml
@@ -115,7 +117,7 @@ executing==1.2.0
     # via stack-data
 fastjsonschema==2.16.2
     # via nbformat
-fiddle @ git+https://github.com/google/fiddle
+fiddle==0.2.6
     # via praxis
 filelock==3.8.0
     # via
@@ -123,7 +125,7 @@ filelock==3.8.0
     #   transformers
 flatbuffers==1.12
     # via tensorflow
-flax==0.6.6
+flax==0.6.8
     # via
     #   clu
     #   paxml
@@ -201,7 +203,7 @@ ipython-genutils==0.2.0
     #   qtconsole
 ipywidgets==8.0.2
     # via jupyter
-jax @ git+https://github.com/google/jax
+jax[tpu]==0.4.7
     # via
     #   -r requirements.in
     #   chex
@@ -295,9 +297,7 @@ markupsafe==2.1.1
     #   nbconvert
     #   werkzeug
 matplotlib==3.6.2
-    # via
-    #   flax
-    #   lingvo
+    # via lingvo
 matplotlib-inline==0.1.6
     # via
     #   ipykernel
@@ -357,12 +357,13 @@ notebook==6.5.2
     #   jupyter-http-over-ws
 notebook-shim==0.2.2
     # via nbclassic
-numpy==1.23.4
+numpy==1.24.2
     # via
     #   -r requirements.in
     #   chex
     #   clu
     #   contourpy
+    #   etils
     #   flax
     #   h5py
     #   jax
@@ -434,7 +435,7 @@ pandocfilters==1.5.0
     # via nbconvert
 parso==0.8.3
     # via jedi
-paxml @ git+https://github.com/google/paxml
+paxml==0.4.0
     # via -r requirements.in
 pexpect==4.8.0
     # via ipython
@@ -452,7 +453,7 @@ portalocker==2.6.0
     # via sacrebleu
 portpicker==1.5.2
     # via -r requirements.in
-praxis @ git+https://github.com/google/praxis
+praxis==0.4.0
     # via
     #   -r requirements.in
     #   paxml
@@ -485,6 +486,8 @@ psutil==5.9.4
     # via
     #   ipykernel
     #   portpicker
+    #   tensorflow-datasets
+    #   tfds-nightly
 ptyprocess==0.7.0
     # via
     #   pexpect
@@ -499,7 +502,7 @@ pyasn1-modules==0.2.8
     # via google-auth
 pycparser==2.21
     # via cffi
-pyglove==0.2.0
+pyglove==0.3.0
     # via
     #   paxml
     #   seqio
@@ -590,7 +593,7 @@ sentencepiece==0.1.97
     #   lingvo
     #   seqio
     #   t5
-seqio @ git+https://github.com/google/seqio
+seqio==0.0.15
     # via
     #   paxml
     #   t5
@@ -611,8 +614,6 @@ six==1.16.0
     #   rouge-score
     #   t5
     #   tensorflow
-    #   tensorflow-datasets
-    #   tfds-nightly
 sniffio==1.3.0
     # via anyio
 soupsieve==2.3.2.post1
@@ -633,16 +634,15 @@ tensorboard-plugin-wit==1.8.1
     # via tensorboard
 tensorflow==2.9.3
     # via
-    #   clu
     #   lingvo
     #   paxml
     #   praxis
     #   tensorflow-text
-tensorflow-datasets==4.7.0
+tensorflow-datasets==4.8.3
     # via
-    #   clu
     #   lingvo
     #   mesh-tensorflow
+    #   paxml
 tensorflow-estimator==2.9.0
     # via tensorflow
 tensorflow-hub==0.12.0
@@ -662,7 +662,7 @@ tensorflow-text==2.9.0
     #   praxis
     #   seqio
     #   t5
-tensorstore==0.1.27
+tensorstore==0.1.35
     # via
     #   flax
     #   orbax
@@ -677,8 +677,9 @@ terminado==0.17.0
     #   jupyter-server
     #   nbclassic
     #   notebook
-tfds-nightly==4.7.0.dev202211160045
+tfds-nightly==4.8.3.dev202303280045
     # via
+    #   paxml
     #   seqio
     #   t5
 threadpoolctl==3.1.0
@@ -730,6 +731,7 @@ transformers==4.24.0
     # via t5
 typing-extensions==4.4.0
     # via
+    #   clu
     #   etils
     #   fiddle
     #   flax
@@ -764,7 +766,11 @@ wheel==0.38.4
 widgetsnbextension==4.0.3
     # via ipywidgets
 wrapt==1.14.1
-    # via tensorflow
+    # via
+    #   clu
+    #   tensorflow
+    #   tensorflow-datasets
+    #   tfds-nightly
 zipp==3.10.0
     # via
     #   etils
