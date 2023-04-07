@@ -1,12 +1,16 @@
 # Saxml (aka Sax)
 
 Saxml is an experimental system that serves
-[Paxml](https://github.com/google/paxml) models for inference.
+[Paxml](https://github.com/google/paxml), [JAX](https://github.com/google/jax),
+and [PyTorch](https://pytorch.org/) models for inference.
 
-A Sax cluster consists of an admin server and a group of model servers.
-The admin server keeps track of model servers, assigns published models to
-model servers to serve, and helps clients locate model servers serving
+A Sax cell (aka Sax cluster) consists of an admin server and a group of model
+servers. The admin server keeps track of model servers, assigns published models
+to model servers to serve, and helps clients locate model servers serving
 specific published models.
+
+The example below walks through setting up a Sax cell and starting a TPU model
+server in the cell. Similar steps can be taken to start GPU model servers.
 
 ## Install Sax
 
@@ -170,15 +174,4 @@ When the model is loaded, issue a query:
 saxutil lm.generate /sax/test/lm2b "Q: Who is Harry Porter's mother? A: "
 ```
 
-The result may be this:
-
-```
-+--------------+-----------+
-|    SAMPLE    |   SCORE   |
-+--------------+-----------+
-| Lily Potter. | -5.878906 |
-| Lily.        | -9.015625 |
-| Lily Evans.  | -9.878906 |
-| Mrs. Porter. | -8.265625 |
-+--------------+-----------+
-```
+The result will be printed in the terminal.

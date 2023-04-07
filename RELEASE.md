@@ -1,3 +1,14 @@
+# Release 0.2.0
+
+# Major Features and Improvements
+
+*   Google Cloud GPU support.
+*   Model quantization.
+*   Streaming lm.generate.
+*   A new custom model server type.
+*   PyTorch model servers.
+*   ACL settings on models and cells.
+
 # Release 0.1.0
 
 # Major Features and Improvements
