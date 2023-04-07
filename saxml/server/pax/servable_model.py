@@ -458,6 +458,7 @@ class ServableModel(servable_model.ServableModel):
             )
         )
         step = 0
+      assert partitioned_train_state is not None
       if self._model_config.load_ema():
         logging.info('loading ema from checkpoint')
         partitioned_train_state = tasks_lib.extract_ema(partitioned_train_state)
