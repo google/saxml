@@ -1,6 +1,6 @@
-# Release 0.1.0
+# Version 0.1.0
 
-# Major Features and Improvements
+# Major Features and Improvements:
 
 *   A Pax model server that supports Google Cloud TPU slice serving.
 *   An admin server that manages model servers.

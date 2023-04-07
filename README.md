@@ -10,7 +10,7 @@ specific published models.
 
 ## Install Sax
 
-### Install and set up the `gcloud` tool
+### Installing and set up the `gcloud` tool
 
 [Install](https://cloud.google.com/sdk/gcloud#download_and_install_the) the
 `gcloud` CLI and set the default account and project:
@@ -20,7 +20,7 @@ gcloud config set account <your-email-account>
 gcloud config set project <your-project>
 ```
 
-### Create a Cloud Storage bucket to store Sax server states
+### Creating a Cloud Storage bucket to store Sax server states
 
 [Create](https://cloud.google.com/storage/docs/creating-buckets) a
 Cloud Storage bucket:
@@ -30,7 +30,7 @@ GSBUCKET=sax-data
 gcloud storage buckets create gs://${GSBUCKET}
 ```
 
-### Create a Compute Engine VM instance for the admin server
+### Creating a Compute Engine VM instance for the admin server
 
 [Create](https://cloud.google.com/compute/docs/create-linux-vm-instance) a
 Compute Engine VM instance:
@@ -43,7 +43,7 @@ gcloud compute instances create sax-admin \
   --scopes=https://www.googleapis.com/auth/cloud-platform
 ```
 
-### Create a Cloud TPU VM instance for a model server
+### Creating a Cloud TPU VM instance for a model server
 
 Use this [guide](https://cloud.google.com/tpu/docs/users-guide-tpu-vm) to
 enable the Cloud TPU API in a Google Cloud project.
@@ -85,7 +85,7 @@ bazel run saxml/bin:admin_config -- \
   --alsologtostderr
 ```
 
-Start the Sax admin server:
+Starting the Sax admin server:
 
 ```
 bazel run saxml/bin:admin_server -- \
@@ -95,7 +95,7 @@ bazel run saxml/bin:admin_server -- \
   --alsologtostderr
 ```
 
-### Start the Sax model server
+### Starting the Sax model server
 
 SSH to the Cloud TPU VM instance:
 
@@ -111,7 +111,7 @@ cd saxml
 saxml/tools/init_cloud_vm.sh
 ```
 
-Start the Sax model server:
+Starting the Sax model server:
 
 ```
 SAX_ROOT=gs://${GSBUCKET}/sax-root \
@@ -123,9 +123,9 @@ bazel run saxml/server:server -- \
   --alsologtostderr
 ```
 
-You should see a log message "Joined [admin server IP:port]" from the model server to indicate it has successfully joined the admin server.
+You should see a log message "Joined [admin server IP: port]" from the model server to indicate it has successfully joined the admin server.
 
-## Use Sax
+## Using Sax
 
 Sax comes with a command-line tool called `saxutil` for easy usage:
 
