@@ -14,7 +14,8 @@
 """Tokenizer for language models."""
 from __future__ import annotations
 
-from typing import List, Tuple, Any
+import dataclasses
+from typing import Any, List, Tuple
 
 from praxis import base_hyperparams
 import seqio
@@ -23,38 +24,36 @@ import tensorflow as tf
 StreamState = Tuple[tf.Tensor, tf.Tensor, tf.Tensor]
 
 
-class LMTokenizer(base_hyperparams.BaseParameterizable):
-  """Tokenizer for language models."""
+class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
+  """Tokenizer for language models.
 
-  _USE_DEPRECATED_HPARAMS_BASE_PARAMETERIZABLE = True
+  Attributes:
+    append_eos: Whether to append </s> at the end and treat it as a non-padded
+      label, always set to True.
+    spm_model: File name for a sentencepiece model.
+    target_sos_id: Start of sentence id.
+    target_eos_id: End of sentence id.
+    slice_left: Slice the left part of the sequence if it is too long.
+      Otherwise, slice the right part of the sequence.
+    streaming_whitespace_preserving_prefix: A prefix added to each non-SOS
+      streaming decoding step to prevent the leading whitespace from being
+      removed by sentencepiece; after decoding the step, it will be removed from
+      the string result. It must be a regular token in the vocabulary.
+  """
 
-  class HParams(base_hyperparams.InstantiableHyperParams):
-    """Associated hyper-params for the tokenizer.
+  append_eos: bool = True
+  spm_model: str = None
+  target_sos_id: int = 0
+  target_eos_id: int = 1
+  slice_left: bool = True
+  streaming_whitespace_preserving_prefix: str = 'a'
 
-    Attributes:
-      append_eos: Whether to append </s> at the end and treat it as a non-padded
-        label, always set to True.
-      spm_model: File name for a sentencepiece model.
-      target_sos_id: Start of sentence id.
-      target_eos_id: End of sentence id.
-      slice_left: Slice the left part of the sequence if it is too long.
-        Otherwise, slice the right part of the sequence.
-      streaming_whitespace_preserving_prefix: A prefix added to each non-SOS
-        streaming decoding step to prevent the leading whitespace from being
-        removed by sentencepiece; after decoding the step, it will be removed
-        from the string result. It must be a regular token in the vocabulary.
-    """
+  _vocab: seqio.SentencePieceVocabulary = dataclasses.field(
+      init=False, repr=False
+  )
 
-    append_eos: bool = True
-    spm_model: str = None
-    target_sos_id: int = 0
-    target_eos_id: int = 1
-    slice_left: bool = True
-    streaming_whitespace_preserving_prefix: str = 'a'
-
-  def __init__(self, hparams: LMTokenizer.HParams) -> None:
-    super().__init__(hparams)
-    assert hparams.append_eos
+  def __post_init__(self):
+    assert self.append_eos
     self._vocab = seqio.SentencePieceVocabulary(self.hparams.spm_model, 0)
 
   def StringsToIds(
