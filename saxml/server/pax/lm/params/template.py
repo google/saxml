@@ -14,17 +14,19 @@
 """Serving template params."""
 
 import os
-from typing import Optional
+from typing import cast, Dict, Optional, Sequence, Type
 
 from absl import flags
 import numpy as np
 from paxml import base_task
+from paxml import tasks_lib
 from praxis import base_layer
 from praxis import decoder_hparams
 from praxis import pax_fiddle
 from praxis import py_utils
 from praxis.layers import attentions
 from praxis.layers import multi_query_attention
+from praxis.layers import transformer_models
 from praxis.layers import transformers
 from saxml.server import servable_model_registry
 from saxml.server.pax.lm import lm_tokenizer
@@ -396,3 +398,108 @@ def make_servable(servable_class=ServingTemplate):
     return Wrapped
 
   return _decorator
+
+
+def set_decoding_sharding_hparams(
+    task_p: tasks_lib.SingleTask.HParams,
+    mesh_shape: Sequence[int],
+    decode_mesh_transpose: Optional[Dict[str, str]] = None,
+    mqa_kv_state_batch_sharding: Optional[bool] = False,
+) -> tasks_lib.SingleTask.HParams:
+  """Set spmd sharding params that works for decoding.
+
+  Args:
+    task_p: The task params for ULM.
+    mesh_shape: The 3D mesh shape (replica, data/mdl2, mdl)
+    decode_mesh_transpose: If not None, 2 extra dims (fprop_data, fprop_mdl)
+      will the mesh shape will be added to the mesh dim, and the model will use
+      fprop/training-optimized sharding except for the prefix, and switch to
+      decoding-optimized sharding for the decoding loop.
+    mqa_kv_state_batch_sharding: Shard along batch dim for MQA k,v activations.
+
+  Returns:
+    The updated task_p.
+  """
+  model_p = task_p.model
+  replica_axis = 'replica'
+  # We repurpose `data_mdl2` as the secondary model-parallel dim, but attention
+  # state blnh's b dim is also fully sharded on both `data_mdl2` and `replica`.
+  # Other activations' batch dim are not sharded by `data_mdl2`.
+  data_mdl2_axis = 'data_mdl2'
+  mdl_axis = 'mdl'
+  mesh_axis_names = [replica_axis, data_mdl2_axis, mdl_axis]
+  assert len(mesh_shape) == 3
+  if decode_mesh_transpose:
+    # Mesh axes that combines fprop and decode.
+    mesh_axis_names += ['fprop_data', 'fprop_mdl']
+    # Mesh shape is set up for fprop.
+    mesh_shape = [mesh_shape[0], 1, 1] + list(mesh_shape[1:])
+  model_p.ici_mesh_shape = mesh_shape
+  model_p.dcn_mesh_shape = None
+  model_p.mesh_axis_names = mesh_axis_names
+
+  def maybe_fprop_data(*axes):
+    if not decode_mesh_transpose:
+      return axes
+    return axes + ('fprop_data',)
+
+  def maybe_fprop_mdl(*axes):
+    if not decode_mesh_transpose:
+      return axes
+    return axes + ('fprop_mdl',)
+
+  # ffn0 weight
+  w_df = [maybe_fprop_data(data_mdl2_axis), maybe_fprop_mdl(mdl_axis)]
+  # Attention weight.
+  w_dnh = [maybe_fprop_data(data_mdl2_axis), maybe_fprop_mdl(mdl_axis), None]
+  # embedding weight
+  w_vd = [maybe_fprop_mdl(mdl_axis), maybe_fprop_data(data_mdl2_axis)]
+  # Activations.
+  a_bld = [
+      maybe_fprop_data(replica_axis),
+      None,
+      maybe_fprop_mdl(data_mdl2_axis),
+  ]
+  a_blf = [maybe_fprop_data(replica_axis), None, maybe_fprop_mdl(mdl_axis)]
+  # Attention state shards batch also by `data_mdl2`.
+  a_blnh = [
+      maybe_fprop_data(replica_axis, data_mdl2_axis),
+      None,
+      maybe_fprop_mdl(mdl_axis),
+      None,
+  ]
+  if mqa_kv_state_batch_sharding and not decode_mesh_transpose:
+    # KV Attention state for multi-query shards batch by `mdl_axis`.
+    a_blh = [(replica_axis, mdl_axis), None, data_mdl2_axis]
+  else:
+    a_blh = None
+  a_blv = [maybe_fprop_data(replica_axis), None, maybe_fprop_mdl(mdl_axis)]
+
+  lm_cls = cast(
+      Type[transformer_models.TransformerLm],
+      pax_fiddle.get_callable(model_p.lm_tpl),
+  )
+  model_p.lm_tpl = lm_cls.set_custom_sharding_params(
+      model_p.lm_tpl,
+      ici_mesh_shape=mesh_shape,
+      dcn_mesh_shape=None,
+      mesh_axis_names=mesh_axis_names,
+      w_df=w_df,
+      w_dnh=w_dnh,
+      w_vd=w_vd,
+      a_bld=a_bld,
+      a_blf=a_blf,
+      a_blh=a_blh,
+      a_blnh=a_blnh,
+      a_blv=a_blv,
+  )
+  # Transpose the mesh axes for the decoding loop.
+  model_p.decoder_tpl.decode_loop_mesh_axes_transpose = decode_mesh_transpose
+
+  # Set input sharding params.
+  task_p.train.inputs_split_mapping = py_utils.NestedMap(
+      map_1d=(maybe_fprop_data(replica_axis),),
+      map_2d=(maybe_fprop_data(replica_axis), None),
+  )
+
+  return task_p
