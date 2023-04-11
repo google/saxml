@@ -159,6 +159,8 @@ class ServableMethod(servable_model.ServableMethod):
     for input_shape in self.get_sorted_input_shapes():
       logging.info('Initializing for input_shape %s', input_shape)
       self._register_for_input_shape(input_shape)
+    if self.batching_wait_secs:
+      logging.info('Batching wait time: %fs', self.batching_wait_secs)
 
   def get_dummy_inputs(self, input_shape: InputShapeInfo) -> HostTensors:
     """Returns host tensors with dummy data at a batch size."""

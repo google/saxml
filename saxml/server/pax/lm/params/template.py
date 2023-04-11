@@ -43,6 +43,7 @@ class CommonServingTemplate:
   ICI_MESH_SHAPE = [1, 1, 8]
   USE_BEAM_SEARCH = False
   BATCH_SIZE = 1
+  BATCH_WAIT_SECS = None
   INPUT_SEQ_LEN = 256
   SUFFIX_SEQ_LEN = 0  # Defaults to half of`INPUT_SEQ_LEN`.
   MAX_DECODE_STEPS = 32
@@ -201,6 +202,7 @@ class ServingTemplate(
         decoder=generate_hparams,
         include_prefix_in_result=self.INCLUDE_PREFIX_IN_RESULT,
         max_live_batches=self.MAX_LIVE_BATCHES,
+        batching_wait_secs=self.BATCH_WAIT_SECS,
         extra_inputs=self.EXTRA_INPUTS,
         extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
         fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
