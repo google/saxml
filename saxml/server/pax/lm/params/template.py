@@ -49,6 +49,8 @@ class CommonServingTemplate:
   MAX_DECODE_STEPS = 32
   NUM_SAMPLES = 2
   TOP_K = 40
+  TOP_K_RECALL_TARGET = 1.0  # When < 1.0, use tpu optimized approx_max_k
+  USE_TOP_K_FOR_LOGPROBS = False
   BEAM_SIZE = 4
   FPROP_FOR_PREFIX = False
   GLOBAL_NORMALIZE = False
@@ -189,6 +191,8 @@ class ServingTemplate(
           temperature=None,
           eos_id=stop_token_ids,
           k=self.TOP_K,
+          top_k_recall_target=self.TOP_K_RECALL_TARGET,
+          use_top_k_for_logprobs=self.USE_TOP_K_FOR_LOGPROBS,
           global_normalize=self.GLOBAL_NORMALIZE,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
           emb_lookup_style=self.EMB_LOOKUP_STYLE,
