@@ -243,3 +243,18 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [":testutilwrapper"],
 )
+
+go_library(
+    name = "waitable",
+    srcs = ["waitable.go"],
+    deps = [":errors"],
+)
+
+go_test(
+    name = "waitable_test",
+    srcs = ["waitable_test.go"],
+    deps = [
+        ":errors",
+        ":waitable",
+    ],
+)
