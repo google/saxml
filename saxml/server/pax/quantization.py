@@ -53,6 +53,7 @@ def for_transformer(
     use_symmetric: bool = True,
     quantize_embedding_softmax: bool = False,
     transposed_embedding_softmax: bool = False,
+    quantize_ngrammer_embedding: bool = False,
     dtype: jnp.dtype = jnp.int8,
 ):
   """Find and quantize transformer.
@@ -77,6 +78,9 @@ def for_transformer(
       TransformerLm.softmax_tpl in `config`.
     transposed_embedding_softmax: If the model is using transposed embedding for
       embedding softmax layer.
+    quantize_ngrammer_embedding: If true, Quantize embedding table of each
+      embedding in Ngrammer/VQNgrammer layer. Regardless of `target` argument,
+      this results in rewriting TransformerLm.ngrammer_tpl in `config`.
     dtype: Dtype of the quantized variables.
 
   Returns:
@@ -114,6 +118,7 @@ def for_transformer(
             use_symmetric=use_symmetric,
             quantize_embedding_softmax=quantize_embedding_softmax,
             transposed_embedding_softmax=transposed_embedding_softmax,
+            quantize_ngrammer_embedding=quantize_ngrammer_embedding,
             dtype=dtype,
         )
         return task_p
