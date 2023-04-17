@@ -29,6 +29,7 @@ import (
 	"saxml/admin/validator"
 	"saxml/common/errors"
 	"saxml/common/naming"
+	"saxml/common/waitable"
 	"saxml/common/watchable"
 
 	apb "saxml/protobuf/admin_go_proto_grpc"
@@ -67,6 +68,9 @@ type modelState struct {
 
 	// addrWatcher keeps track of the set of model server addresses serving the model.
 	addrWatcher *watchable.Watchable
+
+	// waiter keeps track of requests waiting for certain numbers of replicas to be ready.
+	waiter *waitable.Waitable
 }
 
 // modeletState synchronizes state with the model server.
@@ -125,6 +129,7 @@ func (m *Mgr) Publish(specs *apb.Model) error {
 	m.models[fullName] = &modelState{
 		specs:       proto.Clone(specs).(*apb.Model),
 		addrWatcher: watchable.New(),
+		waiter:      waitable.New(),
 	}
 
 	return nil
@@ -160,6 +165,7 @@ func (m *Mgr) Unpublish(fullName modelFullName) error {
 	m.pendingUnpublished[fullName] = true
 	delete(m.models, fullName)
 	model.addrWatcher.Close()
+	model.waiter.Close()
 	return nil
 }
 
@@ -232,6 +238,19 @@ func (m *Mgr) WatchLoc(ctx context.Context, fullName string, seqno int32) (*watc
 	return model.addrWatcher.Watch(ctx, seqno)
 }
 
+// WaitForReady returns when the number of loaded replicas reaches the given threshold.
+func (m *Mgr) WaitForReady(ctx context.Context, fullName modelFullName, numReplicas int) error {
+	m.mu.RLock()
+	model, ok := m.models[fullName]
+	if !ok {
+		m.mu.RUnlock()
+		return fmt.Errorf("model %s not found: %w", fullName, errors.ErrNotFound)
+	}
+	m.mu.RUnlock()
+
+	return model.waiter.Wait(ctx, numReplicas)
+}
+
 // FindModel returns model information given a known model full name, nil otherwise.
 func (m *Mgr) FindModel(fullName modelFullName) *apb.Model {
 	m.mu.RLock()
@@ -262,6 +281,17 @@ func (m *Mgr) Join(ctx context.Context, addr, debugAddr string, specs *apb.Model
 			for fullName := range modelServer.WantedModels() {
 				model := m.models[fullName]
 				model.addrWatcher.Add(addr)
+			}
+			// Be conservative and only add loaded models to the waiter. Models that are loading, when a
+			// model server joins an admin server, are not counted toward a pending WaitForReady request.
+			for fullName, seenModel := range modelServer.SeenModels() {
+				model, ok := m.models[fullName]
+				if !ok {
+					continue
+				}
+				if seenModel.Status == protobuf.Loaded {
+					model.waiter.Add(1)
+				}
 			}
 		}
 		m.mu.Unlock()
@@ -399,6 +429,17 @@ func (m *Mgr) pruneModelets(timeout time.Duration) {
 		for fullName := range modelet.WantedModels() {
 			model := m.models[fullName]
 			model.addrWatcher.Del(string(addr))
+		}
+		// Subtract models that are loaded from the waiter. Also be conservative and subtract loading
+		// models, regardless of the loading result later.
+		for fullName, seenModel := range modelet.SeenModels() {
+			model, ok := m.models[fullName]
+			if !ok {
+				continue
+			}
+			if seenModel.Status == protobuf.Loaded {
+				model.waiter.Add(-1)
+			}
 		}
 		delete(m.modelets, addr)
 		log.V(2).Infof("Pruned modelet %v with last ping at %v before cutoff %v", addr, lastPing, cutoff)
@@ -586,6 +627,11 @@ func (m *Mgr) loadModels(ctx context.Context, newlyAssigned map[modeletAddr]mode
 				log.Errorf("Failed to load model %v onto model server %v: %v", fullName, addr, err)
 			} else {
 				log.V(2).Infof("Loaded model %v onto model server %v", fullName, addr)
+				m.mu.Lock()
+				if model, ok := m.models[fullName]; ok {
+					model.waiter.Add(1)
+				}
+				m.mu.Unlock()
 			}
 		}(fullName, addr)
 	}
@@ -621,6 +667,11 @@ func (m *Mgr) unloadModels(ctx context.Context, newlyUnassigned map[modeletAddr]
 				log.Errorf("Failed to unload model %v from model server %v: %v", fullName, addr, err)
 			} else {
 				log.V(2).Infof("Unloaded model %v from model server %v", fullName, addr)
+				m.mu.Lock()
+				if model, ok := m.models[fullName]; ok {
+					model.waiter.Add(-1)
+				}
+				m.mu.Unlock()
 			}
 		}(fullName, addr)
 	}
@@ -675,6 +726,7 @@ func (m *Mgr) Restore(ctx context.Context) error {
 		m.models[fullName] = &modelState{
 			specs:       model,
 			addrWatcher: watchable.New(),
+			waiter:      waitable.New(),
 		}
 	}
 	return nil

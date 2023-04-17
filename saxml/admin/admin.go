@@ -177,7 +177,7 @@ func (s *Server) List(ctx context.Context, in *pb.ListRequest) (*pb.ListResponse
 }
 
 func (s *Server) locate(ctx context.Context, modelFullName string) ([]*pb.JoinedModelServer, error) {
-	// Locate joined model servers.
+	// Locate joined model servers for one model specifically asked about.
 	if modelFullName != "" {
 		if err := validator.ValidateModelFullName(modelFullName, s.saxCell); err != nil {
 			return nil, err
@@ -194,6 +194,8 @@ func (s *Server) locate(ctx context.Context, modelFullName string) ([]*pb.Joined
 		addrs := pubModel.GetModeletAddresses()
 		return s.Mgr.LocateSome(addrs)
 	}
+
+	// List all joined model servers if no model is specifically asked about.
 	return s.Mgr.LocateAll()
 }
 
@@ -227,7 +229,7 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsRequest) (*pb.StatsRespo
 	return &pb.StatsResponse{ModelServerTypeStats: modelServerTypeStats}, nil
 }
 
-// WatchLoc handles WatchLoc rpc requests.
+// WatchLoc handles WatchLoc RPC requests.
 func (s *Server) WatchLoc(ctx context.Context, in *pb.WatchLocRequest) (*pb.WatchLocResponse, error) {
 	if err := validator.ValidateWatchLocRequest(in); err != nil {
 		return nil, err
@@ -244,6 +246,24 @@ func (s *Server) WatchLoc(ctx context.Context, in *pb.WatchLocRequest) (*pb.Watc
 		AdminServerId: s.serverID,
 		Result:        result.ToProto(),
 	}, nil
+}
+
+// WaitForReady handles WaitForReady RPC requests.
+func (s *Server) WaitForReady(ctx context.Context, in *pb.WaitForReadyRequest) (*pb.WaitForReadyResponse, error) {
+	modelFullName := in.GetModelId()
+	if err := validator.ValidateModelFullName(modelFullName, s.saxCell); err != nil {
+		return nil, err
+	}
+	fullName, err := naming.NewModelFullName(modelFullName)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.Mgr.WaitForReady(ctx, fullName, int(in.GetNumReplicas())); err != nil {
+		return nil, err
+	}
+
+	return &pb.WaitForReadyResponse{}, nil
 }
 
 func (s *Server) Join(ctx context.Context, in *pb.JoinRequest) (*pb.JoinResponse, error) {

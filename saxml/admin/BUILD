@@ -68,6 +68,7 @@ go_library(
         ":validator",
         "//saxml/common:errors",
         "//saxml/common:naming",
+        "//saxml/common:waitable",
         "//saxml/common:watchable",
         "//saxml/protobuf:admin_go_proto_grpc",
         "//saxml/protobuf:common_go_proto",

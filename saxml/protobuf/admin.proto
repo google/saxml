@@ -56,15 +56,15 @@ message State {
 // The configuration of a model.
 message Model {
   // An ID to identify the model. Must be globally unique, e.g.,
-  //   /sax/bar/lm_cloud_spmd_1024b
+  //   /sax/test/lm_cloud_spmd_2b
   string model_id = 1;
 
   // Path to a model in Sax's model registry linked in the server binary, e.g.,
-  //   lingvo.lm.lm_cloud.LmCloudSpmd1024B
+  //   saxml.server.pax.lm.params.lm_cloud.LmCloudSpmd2B
   string model_path = 2;
 
   // Path to a checkpoint, e.g.,
-  //   /cns/mf-d/model/path/checkpoints/checkpoint_00050000
+  //   gs://sax-data/checkpoints/checkpoint_00000000
   string checkpoint_path = 3;
 
   // The number of model servers to serve this model on.
@@ -138,13 +138,13 @@ message ModelServer {
   }
   ChipTopology chip_topology = 2;
 
-  repeated string servable_model_paths = 3;  // e.g. ["lingvo.lm.glam_8b", ...]
+  repeated string servable_model_paths = 3;
 }
 
 message ModelServerTypeStat {
   ModelServer.ChipType chip_type = 1;
   ModelServer.ChipTopology chip_topology = 2;
-  int32 num_replicas = 3;  // Number of active replicas.
+  int32 num_replicas = 3;  // number of active replicas
 }
 
 // The state of a joined model server.
@@ -233,6 +233,13 @@ message WatchLocResponse {
   WatchResult result = 1;
 }
 
+message WaitForReadyRequest {
+  string model_id = 1;
+  int32 num_replicas = 2;
+}
+
+message WaitForReadyResponse {}
+
 message JoinRequest {
   // The network address and port identifying a model server, e.g.,
   //   [1::2]:8888
@@ -260,11 +267,14 @@ service Admin {
   // Lists actively serving models.
   rpc List(ListRequest) returns (ListResponse);
 
-  // Get Stats of a cell.
+  // Gets stats of a cell.
   rpc Stats(StatsRequest) returns (StatsResponse);
 
   // Watches for changes of model server address(es) for a given model.
   rpc WatchLoc(WatchLocRequest) returns (WatchLocResponse);
+
+  // Waits for a certain number of replicas to be ready for a given model.
+  rpc WaitForReady(WaitForReadyRequest) returns (WaitForReadyResponse);
 
   ////////////////////////////////
   // Called by model servers.

@@ -35,7 +35,7 @@
 //		// Block until the counter becomes larger than 150.
 //		err := w.Wait(ctx, 150)
 //
-//	        w.Close()
+//	  w.Close()
 package waitable
 
 import (

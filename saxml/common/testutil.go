@@ -149,6 +149,10 @@ func (s *stubAdminServer) WatchLoc(ctx context.Context, in *apb.WatchLocRequest)
 	}, nil
 }
 
+func (s *stubAdminServer) WaitForReady(ctx context.Context, in *apb.WaitForReadyRequest) (*apb.WaitForReadyResponse, error) {
+	return &apb.WaitForReadyResponse{}, nil
+}
+
 func (s *stubAdminServer) Join(ctx context.Context, in *apb.JoinRequest) (*apb.JoinResponse, error) {
 	addr := in.GetAddress()
 	if !strings.HasPrefix(addr, "localhost:") {
