@@ -466,7 +466,7 @@ class TextToImageMethod(servable_model.ServableMethod):
       ]
 
   @property
-  def extra_trackables(self) -> Optional[NestedTfTrackable]:
+  def tf_trackable_resources(self) -> Optional[NestedTfTrackable]:
     return None
 
 

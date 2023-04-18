@@ -541,8 +541,8 @@ class LMScoreMethod(ServableLMMethod):
     )
 
   @property
-  def extra_trackables(self) -> Any:
-    """Implements `ExportableToSavedModel.extra_trackables`."""
+  def tf_trackable_resources(self) -> Any:
+    """Implements `ExportableToSavedModel.tf_trackable_resources`."""
     return None
 
 
@@ -884,8 +884,8 @@ class LMDecodeMethod(ServableLMMethod):
     )
 
   @property
-  def extra_trackables(self) -> Any:
-    """Implements `ExportableToSavedModel.extra_trackables`."""
+  def tf_trackable_resources(self) -> Any:
+    """Implements `ExportableToSavedModel.tf_trackable_resources`."""
     return None
 
 
@@ -1150,8 +1150,8 @@ class LMGradientMethod(ServableLMMethod):
     )
 
   @property
-  def extra_trackables(self) -> Any:
-    """Implements `ExportableToSavedModel.extra_trackables`."""
+  def tf_trackable_resources(self) -> Any:
+    """Implements `ExportableToSavedModel.tf_trackable_resources`."""
     return None
 
 

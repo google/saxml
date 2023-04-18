@@ -112,7 +112,7 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
     call_model_fn: Optional custom way of calling the model function.
     tf_pre_process_fn: TF pre-process function for model export.
     tf_post_process_fn: TF pre-process function for model export.
-    tf_extra_trackables: TF tracable resources for model export.
+    tf_trackable_resources: TF tracable resources for model export.
     tf_input_signature: Input signature of `tf_pre_process_fn`.
     model_fn_input_polymorphic_shape: jax2tf polymorphic shape for the input
       tensors of `call_model_fn`.
@@ -136,7 +136,7 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
   exportable: bool = False
   tf_pre_process_fn: Optional[TfProcessingFn] = None
   tf_post_process_fn: Optional[TfProcessingFn] = None
-  tf_extra_trackables: Optional[NestedTfTrackable] = None
+  tf_trackable_resources: Optional[NestedTfTrackable] = None
   tf_input_signature: Optional[TfInputSignatureGenerator] = None
   model_fn_input_polymorphic_shape: Optional[NestedPolyShape] = None
   get_sorted_input_shapes_fn: Optional[GetSortedInputShapesFn] = None
@@ -254,8 +254,8 @@ class ServableCustomMethod(servable_model.ServableMethod):
     return self._method_hparams.tf_input_signature(batch_size)
 
   @property
-  def extra_trackables(self) -> Optional[NestedTfTrackable]:
-    return self._method_hparams.tf_extra_trackables
+  def tf_trackable_resources(self) -> Optional[NestedTfTrackable]:
+    return self._method_hparams.tf_trackable_resources
 
   @property
   def model_fn_input_polymorphic_shape(self) -> Optional[NestedPolyShape]:
