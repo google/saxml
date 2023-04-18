@@ -20,7 +20,6 @@
 namespace tensorflow {
 namespace text {
 
-using errors::InvalidArgument;
 using shape_inference::InferenceContext;
 
 REGISTER_OP("SentencepieceOp")
