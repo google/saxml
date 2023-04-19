@@ -20,6 +20,7 @@ package(
 proto_library(
     name = "common_proto",
     srcs = ["common.proto"],
+    visibility = ["//visibility:public"],
 )
 
 go_proto_library(
@@ -29,6 +30,7 @@ go_proto_library(
 
 cc_proto_library(
     name = "common_cc_proto",
+    visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )
 
