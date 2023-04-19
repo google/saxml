@@ -14,6 +14,8 @@
 
 #include "saxml/client/cc/sax.h"
 
+#include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -21,7 +23,9 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "saxml/client/cc/saxwrapper.h"
+#include "saxml/protobuf/admin.pb.h"
 #include "saxml/protobuf/audio.pb.h"
 #include "saxml/protobuf/common.pb.h"
 #include "saxml/protobuf/custom.pb.h"
@@ -82,6 +86,16 @@ void ModelOptions::ToProto(ExtraInputs* proto) const {
     Tensor tensor;
     tensor.mutable_values()->Assign(option.second.begin(), option.second.end());
     (*proto->mutable_tensors())[option.first] = tensor;
+  }
+}
+
+void ModelOptions::FromProto(const ExtraInputs& proto) {
+  for (auto const& option : proto.items()) {
+    kv_[option.first] = option.second;
+  }
+  for (auto const& option : proto.tensors()) {
+    kv_t_[option.first].assign(option.second.values().begin(),
+                               option.second.values().end());
   }
 }
 

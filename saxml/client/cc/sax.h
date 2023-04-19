@@ -15,14 +15,14 @@
 #ifndef SAXML_CLIENT_CC_SAX_H_
 #define SAXML_CLIENT_CC_SAX_H_
 
+#include <cstdint>
+#include <functional>
 #include <map>
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "saxml/protobuf/admin.pb.h"
 #include "saxml/protobuf/common.pb.h"
 
 namespace sax {
@@ -48,6 +48,9 @@ class ModelOptions {
   void SetExtraInput(absl::string_view key, float value);
   void SetExtraInputTensor(
     absl::string_view key, const std::vector<float>& value);
+  // Set ExtraInput and ExtraInputTensors from proto.
+  void FromProto(const ::sax::ExtraInputs& proto);
+
   void ToProto(::sax::ExtraInputs* proto) const;
 
  private:
