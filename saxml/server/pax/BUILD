@@ -83,6 +83,7 @@ pytype_strict_library(
         "//third_party/py/paxml:tasks_lib",
         "//third_party/py/paxml:train_states",
         "//third_party/py/paxml:trainer_lib",
+        "//third_party/py/praxis:base_hyperparams",
         "//third_party/py/praxis:base_layer",
         "//third_party/py/praxis:base_model",
         "//third_party/py/praxis:py_utils",

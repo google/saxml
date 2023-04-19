@@ -24,6 +24,7 @@ import numpy as np
 from paxml import checkpoints
 from paxml import tasks_lib
 from paxml import trainer_lib
+from praxis import base_hyperparams
 from praxis import base_layer
 from praxis import base_model
 from praxis import py_utils
@@ -568,7 +569,9 @@ class ServableModel(servable_model.ServableModel):
         logging.info('quantized vars pspec %s', new_pspec)
         logging.info('quantized vars shapes %s', mdl_var_unpadded_shapes)
         logging.info('quantized vars types %s', mdl_var_unpadded_types)
-        logging.info('quantized model %s', new_task_p.to_text())
+        logging.info(
+            'quantized model %s',
+            base_hyperparams.nested_struct_to_text(new_task_p))
         mdl_var_pspecs = new_pspec
 
       # load model.
