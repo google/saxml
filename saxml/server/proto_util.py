@@ -56,6 +56,7 @@ def to_chip_topology(
       '16': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_16,
       '1x1': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_1X1,
       '2x2': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_2X2,
+      '2x4': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_2X4,
       '4x2': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_4X2,
       '4x4': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_4X4,
       '4x8': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_4X8,
