@@ -94,8 +94,12 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
   """HParameters for TextToEmbedding method.
 
   Attributes:
-    max_input_seq_len: static sequence length dimension size. Inputs are padded
-      or truncated to this size.
+    max_input_seq_len: static prefix sequence length dimension size.
+    max_suffix_seq_len: static suffix sequence length dimension size. Defaults
+      to 1 and `max_input_seq_len` is expected to be set such that their sum <=
+      model width. Inputs are padded or truncated to (max_input_seq_len +
+      max_suffix_seq_len) size.
+    include_eos_score: whether to add EOS score to the result.
     output_embedding_name: The name of the embedding to use from the model's
       outputs.  Required.
     model_method_name: The name of the method to call to extract embeddings from
@@ -103,6 +107,8 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
   """
 
   max_input_seq_len: int = 0
+  max_suffix_seq_len: int = 1
+  include_eos_score: bool = False
   output_embedding_name: Optional[str] = None
   model_method_name: Optional[str] = None
 
@@ -493,7 +499,7 @@ class LMScoreMethod(ServableLMMethod):
       A NestedMap of preprocessed tensors.
     """
     (ids, labels, paddings, weights, score_masks, inputs_indicator) = (
-        servable_lm_common.score_tf_tokenize_inputs(
+        servable_lm_common.tf_tokenize_inputs(
             prefixes,
             suffixes,
             self._tokenizer,
@@ -897,20 +903,21 @@ class TextToEmbedding(servable_model.ServableMethod):
       model: base_model.BaseModel,
       model_fn_name: str,
       model_state: servable_model.ServableModelState,
-      method_hparams: TextToEmbeddingHParams,
+      text_to_embedding_hparams: TextToEmbeddingHParams,
+      tokenizer_p: Any,
       prng_key: PRNGKey,
-      dummy_input_sample: Any,
-      model_config: Any,
   ):
-    self._model_config = model_config
-    self._model_config.init_for_serving()
-    self._max_length = method_hparams.max_input_seq_len
-    self._embedding_name = method_hparams.output_embedding_name
+    self._tokenizer = tokenizer_p.Instantiate()
+    self._text_to_embedding_hparams = text_to_embedding_hparams
+    dummy_input_sample = ''
+    self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
+        self.tf_pre_processing
+    )
     super().__init__(
         model,
         model_fn_name,
         model_state,
-        method_hparams,
+        text_to_embedding_hparams,
         prng_key,
         dummy_input_sample,
     )
@@ -924,20 +931,53 @@ class TextToEmbedding(servable_model.ServableMethod):
   ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
     return py_utils.NestedMap(
-        text_embedding=model_fn_outputs[0][self._embedding_name],
+        text_embedding=model_fn_outputs[0][
+            self._text_to_embedding_hparams.output_embedding_name
+        ],
     )
 
-  def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
+  def pre_processing(self, raw_inputs: List[str]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
-    ids, labels, weights, paddings = self._model_config.tokenize(
-        np.array(raw_inputs), self._max_length
+    prefixes = np.array(raw_inputs)
+    # Provide an empty suffix per prefix so we can use the common tokenizer and
+    # get the EOS token appended appropriately.
+    suffixes = np.array(['' for _ in range(len(raw_inputs))])
+    return self._tf_sess_pre_processing(prefixes, suffixes)
+
+  def tf_pre_processing(
+      self,
+      prefixes: NestedNpOrTfTensor,
+      suffixes: NestedNpOrTfTensor,
+  ) -> NestedTfTensor:
+    """Tokenizes `prefixes` and `suffixes` using TF ops.
+
+    Args:
+      prefixes: the prefix text batch of shape [batch_size].
+      suffixes: the suffix text batch of shape [batch_size].
+
+    Returns:
+      A NestedMap of preprocessed tensors.
+    """
+    (ids, labels, paddings, weights, _, inputs_indicator) = (
+        servable_lm_common.tf_tokenize_inputs(
+            prefixes,
+            suffixes,
+            self._tokenizer,
+            self._text_to_embedding_hparams.max_input_seq_len,
+            self._text_to_embedding_hparams.max_suffix_seq_len,
+            self._text_to_embedding_hparams.include_eos_score,
+        )
     )
-    return py_utils.NestedMap(
-        ids=np.array(ids),
-        labels=np.array(labels),
-        weights=np.array(weights),
-        paddings=np.array(paddings),
+
+    preprocessed = py_utils.NestedMap(
+        ids=ids,
+        labels=labels,
+        paddings=paddings,
+        weights=weights,
+        inputs_indicator=inputs_indicator,
     )
+
+    return preprocessed
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
@@ -1098,7 +1138,7 @@ class LMGradientMethod(ServableLMMethod):
       A NestedMap of preprocessed tensors.
     """
     (ids, labels, paddings, weights, score_masks, inputs_indicator) = (
-        servable_lm_common.score_tf_tokenize_inputs(
+        servable_lm_common.tf_tokenize_inputs(
             prefixes,
             suffixes,
             self._tokenizer,
@@ -1214,9 +1254,8 @@ class ServableLMModel(servable_model.ServableModel):
           method_params.model_method_name,
           model_state,
           method_params,
+          tokenizer_p,
           prng_key=prng_key,
-          dummy_input_sample='test',
-          model_config=self.model_config,
       )
     elif method == LMMethodName.GRADIENT:
       assert isinstance(method_params, GradientHParams)

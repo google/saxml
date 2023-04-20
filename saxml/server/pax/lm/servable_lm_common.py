@@ -220,7 +220,7 @@ def decode_fetch_output(
   )
 
 
-def score_tf_tokenize_inputs(
+def tf_tokenize_inputs(
     prefixes: tf.Tensor,
     suffixes: tf.Tensor,
     tokenizer: Any,
@@ -228,7 +228,7 @@ def score_tf_tokenize_inputs(
     max_suffix_seq_len: int,
     include_eos: bool,
 ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
-  """Tokenize inputs for scoring."""
+  """Tokenize inputs."""
   seqlen = max_prefix_seq_len + max_suffix_seq_len
   output_shape = [None, seqlen]
   prefix_shape = [None, max_prefix_seq_len]
