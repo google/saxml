@@ -583,14 +583,14 @@ class ModelService(metaclass=abc.ABCMeta):
     # after an unload. In this case, return NotFound.
     model = self._loader.maybe_get_model(model_key)
     if model is None or model.unloaded:
-      done(utils.not_found(f'Model key {model_key} not found'))
+      done(utils.not_found(f'{model_key} is still loading or already unloaded'))
       return
     # Even if a model is loaded, the model may not support all methods.
     method_obj = model.methods.get(method)
     if method_obj is None:
       # Model may get unloaded since last maybe_get_model().
       if model.unloaded:
-        done(utils.not_found(f'Model key {model_key} not found'))
+        done(utils.not_found(f'{model_key} is already unloaded'))
       else:
         done(utils.invalid_arg(f'{model_key} does not support {method}'))
       return
