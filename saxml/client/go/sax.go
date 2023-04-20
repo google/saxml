@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	log "github.com/golang/glog"
@@ -196,6 +197,16 @@ func Open(id string, options ...OptionSetter) (*Model, error) {
 	}
 	if opts.numConn <= 0 {
 		return nil, fmt.Errorf("open() expect positive numConn %w", errors.ErrInvalidArgument)
+	}
+	if strings.HasPrefix(id, "google:///") {
+		// This is a self-hosted model.Skip sax cell resolution and connect to it directly.
+		locationTable := location.NewLocationTable(nil, id, opts.numConn)
+		locationTable.Add([]string{id})
+		model := &Model{
+			modelID:  id,
+			location: locationTable,
+		}
+		return model, nil
 	}
 	modelID, err := naming.NewModelFullName(id)
 	if err != nil {

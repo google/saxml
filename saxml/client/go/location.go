@@ -41,7 +41,7 @@ type Table struct {
 // add adds a list of addresses.
 //
 // It dedups internally and can take empty list as input.
-func (t *Table) add(addrs []string) {
+func (t *Table) Add(addrs []string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for _, idx := range rand.Perm(len(addrs)) {
@@ -91,7 +91,7 @@ func (t *Table) refill(ctx context.Context) {
 	} else {
 		log.V(2).Infof("Got addresses %v for model %v", addresses, t.model)
 	}
-	t.add(addresses)
+	t.Add(addresses)
 }
 
 // Poison marks a model address invalid.
