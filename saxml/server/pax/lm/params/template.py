@@ -81,6 +81,10 @@ class CommonServingTemplate:
   FETCH_PREFIX_LENGTHS_FROM_INPUTS = False
   POLYMORPHIC_SEQ_LEN_EXCLUSION = None
   SORT_SAMPLES = True
+  TEXT_TO_EMBEDDING_SERVING_BATCH_SIZE = 1
+  TEXT_TO_EMBEDDING_MAX_LIVE_BATCHES = 1
+  TEXT_TO_EMBEDDING_OUTPUT_EMBEDDING_NAME = None
+  TEXT_TO_EMBEDDING_MODEL_METHOD_NAME = None
 
   def input_for_model_init(self) -> py_utils.NestedMap:
     batch_size = self.BATCH_SIZE
@@ -260,6 +264,29 @@ class ServingTemplate(
         extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
         stream_interval_steps=self.STREAM_INTERVAL_STEPS,
         fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
+    )
+
+  def text_to_embedding(
+      self,
+  ) -> Optional[servable_lm_model.TextToEmbeddingHParams]:
+    if (
+        self.GENERATE_ONLY
+        or self.TEXT_TO_EMBEDDING_MODEL_METHOD_NAME is None
+        or self.TEXT_TO_EMBEDDING_OUTPUT_EMBEDDING_NAME is None
+    ):
+      return None
+
+    assert (
+        self.POLYMORPHIC_SEQ_LEN_EXCLUSION is None
+    ), 'This needs to be understood and supported if needed.'
+
+    input_seq_len = self.INPUT_SEQ_LEN - 1
+    return servable_lm_model.TextToEmbeddingHParams(
+        batch_size=self.TEXT_TO_EMBEDDING_SERVING_BATCH_SIZE,
+        max_input_seq_len=input_seq_len,
+        max_live_batches=self.TEXT_TO_EMBEDDING_MAX_LIVE_BATCHES,
+        output_embedding_name=self.TEXT_TO_EMBEDDING_OUTPUT_EMBEDDING_NAME,
+        model_method_name=self.TEXT_TO_EMBEDDING_MODEL_METHOD_NAME,
     )
 
 

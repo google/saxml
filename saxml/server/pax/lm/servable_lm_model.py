@@ -96,9 +96,9 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
   Attributes:
     max_input_seq_len: static prefix sequence length dimension size.
     max_suffix_seq_len: static suffix sequence length dimension size. Defaults
-      to 1 and `max_input_seq_len` is expected to be set such that their sum <=
-      model width. Inputs are padded or truncated to (max_input_seq_len +
-      max_suffix_seq_len) size.
+      to 1 and `max_input_seq_len` is autodecremented by 1. This is to ensure
+      the prefix and suffix both have EOS for tokenization. Inputs are padded or
+      truncated to (max_input_seq_len + max_suffix_seq_len) size.
     include_eos_score: whether to add EOS score to the result.
     output_embedding_name: The name of the embedding to use from the model's
       outputs.  Required.
