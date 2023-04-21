@@ -98,7 +98,7 @@ func TestBrokenConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get unused port: %v", err)
 	}
-	closer, err := testutil.StartStubModelServer(testutil.Language, port, 0, "")
+	closer, err := testutil.StartStubModelServer(testutil.Language, port, 0, "", 0)
 	if err != nil {
 		t.Fatalf("Failed to start stub model server: %v", err)
 	}

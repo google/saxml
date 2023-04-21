@@ -604,7 +604,7 @@ func (m *Mgr) loadModels(ctx context.Context, newlyAssigned map[modeletAddr]mode
 		}
 		m.mu.Unlock()
 
-		if err := modelet.Load(ctx, fullName, model.specs); err != nil {
+		if err := modelet.Load(ctx, fullName, model.specs, model.waiter); err != nil {
 			return err
 		}
 
@@ -627,11 +627,6 @@ func (m *Mgr) loadModels(ctx context.Context, newlyAssigned map[modeletAddr]mode
 				log.Errorf("Failed to load model %v onto model server %v: %v", fullName, addr, err)
 			} else {
 				log.V(2).Infof("Loaded model %v onto model server %v", fullName, addr)
-				m.mu.Lock()
-				if model, ok := m.models[fullName]; ok {
-					model.waiter.Add(1)
-				}
-				m.mu.Unlock()
 			}
 		}(fullName, addr)
 	}
@@ -642,6 +637,7 @@ func (m *Mgr) unloadModels(ctx context.Context, newlyUnassigned map[modeletAddr]
 	unload := func(ctx context.Context, fullName modelFullName, addr modeletAddr) error {
 		m.mu.Lock()
 		model, ok := m.models[fullName]
+		var waiter *waitable.Waitable
 		if ok {
 			// Regardless of whether Unload below will succeed or fail, we want to be conservative and
 			// remove addr from addrWatcher now. In particular, if pruneModelets is called after
@@ -649,6 +645,7 @@ func (m *Mgr) unloadModels(ctx context.Context, newlyUnassigned map[modeletAddr]
 			// we still need to remove addr from the address watcher. See the matching comment in
 			// pruneModelets for reference.
 			model.addrWatcher.Del(string(addr))
+			waiter = model.waiter
 		}
 		modelet, ok := m.modelets[addr]
 		if !ok {
@@ -657,7 +654,9 @@ func (m *Mgr) unloadModels(ctx context.Context, newlyUnassigned map[modeletAddr]
 		}
 		m.mu.Unlock()
 
-		return modelet.Unload(ctx, fullName)
+		// If waiter is nil, it means the model is already unpublished and its waiter closed.
+		// Unload will do nothing to waiter.
+		return modelet.Unload(ctx, fullName, waiter)
 	}
 
 	for addr, fullName := range newlyUnassigned {
@@ -667,11 +666,6 @@ func (m *Mgr) unloadModels(ctx context.Context, newlyUnassigned map[modeletAddr]
 				log.Errorf("Failed to unload model %v from model server %v: %v", fullName, addr, err)
 			} else {
 				log.V(2).Infof("Unloaded model %v from model server %v", fullName, addr)
-				m.mu.Lock()
-				if model, ok := m.models[fullName]; ok {
-					model.waiter.Add(-1)
-				}
-				m.mu.Unlock()
 			}
 		}(fullName, addr)
 	}

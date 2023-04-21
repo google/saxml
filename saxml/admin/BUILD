@@ -49,6 +49,7 @@ go_library(
         ":protobuf",
         "//saxml/common:errors",
         "//saxml/common:naming",
+        "//saxml/common:waitable",
         "//saxml/common/platform:env",
         "//saxml/protobuf:admin_go_proto_grpc",
         "//saxml/protobuf:common_go_proto",

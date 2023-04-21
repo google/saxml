@@ -27,6 +27,7 @@ import (
 	"saxml/common/errors"
 	"saxml/common/naming"
 	"saxml/common/platform/env"
+	"saxml/common/waitable"
 
 	apb "saxml/protobuf/admin_go_proto_grpc"
 	cpb "saxml/protobuf/common_go_proto"
@@ -120,6 +121,7 @@ type action struct {
 	ctx      context.Context
 	fullName naming.ModelFullName
 	model    *Model
+	waiter   *waitable.Waitable
 }
 
 // State mirrors and manages the state of a remote model server.
@@ -179,7 +181,7 @@ func (s *State) WantedModels() map[naming.ModelFullName]*Model {
 }
 
 // Load asynchronously loads a model.
-func (s *State) Load(ctx context.Context, fullName naming.ModelFullName, spec *apb.Model) error {
+func (s *State) Load(ctx context.Context, fullName naming.ModelFullName, spec *apb.Model, waiter *waitable.Waitable) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -194,12 +196,12 @@ func (s *State) Load(ctx context.Context, fullName naming.ModelFullName, spec *a
 	log.V(2).Infof("Loading model %v with %v", fullName, spec)
 	model := newModel(spec)
 	s.wanted[fullName] = model
-	s.queue <- &action{load, ctx, fullName, model.clone()}
+	s.queue <- &action{load, ctx, fullName, model.clone(), waiter}
 	return nil
 }
 
 // Unload asynchronously unloads a model.
-func (s *State) Unload(ctx context.Context, fullName naming.ModelFullName) error {
+func (s *State) Unload(ctx context.Context, fullName naming.ModelFullName, waiter *waitable.Waitable) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -207,7 +209,7 @@ func (s *State) Unload(ctx context.Context, fullName naming.ModelFullName) error
 		if existing == fullName {
 			log.V(2).Infof("Unloading model %v", fullName)
 			delete(s.wanted, fullName)
-			s.queue <- &action{unload, ctx, fullName, model}
+			s.queue <- &action{unload, ctx, fullName, model, waiter}
 			return nil
 		}
 	}
@@ -227,7 +229,11 @@ func (s *State) act(a *action) {
 				Items: a.model.Acls,
 			},
 		}
-		if _, err := s.client.Load(a.ctx, req); err != nil {
+		if _, err := s.client.Load(a.ctx, req); err == nil {
+			if a.waiter != nil {
+				a.waiter.Add(1)
+			}
+		} else {
 			log.Warningf("Failed to load model %v onto server %v", a.fullName, s.Addr)
 			// On failure, we don't remove a.fullName from s.wanted, so we can show the failed status in
 			// GetStatus responses to the user.
@@ -236,7 +242,11 @@ func (s *State) act(a *action) {
 		req := &mpb.UnloadRequest{
 			ModelKey: a.fullName.ModelFullName(),
 		}
-		if _, err := s.client.Unload(a.ctx, req); err != nil {
+		if _, err := s.client.Unload(a.ctx, req); err == nil {
+			if a.waiter != nil {
+				a.waiter.Add(-1)
+			}
+		} else {
 			log.Warningf("Failed to unload model %v from server %v (%v)", a.fullName, s.Addr, err)
 			// On failure, we put a.fullName back into s.wanted, so the unload failure shows up as a
 			// failed status to the user.

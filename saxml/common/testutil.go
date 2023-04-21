@@ -245,11 +245,17 @@ func CallAdminServer(ctx context.Context, saxCell string, req any) (resp any, er
 }
 
 type stubModeletServer struct {
+	loadDelay time.Duration
+
 	mu           sync.Mutex
 	loadedModels map[string]bool // model key as key
 }
 
 func (s *stubModeletServer) Load(ctx context.Context, in *mpb.LoadRequest) (*mpb.LoadResponse, error) {
+	if s.loadDelay > 0 {
+		time.Sleep(s.loadDelay)
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.loadedModels[in.GetModelKey()] = true
@@ -524,7 +530,7 @@ func (s *stubCustomModelServer) Custom(ctx context.Context, in *cmpb.CustomReque
 // StartStubModelServer starts a new model server of a given type with stub implementations, which
 // also runs a modelet service.
 // Close the returned channel to close the server.
-func StartStubModelServer(modelType ModelType, modelPort int, scoreDelay time.Duration, unavailableModel string) (chan struct{}, error) {
+func StartStubModelServer(modelType ModelType, modelPort int, scoreDelay time.Duration, unavailableModel string, loadDelay time.Duration) (chan struct{}, error) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", modelPort))
 	if err != nil {
 		return nil, err
@@ -549,7 +555,10 @@ func StartStubModelServer(modelType ModelType, modelPort int, scoreDelay time.Du
 		cmgrpc.RegisterCustomServiceServer(gRPCServer.GRPCServer(), &stubCustomModelServer{})
 	}
 
-	modeletServer := &stubModeletServer{loadedModels: make(map[string]bool)}
+	modeletServer := &stubModeletServer{
+		loadDelay:    loadDelay,
+		loadedModels: make(map[string]bool),
+	}
 	mgrpc.RegisterModeletServer(gRPCServer.GRPCServer(), modeletServer)
 
 	go gRPCServer.Serve(lis)
@@ -567,7 +576,7 @@ func StartStubModelServer(modelType ModelType, modelPort int, scoreDelay time.Du
 // It is automatically closed when the test ends.
 func StartStubModelServerT(t *testing.T, port int) {
 	t.Helper()
-	ch, err := StartStubModelServer(Language, port, 0, "")
+	ch, err := StartStubModelServer(Language, port, 0, "", 0)
 	if err != nil {
 		t.Fatalf("StartStubModelServer failed: %v")
 	}
@@ -651,7 +660,7 @@ func (c *Cluster) SetScoreDelay(delays []time.Duration) *Cluster {
 	return c
 }
 
-// SetUnavailableModels sets the unavailable modle parameter of a test cluster.
+// SetUnavailableModels sets the unavailable model parameter of a test cluster.
 // An unavailable model simulates a model being loaded or unloaded. Using it returns an error.
 func (c *Cluster) SetUnavailableModels(unavailable []string) *Cluster {
 	c.unavailableModels = unavailable
@@ -678,7 +687,7 @@ func (c *Cluster) StartInternal(ctx context.Context) (closers []chan struct{}, e
 		if i < len(c.unavailableModels) {
 			unavailable = c.unavailableModels[i]
 		}
-		closer, err := StartStubModelServer(c.modelType, modelPort, delay, unavailable)
+		closer, err := StartStubModelServer(c.modelType, modelPort, delay, unavailable, 0)
 		if err != nil {
 			return nil, fmt.Errorf("start failed: start model server error: %w", err)
 		}
