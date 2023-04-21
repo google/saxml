@@ -15,7 +15,6 @@
 
 import copy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
 from jax import numpy as jnp
 from lingvo.core import cluster_factory
 import numpy as np
@@ -86,6 +85,19 @@ class TextToImageHParams(servable_model_params.ServableMethodParams):
   tf_text_preprocessor: Optional[Callable[[tf.Tensor], tf.Tensor]] = None
   tf_image_postprocessor: Optional[Callable[[tf.Tensor], tf.Tensor]] = None
   tf_input_tokenized: bool = False
+
+
+class TextAndImageToImageHParams(TextToImageHParams):
+  """HParameters for text+image to image method.
+
+  Attributes:
+    inut_image_field_name: field name of the input conditional image.
+    image_preprocessor: Pre-processing function to convert image_bytes into
+      image Tensor.
+  """
+
+  inut_image_field_name: Optional[str] = None
+  image_preprocessor: Optional[Callable[[str], tf.Tensor]] = None
 
 
 class EmbedHParams(servable_model_params.ServableMethodParams):
@@ -169,6 +181,11 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
     text_to_image_params = self.text_to_image()
     if text_to_image_params is not None:
       methods[VisionMethodName.TEXT_TO_IMAGE] = text_to_image_params
+    text_and_image_to_image_params = self.text_and_image_to_image()
+    if text_and_image_to_image_params is not None:
+      methods[VisionMethodName.TEXT_AND_IMAGE_TO_IMAGE] = (
+          text_and_image_to_image_params
+      )
     embed_params = self.embed()
     if embed_params is not None:
       methods[VisionMethodName.EMBED] = embed_params
@@ -197,6 +214,9 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
     return None
 
   def text_to_image(self) -> Optional[TextToImageHParams]:
+    return None
+
+  def text_and_image_to_image(self) -> Optional[TextAndImageToImageHParams]:
     return None
 
   def embed(self) -> Optional[EmbedHParams]:
@@ -234,6 +254,14 @@ class VisionModelParams(VisionModelParamsBase):
 
 class TextToImageModelParams(VisionModelParamsBase):
   """Model params for text-to-image task."""
+
+  def serving_tokenizer(self) -> pax_fiddle.Config[base_layer.BaseLayer]:
+    """Specifies the tokenizer."""
+    raise NotImplementedError()
+
+
+class TextAndImageToImageModelParams(VisionModelParamsBase):
+  """Model params for text-and-image-to-image task."""
 
   def serving_tokenizer(self) -> pax_fiddle.Config[base_layer.BaseLayer]:
     """Specifies the tokenizer."""
@@ -468,6 +496,50 @@ class TextToImageMethod(servable_model.ServableMethod):
   @property
   def tf_trackable_resources(self) -> Optional[NestedTfTrackable]:
     return None
+
+
+class TextAndImageToImageMethod(TextToImageMethod):
+  """Method for implementing text+image -> [(image_bytes,score)] extraction."""
+
+  def __init__(
+      self,
+      model: base_model.BaseModel,
+      model_fn_name: str,
+      model_state: servable_model.ServableModelState,
+      method_hparams: TextAndImageToImageHParams,
+      prng_key: PRNGKey,
+      dummy_input_sample: Any,
+      model_config: Any,
+  ):
+    self._image_preprocessor = method_hparams.image_preprocessor
+    self._inut_image_field_name = method_hparams.inut_image_field_name
+    super().__init__(
+        model,
+        model_fn_name,
+        model_state,
+        method_hparams,
+        prng_key,
+        dummy_input_sample,
+        model_config,
+    )
+
+  def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
+    # Pre process input text.
+    texts = [inp['text'] for inp in raw_inputs]
+    if self._text_preprocessor is not None:
+      texts = [self._text_preprocessor(text) for text in texts]
+    ids, _, paddings = self._tokenizer.StringsToIds(
+        texts, max_length=self._max_length
+    )
+    # Pre process input conditional image.
+    images = [inp['image_bytes'] for inp in raw_inputs]
+    images = [tf.image.decode_image(image).numpy() for image in images]
+    if self._image_preprocessor is not None:
+      images = [self._image_preprocessor(image) for image in images]
+    # Construct result.
+    ret = NestedMap(ids=np.array(ids), paddings=np.array(paddings))
+    ret[self._inut_image_field_name] = np.array(images)
+    return ret
 
 
 class ImageBytesToEmbedding(servable_model.ServableMethod):
@@ -741,6 +813,20 @@ class VisionModel(servable_model.ServableModel):
           method_params,
           prng_key=prng_key,
           dummy_input_sample='',
+          model_config=self.model_config,
+      )
+    elif method == VisionMethodName.TEXT_AND_IMAGE_TO_IMAGE:
+      assert isinstance(method_params, TextAndImageToImageHParams)
+      image_bytes = tf.image.encode_jpeg(np.ones((64, 64, 3), dtype=np.uint8))
+      dummy_input = {'image_bytes': image_bytes}
+      dummy_input['text'] = 'dummy'
+      return TextAndImageToImageMethod(
+          model,
+          'text_and_image_to_image',
+          model_state,
+          method_params,
+          prng_key=prng_key,
+          dummy_input_sample=dummy_input,
           model_config=self.model_config,
       )
     elif method == VisionMethodName.EMBED:
