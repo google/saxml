@@ -17,12 +17,15 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from absl import logging
 from etils import epath
+from flax.training import checkpoints as flax_checkpoints
 import jax
 from jax import numpy as jnp
 from jax.experimental import pjit
+from jax.experimental.gda_serialization.serialization import GlobalAsyncCheckpointManager
 import numpy as np
 from paxml import checkpoints
 from paxml import tasks_lib
+from paxml import train_states
 from paxml import trainer_lib
 from praxis import base_hyperparams
 from praxis import base_layer
@@ -374,6 +377,38 @@ class ServableModel(servable_model.ServableModel):
     prng_key, init_key = jax.random.split(prng_key)
     model, model_state = self.load_state(checkpoint_path, init_key, precompile)
     self.load_methods(model, model_state, prng_key)
+
+  def save(self, checkpoint_path: Optional[str]) -> None:
+    model_state = list(self.methods.values())[0].model_state
+    # TODO(b/262297404): Handles padded shapes.
+    train_state = train_states.TrainState(
+        step=jnp.asarray(model_state.step),
+        mdl_vars=model_state.mdl_vars,
+        opt_states={},
+    )
+
+    if jax.process_count() > 1:
+      # TODO(b/262297404): Make saved multiprocess checkpoint format to
+      # be the same as PAX.
+      gdam = GlobalAsyncCheckpointManager(timeout_secs=50)
+      flax_checkpoints.save_checkpoint_multiprocess(
+          checkpoint_path,
+          train_state,
+          model_state.step,
+          prefix='checkpoint_',
+          keep=1,
+          gda_manager=gdam,
+      )
+
+      gdam.wait_until_finished()
+
+    else:
+      checkpoints.save_checkpoint(
+          train_state,
+          checkpoint_path,
+          overwrite=True,
+          checkpoint_type=self._ckpt_type,
+      )
 
   def load_state(
       self,
