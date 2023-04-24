@@ -85,10 +85,6 @@ class ServableModelParams(
     return status
 
   @classmethod
-  def load_ema(cls) -> bool:
-    return False
-
-  @classmethod
   @abc.abstractmethod
   def serving_mesh_shape(cls) -> Union[List[int], List[int]]:
     """Logical shape or shapes of the device mesh used for serving."""

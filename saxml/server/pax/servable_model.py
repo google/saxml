@@ -437,7 +437,7 @@ class ServableModel(servable_model.ServableModel):
       vars_weight_params = jax_task.model.abstract_init_with_metadata(
           sample_input_for_init
       )
-      discard_opt_states = not self._model_config.load_ema()
+      discard_opt_states = not tasks_lib.has_ema(task_p)
       train_state_global_shapes = jax_task.create_train_state_padded_shapes(
           vars_weight_params, discard_opt_states=discard_opt_states
       )
@@ -495,7 +495,7 @@ class ServableModel(servable_model.ServableModel):
         )
         step = 0
       assert partitioned_train_state is not None
-      if self._model_config.load_ema():
+      if tasks_lib.has_ema(task_p):  # Use EMA.
         logging.info('loading ema from checkpoint')
         partitioned_train_state = tasks_lib.extract_ema(partitioned_train_state)
       mdl_vars = partitioned_train_state.mdl_vars
