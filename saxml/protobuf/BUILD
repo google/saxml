@@ -17,6 +17,16 @@ package(
     default_visibility = ["//saxml:internal"],
 )
 
+package_group(
+    name = "sax_rpc_visibility",
+    includes = [
+        "//saxml:internal",
+    ],
+    packages = [
+        "//learning/deepmind/models/serving/...",
+    ],
+)
+
 proto_library(
     name = "common_proto",
     srcs = ["common.proto"],
@@ -208,13 +218,14 @@ py_proto_library(
     name = "lm_py_pb2",
     api_version = 2,
     extra_deps = [":common_py_pb2"],
-    visibility = ["//visibility:public"],
+    visibility = ["//saxml/protobuf:sax_rpc_visibility"],
     deps = [":lm_proto"],
 )
 
 py_grpc_library(
     name = "lm_py_pb2_grpc",
     srcs = [":lm_proto"],
+    visibility = ["//visibility:public"],
     deps = [":lm_py_pb2"],
 )
 
