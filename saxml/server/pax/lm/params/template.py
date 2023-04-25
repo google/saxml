@@ -13,10 +13,8 @@
 # limitations under the License.
 """Serving template params."""
 
-import os
 from typing import cast, Dict, Optional, Sequence, Type
 
-from absl import flags
 import numpy as np
 from paxml import base_task
 from paxml import tasks_lib
@@ -31,8 +29,6 @@ from praxis.layers import transformers
 from saxml.server import servable_model_registry
 from saxml.server.pax.lm import lm_tokenizer
 from saxml.server.pax.lm import servable_lm_model
-
-# Unused internal library
 
 LayerTpl = pax_fiddle.Config[base_layer.BaseLayer]
 
@@ -137,10 +133,11 @@ class ServingTemplate(
     )
 
   def serving_tokenizer(self):
-    if self.SPM_MODEL is None:
-      spm_model = self._dataset_train().input.tokenizer.spm_model
-    else:
-      spm_model = self.SPM_MODEL
+    spm_model = (
+        self.SPM_MODEL
+        if self.SPM_MODEL is not None
+        else self._dataset_train().input.tokenizer.spm_model
+    )
 
     return lm_tokenizer.LMTokenizer.HParams(
         spm_model=spm_model,

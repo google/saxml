@@ -20,7 +20,6 @@ pytype_strict_library(
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax/lm:lm_tokenizer",
         "//saxml/server/pax/lm:servable_lm_model",
-        "//third_party/py/absl-py/flags",
         "//third_party/py/numpy",
         "//third_party/py/paxml:base_task",
         "//third_party/py/paxml:tasks_lib",
