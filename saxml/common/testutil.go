@@ -299,10 +299,27 @@ type stubLanguageModelServer struct {
 func (s *stubLanguageModelServer) Score(ctx context.Context, in *lmpb.ScoreRequest) (*lmpb.ScoreResponse, error) {
 	prefix := in.GetPrefix()
 	suffixes := in.GetSuffix()
+	extra := in.GetExtraInputs().GetItems()
+	temperature := 1.0
+	if val, found := extra["temperature"]; found {
+		temperature = float64(val)
+	}
+	extraVector := []float64{}
+	extraT := in.GetExtraInputs().GetTensors()
+	if val, found := extraT["extra_tensor"]; found {
+		vector := val.GetValues()
+		for _, value := range vector {
+			extraVector = append(extraVector, float64(value))
+		}
+	}
+	product := 1.0
+	for _, value := range extraVector {
+		product *= value
+	}
 	time.Sleep(s.scoreDelay)
 	var logP []float64
 	for _, suffix := range suffixes {
-		logP = append(logP, float64(len(prefix)+len(suffix))*0.1)
+		logP = append(logP, float64(len(prefix)+len(suffix))*0.1*temperature*product)
 	}
 	return &lmpb.ScoreResponse{
 		Logp: logP,
