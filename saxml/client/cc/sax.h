@@ -305,6 +305,8 @@ class VisionModel {
                         std::vector<ScoredText>* result) const;
 
   // TextToImage produces a list of images and scores given the 'text'.
+  // TextAndImageToImage produces a list of images and scores given the 'text'
+  // and the 'image'.
   //
   // On success, returns OK and fills in images and their scores computed by
   // the model. Otherwise, returns an error.
@@ -316,6 +318,13 @@ class VisionModel {
                            std::vector<GeneratedImage>* result) const;
   absl::Status TextToImage(const ModelOptions& options, absl::string_view text,
                            std::vector<GeneratedImage>* result) const;
+  absl::Status TextAndImageToImage(absl::string_view text,
+                                   absl::string_view image_bytes,
+                                   std::vector<GeneratedImage>* result) const;
+  absl::Status TextAndImageToImage(const ModelOptions& options,
+                                   absl::string_view text,
+                                   absl::string_view image_bytes,
+                                   std::vector<GeneratedImage>* result) const;
 
   // Computes the embedding of the given image represented as encoded image
   // bytes.

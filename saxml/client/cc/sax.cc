@@ -47,6 +47,7 @@ using ::sax::server::vision::ClassifyResponse;
 using ::sax::server::vision::DetectRequest;
 using ::sax::server::vision::DetectResponse;
 using ::sax::server::vision::ImageToTextResponse;
+using ::sax::server::vision::TextAndImageToImageResponse;
 using ::sax::server::vision::TextToImageResponse;
 using ::sax::server::vision::VideoToTextResponse;
 using VmEmbedResponse = ::sax::server::vision::EmbedResponse;
@@ -415,6 +416,44 @@ absl::Status VisionModel::TextToImage(
   }
 
   TextToImageResponse output;
+  if (outputStr != nullptr) {
+    output.ParseFromArray(outputStr, outputSize);
+    free(outputStr);
+  }
+  for (const auto& res : output.images()) {
+    result->push_back(GeneratedImage{res.image(), res.score()});
+  }
+  return absl::OkStatus();
+}
+
+absl::Status VisionModel::TextAndImageToImage(
+    absl::string_view text, absl::string_view image_bytes,
+    std::vector<GeneratedImage>* result) const {
+  return VisionModel::TextAndImageToImage(ModelOptions(), text, image_bytes,
+                                          result);
+}
+absl::Status VisionModel::TextAndImageToImage(
+    const ModelOptions& options, absl::string_view text,
+    absl::string_view image_bytes, std::vector<GeneratedImage>* result) const {
+  ExtraInputs extra;
+  options.ToProto(&extra);
+  std::string extraStr = "";
+  extra.SerializeToString(&extraStr);
+  char* outputStr = nullptr;
+  int outputSize = 0;
+
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  go_text_and_image_to_image(
+      model_handle_, options.GetTimeout(), const_cast<char*>(text.data()),
+      text.size(), const_cast<char*>(image_bytes.data()), image_bytes.size(),
+      const_cast<char*>(extraStr.data()), extraStr.size(), &outputStr,
+      &outputSize, &errMsgStr, &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+
+  TextAndImageToImageResponse output;
   if (outputStr != nullptr) {
     output.ParseFromArray(outputStr, outputSize);
     free(outputStr);

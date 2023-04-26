@@ -608,6 +608,52 @@ func go_text_to_image(ptr C.long, timeout C.float, textData *C.char, textSize C.
 	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
 }
 
+//export go_text_and_image_to_image
+func go_text_and_image_to_image(ptr C.long, timeout C.float, textData *C.char, textSize C.int, imageData *C.char, imageSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+	vm := rcgo.Handle(ptr).Value().(*sax.VisionModel)
+	if vm == nil {
+		// This is not expected.
+		log.Fatalf("text_and_image_to_image() called on nil vision model.")
+	}
+
+	optionsByte := C.GoBytes(unsafe.Pointer(optionsData), optionsSize)
+	options := &cpb.ExtraInputs{}
+	if err := proto.Unmarshal(optionsByte, options); err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	text := C.GoStringN(textData, textSize)
+	image := C.GoBytes(unsafe.Pointer(imageData), imageSize)
+	res, err := vm.TextAndImageToImage(ctx, text, image, protoOptionToSetter(options)...)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+	ret := &vmpb.TextAndImageToImageResponse{}
+	items := []*vmpb.ImageGenerations{}
+	for _, v := range res {
+		item := &vmpb.ImageGenerations{
+			Image: v.Image,
+			Score: v.Logp,
+		}
+		items = append(items, item)
+	}
+	ret.Images = items
+
+	content, err := proto.Marshal(ret)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
+}
+
 //export go_vm_embed
 func go_vm_embed(ptr C.long, timeout C.float, imageData *C.char, imageSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
 	vm := rcgo.Handle(ptr).Value().(*sax.VisionModel)

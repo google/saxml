@@ -444,14 +444,15 @@ func (s *stubVisionModelServer) TextToImage(ctx context.Context, in *vmpb.TextTo
 
 func (s *stubVisionModelServer) TextAndImageToImage(ctx context.Context, in *vmpb.TextAndImageToImageRequest) (*vmpb.TextAndImageToImageResponse, error) {
 	text := in.GetText()
+	image := string(in.GetImageBytes())
 	return &vmpb.TextAndImageToImageResponse{
 		Images: []*vmpb.ImageGenerations{
 			&vmpb.ImageGenerations{
-				Image: []byte(text + "_3"),
+				Image: []byte(text + "_3" + image),
 				Score: float64(len(text)) * 0.3,
 			},
 			&vmpb.ImageGenerations{
-				Image: []byte(text + "_4"),
+				Image: []byte(text + "_4" + image),
 				Score: float64(len(text)) * 0.4,
 			},
 		},

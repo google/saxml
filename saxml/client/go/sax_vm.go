@@ -103,6 +103,39 @@ func (v *VisionModel) TextToImage(ctx context.Context, text string, options ...M
 	return res, nil
 }
 
+func extractTextAndImageToImageResponse(res *pb.TextAndImageToImageResponse) []GeneratedImage {
+	var result []GeneratedImage
+	for _, one := range res.GetImages() {
+		candidate := GeneratedImage{Image: one.GetImage(), Logp: one.GetScore()}
+		result = append(result, candidate)
+	}
+	return result
+}
+
+// TextAndImageToImage generates a list of image (`imageBytes`) and log probability for a given
+// text and image.
+func (v *VisionModel) TextAndImageToImage(ctx context.Context, text string, imageBytes []byte, options ...ModelOptionSetter) ([]GeneratedImage, error) {
+	opts := NewModelOptions(options...)
+	req := &pb.TextAndImageToImageRequest{
+		ModelKey:    v.model.modelID,
+		Text:        text,
+		ImageBytes:  imageBytes,
+		ExtraInputs: opts.ExtraInputs(),
+	}
+
+	var resp *pb.TextAndImageToImageResponse
+	err := v.model.run(ctx, "TextAndImageToImage", func(conn *grpc.ClientConn) error {
+		var textAndImageToImageErr error
+		resp, textAndImageToImageErr = pbgrpc.NewVisionServiceClient(conn).TextAndImageToImage(ctx, req)
+		return textAndImageToImageErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	res := extractTextAndImageToImageResponse(resp)
+	return res, nil
+}
+
 // Embed performs embedding for an image as byte array.
 func (v *VisionModel) Embed(ctx context.Context, imageBytes []byte, options ...ModelOptionSetter) ([]float64, error) {
 	opts := NewModelOptions(options...)

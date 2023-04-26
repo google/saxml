@@ -533,7 +533,6 @@ class TextAndImageToImageMethod(TextToImageMethod):
     )
     # Pre process input conditional image.
     images = [inp['image_bytes'] for inp in raw_inputs]
-    images = [tf.image.decode_image(image).numpy() for image in images]
     if self._image_preprocessor is not None:
       images = [self._image_preprocessor(image) for image in images]
     # Construct result.

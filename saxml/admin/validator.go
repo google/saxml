@@ -45,18 +45,19 @@ var (
 	validModelPath  = regexp.MustCompile(modelPathPattern)
 	validCheckpoint = regexp.MustCompile(checkpointPattern)
 	validMethodName = map[string]struct{}{
-		"am.recognize":       {},
-		"lm.score":           {},
-		"lm.generate":        {},
-		"lm.generate_stream": {},
-		"lm.embed":           {},
-		"lm.gradient":        {},
-		"vm.classify":        {},
-		"vm.generate":        {},
-		"vm.embed":           {},
-		"vm.detect":          {},
-		"vm.image_to_text":   {},
-		"vm.video_to_text":   {},
+		"am.recognize":              {},
+		"lm.score":                  {},
+		"lm.generate":               {},
+		"lm.generate_stream":        {},
+		"lm.embed":                  {},
+		"lm.gradient":               {},
+		"vm.classify":               {},
+		"vm.generate":               {},
+		"vm.embed":                  {},
+		"vm.detect":                 {},
+		"vm.image_to_text":          {},
+		"vm.text_and_image_to_text": {},
+		"vm.video_to_text":          {},
 	}
 )
 
