@@ -260,7 +260,7 @@ def tf_tokenize_inputs(
   score_masks = tf.pad(
       pfx_paddings, [[0, 0], [0, max_suffix_seq_len]], constant_values=1.0
   )
-  if tokenizer.hparams.append_eos:
+  if hasattr(tokenizer, 'hparams') and tokenizer.hparams.append_eos:
     # Left-shift to exclude prefix EOS.
     score_masks = tf.pad(
         score_masks[:, 1:], [[0, 0], [0, 1]], constant_values=1.0
