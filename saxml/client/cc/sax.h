@@ -30,7 +30,7 @@ namespace client {
 
 // Options contains options for creating sax client.
 struct Options {
-  int num_conn;  // Perferred number of connections to sax backend.
+  int num_conn = 3;  // Perferred number of connections to sax backend.
 };
 
 // Model options.
