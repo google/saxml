@@ -191,7 +191,7 @@ class ServingTemplate(
           max_decode_steps=self.MAX_DECODE_STEPS,
           seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           num_samples=self.NUM_SAMPLES,
-          temperature=None,
+          temperature=0.0,
           eos_id=stop_token_ids,
           k=self.TOP_K,
           top_k_recall_target=self.TOP_K_RECALL_TARGET,
