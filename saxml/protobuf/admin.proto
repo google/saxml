@@ -101,6 +101,7 @@ message ModelServer {
     reserved 8;
     CHIP_TYPE_GPU_P100 = 9;
     CHIP_TYPE_GPU_V100 = 10;
+    CHIP_TYPE_GPU_T4 = 13;
     CHIP_TYPE_GPU_A100 = 11;
     CHIP_TYPE_CPU = 12;
   }

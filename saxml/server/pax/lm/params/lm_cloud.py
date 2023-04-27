@@ -165,10 +165,11 @@ class BaseLLaMA(base_experiment.BaseExperiment):
 @quantization.for_transformer(quantize_on_the_fly=False)
 class LLaMA7B(BaseLLaMA):
   """7B model on a A100-40GB.
-  
+
   April 12, 2023
-  Latency = 2.337s with 128 decoded tokens. 17ms per output token
+  Latency = 2.337s with 128 decoded tokens. 17ms per output token.
   """
+
   NUM_LAYERS = 32
   VOCAB_SIZE = 32000
   DIMS_PER_HEAD = 128
@@ -186,10 +187,11 @@ class LLaMA7B(BaseLLaMA):
 @quantization.for_transformer(quantize_on_the_fly=False)
 class LLaMA13B(BaseLLaMA):
   """13B model on a A100-40GB.
- 
+
   April 12, 2023
   Latency = 5.06s with 128 decoded tokens. 38ms per output token.
   """
+
   NUM_LAYERS = 40
   VOCAB_SIZE = 32000
   DIMS_PER_HEAD = 128
@@ -209,8 +211,9 @@ class LLaMA33B(BaseLLaMA):
   """33B model on TPU v4-8.
 
   April 12, 2023
-  Latency = 3.35s with 128 decoded tokens. 25ms per output token.  
+  Latency = 3.35s with 128 decoded tokens. 25ms per output token.
   """
+
   NUM_LAYERS = 60
   VOCAB_SIZE = 32000
   DIMS_PER_HEAD = 128
@@ -228,10 +231,11 @@ class LLaMA33B(BaseLLaMA):
 @quantization.for_transformer(quantize_on_the_fly=False)
 class LLaMA65B(BaseLLaMA):
   """65B model on TPUv4-8.
-  
+
   April 12, 2023
-  Latency = 5.9s with 128 decoded tokens. 45ms per output token.  
+  Latency = 5.9s with 128 decoded tokens. 45ms per output token.
   """
+
   NUM_LAYERS = 80
   VOCAB_SIZE = 32000
   DIMS_PER_HEAD = 128
@@ -255,9 +259,19 @@ class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B):
   gs://sax-data/lm_cloud_2b_mesh_3/1/checkpoints/checkpoint_00000000
   """
   # pylint: enable=line-too-long
+
   SPM_MODEL = 'gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model'
   ICI_MESH_SHAPE = [1, 1, 4]
   FPROP_FOR_PREFIX = True
   BATCH_SIZE = 1
   TRAINING_OPTIMIZED_SHARDING = False
   USE_REPEATED_LAYER = True
+
+
+@servable_model_registry.register
+class LmCloudSpmd2BTest(LmCloudSpmd2B):
+  """Servable config on 1x1x4 in test mode."""
+
+  @property
+  def test_mode(self) -> bool:
+    return True

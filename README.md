@@ -9,8 +9,8 @@ servers. The admin server keeps track of model servers, assigns published models
 to model servers to serve, and helps clients locate model servers serving
 specific published models.
 
-The example below walks through setting up a Sax cell and starting a TPU model
-server in the cell. Similar steps can be taken to start GPU model servers.
+The example below walks through setting up a Sax cell and starting a TPU or GPU
+model server in the cell.
 
 ## Install Sax
 
@@ -47,7 +47,7 @@ gcloud compute instances create sax-admin \
   --scopes=https://www.googleapis.com/auth/cloud-platform
 ```
 
-### Create a Cloud TPU VM instance for a model server
+### Create a Cloud TPU VM instance for a TPU model server
 
 Use this [guide](https://cloud.google.com/tpu/docs/users-guide-tpu-vm) to
 enable the Cloud TPU API in a Google Cloud project.
@@ -62,6 +62,27 @@ gcloud compute tpus tpu-vm create sax-tpu \
   --version=tpu-vm-v4-base \
   --scopes=https://www.googleapis.com/auth/cloud-platform
 ```
+
+### Create a Compute Engine VM instance for a GPU model server
+
+Alternatively or in addition to the Cloud TPU VM instance, create a
+Compute Engine VM instance with GPUs:
+
+```
+gcloud compute instances create sax-gpu \
+  --zone=us-central1-b \
+  --machine-type=n1-standard-32 \
+  --accelerator=count=4,type=nvidia-tesla-v100 \
+  --maintenance-policy=TERMINATE \
+  --boot-disk-size=200GB \
+  --scopes=https://www.googleapis.com/auth/cloud-platform
+```
+
+Consider
+[creating](https://cloud.google.com/compute/docs/create-linux-vm-instance)
+a VM instance using the "GPU-optimized Debian 10 with CUDA 11.0" image instead,
+so the Nvidia CUDA stack doesn't need to be manually installed
+as described below.
 
 ### Start the Sax admin server
 
@@ -99,7 +120,7 @@ bazel run saxml/bin:admin_server -- \
   --alsologtostderr
 ```
 
-### Start the Sax model server
+### Start the Sax TPU model server
 
 SSH to the Cloud TPU VM instance:
 
@@ -127,7 +148,53 @@ bazel run saxml/server:server -- \
   --alsologtostderr
 ```
 
-You should see a log message "Joined [admin server IP:port]" from the model server to indicate it has successfully joined the admin server.
+You should see a log message "Joined [admin server IP:port]" from the model
+server to indicate it has successfully joined the admin server.
+
+### Start the Sax GPU model server
+
+SSH to the Compute Engine VM instance:
+
+```
+gcloud compute ssh --zone=us-central1-b sax-gpu
+```
+
+Install the [Nvidia GPU driver](https://www.nvidia.com/download/index.aspx),
+[CUDA](https://developer.nvidia.com/cuda-downloads), and
+[cuDNN](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html).
+Note that Sax by default requires CUDA 11. To switch to CUDA 12,
+edit `requirements-cuda.txt` and replace `jaxlib==0.4.7+cuda11.cudnn86` with
+`jaxlib==0.4.7+cuda12.cudnn88`.
+
+Inside the VM instance, clone the Sax repo and initialize the environment:
+
+```
+git clone https://github.com/google/saxml.git
+cd saxml
+saxml/tools/init_cloud_vm.sh
+```
+
+Enable the GPU-specific `requirements.txt` file:
+
+```
+cp requirements-cuda.txt requirements.txt
+```
+
+Start the Sax model server:
+
+```
+SAX_ROOT=gs://${GSBUCKET}/sax-root \
+bazel run saxml/server:server -- \
+  --sax_cell=/sax/test \
+  --port=10001 \
+  --platform_chip=v100 \
+  --platform_topology=4 \
+  --jax_platforms=cuda \
+  --alsologtostderr
+```
+
+You should see a log message "Joined [admin server IP:port]" from the model
+server to indicate it has successfully joined the admin server.
 
 ## Use Sax
 
@@ -152,17 +219,20 @@ alias saxutil='bazel run saxml/bin:saxutil -- --sax_root=gs://${GSBUCKET}/sax-ro
 - `saxutil vm.classify`: Use a vision model to classify an image.
 - `saxutil vm.embed`: Use a vision model to embed an image into a vector.
 
-As an example, Sax comes with a Pax language model] servable on a Cloud TPU VM v4-8 instance. Follow the [Paxml tutorial](saxml.server.pax.lm.params.lm_cloud.LmCloudSpmd2B) to generate a checkpoint for this model. This model can then be published in Sax:
+As an example, Sax comes with a Pax language model servable on a Cloud TPU VM
+v4-8 instance. You can use it to verify Sax is correctly set up by publishing
+and using the model with a dummy checkpoint.
 
 ```
 saxutil publish \
   /sax/test/lm2b \
-  saxml.server.pax.lm.params.lm_cloud.LmCloudSpmd2B \
-  gs://${GSBUCKET}/checkpoints/checkpoint_00000000 \
+  saxml.server.pax.lm.params.lm_cloud.LmCloudSpmd2BTest \
+  None \
   1
 ```
 
-Check if the model is loaded by looking at the "selected replica address" column of this command's output:
+Check if the model is loaded by looking at the "selected replica address"
+column of this command's output:
 
 ```
 saxutil ls /sax/test/lm2b
@@ -175,3 +245,17 @@ saxutil lm.generate /sax/test/lm2b "Q: Who is Harry Porter's mother? A: "
 ```
 
 The result will be printed in the terminal.
+
+To use a real checkpoint with the model, follow the
+[Paxml tutorial](saxml.server.pax.lm.params.lm_cloud.LmCloudSpmd2B) to generate
+a checkpoint. The model can then be published in Sax like this:
+
+```
+saxutil publish \
+  /sax/test/lm2b \
+  saxml.server.pax.lm.params.lm_cloud.LmCloudSpmd2B \
+  gs://${GSBUCKET}/checkpoints/checkpoint_00000000 \
+  1
+```
+
+Use the same `saxutil lm.generate` command as above to query the model.
