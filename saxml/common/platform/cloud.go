@@ -445,8 +445,9 @@ func (e *Env) PickUnusedPort() (port int, err error) {
 }
 
 // DialContext establishes a gRPC connection to the target.
-func (e *Env) DialContext(ctx context.Context, target string) (*grpc.ClientConn, error) {
-	return grpc.DialContext(ctx, target, grpc.WithInsecure(), grpc.WithBlock())
+func (e *Env) DialContext(ctx context.Context, target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	opts = append(opts, grpc.WithInsecure(), grpc.WithBlock())
+	return grpc.DialContext(ctx, target, opts...)
 }
 
 // RequiredACLNamePrefix returns the string required to prefix all ACL names.

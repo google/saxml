@@ -99,7 +99,7 @@ type Env interface {
 	// PickUnusedPort picks an unused port.
 	PickUnusedPort() (port int, err error)
 	// DialContext establishes a connection to the target.
-	DialContext(ctx context.Context, target string) (*grpc.ClientConn, error)
+	DialContext(ctx context.Context, target string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	// RequiredACLNamePrefix returns the string required to prefix all ACL names.
 	RequiredACLNamePrefix() string
 	// NewServer creates a server.
