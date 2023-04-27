@@ -46,6 +46,7 @@ go_library(
     name = "connection",
     srcs = ["connection.go"],
     deps = [
+        ":location",
         "//saxml/common:errors",
         "//saxml/common/platform:env",
         "@com_github_golang_glog//:go_default_library",

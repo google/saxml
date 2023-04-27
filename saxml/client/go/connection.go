@@ -23,6 +23,7 @@ import (
 
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
+	"saxml/client/go/location"
 	"saxml/common/errors"
 	"saxml/common/platform/env"
 )
@@ -120,7 +121,46 @@ func (t *connTable) getOrCreate(ctx context.Context, addr string) (*grpc.ClientC
 
 var globalConnTable *connTable = newConnTable()
 
-// GetOrCreate gets or creates a connection for a given address.
-func GetOrCreate(ctx context.Context, addr string) (*grpc.ClientConn, error) {
-	return globalConnTable.getOrCreate(ctx, addr)
+// Factory manages connections to a given model.
+type Factory interface {
+	GetOrCreate(ctx context.Context) (*grpc.ClientConn, string, error)
+	Poison(address string)
+}
+
+// SaxConnectionFactory resolves backends via SAX admin server and connects to them in a round-robin fashion.
+type SaxConnectionFactory struct {
+	Location *location.Table // Keeps track a list of addresses for this model.
+}
+
+// GetOrCreate selects a server and returns a connection and address to it.
+func (f SaxConnectionFactory) GetOrCreate(ctx context.Context) (*grpc.ClientConn, string, error) {
+	address, err := f.Location.Pick(ctx)
+	if err != nil {
+		return nil, address, err
+	}
+	connection, err := globalConnTable.getOrCreate(ctx, address)
+	return connection, address, err
+
+}
+
+// Poison marks a model address invalid.
+func (f SaxConnectionFactory) Poison(address string) {
+	f.Location.Poison(address)
+}
+
+// DirectConnectionFactory connects to the given address directly.
+type DirectConnectionFactory struct {
+	Address string
+}
+
+// GetOrCreate returns a connection and address of the model server.
+func (f DirectConnectionFactory) GetOrCreate(ctx context.Context) (*grpc.ClientConn, string, error) {
+	// WithDefaultServiceConfig is required for MBNS. It will be ignored if the server is backed by GRPC.
+	connection, err := env.Get().DialContext(ctx, f.Address, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
+	return connection, f.Address, err
+}
+
+// Poison marks a model address invalid.
+func (f DirectConnectionFactory) Poison(address string) {
+	// No-op.
 }

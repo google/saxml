@@ -47,8 +47,8 @@ const timeout = 10 * time.Second
 //	languageModel := model.LM()
 //	logP := languageModel.Score("....")
 type Model struct {
-	modelID  string
-	location *location.Table // Keeps track a list of addresses for this model.
+	modelID           string
+	connectionFactory connection.Factory
 }
 
 // run runs a callback function (`callMethod`) against sax system with retries through gRPC.
@@ -56,16 +56,12 @@ type Model struct {
 // `callMethod` is the callback function that performs model logic (e.g. score, sample).
 func (m *Model) run(ctx context.Context, methodName string, callMethod func(conn *grpc.ClientConn) error) error {
 	makeQuery := func() error {
-		address, err := m.location.Pick(ctx)
-		if err != nil {
-			return err
-		}
-		modelServerConn, err := connection.GetOrCreate(ctx, address)
+		modelServerConn, address, err := m.connectionFactory.GetOrCreate(ctx)
 		if err == nil {
 			err = callMethod(modelServerConn)
 		}
 		if errors.ServerShouldPoison(err) {
-			m.location.Poison(address)
+			m.connectionFactory.Poison(address)
 		}
 		return err
 	}
@@ -200,11 +196,9 @@ func Open(id string, options ...OptionSetter) (*Model, error) {
 	}
 	if strings.HasPrefix(id, "google:///") {
 		// This is a self-hosted model.Skip sax cell resolution and connect to it directly.
-		locationTable := location.NewLocationTable(nil, id, opts.numConn)
-		locationTable.Add([]string{id})
 		model := &Model{
-			modelID:  id,
-			location: locationTable,
+			modelID:           id,
+			connectionFactory: connection.DirectConnectionFactory{Address: id},
 		}
 		return model, nil
 	}
@@ -214,8 +208,8 @@ func Open(id string, options ...OptionSetter) (*Model, error) {
 	}
 	admin := saxadmin.Open(modelID.CellFullName())
 	model := &Model{
-		modelID:  id,
-		location: location.NewLocationTable(admin, id, opts.numConn),
+		modelID:           id,
+		connectionFactory: connection.SaxConnectionFactory{Location: location.NewLocationTable(admin, id, opts.numConn)},
 	}
 	return model, nil
 }
