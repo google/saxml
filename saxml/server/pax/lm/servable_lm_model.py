@@ -79,6 +79,8 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
     include_prefix_in_result: whether to include the input prefix in the result.
     encoder_decoder_model: whether this is an encoder decoder model.
     t5_model: whether this is a T5 flaxformer based model.
+    output_geometric_mean_prob_score: Whether to return geometric mean of prob
+      score instead of sum of log prob as the score.
   """
 
   max_input_seq_len: int = 0
@@ -88,6 +90,7 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
   t5_model: bool = False
   stream_interval_steps: int = 1
   fetch_prefix_lengths_from_inputs: bool = False
+  output_geometric_mean_prob_score: bool = False
 
 
 class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
@@ -703,6 +706,10 @@ class LMDecodeMethod(ServableLMMethod):
     # post_processed = self.tf_post_processing(compute_outputs)
     batched_decoded = post_processed['topk_decoded']
     batched_scores = post_processed['topk_scores']
+    if self._method_hparams.output_geometric_mean_prob_score:
+      num_output_tokens = np.count_nonzero(post_processed['topk_ids'], axis=2)
+      num_output_tokens = np.where(num_output_tokens > 0, num_output_tokens, 1)
+      batched_scores = np.exp(batched_scores / num_output_tokens)
     return [
         ([d.decode() for d in decoded], list(scores))
         for decoded, scores in zip(batched_decoded, batched_scores)
@@ -732,43 +739,6 @@ class LMDecodeMethod(ServableLMMethod):
       scores = compute_outputs['scores']
 
     return [(d, s) for (d, s) in zip(batch_decoded, scores)], stream_state
-
-  def get_scores(self, result: NestedMap, host=False):
-    """Get scores from decoding results."""
-    if self._method_hparams.t5_model:
-      return result.logprobs
-
-    if hasattr(result, 'scores'):
-      return result.scores
-
-    np_op = np if host else jnp
-
-    if 'suffix_prompt_lengths' in result and 'suffix_lengths' in result:
-      # Get scores for suffix rating ids.
-      is_valid_output = np_op.logical_and(
-          np_op.arange(result.output_ids.shape[-1])
-          >= result.decode_lengths[:, :, None]
-          + result.suffix_prompt_lengths[:, :, None]
-          - 1,
-          np_op.arange(result.output_ids.shape[-1])
-          < result.decode_lengths[:, :, None]
-          + result.suffix_lengths[:, :, None]
-          - 1,
-      )
-    else:
-      is_valid_output = np_op.logical_and(
-          np_op.arange(result.output_ids.shape[-1])
-          >= result.prefix_lengths[:, None, None],
-          np_op.arange(result.output_ids.shape[-1])
-          < result.decode_lengths[:, :, None],
-      )
-    # [batch_size, num_samples, seqlen]
-    scores = np_op.where(
-        is_valid_output, result.logprobs, np_op.zeros_like(result.logprobs)
-    )
-    # Scores are computed by excluding the prefix and padding.
-    # [batch_size, num_samples]
-    return np_op.sum(scores, axis=-1)
 
   @tf.function(autograph=True, jit_compile=False)
   def tf_pre_batching_processing(
