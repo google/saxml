@@ -218,6 +218,8 @@ absl::StatusOr<PyListResult> List(absl::string_view id);
 
 absl::StatusOr<std::vector<std::string>> ListAll(absl::string_view id);
 
+absl::Status WaitForReady(absl::string_view id, int num_replicas);
+
 }  // namespace pybind
 }  // namespace client
 }  // namespace sax

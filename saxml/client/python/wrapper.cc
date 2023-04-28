@@ -444,6 +444,11 @@ absl::StatusOr<std::vector<std::string>> ListAll(absl::string_view id) {
   return published_models;
 }
 
+absl::Status WaitForReady(absl::string_view id, int num_replicas) {
+  pybind11::gil_scoped_release release;
+  return ::sax::client::WaitForReady(id, num_replicas);
+}
+
 }  // namespace pybind
 }  // namespace client
 }  // namespace sax

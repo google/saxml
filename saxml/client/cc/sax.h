@@ -460,6 +460,11 @@ absl::Status List(absl::string_view id, ModelDetail* model);
 // On success, returns OK; Otherwise, returns an error.
 absl::Status ListAll(absl::string_view id, std::vector<std::string>* models);
 
+// Wait until at least a certain number of replicas are ready.
+//
+// On success, returns OK; Otherwise, returns an error.
+absl::Status WaitForReady(absl::string_view id, int num_replicas);
+
 }  // namespace client
 }  // namespace sax
 #endif  // SAXML_CLIENT_CC_SAX_H_

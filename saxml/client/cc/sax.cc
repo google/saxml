@@ -786,5 +786,17 @@ absl::Status ListAll(absl::string_view id, std::vector<std::string>* models) {
   return absl::OkStatus();
 }
 
+absl::Status WaitForReady(absl::string_view id, int num_replicas) {
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  go_wait_for_ready(const_cast<char*>(id.data()), id.size(), num_replicas,
+                    &errMsgStr, &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+
+  return absl::OkStatus();
+}
+
 }  // namespace client
 }  // namespace sax

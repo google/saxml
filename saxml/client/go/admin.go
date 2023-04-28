@@ -291,7 +291,7 @@ func (a *addrReplica) Pick(ask int) []string {
 		return ret
 	}
 	// NOTE: It's ok to return duplicated entries because the caller
-	// of FindAdddress() in location.go deduplicates them.
+	// of FindAddresses() in location.go deduplicates them.
 	ret := make([]string, ask)
 	for i := 0; i < ask; i++ {
 		ret[i] = a.addr[rand.Intn(n)]
@@ -299,7 +299,7 @@ func (a *addrReplica) Pick(ask int) []string {
 	return ret
 }
 
-// FindAdddress queries the local replica of the server address set to
+// FindAddresses queries the local replica of the server address set to
 // get up to `ask` modelet servers addresses.
 func (a *Admin) FindAddresses(ctx context.Context, model string, ask int) ([]string, error) {
 	a.mu.Lock()
@@ -375,6 +375,19 @@ func (a *Admin) WatchAddresses(ctx context.Context, model string, chanWatchResul
 		chanWatchResult <- &WatchResult{Result: w}
 		seqno = w.Next
 	}
+}
+
+// WaitForReady blocks until at least numReplicas replicas are ready.
+func (a *Admin) WaitForReady(ctx context.Context, modelID string, numReplicas int) error {
+	req := &pb.WaitForReadyRequest{
+		ModelId:     modelID,
+		NumReplicas: int32(numReplicas),
+	}
+	err := a.retry(ctx, func(client pbgrpc.AdminClient) error {
+		_, err := client.WaitForReady(ctx, req)
+		return err
+	})
+	return err
 }
 
 type openedAdmin struct {

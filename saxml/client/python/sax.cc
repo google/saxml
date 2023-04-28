@@ -213,4 +213,9 @@ PYBIND11_MODULE(sax, m) {
         [](absl::string_view id) -> absl::StatusOr<std::vector<std::string>> {
           return sax::client::pybind::ListAll(id);
         });
+
+  m.def("WaitForReady",
+        [](absl::string_view id, int num_replicas) -> absl::Status {
+          return sax::client::pybind::WaitForReady(id, num_replicas);
+        });
 }

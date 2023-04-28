@@ -284,6 +284,24 @@ func go_list_all(idData *C.char, idSize C.int, outData **C.char, outSize *C.int,
 	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
 }
 
+//export go_wait_for_ready
+func go_wait_for_ready(idData *C.char, idSize C.int, numReplicas C.int, errMsg **C.char, errCode *C.int) {
+	id := C.GoStringN(idData, idSize)
+	modelID, admin, err := openAdmin(id)
+	if err != nil {
+		*errMsg = C.CString(err.Error())
+		*errCode = C.int(int32(errors.Code(err)))
+		return
+	}
+
+	err = admin.WaitForReady(context.Background(), modelID, int(numReplicas))
+	if err != nil {
+		*errMsg = C.CString(err.Error())
+		*errCode = C.int(int32(errors.Code(err)))
+		return
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Audio model methods
 //////////////////////////////////////////////////////////////////////////
