@@ -47,10 +47,10 @@ _PORT = flags.DEFINE_integer(
     'port', None, 'Port for the RPC service.', required=True
 )
 _PLATFORM_CHIP = flags.DEFINE_string(
-    'platform_chip', None, 'Optional chip name.'
+    'platform_chip', 'cpu', 'Optional chip name.'
 )
 _PLATFORM_TOPOLOGY = flags.DEFINE_string(
-    'platform_topology', None, 'Optional topology description.'
+    'platform_topology', '1', 'Optional topology description.'
 )
 _JAX_PROFILER_PORT = flags.DEFINE_integer(
     'jax_profiler_port',
