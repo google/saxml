@@ -89,6 +89,18 @@ pytype_strict_library(
     ],
 )
 
+py_strict_test(
+    name = "servable_model_registry_test",
+    srcs = ["servable_model_registry_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":all_imports",
+        ":servable_model_registry",
+        "//third_party/py/absl-py/testing:absltest",
+    ],
+)
+
 pytype_strict_library(
     name = "servable_model",
     srcs = ["servable_model.py"],

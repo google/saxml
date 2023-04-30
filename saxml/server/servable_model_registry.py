@@ -31,6 +31,7 @@ if
 it will have an alias `foo.FooExpABC`.
 """
 
+import inspect
 from typing import List, Mapping, Optional, Pattern
 
 from saxml.server.servable_model_params import ServableModelParams
@@ -109,3 +110,27 @@ def get_all() -> Mapping[str, ServableModelParamsT]:
     if MODEL_FILTER_REGEX.fullmatch(k) is not None:
       models[k] = m
   return models
+
+
+def print_source(model_name: str) -> List[str]:
+  """Returns the source code for all param classes for model_name in their MRO order.
+
+  Args:
+    model_name: E.g., `path.to.root.lm.params.foo.FooExpABC`
+
+  Returns:
+    Source code for a list of param classes.
+  """
+  ret = []
+  model_param_cls = get(model_name)
+  if model_param_cls is not None:
+    for cls in inspect.getmro(model_param_cls):
+      if cls == ServableModelParams:
+        break
+      try:
+        ret.append(
+            f'{cls.__module__}.{cls.__name__}\n{inspect.getsource(cls)}\n'
+        )
+      except Exception as e:  # pylint: disable=broad-exception-caught
+        ret.append(f'{cls.__module__}.{cls.__name__}\n{e}\n')
+  return ret
