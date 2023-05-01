@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "saxml/client/cc/sax.h"
+
 #include "saxml/client/python/wrapper.h"
 #include "saxml/protobuf/common.pb.h"
 #include "pybind11/pybind11.h"
@@ -207,6 +209,18 @@ PYBIND11_MODULE(sax, m) {
         [](absl::string_view id)
             -> absl::StatusOr<std::tuple<std::string, std::string, int>> {
           return sax::client::pybind::List(id);
+        });
+
+  py::class_<sax::client::ModelDetail>(m, "ModelDetail")
+      .def_readonly("model", &sax::client::ModelDetail::model)
+      .def_readonly("ckpt", &sax::client::ModelDetail::ckpt)
+      .def_readonly("max_replicas", &sax::client::ModelDetail::max_replicas)
+      .def_readonly("active_replicas",
+                    &sax::client::ModelDetail::active_replicas);
+
+  m.def("ListDetail",
+        [](absl::string_view id) -> absl::StatusOr<sax::client::ModelDetail> {
+          return sax::client::pybind::ListDetail(id);
         });
 
   m.def("ListAll",

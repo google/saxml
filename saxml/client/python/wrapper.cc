@@ -434,7 +434,14 @@ absl::StatusOr<PyListResult> List(absl::string_view id) {
   ::sax::client::ModelDetail published_model;
   RETURN_IF_ERROR(::sax::client::List(id, &published_model));
   return std::make_tuple(published_model.model, published_model.ckpt,
-                         published_model.replicas);
+                         published_model.active_replicas);
+}
+
+absl::StatusOr<::sax::client::ModelDetail> ListDetail(absl::string_view id) {
+  pybind11::gil_scoped_release release;
+  ::sax::client::ModelDetail published_model;
+  RETURN_IF_ERROR(::sax::client::List(id, &published_model));
+  return published_model;
 }
 
 absl::StatusOr<std::vector<std::string>> ListAll(absl::string_view id) {

@@ -755,7 +755,8 @@ absl::Status List(absl::string_view id, ModelDetail* model) {
   auto one_model = pub_model.model();
   model->model = one_model.model_path();
   model->ckpt = one_model.checkpoint_path();
-  model->replicas = pub_model.modelet_addresses_size();
+  model->max_replicas = one_model.requested_num_replicas();
+  model->active_replicas = pub_model.modelet_addresses_size();
 
   return absl::OkStatus();
 }

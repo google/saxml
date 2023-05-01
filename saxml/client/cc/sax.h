@@ -447,7 +447,8 @@ absl::Status Update(absl::string_view id, absl::string_view model_path,
 struct ModelDetail {
   std::string model;
   std::string ckpt;
-  int replicas;
+  int max_replicas;
+  int active_replicas;
 };
 
 // List a model to get details such checkpoint path and model path.

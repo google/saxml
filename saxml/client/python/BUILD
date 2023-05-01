@@ -7,6 +7,7 @@ pybind_extension(
     visibility = ["//visibility:public"],
     deps = [
         ":wrapper",
+        "//saxml/client/cc:sax",
         "//saxml/protobuf:common_cc_proto",
         "@pybind11_abseil//pybind11_abseil:absl_casters",
         "@pybind11_abseil//pybind11_abseil:import_status_module",
