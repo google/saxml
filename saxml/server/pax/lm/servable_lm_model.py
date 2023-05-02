@@ -81,6 +81,8 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
     t5_model: whether this is a T5 flaxformer based model.
     output_geometric_mean_prob_score: Whether to return geometric mean of prob
       score instead of sum of log prob as the score.
+    output_avg_entropy_score: Whether to return avg entropy score instead of
+      sum of log prob as the score.
   """
 
   max_input_seq_len: int = 0
@@ -91,6 +93,7 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
   stream_interval_steps: int = 1
   fetch_prefix_lengths_from_inputs: bool = False
   output_geometric_mean_prob_score: bool = False
+  output_avg_entropy_score: bool = False
 
 
 class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
@@ -706,10 +709,16 @@ class LMDecodeMethod(ServableLMMethod):
     # post_processed = self.tf_post_processing(compute_outputs)
     batched_decoded = post_processed['topk_decoded']
     batched_scores = post_processed['topk_scores']
+
+    # Override scores according to hparams
+    assert (not self._method_hparams.output_geometric_mean_prob_score or
+            not self._method_hparams.output_avg_entropy_score)
     if self._method_hparams.output_geometric_mean_prob_score:
       num_output_tokens = np.count_nonzero(post_processed['topk_ids'], axis=2)
       num_output_tokens = np.where(num_output_tokens > 0, num_output_tokens, 1)
       batched_scores = np.exp(batched_scores / num_output_tokens)
+    elif self._method_hparams.output_avg_entropy_score:
+      batched_scores = post_processed['mean_entropy']
     return [
         ([d.decode() for d in decoded], list(scores))
         for decoded, scores in zip(batched_decoded, batched_scores)

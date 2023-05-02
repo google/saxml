@@ -90,6 +90,7 @@ def decode_tf_post_processing(
   Returns:
     A mapping that contains the decoded tensors, scores and ids of the topk
     results.
+    Return mean entropy of tokens when available.
   """
   assert isinstance(compute_outputs, py_utils.NestedMap)
   if t5_model:
@@ -107,6 +108,7 @@ def decode_tf_post_processing(
     scores = tf.expand_dims(compute_outputs.scores, axis=-1)
     # Place holder since decode_lengths is None from decode_fetch_output.
     decode_lengths = tf.zeros_like(scores)
+    mean_entropy = None
   else:
     # prefix_lengths: [b]
     # decode_lengths: [b, num_samples]
@@ -140,12 +142,19 @@ def decode_tf_post_processing(
         decode, (output_ids, decode_lengths), fn_output_signature=tf.string
     )
     scores = compute_outputs.scores
-  return {
+    mean_entropy = None
+    if hasattr(compute_outputs, 'mean_entropy'):
+      mean_entropy = compute_outputs.mean_entropy
+
+  ret = {
       'topk_decoded': decoded,
       'topk_scores': scores,
       'topk_ids': output_ids,
       'topk_decode_lengths': decode_lengths,
   }
+  if mean_entropy is not None:
+    ret['mean_entropy'] = mean_entropy
+  return ret
 
 
 def decode_get_scores(result: NestedMap, t5_model: bool = False, host=False):
@@ -186,6 +195,17 @@ def decode_get_scores(result: NestedMap, t5_model: bool = False, host=False):
   return np_op.sum(scores, axis=-1)
 
 
+def decode_get_mean_entropy(result: NestedMap,
+                            decode_lengths: NestedJTensor,
+                            prefix_lengths: NestedJTensor,
+                            host=False):
+  """Get mean of entropy from decoding results."""
+  np_op = np if host else jnp
+  output_length = decode_lengths - np_op.expand_dims(prefix_lengths, axis=-1)
+  output_length = np_op.where(output_length > 0, output_length, 1)
+  return np_op.sum(result.entropy, axis=-1) / output_length
+
+
 def decode_fetch_output(
     model_fn_outputs: NestedJTensor,
     model_fn_inputs: NestedJTensor,
@@ -212,12 +232,16 @@ def decode_fetch_output(
     else:
       prefix_lengths = result.prefix_lengths
 
-  return NestedMap(
+  ret = NestedMap(
       output_ids=output_ids,
       decode_lengths=decode_lengths,
       prefix_lengths=prefix_lengths,
       scores=scores,
   )
+  if hasattr(result, 'entropy'):
+    ret.mean_entropy = decode_get_mean_entropy(
+        result, decode_lengths, prefix_lengths)
+  return ret
 
 
 def tf_tokenize_inputs(
