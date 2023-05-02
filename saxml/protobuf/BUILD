@@ -24,6 +24,7 @@ package_group(
     ],
     packages = [
         "//learning/deepmind/models/serving/...",
+        "//translate/prototypes/saxproxy/...",
     ],
 )
 
@@ -96,6 +97,13 @@ cc_proto_library(
     deps = [":admin_proto"],
 )
 
+cc_stubby_library(
+    name = "admin_cc_stubby",
+    srcs = [":admin_proto"],
+    visibility = [":sax_rpc_visibility"],
+    deps = [":admin_cc_proto"],
+)
+
 cc_grpc_library(
     name = "admin_cc_grpc",
     srcs = [":admin_proto"],
@@ -161,6 +169,13 @@ cc_proto_library(
     deps = [":custom_proto"],
 )
 
+cc_stubby_library(
+    name = "custom_cc_stubby",
+    srcs = [":custom_proto"],
+    visibility = [":sax_rpc_visibility"],
+    deps = [":custom_cc_proto"],
+)
+
 py_proto_library(
     name = "custom_py_pb2",
     api_version = 2,
@@ -211,6 +226,7 @@ cc_proto_library(
 cc_stubby_library(
     name = "lm_cc_stubby",
     srcs = [":lm_proto"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":lm_cc_proto"],
 )
 
@@ -265,6 +281,7 @@ cc_proto_library(
 cc_stubby_library(
     name = "audio_cc_stubby",
     srcs = [":audio_proto"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":audio_cc_proto"],
 )
 
@@ -318,6 +335,7 @@ cc_proto_library(
 cc_stubby_library(
     name = "vision_cc_stubby",
     srcs = [":vision_proto"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":vision_cc_proto"],
 )
 
