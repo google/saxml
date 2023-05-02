@@ -35,7 +35,9 @@ from saxml.server.pax.lm.params import template
 class BaseLLaMA(base_experiment.BaseExperiment):
   """Base LLaMA Transformer LM configuration."""
 
-  SPM_MODEL = 'gs://sax-data/llama/fake_32k_vocab'
+  SPM_MODEL = 'gs://sax-data/pax-llama/tokenizer.model'
+  SOS_ID = 1
+  EOS_ID = 2
 
   # architecture related
   NUM_LAYERS = 32
@@ -97,12 +99,13 @@ class BaseLLaMA(base_experiment.BaseExperiment):
         input_dims=self.MODEL_DIMS,
         num_classes=self.VOCAB_SIZE,
     )
-    model_p.lm_tpl.final_ln_tpl = pax_fiddle.Config(
+    ln_tpl = pax_fiddle.Config(
         layers.RmsNorm,
         name='norm',
-        direct_scale=False,
+        direct_scale=True,
         epsilon=self.RMS_NORM_EPSILON,
     )
+    model_p.lm_tpl.final_ln_tpl = ln_tpl.clone()
 
     stacked_transformer_tpl = pax_fiddle.Config(layers.StackedTransformer)
     stacked_transformer_tpl.model_dims = self.MODEL_DIMS
@@ -116,23 +119,13 @@ class BaseLLaMA(base_experiment.BaseExperiment):
         stacked_transformer_tpl.transformer_layer_params_tpl,
     )
     transformer_layer_p.norm_policy = 'pre'
-    transformer_layer_p.ln_tpl = pax_fiddle.Config(
-        layers.RmsNorm,
-        name='attention_norm',
-        direct_scale=False,
-        epsilon=self.RMS_NORM_EPSILON,
-    )
+    transformer_layer_p.ln_tpl = ln_tpl.clone()
     transformer_layer_p.tr_atten_tpl.internal_enable_per_dim_scale = False
     transformer_layer_p.tr_atten_tpl.internal_enable_query_scale = True
     transformer_layer_p.tr_atten_tpl.use_bias = False
     transformer_layer_p.tr_atten_tpl.combine_qkv = self.COMBINE_QKV
     transformer_layer_p.tr_fflayer_tpl.has_bias = False
-    transformer_layer_p.tr_fflayer_tpl.ln_tpl = pax_fiddle.Config(
-        layers.RmsNorm,
-        name='ffn_norm',
-        direct_scale=False,
-        epsilon=self.RMS_NORM_EPSILON,
-    )
+    transformer_layer_p.tr_fflayer_tpl.ln_tpl = ln_tpl.clone()
     transformer_layer_p.tr_fflayer_tpl.activation_tpl = pax_fiddle.Config(
         self.ACTIVATION_CLS
     )
@@ -159,6 +152,49 @@ class BaseLLaMA(base_experiment.BaseExperiment):
         learning_rate=1e-3, lr_schedule=schedules.Constant.HParams()
     )
     return task_p
+
+
+@servable_model_registry.register
+class LLaMA7BFP16(BaseLLaMA):
+  """7B model on a A100-40GB.
+
+  Checkpoint:
+  gs://sax-data/pax-llama/7B
+
+  April 14, 2023
+  Latency = 3.619s with 128 decoded tokens. 27ms per output token
+  """
+
+  NUM_LAYERS = 32
+  VOCAB_SIZE = 32000
+  DIMS_PER_HEAD = 128
+  NUM_HEADS = 32
+  MODEL_DIMS = 4096
+  HIDDEN_DIMS = 11008
+
+  BATCH_SIZE = 1
+  NUM_SAMPLES = 1
+  INPUT_SEQ_LEN = 128
+  BUCKET_KEYS = None
+  MAX_DECODE_STEPS = 32
+  ENABLE_GENERATE_STREAM = False
+
+  ICI_MESH_SHAPE = [1, 1, 1]
+
+
+@servable_model_registry.register
+class LLaMA7BFP16TPUv4(LLaMA7BFP16):
+  """7B model on TPU v4-8.
+
+  April 14, 2023
+  Latency = 0.688s with 128 decoded tokens. 5ms per output token
+  """
+
+  ICI_MESH_SHAPE = [1, 1, 4]
+
+  @property
+  def test_mode(self) -> bool:
+    return True
 
 
 @servable_model_registry.register
@@ -271,6 +307,42 @@ class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B):
 @servable_model_registry.register
 class LmCloudSpmd2BTest(LmCloudSpmd2B):
   """Servable config on 1x1x4 in test mode."""
+
+  @property
+  def test_mode(self) -> bool:
+    return True
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False)
+class LmCloudSpmd175B(LmCloudSpmd2B):
+  """175B on TPU v4-32.
+
+  April 14, 2023
+  Latency = 2.337s with 128 decoded tokens. 17ms per output token
+  """
+
+  NUM_LAYERS = 96
+  MODEL_DIMS = 12288
+  NUM_HEADS = 96
+  DIMS_PER_HEAD = 128
+  HIDDEN_DIMS = MODEL_DIMS * 4
+  ICI_MESH_SHAPE = [1, 1, 16]
+
+  BATCH_SIZE = 1
+  NUM_SAMPLES = 1
+  ENABLE_GENERATE_STREAM = True
+  STREAM_INTERVAL_STEPS = 16
+  FPROP_FOR_PREFIX = True
+  INPUT_SEQ_LEN = 128.0  # 4096
+  BUCKET_KEYS = None  # [128, 1024, 4096]
+  MAX_DECODE_STEPS = 128  # [128, 512, 1024]
+  EXTRA_INPUTS = {
+      'temperature': 0.5,
+      'per_example_max_decode_steps': 128,
+      'per_example_top_k': 200,
+      'per_example_top_p': 0.95,
+  }
 
   @property
   def test_mode(self) -> bool:
