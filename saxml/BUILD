@@ -12,7 +12,10 @@ exports_files(["LICENSE"])
 
 package_group(
     name = "internal",
-    packages = ["//saxml/..."],
+    packages = [
+        "//learning/gemini/deployment/sax/...",
+        "//saxml/...",
+    ],
 )
 
 bzl_library(
