@@ -21,8 +21,10 @@
 
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "saxml/client/cc/sax.h"
@@ -63,7 +65,7 @@ class CustomModel {
   CustomModel(const CustomModel& obj);
   ~CustomModel();
 
-  // Custom model with string to string cutom call.
+  // Custom model with string to string custom call.
   absl::StatusOr<pybind11::bytes> Custom(
       pybind11::bytes request, absl::string_view method_name,
       const ModelOptions* options = nullptr) const;
@@ -107,6 +109,14 @@ class LanguageModel {
   // Run embedding on the given text.
   absl::StatusOr<std::vector<double>> Embed(
       absl::string_view text, const ModelOptions* options = nullptr) const;
+
+  // Computes scores and gradients for a given 'prefix' and 'suffix' using the
+  // language model.
+  absl::StatusOr<
+      std::pair<std::vector<double>,
+                absl::flat_hash_map<std::string, std::vector<double>>>>
+  Gradient(absl::string_view prefix, absl::string_view suffix,
+           const ModelOptions* options = nullptr) const;
 
  private:
   explicit LanguageModel(::sax::client::Model* base,

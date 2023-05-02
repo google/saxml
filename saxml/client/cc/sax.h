@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "saxml/protobuf/common.pb.h"
@@ -138,7 +139,7 @@ class CustomModel {
   CustomModel& operator=(CustomModel&&) = default;
   ~CustomModel();
 
-  // Custom model with string to string cutom call.
+  // Custom model with string to string custom call.
   //
   // On success, returns OK and fills in response computed by
   // the model. Otherwise, returns an error.
@@ -255,6 +256,20 @@ class LanguageModel {
                      std::vector<double>* embedding) const;
   absl::Status Embed(const ModelOptions& options, absl::string_view text,
                      std::vector<double>* embedding) const;
+
+  // Computes scores and gradients for a given 'prefix' and 'suffix' using the
+  // language model.
+  //
+  // On success, returns OK and fills in scores and gradients. Otherwise,
+  // returns an error.
+  absl::Status Gradient(
+      absl::string_view prefix, absl::string_view suffix,
+      std::vector<double>* score,
+      absl::flat_hash_map<std::string, std::vector<double>>* gradients) const;
+  absl::Status Gradient(
+      const ModelOptions& options, absl::string_view prefix,
+      absl::string_view suffix, std::vector<double>* score,
+      absl::flat_hash_map<std::string, std::vector<double>>* gradients) const;
 
  private:
   explicit LanguageModel(int64_t model_handle) : model_handle_(model_handle) {}

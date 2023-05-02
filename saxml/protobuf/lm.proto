@@ -112,6 +112,24 @@ message EmbedResponse {
   repeated double embedding = 1 [packed = true];
 }
 
+message GradientRequest {
+  string model_key = 1;
+  string suffix = 2;
+  string prefix = 3;
+  .sax.ExtraInputs extra_inputs = 4;
+}
+
+message GradientResponse {
+  repeated double score = 1;
+
+  message Gradient {
+    repeated double values = 1 [packed = true];
+  }
+
+  // Map of gradients of tensors keyed by tensor name.
+  map<string, Gradient> gradients = 2;
+}
+
 service LMService {
   // Returns the score (e.g., log pplx) given the text.
   rpc Score(ScoreRequest) returns (ScoreResponse);
@@ -124,4 +142,7 @@ service LMService {
 
   // Returns a text embedding given the text.
   rpc Embed(EmbedRequest) returns (EmbedResponse);
+
+  // Returns the score and gradients given the text.
+  rpc Gradient(GradientRequest) returns (GradientResponse);
 }

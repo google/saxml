@@ -39,6 +39,8 @@ using ::sax::ExtraInputs;
 using ::sax::Tensor;
 using ::sax::server::lm::GenerateResponse;
 using ::sax::server::lm::GenerateStreamResponse;
+using ::sax::server::lm::GradientRequest;
+using ::sax::server::lm::GradientResponse;
 using ::sax::server::lm::ScoreRequest;
 using ::sax::server::lm::ScoreResponse;
 using LmEmbedResponse = ::sax::server::lm::EmbedResponse;
@@ -349,6 +351,60 @@ absl::Status LanguageModel::Embed(const ModelOptions& options,
   }
   for (const auto& value : output.embedding()) {
     embedding->push_back(value);
+  }
+  return absl::OkStatus();
+}
+
+absl::Status LanguageModel::Gradient(
+    absl::string_view prefix, absl::string_view suffix,
+    std::vector<double>* score,
+    absl::flat_hash_map<std::string, std::vector<double>>* gradients) const {
+  return LanguageModel::Gradient(ModelOptions(), prefix, suffix, score,
+                                 gradients);
+}
+
+absl::Status LanguageModel::Gradient(
+    const ModelOptions& options, absl::string_view prefix,
+    absl::string_view suffix, std::vector<double>* score,
+    absl::flat_hash_map<std::string, std::vector<double>>* gradients) const {
+  ExtraInputs extra;
+  options.ToProto(&extra);
+  std::string extraStr = "";
+  extra.SerializeToString(&extraStr);
+  // Fill gradient request with prefix and suffix.
+  GradientRequest req;
+  req.set_prefix(std::string(prefix));
+  req.set_suffix(std::string(suffix));
+  std::string reqStr = "";
+  req.SerializeToString(&reqStr);
+
+  // Call gradient function.
+  char* outputStr = nullptr;
+  int outputSize = 0;
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  go_gradient(model_handle_, options.GetTimeout(),
+              const_cast<char*>(reqStr.data()), reqStr.size(),
+              const_cast<char*>(extraStr.data()), extraStr.size(), &outputStr,
+              &outputSize, &errMsgStr, &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+
+  GradientResponse result;
+  score->clear();
+  gradients->clear();
+  if (outputStr != nullptr) {
+    result.ParseFromArray(outputStr, outputSize);
+    free(outputStr);
+  }
+  for (const auto& res : result.score()) {
+    score->push_back(res);
+  }
+  for (const auto& res : result.gradients()) {
+    gradients->emplace(res.first,
+                       std::vector<double>(res.second.values().begin(),
+                                           res.second.values().end()));
   }
   return absl::OkStatus();
 }

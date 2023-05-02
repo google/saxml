@@ -58,6 +58,7 @@ func main() {
 	subcommands.Register(&saxcommand.EmbedImageCmd{}, "")
 	subcommands.Register(&saxcommand.EmbedTextCmd{}, "")
 	subcommands.Register(&saxcommand.GenerateCmd{}, "")
+	subcommands.Register(&saxcommand.GradientCmd{}, "")
 	subcommands.Register(&saxcommand.RecognizeCmd{}, "")
 	subcommands.Register(&saxcommand.ScoreCmd{}, "")
 	subcommands.Register(&saxcommand.TextToImageCmd{}, "")

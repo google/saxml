@@ -20,7 +20,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 
 	"flag"
@@ -153,7 +152,7 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"generate", "Score"})
 	for _, generate := range generates {
-		table.Append([]string{generate.Text, strconv.FormatFloat(generate.Score, 'G', 8, 64)})
+		table.Append([]string{generate.Text, formatFloat(generate.Score)})
 	}
 	table.Render()
 	return subcommands.ExitSuccess
@@ -216,7 +215,7 @@ func (c *ScoreCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 	for index, suffix := range suffixes {
 		formattedLogPs := make([]string, len(logPs))
 		for i, logP := range logPs[index*logPsPerSuffix : (index+1)*logPsPerSuffix] {
-			formattedLogPs[i] = strconv.FormatFloat(logP, 'G', 8, 64)
+			formattedLogPs[i] = formatFloat(logP)
 		}
 		table.Append(append([]string{suffix}, formattedLogPs...))
 	}
@@ -273,6 +272,75 @@ func (c *EmbedTextCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Text", "Embedding"})
 	table.Append([]string{text, resultStr})
+	table.Render()
+	return subcommands.ExitSuccess
+}
+
+// GradientCmd is the command for Gradient.
+type GradientCmd struct {
+	extra string
+}
+
+// Name returns the name of the ScoreCmd.
+func (*GradientCmd) Name() string { return "lm.gradient" }
+
+// Synopsis returns the synopsis of ScoreCmd.
+func (*GradientCmd) Synopsis() string {
+	return "gradient of a a prefix and suffix against a given model"
+}
+
+// Usage returns the full usage of ScoreCmd.
+func (*GradientCmd) Usage() string {
+	return `gradient ModelID prefix suffix:
+	Gradient of a prefix and suffix using a published language model.
+`
+}
+
+// SetFlags sets flags for ScoreCmd.
+func (c *GradientCmd) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&c.extra, "extra", "", "extra arguments for Gradient().")
+}
+
+// Execute executes ScoreCmd.
+func (c *GradientCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
+	if len(f.Args()) != 3 {
+		log.Errorf("Provide model and prefix/suffix for gradient")
+		return subcommands.ExitUsageError
+	}
+
+	m, err := sax.Open(f.Args()[0])
+	if err != nil {
+		log.Errorf("Failed to open model: %v", err)
+		return subcommands.ExitFailure
+	}
+	lm := m.LM()
+	if lm == nil {
+		log.Errorf("Failed to create language model: %v", err)
+		return subcommands.ExitFailure
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	defer cancel()
+
+	scores, gradients, err := lm.Gradient(ctx, f.Args()[1], f.Args()[2], ExtraInputs(c.extra)...)
+	if err != nil {
+		log.Errorf("Failed to get the gradient of prefix/suffix: %v", err)
+		return subcommands.ExitFailure
+	}
+
+	table := tablewriter.NewWriter(os.Stdout)
+	header := make([]string, len(gradients)+1)
+	row := make([]string, len(gradients)+1)
+	header[0] = "Score"
+	row[0] = arrayToString(scores)
+	i := 1
+	for k, v := range gradients {
+		header[i] = k
+		row[i] = arrayToStringWithLimit(v, 8)
+		i++
+	}
+	table.SetHeader(header)
+	table.Append(row)
 	table.Render()
 	return subcommands.ExitSuccess
 }

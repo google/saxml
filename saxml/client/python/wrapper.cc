@@ -211,6 +211,24 @@ absl::StatusOr<std::vector<double>> LanguageModel::Embed(
   return embedding;
 }
 
+absl::StatusOr<std::pair<std::vector<double>,
+                         absl::flat_hash_map<std::string, std::vector<double>>>>
+LanguageModel::Gradient(absl::string_view prefix, absl::string_view suffix,
+                        const ModelOptions* options) const {
+  if (!status_.ok()) return status_;
+
+  pybind11::gil_scoped_release release;
+  std::vector<double> score;
+  absl::flat_hash_map<std::string, std::vector<double>> gradients;
+  if (options == nullptr) {
+    RETURN_IF_ERROR(model_->Gradient(prefix, suffix, &score, &gradients));
+  } else {
+    RETURN_IF_ERROR(
+        model_->Gradient(*options, prefix, suffix, &score, &gradients));
+  }
+  return std::make_pair(score, gradients);
+}
+
 // Construct VisionModel with sax::client::Model. VisionModel does not take
 // ownership of Model.
 VisionModel::VisionModel(::sax::client::Model* base,

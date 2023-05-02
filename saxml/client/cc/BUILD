@@ -19,6 +19,7 @@ cc_library(
         "//saxml/protobuf:custom_cc_proto",
         "//saxml/protobuf:lm_cc_proto",
         "//saxml/protobuf:vision_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],

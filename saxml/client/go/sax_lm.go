@@ -218,3 +218,31 @@ func (l *LanguageModel) Embed(ctx context.Context, text string, options ...Model
 	}
 	return resp.GetEmbedding(), nil
 }
+
+// Gradient performs gradient for a `prefix`, `suffix` pair on a language model `__call__`.
+func (l *LanguageModel) Gradient(ctx context.Context, prefix string, suffix string, options ...ModelOptionSetter) ([]float64, map[string][]float64, error) {
+	opts := NewModelOptions(options...)
+	req := &pb.GradientRequest{
+		ModelKey:    l.model.modelID,
+		Suffix:      suffix,
+		Prefix:      prefix,
+		ExtraInputs: opts.ExtraInputs(),
+	}
+
+	var resp *pb.GradientResponse
+	err := l.model.run(ctx, "Gradient", func(conn *grpc.ClientConn) error {
+		var gradientErr error
+		resp, gradientErr = pbgrpc.NewLMServiceClient(conn).Gradient(ctx, req)
+		return gradientErr
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	gradients := make(map[string][]float64, len(resp.GetGradients()))
+	for k, v := range resp.GetGradients() {
+		gradients[k] = v.Values
+	}
+
+	return resp.GetScore(), gradients, nil
+}

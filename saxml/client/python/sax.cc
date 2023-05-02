@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "saxml/client/cc/sax.h"
-
 #include "saxml/client/python/wrapper.h"
 #include "saxml/protobuf/common.pb.h"
 #include "pybind11/pybind11.h"
@@ -102,7 +100,17 @@ PYBIND11_MODULE(sax, m) {
             // py_callback: Callable[[bool, list[tuple[str, int, float]]], None]
             return lm.GenerateStream(text, py_callback, options);
           },
-          py::arg("text"), py::arg("callback"), py::arg("options") = nullptr);
+          py::arg("text"), py::arg("callback"), py::arg("options") = nullptr)
+      .def(
+          "Gradient",
+          [](sax::client::pybind::LanguageModel& lm, absl::string_view prefix,
+             absl::string_view suffix, const sax::client::ModelOptions* options)
+              -> absl::StatusOr<std::pair<
+                  std::vector<double>,
+                  absl::flat_hash_map<std::string, std::vector<double>>>> {
+            return lm.Gradient(prefix, suffix, options);
+          },
+          py::arg("prefix"), py::arg("suffix"), py::arg("options") = nullptr);
 
   py::class_<sax::client::pybind::VisionModel>(m, "VisionModel")
       .def(

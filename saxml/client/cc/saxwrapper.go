@@ -534,6 +534,52 @@ func go_lm_embed(ptr C.long, timeout C.float, textData *C.char, textSize C.int, 
 	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
 }
 
+//export go_gradient
+func go_gradient(ptr C.long, timeout C.float, requestData *C.char, requestSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+	lm := rcgo.Handle(ptr).Value().(*sax.LanguageModel)
+	if lm == nil {
+		// This is not expected.
+		log.Fatalf("gradient() called on nil language model.")
+	}
+
+	optionsByte := C.GoBytes(unsafe.Pointer(optionsData), optionsSize)
+	options := &cpb.ExtraInputs{}
+	if err := proto.Unmarshal(optionsByte, options); err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+
+	requestByte := C.GoBytes(unsafe.Pointer(requestData), requestSize)
+	request := &lmpb.GradientRequest{}
+	if err := proto.Unmarshal(requestByte, request); err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	score, gradients, err := lm.Gradient(ctx, request.GetPrefix(), request.GetSuffix(), protoOptionToSetter(options)...)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+	resp := &lmpb.GradientResponse{}
+	resp.Score = score
+	resp.Gradients = make(map[string]*lmpb.GradientResponse_Gradient, len(gradients))
+	for k, v := range gradients {
+		resp.Gradients[k] = &lmpb.GradientResponse_Gradient{Values: v}
+	}
+	content, err := proto.Marshal(resp)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Vision model methods
 //////////////////////////////////////////////////////////////////////////

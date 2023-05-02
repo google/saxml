@@ -408,6 +408,18 @@ func (s *stubLanguageModelServer) Embed(ctx context.Context, in *lmpb.EmbedReque
 	}, nil
 }
 
+func (s *stubLanguageModelServer) Gradient(ctx context.Context, in *lmpb.GradientRequest) (*lmpb.GradientResponse, error) {
+
+	return &lmpb.GradientResponse{
+		Score: []float64{float64(len(in.GetPrefix())) * 0.2},
+		Gradients: map[string]*lmpb.GradientResponse_Gradient{
+			"gradient": &lmpb.GradientResponse_Gradient{
+				Values: []float64{float64(len(in.GetSuffix())) * 0.8},
+			},
+		},
+	}, nil
+}
+
 type stubVisionModelServer struct{}
 
 func (s *stubVisionModelServer) Classify(ctx context.Context, in *vmpb.ClassifyRequest) (*vmpb.ClassifyResponse, error) {

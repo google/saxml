@@ -44,6 +44,8 @@ class LmService(model_service_base.ModelService):
       return request.text
     if method_name == LMMethodName.EMBED:
       return request.text
+    if method_name == LMMethodName.GRADIENT:
+      return (request.prefix or '', request.suffix or '')
     raise NotImplementedError(f'Method {method_name} unimplemented.')
 
   def FillRPCResponse(
@@ -76,6 +78,20 @@ class LmService(model_service_base.ModelService):
             'EMBED does not support returned '
             f'embeddings of type {embeddings.dtype}.'
         )
+      return
+    if method_name == LMMethodName.GRADIENT:
+      for k, v in method_outputs.items():
+        if k == 'scores':
+          if isinstance(v, Iterable):
+            response.score.extend(v)
+          else:
+            response.score.append(v)
+        else:
+          gradient = response.gradients.get_or_create(k)
+          if isinstance(v, Iterable):
+            gradient.values.extend(v)
+          else:
+            gradient.values.append(v)
       return
 
     raise NotImplementedError(f'Method {method_name} unimplemented.')
@@ -139,5 +155,12 @@ class LmServiceGRPC(
     resp = lm_pb2.EmbedResponse()
     await self.EnqueueRequest(
         LMMethodName.EMBED, request.model_key, context, request, resp
+    )
+    return resp
+
+  async def Gradient(self, request, context):
+    resp = lm_pb2.GradientResponse()
+    await self.EnqueueRequest(
+        LMMethodName.GRADIENT, request.model_key, context, request, resp
     )
     return resp

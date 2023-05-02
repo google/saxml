@@ -68,6 +68,14 @@ func arrayToString(arr []float64) string {
 	return buffer.String()
 }
 
+// Turns a array of float64 into a string with good precision, up to a certain number of values.
+func arrayToStringWithLimit(arr []float64, limit int) string {
+	if len(arr) > limit {
+		return arrayToString(arr[:limit]) + ", ..."
+	}
+	return arrayToString(arr)
+}
+
 func formatFloat(val float64) string {
 	return strconv.FormatFloat(val, 'G', 8, 64)
 }
