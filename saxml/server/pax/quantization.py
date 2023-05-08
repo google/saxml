@@ -39,7 +39,6 @@ ready.
 import functools
 
 from jax import numpy as jnp
-from praxis import layers
 from praxis.layers.quantization import quantization_hparams
 from praxis.layers.quantization import quantize
 
@@ -74,13 +73,11 @@ def for_transformer(
     linear_only: Quantize only the linear layers.
     use_symmetric: use symmetric weight quantization.
     quantize_embedding_softmax: If true, Quantize embedding table of embedding
-      softmax layer. Regardless of `target` argument, this results in rewriting
-      TransformerLm.softmax_tpl in `config`.
+      softmax layer.
     transposed_embedding_softmax: If the model is using transposed embedding for
       embedding softmax layer.
-    quantize_ngrammer_embedding: If true, Quantize embedding table of each
-      embedding in Ngrammer/VQNgrammer layer. Regardless of `target` argument,
-      this results in rewriting TransformerLm.ngrammer_tpl in `config`.
+    quantize_ngrammer_embedding: Quantize embedding table of each embedding in
+      Ngrammer/VQNgrammer layer.
     dtype: Dtype of the quantized variables.
 
   Returns:
@@ -110,7 +107,6 @@ def for_transformer(
         assert num_bits == 8 or num_bits == 4
         quantize.set_quantization(
             task_p.model,
-            layers.transformers.Transformer,
             quantization_type,
             mode=mode,
             num_bits=num_bits,

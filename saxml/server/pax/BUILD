@@ -98,7 +98,6 @@ pytype_strict_library(
     srcs = ["quantization.py"],
     deps = [
         "//third_party/py/jax",
-        "//third_party/py/praxis/layers",
         "//third_party/py/praxis/layers/quantization:quantization_hparams",
         "//third_party/py/praxis/layers/quantization:quantize",
     ],
