@@ -108,6 +108,10 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
     include_eos_score: whether to add EOS score to the result.
     output_embedding_name: The name of the embedding to use from the model's
       outputs.  Required.
+    output_padding_name: The name of padding to use from the model's
+      outputs. This is used when output embedding has a variable length.
+      For example, returning embeddings of all tokens in a sequence, rather than
+      pooling one embedding out.
     model_method_name: The name of the method to call to extract embeddings from
       an input image.  Required.
   """
@@ -116,6 +120,7 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
   max_suffix_seq_len: int = 1
   include_eos_score: bool = False
   output_embedding_name: Optional[str] = None
+  output_padding_name: Optional[str] = None
   model_method_name: Optional[str] = None
 
 
@@ -909,11 +914,21 @@ class TextToEmbedding(servable_model.ServableMethod):
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
   ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
-    return py_utils.NestedMap(
-        text_embedding=model_fn_outputs[0][
-            self._text_to_embedding_hparams.output_embedding_name
-        ],
-    )
+    if not self._text_to_embedding_hparams.output_padding_name:
+      return py_utils.NestedMap(
+          text_embedding=model_fn_outputs[0][
+              self._text_to_embedding_hparams.output_embedding_name
+          ],
+      )
+    else:
+      return py_utils.NestedMap(
+          text_embedding=model_fn_outputs[0][
+              self._text_to_embedding_hparams.output_embedding_name
+          ],
+          padding=model_fn_outputs[0][
+              self._text_to_embedding_hparams.output_padding_name
+          ],
+      )
 
   def pre_processing(self, raw_inputs: List[str]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
@@ -960,7 +975,15 @@ class TextToEmbedding(servable_model.ServableMethod):
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
-    return list(compute_outputs['text_embedding'])
+    if self._text_to_embedding_hparams.output_padding_name:
+      paddings = compute_outputs['padding']  # [batch==1, max_seq_len]
+      assert paddings.shape[0] == 1  # only supports batch_size == 1
+      emb = compute_outputs['text_embedding']  # [batch==1, max_seq_len, dim]
+      lengths = np.sum(1 - paddings, dtype=jnp.int32)  # Assume 1 is for pad
+      emb_no_pad = emb[0, :lengths, :]  # [actual_seq_len, dim]
+      return [emb_no_pad]
+    else:
+      return list(compute_outputs['text_embedding'])
 
 
 class LMGradientMethod(ServableLMMethod):
