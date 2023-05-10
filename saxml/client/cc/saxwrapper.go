@@ -88,9 +88,9 @@ func buildReturnValues(outValueData **C.char, outValueSize *C.int, outErrMsgData
 
 // createContextWithTimeout creates a timeout context if "timeout" is positive.
 func createContextWithTimeout(timeout C.float) (context.Context, context.CancelFunc) {
-	numSeconds := float32(timeout)
+	numSeconds := float64(timeout)
 	if numSeconds > 0.0 {
-		return context.WithTimeout(context.Background(), time.Duration(numSeconds)*time.Second)
+		return context.WithTimeout(context.Background(), time.Duration(numSeconds*float64(time.Second)))
 	}
 	return context.Background(), nil
 }
