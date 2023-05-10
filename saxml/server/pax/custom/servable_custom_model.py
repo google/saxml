@@ -14,6 +14,7 @@
 """Wraps a model with custom service APIs."""
 
 import abc
+import dataclasses
 from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple
 import numpy as np
 
@@ -99,6 +100,7 @@ class CustomMethodName:
   CUSTOM = 'custom'
 
 
+@dataclasses.dataclass
 class CustomCallHParams(servable_model_params.ServableMethodParams):
   """HParameters for a custom call method.
 

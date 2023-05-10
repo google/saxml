@@ -14,6 +14,7 @@
 """Wraps a model with LMService APIs."""
 
 import abc
+import dataclasses
 import functools
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
@@ -52,6 +53,7 @@ InputShapeInfo = servable_lm_common.InputShapeInfo
 decode_tf_post_processing = servable_lm_common.decode_tf_post_processing
 
 
+@dataclasses.dataclass
 class ScoreHParams(servable_model_params.ServableMethodParams):
   """HParameters for LM score method.
 
@@ -69,6 +71,7 @@ class ScoreHParams(servable_model_params.ServableMethodParams):
   fetch_prefix_lengths_from_inputs: bool = False
 
 
+@dataclasses.dataclass
 class DecodeHParams(servable_model_params.ServableMethodParams):
   """HParameters for LM sample decode method.
 
@@ -96,6 +99,7 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
   output_avg_entropy_score: bool = False
 
 
+@dataclasses.dataclass
 class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
   """HParameters for TextToEmbedding method.
 
@@ -124,6 +128,7 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
   model_method_name: Optional[str] = None
 
 
+@dataclasses.dataclass
 class GradientHParams(servable_model_params.ServableMethodParams):
   """HParameters for LM gradient method.
 

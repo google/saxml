@@ -14,6 +14,7 @@
 """Base class for servable model configs."""
 
 import abc
+import dataclasses
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from absl import logging
 
@@ -22,7 +23,6 @@ from jax.experimental import mesh_utils
 import numpy as np
 from paxml import base_experiment
 from paxml import checkpoints
-from praxis import base_hyperparams
 from praxis import py_utils
 from praxis.layers.quantization import quantization_hparams
 from saxml.server import servable_model_params
@@ -138,9 +138,8 @@ class ServableModelParams(
 ServableModelParamsT = Type[ServableModelParams]
 
 
-class ServableMethodParams(
-    base_hyperparams.BaseHyperParams, servable_model_params.ServableMethodParams
-):
+@dataclasses.dataclass
+class ServableMethodParams(servable_model_params.ServableMethodParams):
   """A base config class for a method.
 
   Attributes:

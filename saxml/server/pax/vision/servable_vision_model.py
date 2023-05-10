@@ -14,6 +14,7 @@
 """Wraps a model with VisionService APIs."""
 
 import copy
+import dataclasses
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from jax import numpy as jnp
 from lingvo.core import cluster_factory
@@ -44,6 +45,7 @@ NpTensor = pytypes.NpTensor
 VisionMethodName = vision_service.VisionMethodName
 
 
+@dataclasses.dataclass
 class ClassifyHParams(servable_model_params.ServableMethodParams):
   """HParameters for Classification method.
 
@@ -54,6 +56,7 @@ class ClassifyHParams(servable_model_params.ServableMethodParams):
   top_k: int = 0
 
 
+@dataclasses.dataclass
 class TextToImageHParams(servable_model_params.ServableMethodParams):
   """HParameters for TextToImage method.
 
@@ -87,6 +90,7 @@ class TextToImageHParams(servable_model_params.ServableMethodParams):
   tf_input_tokenized: bool = False
 
 
+@dataclasses.dataclass
 class TextAndImageToImageHParams(TextToImageHParams):
   """HParameters for text+image to image method.
 
@@ -100,6 +104,7 @@ class TextAndImageToImageHParams(TextToImageHParams):
   image_preprocessor: Optional[Callable[[str], tf.Tensor]] = None
 
 
+@dataclasses.dataclass
 class EmbedHParams(servable_model_params.ServableMethodParams):
   """HParameters for Embed method.
 
@@ -117,6 +122,7 @@ class EmbedHParams(servable_model_params.ServableMethodParams):
   output_embedding_name: Optional[str] = None
 
 
+@dataclasses.dataclass
 class DetectHParams(servable_model_params.ServableMethodParams):
   """HParameters for Detect method.
 
@@ -131,6 +137,7 @@ class DetectHParams(servable_model_params.ServableMethodParams):
   model_method_name: Optional[str] = None
 
 
+@dataclasses.dataclass
 class ImageToTextHParams(servable_model_params.ServableMethodParams):
   """HParameters for ImageToText method.
 
@@ -142,6 +149,7 @@ class ImageToTextHParams(servable_model_params.ServableMethodParams):
   model_method_name: Optional[str] = None
 
 
+@dataclasses.dataclass
 class VideoToTextHParams(servable_model_params.ServableMethodParams):
   """HParameters for VideoToText method.
 

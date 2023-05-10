@@ -59,7 +59,6 @@ pytype_strict_library(
         "//third_party/py/numpy",
         "//third_party/py/paxml:base_experiment",
         "//third_party/py/paxml:checkpoints",
-        "//third_party/py/praxis:base_hyperparams",
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis/layers/quantization:quantization_hparams",
     ],
