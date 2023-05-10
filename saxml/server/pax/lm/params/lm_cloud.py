@@ -28,6 +28,7 @@ from praxis.layers import activations
 
 from saxml.server import servable_model_registry
 from saxml.server.pax import quantization
+from saxml.server.pax.lm.layers import LLaMARotaryEmbedding
 from saxml.server.pax.lm.params import template
 
 
@@ -121,9 +122,14 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     transformer_layer_p.norm_policy = 'pre'
     transformer_layer_p.ln_tpl = ln_tpl.clone()
     transformer_layer_p.tr_atten_tpl.internal_enable_per_dim_scale = False
-    transformer_layer_p.tr_atten_tpl.internal_enable_query_scale = True
+    transformer_layer_p.tr_atten_tpl.internal_enable_query_scale = False
     transformer_layer_p.tr_atten_tpl.use_bias = False
     transformer_layer_p.tr_atten_tpl.combine_qkv = self.COMBINE_QKV
+    transformer_layer_p.tr_atten_tpl.rotary_position_emb_tpl = (
+        pax_fiddle.Config(LLaMARotaryEmbedding)
+    )
+    transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
+
     transformer_layer_p.tr_fflayer_tpl.has_bias = False
     transformer_layer_p.tr_fflayer_tpl.ln_tpl = ln_tpl.clone()
     transformer_layer_p.tr_fflayer_tpl.activation_tpl = pax_fiddle.Config(
@@ -132,7 +138,6 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     transformer_layer_p.tr_fflayer_tpl.use_gated_activation = (
         self.USE_GATED_ACTIVATION
     )
-    transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
 
     model_p.lm_tpl.stacked_transformer_tpl = stacked_transformer_tpl
 

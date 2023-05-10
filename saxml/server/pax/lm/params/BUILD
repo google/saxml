@@ -42,6 +42,7 @@ pytype_strict_library(
         ":template",
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax:quantization",
+        "//saxml/server/pax/lm:layers",
         "//third_party/py/jax",
         "//third_party/py/paxml:base_experiment",
         "//third_party/py/paxml:tasks_lib",

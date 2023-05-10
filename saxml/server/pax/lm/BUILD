@@ -60,6 +60,7 @@ pytype_strict_library(
     deps = [
         "//saxml/server/pax:branch_selection",
         "//saxml/server/pax:servable_model",
+        "//third_party/py/absl-py/logging",
         "//third_party/py/jax",
         "//third_party/py/numpy",
         "//third_party/py/praxis:py_utils",
@@ -109,5 +110,15 @@ pytype_strict_library(
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis:pytypes",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
+    ],
+)
+
+pytype_strict_library(
+    name = "layers",
+    srcs = ["layers.py"],
+    deps = [
+        "//third_party/py/jax",
+        "//third_party/py/praxis:pytypes",
+        "//third_party/py/praxis/layers:embedding_softmax",
     ],
 )
