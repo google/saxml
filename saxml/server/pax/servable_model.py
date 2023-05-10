@@ -261,6 +261,7 @@ class ServableMethod(servable_model.ServableMethod):
       ):
         # Convert bfloat16 back to float32.
         def maybe_to_float32(x):
+          x = jnp.asarray(x)
           if x.dtype == jnp.bfloat16:
             return x.astype(jnp.float32)
           return x
