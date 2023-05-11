@@ -30,7 +30,6 @@ pytype_strict_library(
     name = "lm_tokenizer",
     srcs = ["lm_tokenizer.py"],
     srcs_version = "PY3",
-    visibility = ["//visibility:public"],
     deps = [
         "//third_party/py/praxis:base_hyperparams",
         "//third_party/py/seqio",
@@ -56,7 +55,6 @@ pytype_strict_library(
     name = "servable_lm_common",
     srcs = ["servable_lm_common.py"],
     srcs_version = "PY3",
-    visibility = ["//visibility:public"],
     deps = [
         "//saxml/server/pax:branch_selection",
         "//saxml/server/pax:servable_model",
@@ -91,7 +89,10 @@ pytype_strict_library(
     name = "servable_lm_model",
     srcs = ["servable_lm_model.py"],
     srcs_version = "PY3",
-    visibility = ["//visibility:public"],
+    visibility = [
+        "//saxml:internal",
+        "//saxml/server:users",
+    ],
     deps = [
         ":lm_tokenizer",
         ":servable_lm_common",
