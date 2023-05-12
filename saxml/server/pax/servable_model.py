@@ -21,7 +21,7 @@ from flax.training import checkpoints as flax_checkpoints
 import jax
 from jax import numpy as jnp
 from jax.experimental import pjit
-from jax.experimental.gda_serialization.serialization import GlobalAsyncCheckpointManager
+from jax.experimental.array_serialization.serialization import GlobalAsyncCheckpointManager
 import numpy as np
 from paxml import checkpoints
 from paxml import tasks_lib

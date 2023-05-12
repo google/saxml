@@ -76,7 +76,7 @@ pytype_strict_library(
         "//third_party/py/etils/epath",
         "//third_party/py/flax/training:checkpoints",
         "//third_party/py/jax",
-        "//third_party/py/jax/experimental/gda_serialization:serialization",
+        "//third_party/py/jax/experimental/array_serialization:serialization",
         "//third_party/py/numpy",
         "//third_party/py/paxml:checkpoints",
         "//third_party/py/paxml:tasks_lib",
