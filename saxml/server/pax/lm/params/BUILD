@@ -12,9 +12,15 @@ package(
     ],
 )
 
+filegroup(
+    name = "test_model",
+    srcs = ["test_model.model"],
+)
+
 pytype_strict_library(
     name = "template",
     srcs = ["template.py"],
+    data = [":test_model"],
     srcs_version = "PY3",
     deps = [
         "//saxml/server:servable_model_registry",

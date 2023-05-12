@@ -12,20 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Serving model parameters for lm_cloud."""
+
+import os
 from typing import cast, List
 
 from jax import numpy as jnp
 from paxml import base_experiment
 from paxml import tasks_lib
 from paxml.tasks.lm.params import lm_cloud
-
 from praxis import base_input
 from praxis import layers
 from praxis import optimizers
 from praxis import pax_fiddle
 from praxis import schedules
 from praxis.layers import activations
-
 from saxml.server import servable_model_registry
 from saxml.server.pax import quantization
 from saxml.server.pax.lm.layers import LLaMARotaryEmbedding
@@ -301,7 +301,7 @@ class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B):
   """
   # pylint: enable=line-too-long
 
-  SPM_MODEL = 'gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model'
+  SPM_MODEL = os.path.join(os.path.dirname(__file__), 'test_model.model')
   ICI_MESH_SHAPE = [1, 1, 4]
   FPROP_FOR_PREFIX = True
   BATCH_SIZE = 1
@@ -312,6 +312,17 @@ class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B):
 @servable_model_registry.register
 class LmCloudSpmd2BTest(LmCloudSpmd2B):
   """Servable config on 1x1x4 in test mode."""
+
+  @property
+  def test_mode(self) -> bool:
+    return True
+
+
+@servable_model_registry.register
+class LmCloudSpmd2BMultiHostTest(LmCloudSpmd2B):
+  """Servable config on 1x1x16 in test mode."""
+
+  ICI_MESH_SHAPE = [1, 1, 16]
 
   @property
   def test_mode(self) -> bool:
@@ -336,8 +347,6 @@ class LmCloudSpmd175B(LmCloudSpmd2B):
 
   BATCH_SIZE = 1
   NUM_SAMPLES = 1
-  ENABLE_GENERATE_STREAM = True
-  STREAM_INTERVAL_STEPS = 16
   FPROP_FOR_PREFIX = True
   INPUT_SEQ_LEN = 128  # 4096
   BUCKET_KEYS = None  # [128, 1024, 4096]
@@ -348,6 +357,11 @@ class LmCloudSpmd175B(LmCloudSpmd2B):
       'per_example_top_k': 200,
       'per_example_top_p': 0.95,
   }
+
+
+@servable_model_registry.register
+class LmCloudSpmd175BTest(LmCloudSpmd175B):
+  """175B on TPU v4-32 in test mode."""
 
   @property
   def test_mode(self) -> bool:

@@ -1,6 +1,13 @@
+# Release 0.2.1
+
+## Bug Fixes
+
+*   Fixed multi-host TPU models.
+*   Fixed single-host GPU models.
+
 # Release 0.2.0
 
-# Major Features and Improvements
+## Major Features and Improvements
 
 *   Google Cloud GPU support.
 *   Model quantization.
@@ -11,7 +18,7 @@
 
 # Release 0.1.0
 
-# Major Features and Improvements
+## Major Features and Improvements
 
 *   A Pax model server that supports Google Cloud TPU slice serving.
 *   An admin server that manages model servers.

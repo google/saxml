@@ -144,8 +144,8 @@ def clean_py_deps(deps):
             cleaned.append(requirement(pkg))
     return cleaned
 
-def pytype_strict_library(name, srcs = [], deps = [], pybind_deps = [], **kwargs):
-    data = []
+def pytype_strict_library(name, srcs = [], deps = [], pybind_deps = [], data = None, **kwargs):
+    data = [] if data == None else data
     for pybind_dep in pybind_deps:
         data.append(pybind_dep + ".so")
     native.py_library(name = name, srcs = srcs, deps = clean_py_deps(deps), data = data, **kwargs)
