@@ -81,6 +81,7 @@ class CommonServingTemplate:
   TEXT_TO_EMBEDDING_MAX_LIVE_BATCHES = 1
   TEXT_TO_EMBEDDING_OUTPUT_EMBEDDING_NAME = None
   TEXT_TO_EMBEDDING_MODEL_METHOD_NAME = None
+  GENERATION_USE_GEOMEAN_PROB_SCORE = False
 
   def input_for_model_init(self) -> py_utils.NestedMap:
     batch_size = self.BATCH_SIZE
@@ -213,6 +214,7 @@ class ServingTemplate(
         extra_inputs=self.EXTRA_INPUTS,
         extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
         fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
+        output_geometric_mean_prob_score=self.GENERATION_USE_GEOMEAN_PROB_SCORE,
     )
 
   def generate_stream(self) -> Optional[servable_lm_model.DecodeHParams]:
