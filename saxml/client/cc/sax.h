@@ -38,7 +38,7 @@ struct Options {
 class ModelOptions {
  public:
   ModelOptions() = default;
-  ModelOptions(const ModelOptions&) = delete;
+  ModelOptions(const ModelOptions&) = default;
   ModelOptions& operator=(const ModelOptions&) = delete;
 
   // Set time out (in seconds) for the query.

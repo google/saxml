@@ -29,6 +29,7 @@ using AMAsrHyp = AudioModel::AsrHyp;
 using LMScoredText = LanguageModel::ScoredText;
 using VMScoredText = VisionModel::ScoredText;
 using ::proto2::contrib::parse_proto::ParseTextProtoOrDie;
+using ::testing::Eq;
 using ::testing::EqualsProto;
 
 TEST(InvalidFormatSaxModel, ReturnsErrors) {
@@ -81,6 +82,25 @@ TEST(TestFromProtoToProto, Valid) {
   options.ToProto(&result);
   EXPECT_THAT(result, EqualsProto(expected));
 }
+
+TEST(SaxModelOptions, Copy) {
+  ModelOptions options;
+  options.SetExtraInput("temperature", 0.1);
+  options.SetExtraInput("per_example_max_decode_steps", 32);
+  options.SetExtraInput("per_example_top_k", 10);
+  options.SetTimeout(17);
+
+  ModelOptions other_options(options);
+
+  ExtraInputs proto_options;
+  ExtraInputs proto_other_options;
+  options.ToProto(&proto_options);
+  other_options.ToProto(&proto_other_options);
+
+  EXPECT_THAT(proto_other_options, EqualsProto(proto_options));
+  EXPECT_THAT(other_options.GetTimeout(), Eq(options.GetTimeout()));
+}
+
 }  // namespace
 }  // namespace client
 }  // namespace sax
