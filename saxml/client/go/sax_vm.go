@@ -242,6 +242,43 @@ func (v *VisionModel) ImageToText(ctx context.Context, imageBytes []byte, text s
 	return res, nil
 }
 
+// ImageToImageResult is a tuple of image and score as the result for image-to-image operation.
+type ImageToImageResult struct {
+	Image []byte
+	Score float64
+}
+
+func extractImageToImageResponse(res *pb.ImageToImageResponse) []ImageToImageResult {
+	var result []ImageToImageResult
+	for _, one := range res.GetImages() {
+		candidate := ImageToImageResult{Image: one.GetImage(), Score: one.GetScore()}
+		result = append(result, candidate)
+	}
+	return result
+}
+
+// ImageToImage returns images for a serialized image (`imageBytes`) against a vision model.
+func (v *VisionModel) ImageToImage(ctx context.Context, imageBytes []byte, options ...ModelOptionSetter) ([]ImageToImageResult, error) {
+	opts := NewModelOptions(options...)
+	req := &pb.ImageToImageRequest{
+		ModelKey:    v.model.modelID,
+		ImageBytes:  imageBytes,
+		ExtraInputs: opts.ExtraInputs(),
+	}
+
+	var resp *pb.ImageToImageResponse
+	err := v.model.run(ctx, "ImageToImage", func(conn *grpc.ClientConn) error {
+		var ImageToImageErr error
+		resp, ImageToImageErr = pbgrpc.NewVisionServiceClient(conn).ImageToImage(ctx, req)
+		return ImageToImageErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	res := extractImageToImageResponse(resp)
+	return res, nil
+}
+
 // VideoToTextResult is a tuple of text and score as the result for video-to-text operation.
 type VideoToTextResult struct {
 	Text  string

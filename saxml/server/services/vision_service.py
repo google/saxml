@@ -30,6 +30,7 @@ class VisionMethodName:
   EMBED = 'vm.embed'
   DETECT = 'vm.detect'
   IMAGE_TO_TEXT = 'vm.image_to_text'
+  IMAGE_TO_IMAGE = 'vm.image_to_image'
   VIDEO_TO_TEXT = 'vm.video_to_text'
 
 
@@ -57,6 +58,10 @@ class VisionService(model_service_base.ModelService):
       return {
           'image_bytes': np.array(request.image_bytes, dtype=object),
           'text': np.array(request.text),
+      }
+    if method_name == VisionMethodName.IMAGE_TO_IMAGE:
+      return {
+          'image_bytes': request.image_bytes,
       }
     if method_name == VisionMethodName.VIDEO_TO_TEXT:
       return {
@@ -108,6 +113,13 @@ class VisionService(model_service_base.ModelService):
       texts, scores = method_outputs
       for text, score in zip(texts, scores):
         response.texts.append(vision_pb2.DecodedText(text=text, score=score))
+      return
+    if method_name == VisionMethodName.IMAGE_TO_IMAGE:
+      images, scores = method_outputs
+      for image, score in zip(images, scores):
+        response.images.append(
+            vision_pb2.ImageGenerations(image=image, score=score)
+        )
       return
     if method_name == VisionMethodName.VIDEO_TO_TEXT:
       texts, scores = method_outputs
@@ -178,6 +190,17 @@ class VisionServiceGRPC(
     resp = vision_pb2.ImageToTextResponse()
     await self.EnqueueRequest(
         VisionMethodName.IMAGE_TO_TEXT,
+        request.model_key,
+        context,
+        request,
+        resp,
+    )
+    return resp
+
+  async def ImageToImage(self, request, context):
+    resp = vision_pb2.ImageToImageResponse()
+    await self.EnqueueRequest(
+        VisionMethodName.IMAGE_TO_IMAGE,
         request.model_key,
         context,
         request,

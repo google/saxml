@@ -56,6 +56,7 @@ var (
 		"vm.embed":                  {},
 		"vm.detect":                 {},
 		"vm.image_to_text":          {},
+		"vm.image_to_image":         {},
 		"vm.text_and_image_to_text": {},
 		"vm.video_to_text":          {},
 	}

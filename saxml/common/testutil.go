@@ -471,6 +471,22 @@ func (s *stubVisionModelServer) TextAndImageToImage(ctx context.Context, in *vmp
 	}, nil
 }
 
+func (s *stubVisionModelServer) ImageToImage(ctx context.Context, in *vmpb.ImageToImageRequest) (*vmpb.ImageToImageResponse, error) {
+	image := string(in.GetImageBytes())
+	return &vmpb.ImageToImageResponse{
+		Images: []*vmpb.ImageGenerations{
+			&vmpb.ImageGenerations{
+				Image: []byte(image + "_3"),
+				Score: float64(len(image)) * 0.3,
+			},
+			&vmpb.ImageGenerations{
+				Image: []byte(image + "_4"),
+				Score: float64(len(image)) * 0.4,
+			},
+		},
+	}, nil
+}
+
 func (s *stubVisionModelServer) Embed(ctx context.Context, in *vmpb.EmbedRequest) (*vmpb.EmbedResponse, error) {
 	value := float64(len(in.GetImageBytes()))
 	return &vmpb.EmbedResponse{

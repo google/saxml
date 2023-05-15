@@ -386,6 +386,16 @@ class VisionModel {
                            absl::string_view text,
                            std::vector<ScoredText>* result) const;
 
+  // ImageToImage produces a list of images and scores given 'image_bytes'.
+  //
+  // On success, returns OK and fills in images and their scores computed by
+  // the model.  Otherwise, returns an error.
+  absl::Status ImageToImage(absl::string_view image_bytes,
+                           std::vector<GeneratedImage>* result) const;
+  absl::Status ImageToImage(const ModelOptions& options,
+                           absl::string_view image_bytes,
+                           std::vector<GeneratedImage>* result) const;
+
   // VideoToText produces a list of captions and scores given 'image_frames'
   // and an optional prefix 'text'
   //

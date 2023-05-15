@@ -316,6 +316,25 @@ VisionModel::TextAndImageToImage(absl::string_view text,
   return result;
 }
 
+absl::StatusOr<std::vector<std::pair<pybind11::bytes, double>>>
+VisionModel::ImageToImage(absl::string_view image,
+                          const ModelOptions* options) const {
+  if (!status_.ok()) return status_;
+  std::vector<::sax::client::VisionModel::GeneratedImage> images;
+  {
+    pybind11::gil_scoped_release release;
+    RETURN_IF_ERROR(model_->ImageToImage(image, &images));
+  }
+  // NOTE: pybind11::bytes must be called within GIL.
+  std::vector<std::pair<pybind11::bytes, double>> result;
+  for (size_t i = 0; i < images.size(); i++) {
+    auto& item = images[i];
+    result.push_back(
+        std::make_pair(pybind11::bytes(std::move(item.image)), item.score));
+  }
+  return result;
+}
+
 absl::StatusOr<std::vector<double>> VisionModel::Embed(
     absl::string_view image, const ModelOptions* options) const {
   if (!status_.ok()) return status_;

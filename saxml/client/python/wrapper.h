@@ -154,6 +154,12 @@ class VisionModel {
   TextAndImageToImage(absl::string_view text, absl::string_view image_bytes,
                       const ModelOptions* options = nullptr) const;
 
+  // ImageToImage produces a list of images and scores given the 'image'.
+  //
+  // It uses pair/tuple to avoid another wrapping for return type.
+  absl::StatusOr<std::vector<std::pair<pybind11::bytes, double>>> ImageToImage(
+      absl::string_view image, const ModelOptions* options = nullptr) const;
+
   // Run embedding on the given image.
   absl::StatusOr<std::vector<double>> Embed(
       absl::string_view image, const ModelOptions* options = nullptr) const;

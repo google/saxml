@@ -127,6 +127,16 @@ message ImageToTextResponse {
   repeated DecodedText texts = 1;
 }
 
+message ImageToImageRequest {
+  string model_key = 1;
+  bytes image_bytes = 2;
+  .sax.ExtraInputs extra_inputs = 4;
+}
+
+message ImageToImageResponse {
+  repeated ImageGenerations images = 2;
+}
+
 message VideoToTextRequest {
   string model_key = 1;
   repeated bytes image_frames = 2;
@@ -159,6 +169,9 @@ service VisionService {
 
   // Returns text generation results given image_bytes.
   rpc ImageToText(ImageToTextRequest) returns (ImageToTextResponse);
+
+  // Returns image generation results given image_bytes.
+  rpc ImageToImage(ImageToImageRequest) returns (ImageToImageResponse);
 
   // Returns text generation results given video.
   rpc VideoToText(VideoToTextRequest) returns (VideoToTextResponse);

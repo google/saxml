@@ -158,6 +158,15 @@ PYBIND11_MODULE(sax, m) {
           },
           py::arg("text"), py::arg("image_bytes"), py::arg("options") = nullptr)
       .def(
+          "ImageToImage",
+          [](sax::client::pybind::VisionModel& vm, absl::string_view image,
+             const sax::client::ModelOptions* options)
+              -> absl::StatusOr<
+                  std::vector<std::pair<pybind11::bytes, double>>> {
+            return vm.ImageToImage(image, options);
+          },
+          py::arg("text"), py::arg("options") = nullptr)
+      .def(
           "Embed",
           [](sax::client::pybind::VisionModel& vm, absl::string_view image,
              const sax::client::ModelOptions* options)
