@@ -67,6 +67,9 @@ type Env interface {
 	// Init initializes the platform, such as parsing command line flags, in non-test binaries.
 	Init(ctx context.Context)
 
+	// InTest returns whether the process is running in a test.
+	InTest(ctx context.Context) bool
+
 	// ReadFile reads the content of a file.
 	ReadFile(ctx context.Context, path string) ([]byte, error)
 	// ReadFile reads the content of a file, caching the result on repeated reads if possible.
