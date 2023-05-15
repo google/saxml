@@ -25,10 +25,26 @@ PYBIND11_MODULE(sax, m) {
   py::google::ImportStatusModule();
   py::class_<sax::client::Options>(m, "Options")
       .def(py::init<>())
+      .def("__copy__",
+           [](const sax::client::Options& self) {
+             return sax::client::Options(self);
+           })
+      .def("__deepcopy__",
+           [](sax::client::Options& self, py::dict) {
+             return sax::client::Options(self);
+           })
       .def_readwrite("num_conn", &sax::client::Options::num_conn);
 
   py::class_<sax::client::ModelOptions>(m, "ModelOptions")
       .def(py::init<>())
+      .def("__copy__",
+           [](const sax::client::ModelOptions& self) {
+             return sax::client::ModelOptions(self);
+           })
+      .def("__deepcopy__",
+           [](sax::client::ModelOptions& self, py::dict) {
+             return sax::client::ModelOptions(self);
+           })
       .def("SetExtraInput", &sax::client::ModelOptions::SetExtraInput)
       .def("SetExtraInputTensor",
            &sax::client::ModelOptions::SetExtraInputTensor)
