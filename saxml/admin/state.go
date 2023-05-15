@@ -430,7 +430,7 @@ func (s *State) Start(ctx context.Context, modelFinder ModelFinder) error {
 				return
 			case t := <-s.ticker.C:
 				if err := s.Refresh(context.TODO()); err != nil {
-					log.Warningf("Failed to refresh model server state: %v", err)
+					log.Warningf("Failed to refresh model server (%s) state: %v", s.Addr, err)
 				} else {
 					log.V(3).Infof("Refreshed model server state at %v", t)
 				}
