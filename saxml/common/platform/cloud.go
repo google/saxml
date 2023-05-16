@@ -189,11 +189,6 @@ func (e *Env) Init(ctx context.Context) {
 	flag.Parse()
 }
 
-// InTest returns whether the process is running in a test.
-func (e *Env) InTest(ctx context.Context) bool {
-	return strings.Contains(os.Args[0], "_test")
-}
-
 // ReadFile reads the content of a file.
 func (e *Env) ReadFile(ctx context.Context, path string) ([]byte, error) {
 	if strings.HasPrefix(path, gcsPathPrefix) {
@@ -287,7 +282,7 @@ func (e *Env) FileExists(ctx context.Context, path string) (bool, error) {
 // On Cloud, this can be either a local file system path (e.g. /home/user/sax-root/) or a Google
 // Cloud Storage URL (e.g. gs://bucket/sax-root/). Note the trailing slash is required.
 func (e *Env) RootDir(ctx context.Context) string {
-	if e.InTest(ctx) {
+	if strings.Contains(os.Args[0], "_test") {
 		return testRoot
 	}
 	if *saxRoot != "" {
