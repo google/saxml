@@ -17,7 +17,7 @@ go_library(
         "sax_save.go",
         "sax_vm.go",
     ],
-    visibility = ["//saxml:internal"],
+    visibility = ["//visibility:public"],
     deps = [
         ":connection",
         ":location",
