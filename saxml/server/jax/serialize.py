@@ -130,7 +130,6 @@ def deserialize_pjitted_function(
         host_callbacks=[],
         keepalive=[],
         kept_var_idx=set(range(num_ins)),
-        mesh=None,
         backend=backend,
         device_assignment=devices,
         committed=True,
