@@ -1,0 +1,2 @@
+# Please follow go/thirdparty/documentation#owners (and remove this comment).# For cleanup changes from JAX because SAX uses some internal APIs of JAX.
+suggest-reviewers-ignore: file: //depot/google3/third_party/py/jax/OWNERS
