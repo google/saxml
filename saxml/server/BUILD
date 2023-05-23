@@ -75,7 +75,18 @@ pytype_strict_library(
     srcs_version = "PY3",
     deps = [
         ":utils",
+        "//third_party/py/absl-py/logging",
         "//third_party/py/numpy",
+    ],
+)
+
+py_strict_test(
+    name = "servable_model_params_test",
+    srcs = ["servable_model_params_test.py"],
+    deps = [
+        ":servable_model_params",
+        "//testing/pybase",
+        "//third_party/py/mock",
     ],
 )
 

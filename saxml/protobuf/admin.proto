@@ -81,6 +81,10 @@ message Model {
   // The content is up to the implementation to interpret, but in general it is
   // a group name.
   string admin_acl = 6;
+
+  // model config overrides, e.g.
+  // BATCH_SIZE: 1
+  map<string, string> overrides = 7;
 }
 
 // The state of a published model.

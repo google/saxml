@@ -18,6 +18,7 @@ import asyncio
 import copy
 import dataclasses
 import functools
+import json
 import queue
 import threading
 import time
@@ -427,6 +428,7 @@ class LoadedModelManager:
     self._models = {}
     # Indexed by key.
     self._model_metadata = {}
+    self._model_overrides = {}
     # Indexed by key.
     self._errors = {}
     self._primary_process_id = primary_process_id
@@ -437,6 +439,7 @@ class LoadedModelManager:
       model_path: str,
       ckpt_path: str,
       acls: Dict[str, str],
+      overrides: Dict[str, str],
       prng_key: int,
       register_methods_callback: Optional[
           Callable[[servable_model.ServableModel], None]
@@ -449,6 +452,8 @@ class LoadedModelManager:
       model_path: Path of the model in the registry.
       ckpt_path: Path of the checkpoint.
       acls: ACL names for this model's methods.
+      overrides: Overrides that can be used for dynamic reconfiguration of
+        params.
       prng_key: PRNG key for this model.
       register_methods_callback: Optional callback to initialize model methods.
 
@@ -466,9 +471,10 @@ class LoadedModelManager:
       if not issubclass(model_class, servable_model_params.ServableModelParams):
         raise ValueError(f'{model_path} is not a ServableModelParams')
       # pytype: disable=not-instantiable
-      loaded = model_class().load(
-          key, ckpt_path, self._primary_process_id, prng_key
-      )
+      params = model_class()
+      logging.info('model_service_base overrides= %s', overrides)
+      params.apply_model_overrides(overrides)
+      loaded = params.load(key, ckpt_path, self._primary_process_id, prng_key)
       # pytype: enable=not-instantiable
       loaded.set_acls(acls)
     except Exception as e:  # pylint: disable=broad-except
@@ -485,6 +491,7 @@ class LoadedModelManager:
     self._model_metadata[key] = dict(
         checkpoint_path=ckpt_path, model_path=model_path
     )
+    self._model_overrides[key] = copy.deepcopy(overrides)
     self._models[key] = loaded
     return loaded
 
@@ -525,6 +532,9 @@ class LoadedModelManager:
 
   def get_model_metadata(self, key: str) -> Mapping[str, str]:
     return self._model_metadata[key]
+
+  def get_model_overrides(self, key: str) -> Mapping[str, str]:
+    return self._model_overrides[key]
 
   def maybe_get_model(self, key: str) -> Optional[servable_model.ServableModel]:
     return self._models.get(key)
@@ -1231,6 +1241,7 @@ class ModelServicesRunner:
       model_path: str,
       checkpoint_path: str,
       acls: Dict[str, str],
+      overrides: Dict[str, str],
       prng_key: int,
   ) -> None:
     """Loads a model and initializes its methods."""
@@ -1285,7 +1296,13 @@ class ModelServicesRunner:
         )
 
     self._loaded_models.load(
-        model_key, model_path, checkpoint_path, acls, prng_key, register_methods
+        model_key,
+        model_path,
+        checkpoint_path,
+        acls,
+        overrides,
+        prng_key,
+        register_methods,
     )
 
   def _save_model(self, model_key: str, checkpoint_path: str):
@@ -1446,6 +1463,7 @@ class ModelServicesRunner:
                 model_key,
                 request.model_path,
                 request.checkpoint_path,
+                json.dumps({k: v for k, v in request.overrides.items()}),
                 str(prng_seed),
             )
             self._load_model(
@@ -1453,6 +1471,7 @@ class ModelServicesRunner:
                 request.model_path,
                 request.checkpoint_path,
                 dict(request.acls.items),
+                dict(request.overrides),
                 prng_seed,
             )
             task.done(utils.ok())
@@ -1634,7 +1653,8 @@ class ModelServicesRunner:
       msgs = self._decode_message(sync_output)
       method = msgs.pop(0)
       if method == _LOAD_METHOD_KEY:
-        model_key, model_path, ckpt_path, prng_seed = msgs
+        model_key, model_path, ckpt_path, overrides_json, prng_seed = msgs
+        overrides = json.loads(overrides_json)
         logging.info('Received load: %s', model_key)
         try:
           prng_seed = int(prng_seed)
@@ -1644,6 +1664,7 @@ class ModelServicesRunner:
                 model_path,
                 ckpt_path,
                 {},  # Empty ACLs because only the primary worker needs it.
+                overrides,
                 prng_seed,
             )
         except Exception as e:  # pylint: disable=broad-except

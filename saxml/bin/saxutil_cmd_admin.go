@@ -22,6 +22,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"flag"
@@ -223,7 +224,7 @@ func (*PublishCmd) Synopsis() string { return "publish a model" }
 
 // Usage returns the full usage of PublishCmd.
 func (*PublishCmd) Usage() string {
-	return `publish <model ID> <model path> <checkpoint path> <num of replicas>:
+	return `publish <model ID> <model path> <checkpoint path> <num of replicas> [override_key=override_val]*:
 	Publish a model using the given number of server replicas.
 `
 }
@@ -233,8 +234,8 @@ func (c *PublishCmd) SetFlags(f *flag.FlagSet) {}
 
 // Execute executes PublishCmd.
 func (c *PublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
-	if len(f.Args()) != 4 {
-		log.Errorf("Provide model ID, model path, checkpoint path, and number of replicas")
+	if len(f.Args()) < 4 {
+		log.Errorf("Provide model ID, model path, checkpoint path, and number of replicas, followed by any number of key=val overrides")
 		return subcommands.ExitUsageError
 	}
 	modelID, err := naming.NewModelFullName(f.Args()[0])
@@ -250,11 +251,21 @@ func (c *PublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) 
 		return subcommands.ExitUsageError
 	}
 
+	overrides := make(map[string]string)
+	for _, item := range f.Args()[4:] {
+		parts := strings.Split(item, "=")
+		if len(parts) != 2 {
+			log.Errorf("Overrides should be of the form key=val")
+			return subcommands.ExitUsageError
+		}
+		overrides[parts[0]] = parts[1]
+	}
+
 	admin := saxadmin.Open(modelID.CellFullName())
 
 	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
 	defer cancel()
-	if err := admin.Publish(ctx, modelID.ModelFullName(), modelPath, ckptPath, numReplicas); err != nil {
+	if err := admin.Publish(ctx, modelID.ModelFullName(), modelPath, ckptPath, numReplicas, overrides); err != nil {
 		log.Errorf("Failed to publish model: %v", err)
 		return subcommands.ExitFailure
 	}

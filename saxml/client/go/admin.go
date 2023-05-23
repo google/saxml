@@ -136,13 +136,14 @@ func (a *Admin) retry(ctx context.Context, callback func(client pbgrpc.AdminClie
 }
 
 // Publish publishes a model.
-func (a *Admin) Publish(ctx context.Context, modelID, modelPath, checkpointPath string, numReplicas int) error {
+func (a *Admin) Publish(ctx context.Context, modelID, modelPath, checkpointPath string, numReplicas int, overrides map[string]string) error {
 	req := &pb.PublishRequest{
 		Model: &pb.Model{
 			ModelId:              modelID,
 			ModelPath:            modelPath,
 			CheckpointPath:       checkpointPath,
 			RequestedNumReplicas: int32(numReplicas),
+			Overrides:            overrides,
 		},
 	}
 

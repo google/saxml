@@ -195,7 +195,8 @@ func go_publish(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSi
 
 	modelPath := C.GoStringN(modelPathData, modelPathSize)
 	checkpointPath := C.GoStringN(checkpointPathData, checkpointPathSize)
-	err = admin.Publish(context.Background(), modelID, modelPath, checkpointPath, int(numReplicas))
+	emptyOverrides := make(map[string]string)
+	err = admin.Publish(context.Background(), modelID, modelPath, checkpointPath, int(numReplicas), emptyOverrides)
 	if err != nil {
 		*errMsg = C.CString(err.Error())
 		*errCode = C.int(int32(errors.Code(err)))

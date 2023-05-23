@@ -36,6 +36,10 @@ message LoadRequest {
 
   // ACLs protecting data methods supported by this model.
   AccessControlLists acls = 4;
+
+  // model config overrides, e.g.
+  // BATCH_SIZE: 1
+  map<string, string> overrides = 5;
 }
 
 message LoadResponse {}

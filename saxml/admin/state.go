@@ -61,9 +61,18 @@ type Model struct {
 	Path       string
 	Checkpoint string
 	Acls       map[string]string
+	Overrides  map[string]string
 }
 
 func cloneAcls(src map[string]string) map[string]string {
+	dst := make(map[string]string)
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func cloneOverrides(src map[string]string) map[string]string {
 	dst := make(map[string]string)
 	for k, v := range src {
 		dst[k] = v
@@ -76,6 +85,7 @@ func newModel(spec *apb.Model) *Model {
 		Path:       spec.GetModelPath(),
 		Checkpoint: spec.GetCheckpointPath(),
 		Acls:       cloneAcls(spec.GetAcls().GetItems()),
+		Overrides:  spec.GetOverrides(),
 	}
 }
 
@@ -84,6 +94,7 @@ func (m *Model) clone() *Model {
 		Path:       m.Path,
 		Checkpoint: m.Checkpoint,
 		Acls:       cloneAcls(m.Acls),
+		Overrides:  cloneOverrides(m.Overrides),
 	}
 }
 
@@ -221,6 +232,7 @@ func (s *State) Unload(ctx context.Context, fullName naming.ModelFullName, waite
 func (s *State) act(a *action) {
 	switch a.kind {
 	case load:
+		log.V(1).Infof("Loading model %v onto server %v with overrides %v", a.fullName, s.Addr, a.model.Overrides)
 		req := &mpb.LoadRequest{
 			ModelKey:       a.fullName.ModelFullName(),
 			ModelPath:      a.model.Path,
@@ -228,6 +240,7 @@ func (s *State) act(a *action) {
 			Acls: &cpb.AccessControlLists{
 				Items: a.model.Acls,
 			},
+			Overrides: a.model.Overrides,
 		}
 		if _, err := s.client.Load(a.ctx, req); err == nil {
 			if a.waiter != nil {

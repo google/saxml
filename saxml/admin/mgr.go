@@ -126,6 +126,8 @@ func (m *Mgr) Publish(specs *apb.Model) error {
 	if _, ok := m.pendingUnpublished[fullName]; ok {
 		return fmt.Errorf("model %s is being unpublished, please retry later: %w", fullName, errors.ErrAlreadyExists)
 	}
+	log.Infof("Published with overrides: %v", specs.GetOverrides())
+
 	m.models[fullName] = &modelState{
 		specs:       proto.Clone(specs).(*apb.Model),
 		addrWatcher: watchable.New(),
