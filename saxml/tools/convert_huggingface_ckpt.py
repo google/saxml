@@ -77,7 +77,9 @@ def convert(base_model_path, pax_model_path):
     wc = np.stack([wq, wk, wv], axis=0)
     wc = np.reshape(wc, [3, num_heads * dims_per_head, num_heads, dims_per_head])
 
-    w_post = base.state_dict()['model.layers.%d.self_attn.o_proj.weight' % layer_idx].data.numpy().transpose()
+    w_post = base.state_dict()[
+        'model.layers.%d.self_attn.o_proj.weight' % layer_idx
+    ].data.numpy()
     w_post = np.reshape(w_post, [num_heads * dims_per_head, num_heads, dims_per_head])
     layer_weight = {
         'self_attention': {

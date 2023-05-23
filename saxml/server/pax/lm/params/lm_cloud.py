@@ -87,6 +87,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     model_p.lm_tpl.packed_input = False
     model_p.lm_tpl.model_dims = self.MODEL_DIMS
     model_p.lm_tpl.vocab_size = self.VOCAB_SIZE
+    model_p.lm_tpl.position_emb_tpl = None
     model_p.lm_tpl.softmax_tpl = pax_fiddle.Config(
         layers.FullSoftmax,
         name='output',
@@ -122,7 +123,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     transformer_layer_p.norm_policy = 'pre'
     transformer_layer_p.ln_tpl = ln_tpl.clone()
     transformer_layer_p.tr_atten_tpl.internal_enable_per_dim_scale = False
-    transformer_layer_p.tr_atten_tpl.internal_enable_query_scale = False
+    transformer_layer_p.tr_atten_tpl.internal_enable_query_scale = True
     transformer_layer_p.tr_atten_tpl.use_bias = False
     transformer_layer_p.tr_atten_tpl.combine_qkv = self.COMBINE_QKV
     transformer_layer_p.tr_atten_tpl.rotary_position_emb_tpl = (

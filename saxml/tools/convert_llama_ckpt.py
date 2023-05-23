@@ -77,7 +77,13 @@ def convert(base_model_path, pax_model_path):
     wc = np.stack([wq, wk, wv], axis=0)
     wc = np.reshape(wc, [3, num_heads * dims_per_head, num_heads, dims_per_head])
 
-    w_post = np.concatenate([var['layers.%d.attention.wo.weight' % (layer_idx)].numpy() for var in pytorch_vars], axis=1).transpose()
+    w_post = np.concatenate(
+        [
+            var['layers.%d.attention.wo.weight' % (layer_idx)].numpy()
+            for var in pytorch_vars
+        ],
+        axis=1,
+    )
     w_post = np.reshape(w_post, [num_heads * dims_per_head, num_heads, dims_per_head])
     layer_weight = {
         'self_attention': {
