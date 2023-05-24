@@ -96,15 +96,19 @@ func (s *Server) checkAdminACL(ctx context.Context, fullName naming.ModelFullNam
 	if acl != "" {
 		acls = append(acls, acl)
 	}
+	// Cluster-level admin ACL allows.
+	if err := s.gRPCServer.CheckACLs(ctx, acls); err == nil {
+		return nil
+	}
 	pubModel, err := s.Mgr.List(fullName)
 	if err != nil {
 		return err
 	}
 	if acl := pubModel.GetModel().GetAdminAcl(); acl != "" {
 		acls = append(acls, acl)
-	}
-	if err := s.gRPCServer.CheckACLs(ctx, acls); err != nil {
-		return fmt.Errorf("permission error: %w", err)
+		if err := s.gRPCServer.CheckACLs(ctx, acls); err != nil {
+			return fmt.Errorf("permission error: %w", err)
+		}
 	}
 	return nil
 }
