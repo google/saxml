@@ -69,6 +69,7 @@ class ScoreHParams(servable_model_params.ServableMethodParams):
   max_suffix_seq_len: int = 0
   include_eos_score: bool = False
   fetch_prefix_lengths_from_inputs: bool = False
+  output_geometric_mean_prob_score: bool = False
 
 
 @dataclasses.dataclass
@@ -463,11 +464,20 @@ class LMScoreMethod(ServableLMMethod):
           ),
           [[0, 0], [0, 1]],
       )
-    return jnp.sum(
+    sum_per_token_logprobs = jnp.sum(
         per_token_logprobs * model_fn_inputs.score_masks * non_paddings,  # pytype: disable=attribute-error  # jax-ndarray
         axis=-1,
         keepdims=True,
     )
+    if self._score_params.output_geometric_mean_prob_score:
+      num_output_tokens = jnp.sum(
+          model_fn_inputs.score_masks * non_paddings,  # pytype: disable=attribute-error  # jax-ndarray
+          axis=-1,
+          keepdims=True)
+      num_output_tokens = jnp.where(num_output_tokens > 0, num_output_tokens, 1)
+      return jnp.exp(sum_per_token_logprobs / num_output_tokens)
+    else:
+      return sum_per_token_logprobs
 
   def get_maxlen(self) -> int:
     return (
