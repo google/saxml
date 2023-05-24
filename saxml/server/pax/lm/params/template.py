@@ -82,6 +82,8 @@ class CommonServingTemplate:
   TEXT_TO_EMBEDDING_OUTPUT_EMBEDDING_NAME = None
   TEXT_TO_EMBEDDING_MODEL_METHOD_NAME = None
   GENERATION_USE_GEOMEAN_PROB_SCORE = False
+  SCORING_USE_GEOMEAN_PROB_SCORE = False
+  SCORING_INCLUDE_EOS_SCORE = False
 
   def input_for_model_init(self) -> py_utils.NestedMap:
     batch_size = self.BATCH_SIZE
@@ -130,7 +132,9 @@ class ServingTemplate(
         max_suffix_seq_len=suffix_seq_len,
         bucket_keys=self.BUCKET_KEYS,
         extra_inputs=self.SCORE_EXTRA_INPUTS,
+        include_eos_score=self.SCORING_INCLUDE_EOS_SCORE,
         fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
+        output_geometric_mean_prob_score=self.SCORING_USE_GEOMEAN_PROB_SCORE,
     )
 
   def serving_tokenizer(self):
