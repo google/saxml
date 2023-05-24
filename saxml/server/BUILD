@@ -4,15 +4,14 @@ load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_binary", "pytype_stri
 load("//saxml/server:build_defs.bzl", "create_server_binary")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
+package(
+    # unused internal package attribute
+    default_visibility = ["//saxml:internal"],
+)
+
 licenses(["notice"])
 
-package_group(name = "users")
-
-package(
-    default_visibility = [
-        "//saxml:internal",
-    ],
-)
+package_group(name = "friends")
 
 bzl_library(
     name = "build_defs_bzl",
@@ -27,7 +26,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     tags = ["keep_dep"],
     deps = [
-        "//saxml/server:servable_model_registry",
+        ":servable_model_registry",
         "//saxml/server/pax:all_imports",
     ],
 )

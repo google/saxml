@@ -23,6 +23,7 @@ package_group(
         "//saxml:internal",
     ],
     packages = [
+        "//cloud/ai/platform/llm/sax/...",
         "//learning/deepmind/models/serving/...",
         "//translate/prototypes/saxproxy/...",
     ],
@@ -114,12 +115,14 @@ py_proto_library(
     name = "admin_py_pb2",
     api_version = 2,
     extra_deps = [":common_py_pb2"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":admin_proto"],
 )
 
 py_grpc_library(
     name = "admin_py_pb2_grpc",
     srcs = [":admin_proto"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":admin_py_pb2"],
 )
 

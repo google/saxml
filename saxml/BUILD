@@ -1,10 +1,9 @@
 # Saxml: Serving for Paxml.
 
+# unused internal load
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
-package(
-    default_visibility = ["//saxml:internal"],
-)
+package(default_visibility = ["//saxml:internal"])
 
 licenses(["notice"])
 

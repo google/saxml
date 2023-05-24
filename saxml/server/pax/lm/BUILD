@@ -2,13 +2,12 @@
 
 load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_library")
 
-licenses(["notice"])
-
 package(
-    default_visibility = [
-        "//saxml:internal",
-    ],
+    # unused internal package attribute
+    default_visibility = ["//saxml:internal"],
 )
+
+licenses(["notice"])
 
 filegroup(
     name = "test_data",
@@ -30,6 +29,10 @@ pytype_strict_library(
     name = "lm_tokenizer",
     srcs = ["lm_tokenizer.py"],
     srcs_version = "PY3",
+    visibility = [
+        "//saxml:internal",
+        "//saxml/server:friends",
+    ],
     deps = [
         "//third_party/py/praxis:base_hyperparams",
         "//third_party/py/seqio",
@@ -91,7 +94,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     visibility = [
         "//saxml:internal",
-        "//saxml/server:users",
+        "//saxml/server:friends",
     ],
     deps = [
         ":lm_tokenizer",

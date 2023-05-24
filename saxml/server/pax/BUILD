@@ -2,14 +2,15 @@
 
 load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_library")
 
-licenses(["notice"])
-
 package(
+    # unused internal package attribute
     default_visibility = [
         "//saxml:internal",
-        "//saxml/server:users",
+        "//saxml/server:friends",
     ],
 )
+
+licenses(["notice"])
 
 pytype_strict_library(
     name = "all_imports",

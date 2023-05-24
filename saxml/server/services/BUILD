@@ -1,9 +1,10 @@
 load("//saxml:saxml.bzl", "pytype_strict_library")
 
 package(
+    # unused internal package attribute
     default_visibility = [
         "//saxml:internal",
-        "//saxml/server:users",
+        "//saxml/server:friends",
     ],
 )
 
