@@ -20,11 +20,13 @@ import threading
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from absl import logging
+from flax import struct as flax_struct
 import jax
 from jax import numpy as jnp
 from jax.experimental import host_callback as hcb
 from jax.experimental import pjit
 import numpy as np
+from praxis import pytypes
 from saxml.server import servable_model
 from saxml.server import servable_model_params
 
@@ -60,28 +62,29 @@ class StepCounter:
 
 
 @dataclasses.dataclass
-class ServableModelState:
+class ServableModelState(flax_struct.PyTreeNode):
   """A data structure holding the state of a loaded model."""
+
+  # Model variables.
+  mdl_vars: DeviceTensors
+  # Shapes of model variables without GSPMD padding.
+  mdl_var_unpadded_shapes: Shapes
 
   # Whether the current host is the primary in a multi-jax-client setup. It is
   # set to True for Pathways.
-  is_primary_host: bool
+  is_primary_host: bool = flax_struct.field(pytree_node=False)
   # Process ID of the primary host.
-  primary_process_id: int
-  # pjit global mesh.
-  global_mesh: jax.sharding.Mesh
-  # Model variables.
-  mdl_vars: DeviceTensors
-  # Model variables' partition specs.
-  mdl_var_pspecs: PSpecs
-  # Shapes of model variables without GSPMD padding.
-  mdl_var_unpadded_shapes: Shapes
+  primary_process_id: int = flax_struct.field(pytree_node=False)
   # Whether input prefetching to device is needed.
-  input_prefetch: bool
+  input_prefetch: bool = flax_struct.field(pytree_node=False)
   # Whether to precompile device computation during model load.
-  precompile: bool
+  precompile: bool = flax_struct.field(pytree_node=False)
   # Step for the model variables.
-  step: int
+  step: int = flax_struct.field(pytree_node=False)
+  # pjit global mesh.
+  global_mesh: jax.sharding.Mesh = flax_struct.field(pytree_node=False)
+  # Model variables' partition specs.
+  mdl_var_pspecs: PSpecs = flax_struct.field(pytree_node=False)
 
 
 @dataclasses.dataclass
@@ -123,6 +126,7 @@ class ServableMethod(servable_model.ServableMethod):
       model_state: ServableModelState,
       prng_key: jnp.ndarray,
       dummy_input_sample: Any,
+      enable_auto_sharding: bool = False,
   ) -> None:
     super().__init__(method_params)
     self._model_state = model_state
@@ -132,6 +136,7 @@ class ServableMethod(servable_model.ServableMethod):
     self._step = StepCounter()
     self._local_devices = list(model_state.global_mesh.local_devices)
     self._callback_device_index = 0
+    self._enable_auto_sharding = enable_auto_sharding
     logging.info(
         'Primary host: %d, Current: %d',
         model_state.primary_process_id,
@@ -168,6 +173,45 @@ class ServableMethod(servable_model.ServableMethod):
         [self._dummy_input_sample] * input_shape.batch_size
     )
 
+  # TODO(pratikf): A similar function exists in Pax (in
+  # third_party/py/paxml/partitioning.py), and they should be
+  # de-duplicated somewhere
+  def compile_for_auto_sharding(
+      self,
+      step_fn: Any,
+      train_state: ServableModelState,
+      step_key: pytypes.PRNGKey,
+      inputs_shape_dtype: pytypes.NestedShapeDtypeLike,
+  ):
+    """Compiles step_fn ahead of time to extract the shardings.
+
+    The sharding is returned by the auto spmd partitioner and is attached on the
+    compiled object.
+
+    Args:
+      step_fn: The step_fn function which will be compiled ahead of time.
+      train_state: Train state which contains abstract values for ahead of time
+        compilation.
+      step_key: Prng key.
+      inputs_shape_dtype: Inputs with shape/dtype attributes to be used for
+        shape inference.
+
+    Returns:
+      * A compiled step_fn function
+      * The input shardings returned by the auto spmd partitioner.
+    """
+
+    def _create_aval(x):
+      # canonicalize_dtype is necessary to avoid errors like
+      # data types are different when compiling and when being called.
+      dtype = jax.dtypes.canonicalize_dtype(x.dtype)
+      return jax.core.ShapedArray(x.shape, dtype)
+
+    compiled = step_fn.lower(
+        jax.tree_map(_create_aval, train_state.mdl_vars), inputs_shape_dtype
+    ).compile()
+    return compiled, compiled.input_shardings[0]
+
   def _register_for_input_shape(self, input_shape: InputShapeInfo) -> None:
     batched_host_dummy = self.get_dummy_inputs(input_shape)
     batched_host_dummy = self.update_extra_inputs(
@@ -193,30 +237,50 @@ class ServableMethod(servable_model.ServableMethod):
     def _get_pspec(x):
       # Add a `cores` dimension.
       return jax.sharding.PartitionSpec(
-          self.model_state.global_mesh.axis_names, *((None,) * len(x.shape))
+          self.model_state.global_mesh.axis_names, *(None,) * (len(x.shape))
       )
 
     input_pspecs = jax.tree_util.tree_map(_get_pspec, host_dummy)
-
     num_cores = len(self.model_state.global_mesh.devices.flat)
     global_inputs_shape_dtype = jax.tree_util.tree_map(
         lambda x: ((num_cores,) + x.shape, x.dtype), host_dummy
     )
+
+    # Initialize the device function.
+    device_fn = self._pjit_device_fn(input_pspecs, input_shape.batch_size)
+    global_inputs_shape_dtype = jax.tree_util.tree_map(
+        lambda x: ((num_cores,) + x.shape, x.dtype), host_dummy
+    )
+    global_inputs_shaped_arrays = jax.tree_util.tree_map(
+        lambda x: jax.core.ShapedArray((num_cores,) + x.shape, x.dtype),
+        host_dummy,
+    )
+
+    if self._enable_auto_sharding:
+      self._prng_key, step_key = jax.random.split(self._prng_key)
+      device_fn, input_shardings = self.compile_for_auto_sharding(
+          step_fn=device_fn,
+          train_state=self.model_state,
+          step_key=step_key,
+          inputs_shape_dtype=global_inputs_shaped_arrays,
+      )
+      input_pspecs = jax.tree_util.tree_map(
+          lambda x: x.spec, input_shardings[1]
+      )
 
     self._per_bs_infos[input_shape] = MethodInputInfo(
         input_pspecs=input_pspecs,
         global_inputs_shape_dtype=global_inputs_shape_dtype,
     )
     info = self._per_bs_infos[input_shape]
+    info.device_fn = device_fn
+
     info.dummy_inputs_per_device_buffers = self._input_to_device_buffers(
         batched_host_dummy, input_shape, is_dummy=True
     )
     info.dummy_inputs = self._device_buffers_to_jax_arrays(
         info.dummy_inputs_per_device_buffers, input_shape
     )
-    # Initialize the device function.
-    info.device_fn = self._pjit_device_fn(input_pspecs, input_shape.batch_size)
-
     # Compute with dummy to trigger compilation.
     if self.model_state.precompile:
       init_dummy_outputs = self.device_compute(info.dummy_inputs, input_shape)
@@ -492,7 +556,7 @@ class ServableMethod(servable_model.ServableMethod):
           self.model_state.mdl_var_pspecs,
       )
 
-      # Only one core has real data, others have zeros. Summing on the leading
+      # Only one core has real data, others have zeros. Summing on the
       # leading `cores` dimension can make data replicated.
       def _replicate(x):
         return pjit.with_sharding_constraint(
@@ -521,11 +585,21 @@ class ServableMethod(servable_model.ServableMethod):
       return outputs
 
     # pjit-ed function.
-    return pjit.pjit(
-        _wrapped_fn,
-        in_shardings=(self.model_state.mdl_var_pspecs, input_pspecs),
-        out_shardings=None,
-    )
+    if self._enable_auto_sharding:
+      return pjit.pjit(
+          _wrapped_fn,
+          in_shardings=(
+              pjit.AUTO(self.model_state.global_mesh),
+              input_pspecs
+          ),
+          out_shardings=None,
+      )
+    else:
+      return pjit.pjit(
+          _wrapped_fn,
+          in_shardings=(self.model_state.mdl_var_pspecs, input_pspecs),
+          out_shardings=None,
+      )
 
   def unload(self) -> None:
     """Clears references held by this method."""

@@ -83,6 +83,7 @@ class ServableMethod(servable_model.ServableMethod):
       dummy_input_sample: Any,
       exportable: bool = False,
       load: bool = True,
+      enable_auto_sharding: bool = False,
   ):
     """Initializes the method.
 
@@ -101,8 +102,15 @@ class ServableMethod(servable_model.ServableMethod):
         problems like NaNs are fine).
       exportable: whether this method is exportable to a SavedModel.
       load: Whether to load this method during this __init__ call.
+      enable_auto_sharding: Whether to run the XLA auto-sharding pass
     """
-    super().__init__(method_params, model_state, prng_key, dummy_input_sample)
+    super().__init__(
+        method_params,
+        model_state,
+        prng_key,
+        dummy_input_sample,
+        enable_auto_sharding,
+    )
     self._model = model
     self._model_fn_name = model_fn_name
     self._dummy_bucket_key = -1
@@ -350,6 +358,7 @@ class ServableModel(servable_model.ServableModel):
       primary_process_id: int,
       ckpt_type: CheckpointType,
       test_mode: bool = False,
+      enable_auto_sharding: bool = False,
   ):
     super().__init__()
     self._test_mode = test_mode
@@ -357,6 +366,7 @@ class ServableModel(servable_model.ServableModel):
     assert ckpt_type in (CheckpointType.GDA, CheckpointType.PERSISTENCE)
     self._ckpt_type = ckpt_type
     self._model_config = model_config
+    self._enable_auto_sharding = enable_auto_sharding
 
   @property
   def primary_process_id(self) -> int:
@@ -629,22 +639,43 @@ class ServableModel(servable_model.ServableModel):
       model_state: ServableModelState,
       prng_key: PRNGKey,
   ) -> None:
-    try:
-      method_params = self.model_config.methods()
-      for method in sorted(method_params.keys()):
-        prng_key, method_prng_key = jax.random.split(prng_key)
-        params = method_params[method]
-        assert isinstance(params, servable_model_params.ServableMethodParams)
-        self.add_method(
-            method,
-            self.init_method(
-                method, model, model_state, params, method_prng_key
-            ),
-        )
-    except Exception as e:
-      self.unload()
-      raise e
-    logging.info('loading completed.')
+    # The mesh context manager is required for XLA auto-sharding as it
+    # currently does not work without one
+    if self._enable_auto_sharding:
+      with self._global_mesh:
+        try:
+          method_params = self.model_config.methods()
+          for method in sorted(method_params.keys()):
+            prng_key, method_prng_key = jax.random.split(prng_key)
+            params = method_params[method]
+            assert isinstance(
+                params, servable_model_params.ServableMethodParams)
+            self.add_method(
+                method,
+                self.init_method(
+                    method, model, model_state, params, method_prng_key
+                ),
+            )
+        except Exception as e:
+          self.unload()
+          raise e
+    else:
+      try:
+        method_params = self.model_config.methods()
+        for method in sorted(method_params.keys()):
+          prng_key, method_prng_key = jax.random.split(prng_key)
+          params = method_params[method]
+          assert isinstance(params, servable_model_params.ServableMethodParams)
+          self.add_method(
+              method,
+              self.init_method(
+                  method, model, model_state, params, method_prng_key
+              ),
+          )
+      except Exception as e:
+        self.unload()
+        raise e
+      logging.info('loading completed.')
 
   def init_method(
       self,

@@ -415,6 +415,7 @@ class LMScoreMethod(ServableLMMethod):
       score_params: ScoreHParams,
       tokenizer_p: Any,
       exportable: bool = False,
+      enable_auto_sharding: bool = False,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._score_params = score_params
@@ -433,6 +434,7 @@ class LMScoreMethod(ServableLMMethod):
         prng_key,
         dummy_input_sample,
         exportable=exportable,
+        enable_auto_sharding=enable_auto_sharding,
     )
 
   def fetch_output(
@@ -593,6 +595,7 @@ class LMDecodeMethod(ServableLMMethod):
       exportable: bool = False,
       streamable: bool = False,
       load: bool = True,
+      enable_auto_sharding: bool = False,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._method_hparams = method_hparams
@@ -646,6 +649,7 @@ class LMDecodeMethod(ServableLMMethod):
         dummy_input_sample,
         exportable=exportable,
         load=load,
+        enable_auto_sharding=enable_auto_sharding,
     )
 
   def call_model_function(self, inputs, mdl_vars, prng_key):
@@ -909,6 +913,7 @@ class TextToEmbedding(servable_model.ServableMethod):
       text_to_embedding_hparams: TextToEmbeddingHParams,
       tokenizer_p: Any,
       prng_key: PRNGKey,
+      enable_auto_sharding: bool = False,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._text_to_embedding_hparams = text_to_embedding_hparams
@@ -923,6 +928,7 @@ class TextToEmbedding(servable_model.ServableMethod):
         text_to_embedding_hparams,
         prng_key,
         dummy_input_sample,
+        enable_auto_sharding=enable_auto_sharding,
     )
 
   @classmethod
@@ -1016,6 +1022,7 @@ class LMGradientMethod(ServableLMMethod):
       gradient_params: GradientHParams,
       tokenizer_p: Any,
       exportable: bool = False,
+      enable_auto_sharding: bool = False,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._gradient_params = gradient_params
@@ -1037,6 +1044,7 @@ class LMGradientMethod(ServableLMMethod):
         prng_key,
         dummy_input_sample,
         exportable=exportable,
+        enable_auto_sharding=enable_auto_sharding,
     )
 
   def call_model_function(
@@ -1243,6 +1251,7 @@ class ServableLMModel(servable_model.ServableModel):
           method_params,
           tokenizer_p,
           exportable=True,
+          enable_auto_sharding=self._enable_auto_sharding,
       )
     elif method == LMMethodName.GENERATE:
       assert isinstance(method_params, DecodeHParams)
@@ -1253,6 +1262,7 @@ class ServableLMModel(servable_model.ServableModel):
           method_params,
           tokenizer_p,
           exportable=True,
+          enable_auto_sharding=self._enable_auto_sharding,
       )
     elif method == LMMethodName.GENERATE_STREAM:
       assert isinstance(method_params, DecodeHParams)
@@ -1264,6 +1274,7 @@ class ServableLMModel(servable_model.ServableModel):
           tokenizer_p,
           exportable=False,
           streamable=True,
+          enable_auto_sharding=self._enable_auto_sharding,
       )
     elif method == LMMethodName.EMBED:
       assert isinstance(method_params, TextToEmbeddingHParams)
@@ -1279,6 +1290,7 @@ class ServableLMModel(servable_model.ServableModel):
           method_params,
           tokenizer_p,
           prng_key=prng_key,
+          enable_auto_sharding=self._enable_auto_sharding,
       )
     elif method == LMMethodName.GRADIENT:
       assert isinstance(method_params, GradientHParams)
@@ -1293,6 +1305,7 @@ class ServableLMModel(servable_model.ServableModel):
           method_params,
           tokenizer_p,
           exportable=True,
+          enable_auto_sharding=self._enable_auto_sharding,
       )
     else:
       raise NotImplementedError(f'method {method} not implemented')
