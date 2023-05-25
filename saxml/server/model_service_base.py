@@ -15,6 +15,7 @@
 
 import abc
 import asyncio
+import collections
 import copy
 import dataclasses
 import functools
@@ -24,7 +25,7 @@ import threading
 import time
 import traceback
 import typing
-from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type
+from typing import Any, Awaitable, Callable, Deque, Dict, List, Mapping, Optional, Sequence, Tuple, Type
 import uuid
 
 from absl import logging
@@ -134,6 +135,9 @@ class Method:
   # statistic tracker.
   stats: utils.RequestStats
 
+  # Sizes of recent batches.
+  recent_batch_sizes: Deque[int]
+
   def limit(self) -> int:
     return max(self.batch_size * self.max_live_batches, 1)
 
@@ -150,6 +154,12 @@ class Method:
     self.queue = utils.RpcQueue(batching_wait_secs=batching_wait_secs)
     self.admissioner = utils.Admissioner(limit=self.limit())
     self.stats = utils.RequestStats(timespan_sec=60.0)  # pytype: disable=wrong-arg-types  # numpy-scalars
+    self.recent_batch_sizes = collections.deque()
+
+  def record_batch_size(self, size: int):
+    self.recent_batch_sizes.append(size)
+    if len(self.recent_batch_sizes) > 10:
+      self.recent_batch_sizes.popleft()
 
 
 @dataclasses.dataclass
@@ -336,12 +346,12 @@ class PerMethodBatcher:
 
   def get_method_stats(
       self,
-  ) -> List[Tuple[MethodKey, utils.RequestStats.Stats]]:
+  ) -> List[Tuple[MethodKey, utils.RequestStats.Stats, List[int]]]:
     """Returns the latest stats for every method key."""
     ret = []
     for mkey, method in self._per_method_queues.items():
       # TODO(zhifengc): Consider making 100 samples tunable.
-      ret.append((mkey, method.stats.get(100)))
+      ret.append((mkey, method.stats.get(100), list(method.recent_batch_sizes)))
     return ret
 
   def add_item(
@@ -409,6 +419,7 @@ class PerMethodBatcher:
     """Dequeues an available batch."""
     qlen = self._batch_queue.qsize()  # Approximately.
     batch = self._batch_queue.get()
+    self._per_method_queues[batch.method].record_batch_size(batch.size())
     utils.traceprint_all(
         batch.rpc_tasks,
         f'Dequeued from batch_queue: (qlen {qlen} bs {batch.size()})',
@@ -1033,8 +1044,8 @@ class ModelServicesRunner:
         max_live_batches=1,
     )
     self._log_exception = functools.partial(
-        logging.fatal if fail_on_error else logging.error,
-        exc_info=True)
+        logging.fatal if fail_on_error else logging.error, exc_info=True
+    )
 
     if spmd_backend is None:
       if not self._is_primary:
