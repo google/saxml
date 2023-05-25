@@ -271,6 +271,10 @@ func (s *Server) WaitForReady(ctx context.Context, in *pb.WaitForReadyRequest) (
 }
 
 func (s *Server) Join(ctx context.Context, in *pb.JoinRequest) (*pb.JoinResponse, error) {
+	// Only servers run by the cell admin can join.
+	if err := s.gRPCServer.CheckACLs(ctx, []string{s.adminACL()}); err != nil {
+		return nil, fmt.Errorf("permission error: %w", err)
+	}
 	if err := validator.ValidateJoinRequest(in); err != nil {
 		return nil, err
 	}
