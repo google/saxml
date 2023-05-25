@@ -357,15 +357,21 @@ def bucketize_tokenized_inputs(
 
 
 def extra_inputs_to_tf_signature(
-    sample_extra_inputs: Optional[Mapping[str, Any]], batch_size: Optional[int]
+    sample_extra_inputs: Optional[Mapping[str, Any]],
+    batch_size: Optional[int],
+    sample_extra_inputs_dtypes: Optional[Mapping[str, Any]] = None
 ) -> Mapping[str, tf.TensorSpec]:
   """Generate input signature from sample extra inputs."""
   extra_tensor_specs = {}
   if sample_extra_inputs:
     for name, val in sample_extra_inputs.items():
       val_tf = tf.convert_to_tensor(val)
+      if sample_extra_inputs_dtypes:
+        val_dtype = sample_extra_inputs_dtypes.get(name, val_tf.dtype)
+      else:
+        val_dtype = val_tf.dtype
       extra_tensor_specs[name] = tf.TensorSpec(
-          [batch_size, *val_tf.shape.as_list()], val_tf.dtype, name=name
+          [batch_size, *val_tf.shape.as_list()], val_dtype, name=name
       )
   return extra_tensor_specs
 

@@ -568,7 +568,9 @@ class LMScoreMethod(ServableLMMethod):
         tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),
         tf.TensorSpec([batch_size], dtype=tf.string, name='suffixes'),
         servable_lm_common.extra_inputs_to_tf_signature(
-            self._extra_inputs, batch_size
+            self._extra_inputs,
+            batch_size,
+            self.method_params.extra_inputs_dtypes,
         ),
     )
 
@@ -884,7 +886,9 @@ class LMDecodeMethod(ServableLMMethod):
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='text'),
         servable_lm_common.extra_inputs_to_tf_signature(
-            self._extra_inputs, batch_size
+            self._extra_inputs,
+            batch_size,
+            self.method_params.extra_inputs_dtypes,
         ),
     )
 
@@ -1202,7 +1206,9 @@ class LMGradientMethod(ServableLMMethod):
         tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),
         tf.TensorSpec([batch_size], dtype=tf.string, name='suffixes'),
         servable_lm_common.extra_inputs_to_tf_signature(
-            self._extra_inputs, batch_size
+            self._extra_inputs,
+            batch_size,
+            self.method_params.extra_inputs_dtypes,
         ),
     )
 

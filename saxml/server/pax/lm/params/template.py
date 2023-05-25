@@ -133,6 +133,7 @@ class ServingTemplate(
         bucket_keys=self.BUCKET_KEYS,
         extra_inputs=self.SCORE_EXTRA_INPUTS,
         include_eos_score=self.SCORING_INCLUDE_EOS_SCORE,
+        extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
         fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
         output_geometric_mean_prob_score=self.SCORING_USE_GEOMEAN_PROB_SCORE,
     )
@@ -290,6 +291,7 @@ class ServingTemplate(
         max_live_batches=self.TEXT_TO_EMBEDDING_MAX_LIVE_BATCHES,
         output_embedding_name=self.TEXT_TO_EMBEDDING_OUTPUT_EMBEDDING_NAME,
         model_method_name=self.TEXT_TO_EMBEDDING_MODEL_METHOD_NAME,
+        extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
     )
 
 
@@ -325,6 +327,7 @@ class ServingWithGradientTemplate(ServingTemplate):
         inputs_tensor_names=self.GRADIENT_WRT_INPUT_TENSOR_NAMES,
         mdl_vars_tensor_names=None,
         extra_inputs=self.SCORE_EXTRA_INPUTS,
+        extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
     )
 
 
