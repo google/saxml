@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"flag"
@@ -37,9 +38,11 @@ var clear = func() {
 
 // GenerateCmd is the command for generate
 type GenerateCmd struct {
-	extra  string
-	stream bool
-	raw    bool
+	extra      string
+	stream     bool
+	terse      bool
+	maxOutputs int
+	raw        bool
 }
 
 // Name returns the name of GenerateCmd.
@@ -52,8 +55,10 @@ func (*GenerateCmd) Synopsis() string { return "generate a text against a given 
 func (*GenerateCmd) Usage() string {
 	return `generate ModelID Query:
 	generates a text input using a published language model.
-	Support extra inputs such as temperature through: -extra="temperature:0.2"
+	Support extra inputs such as temperature through: -extra="temperature:0.2".
 	Support streaming through -stream
+	Set maximum number of outputs with -n=N (not compatible with -stream)
+	Output only generated text with -terse (non-tabular).
 `
 }
 
@@ -61,6 +66,8 @@ func (*GenerateCmd) Usage() string {
 func (c *GenerateCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.extra, "extra", "", "extra arguments for Generate().")
 	f.BoolVar(&c.stream, "stream", false, "stream responses")
+	f.BoolVar(&c.terse, "terse", false, "print generated texts one line per result, descending by score")
+	f.IntVar(&c.maxOutputs, "n", 0, "maximum number of generated texts to output or 0 (default) for all")
 }
 
 func (c *GenerateCmd) streamingGenerate(ctx context.Context, query string, lm *sax.LanguageModel) subcommands.ExitStatus {
@@ -139,6 +146,14 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 
 	// Streaming generate.
 	if c.stream {
+		if c.terse {
+			log.Error("Terse output incompatible with streaming (-stream).")
+			return subcommands.ExitFailure
+		}
+		if c.maxOutputs > 0 {
+			log.Error("Max outputs (-n) incompatible with streaming (-stream).")
+			return subcommands.ExitFailure
+		}
 		return c.streamingGenerate(ctx, f.Args()[1], lm)
 	}
 
@@ -149,9 +164,25 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		return subcommands.ExitFailure
 	}
 
+	if c.terse {
+		sort.Slice(generates, func(i, j int) bool {
+			return generates[i].Score > generates[j].Score
+		})
+		for i, generate := range generates {
+			if c.maxOutputs > 0 && i == c.maxOutputs {
+				break
+			}
+			fmt.Println(generate.Text)
+		}
+		return subcommands.ExitSuccess
+	}
+
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"generate", "Score"})
-	for _, generate := range generates {
+	for i, generate := range generates {
+		if c.maxOutputs > 0 && i == c.maxOutputs {
+			break
+		}
 		table.Append([]string{generate.Text, formatFloat(generate.Score)})
 	}
 	table.Render()
