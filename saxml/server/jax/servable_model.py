@@ -267,6 +267,32 @@ class ServableMethod(servable_model.ServableMethod):
       input_pspecs = jax.tree_util.tree_map(
           lambda x: x.spec, input_shardings[1]
       )
+      mdl_var_pspecs = input_shardings[0]
+
+      # Reshard model vars based on shardings inferred by the
+      # auto-sharding pass. In PAX, we create model vars and
+      # initialize them based on the shardings inferred. In SAX, we
+      # need to re-shard them as they are created before we run
+      # auto-sharding (say when the model is loaded from a
+      # checkpoint).
+      resharded_mdl_vars = jax.device_put(
+          self.model_state.mdl_vars, mdl_var_pspecs
+      )
+      # Update the model state (self._model_state) with the resharded
+      # model vars and their shardings. Note that self.model_state is
+      # a getter for the underlying self._model_state field (see
+      # below).
+      self._model_state = ServableModelState(
+          resharded_mdl_vars,
+          self.model_state.mdl_var_unpadded_shapes,
+          self.model_state.is_primary_host,
+          self.model_state.primary_process_id,
+          self.model_state.input_prefetch,
+          self.model_state.precompile,
+          self.model_state.step,
+          self.model_state.global_mesh,
+          mdl_var_pspecs,
+      )
 
     self._per_bs_infos[input_shape] = MethodInputInfo(
         input_pspecs=input_pspecs,
