@@ -53,7 +53,7 @@ pytype_strict_library(
         "//third_party/py/jax",
         "//third_party/py/paxml:base_experiment",
         "//third_party/py/paxml:tasks_lib",
-        "//third_party/py/paxml/tasks/lm/params",
+        "//third_party/py/paxml/tasks/lm/params:lm_cloud",
         "//third_party/py/praxis:base_input",
         "//third_party/py/praxis:optimizers",
         "//third_party/py/praxis:pax_fiddle",
