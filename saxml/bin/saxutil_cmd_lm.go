@@ -53,12 +53,13 @@ func (*GenerateCmd) Synopsis() string { return "generate a text against a given 
 
 // Usage returns the full usage of GenerateCmd.
 func (*GenerateCmd) Usage() string {
-	return `generate ModelID Query:
-	generates a text input using a published language model.
-	Support extra inputs such as temperature through: -extra="temperature:0.2".
-	Support streaming through -stream
-	Set maximum number of outputs with -n=N (not compatible with -stream)
-	Output only generated text with -terse (non-tabular).
+	return `Generates a text input using a published language model.
+	* Support extra inputs such as temperature through: -extra="temperature:0.2".
+	* Support streaming through -stream.
+	* Set maximum number of outputs with -n (not compatible with -stream).
+	* Output only generated text(s) with -terse (non-tabular).
+
+Usage: saxutil lm.generate [-n=<N>] [-stream] [-terse] [-extra=<extra>] <ModelID> <Query>
 `
 }
 
@@ -67,7 +68,7 @@ func (c *GenerateCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.extra, "extra", "", "extra arguments for Generate().")
 	f.BoolVar(&c.stream, "stream", false, "stream responses")
 	f.BoolVar(&c.terse, "terse", false, "print generated texts one line per result, descending by score")
-	f.IntVar(&c.maxOutputs, "n", 0, "maximum number of generated texts to output or 0 (default) for all")
+	f.IntVar(&c.maxOutputs, "n", 0, "maximum number of generated texts to output or zero for all")
 }
 
 func (c *GenerateCmd) streamingGenerate(ctx context.Context, query string, lm *sax.LanguageModel) subcommands.ExitStatus {
