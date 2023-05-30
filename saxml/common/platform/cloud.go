@@ -396,6 +396,19 @@ func (e *Env) CheckACLs(principal string, acls []string) error {
 	return nil
 }
 
+// ValidateACLName returns nil iff the given aclname is valid and exists.
+func (e *Env) ValidateACLName(aclname string) error {
+	if aclname == "" {
+		return nil
+	}
+	return fmt.Errorf("ACL check is not supported: %w", errors.ErrUnimplemented)
+}
+
+// SetTestACLNames creates the ACL database for testing.
+func (e *Env) SetTestACLNames(aclnames map[string][]string) {
+	// Do nothing
+}
+
 // Watch watches for content changes in a file and sends the new content on the returned channel.
 func (e *Env) Watch(ctx context.Context, path string) (<-chan []byte, error) {
 	updates := make(chan []byte)

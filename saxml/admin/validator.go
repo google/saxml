@@ -72,6 +72,9 @@ func ValidateConfigProto(cfg *pb.Config) error {
 		if !strings.HasPrefix(acl, validACLNamePrefix) {
 			return fmt.Errorf("%s is not a valid ACL name (must start with %s): %w", acl, validACLNamePrefix, errors.ErrInvalidArgument)
 		}
+		if err := env.Get().ValidateACLName(acl); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -118,6 +121,9 @@ func ValidateModelProto(model *pb.Model, saxCell string) error {
 		if !strings.HasPrefix(aclname, validACLNamePrefix) {
 			return fmt.Errorf("%s is not a valid ACL name (must start with %s): %w", aclname, validACLNamePrefix, errors.ErrInvalidArgument)
 		}
+		if err := env.Get().ValidateACLName(aclname); err != nil {
+			return err
+		}
 	}
 	if model.GetAcls() != nil && model.GetAcls().GetItems() != nil {
 		for method, aclname := range model.GetAcls().GetItems() {
@@ -126,6 +132,9 @@ func ValidateModelProto(model *pb.Model, saxCell string) error {
 			}
 			if !strings.HasPrefix(aclname, validACLNamePrefix) {
 				return fmt.Errorf("%s is not a valid ACL name (must start with %s): %w", aclname, validACLNamePrefix, errors.ErrInvalidArgument)
+			}
+			if err := env.Get().ValidateACLName(aclname); err != nil {
+				return err
 			}
 		}
 	}

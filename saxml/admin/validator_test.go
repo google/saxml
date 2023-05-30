@@ -15,6 +15,7 @@
 package validator_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -35,7 +36,7 @@ func validConfig() *testConfig {
 	return &testConfig{
 		config: &apb.Config{
 			FsRoot:   "/path/to/root/dir",
-			AdminAcl: env.Get().RequiredACLNamePrefix() + "dev-team",
+			AdminAcl: env.Get().RequiredACLNamePrefix() + "sax-dev",
 		},
 	}
 }
@@ -103,7 +104,7 @@ func TestCheckConfigProto(t *testing.T) {
 		},
 		{
 			"admin ACL invalid not ok",
-			validConfig().withAdminACL("dev-group"),
+			validConfig().withAdminACL(env.Get().RequiredACLNamePrefix() + "does-not-exist-dev-group"),
 			cmpopts.AnyError,
 		},
 	}
@@ -145,7 +146,7 @@ func TestCheckConfigUpdate(t *testing.T) {
 		{
 			"admin ACL changed not ok",
 			validConfig(),
-			validConfig().withAdminACL("other-group"),
+			validConfig().withAdminACL(env.Get().RequiredACLNamePrefix() + "other-group"),
 			cmpopts.AnyError,
 		},
 	}
@@ -305,7 +306,7 @@ func TestCheckModelProto(t *testing.T) {
 		},
 		{
 			"invalid acl name",
-			validModel().withACL("lm.score", "never_an_aclname"),
+			validModel().withACL("lm.score", env.Get().RequiredACLNamePrefix()+"never_an_aclname"),
 			cmpopts.AnyError,
 		},
 	}
@@ -399,4 +400,11 @@ func TestValidateJoinRequest(t *testing.T) {
 	if err := validator.ValidateJoinRequest(req); err != nil {
 		t.Errorf("Join(%v) err %v, want no error", req, err)
 	}
+}
+
+func TestMain(m *testing.M) {
+	env.Get().SetTestACLNames(map[string][]string{
+		env.Get().RequiredACLNamePrefix() + "sax-dev": []string{"userA", "userB"},
+	})
+	os.Exit(m.Run())
 }

@@ -89,6 +89,10 @@ type Env interface {
 
 	// CheckACLs returns nil iff the given principal passes an ACL check.
 	CheckACLs(principal string, acls []string) error
+	// ValidateACLName returns nil iff the given aclname is valid and exists.
+	ValidateACLName(aclname string) error
+	// SetTestACLNames creates the ACL database for testing.
+	SetTestACLNames(aclnames map[string][]string)
 
 	// Watch watches for content changes in a file and sends the new content on the returned channel.
 	Watch(ctx context.Context, path string) (<-chan []byte, error)
