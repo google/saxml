@@ -14,7 +14,7 @@
 """Serving model parameters for lm_cloud."""
 
 import os
-from typing import cast, List
+from typing import List, cast
 
 from jax import numpy as jnp
 from paxml import base_experiment
