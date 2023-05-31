@@ -14,8 +14,8 @@
 
 """Build macros for SAX."""
 
-load("//saxml:saxml.bzl", "pytype_strict_binary")
-load("@com_google_paxml//paxml:build_defs.bzl", "export_binary", "export_sources")
+load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_binary")
+load("@com_google_paxml//paxml:build_defs.bzl", "export_binary", "export_sources", "export_test")
 
 def create_binary(
         imports_targets = None,
@@ -56,6 +56,41 @@ def create_binary(
         # Unused internal paropts
         # Unused internal exec_properties
         tags = tags,
+    )
+
+def create_test(
+        imports_targets = None,
+        extra_deps = None,
+        name = "",
+        test_src = "",
+        args = [],
+        tags = []):
+    """Macro to define a binary with selected imports.
+
+    Args:
+      imports_targets: List of targets that contains all necessary imports.
+      extra_deps: Extra deps not included in imports_targets
+      name: binary name.
+      test_src: test source file.
+      args: arguments/flags to be passed to the test rule.
+      tags: Tags when creating binary.
+    """
+    if not test_src:
+        fail("test_src is empty")
+
+    exp_sources = "_all_internal_sources_" + name
+    export_sources(
+        name = exp_sources,
+        deps = imports_targets,
+    )
+    export_test(
+        name = name,
+        test_src = test_src,
+        py_test_rule = py_strict_test,
+        deps = imports_targets + extra_deps,
+        exp_sources = exp_sources,
+        tags = tags,
+        args = args,
     )
 
 def create_server_binary(
