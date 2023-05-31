@@ -309,6 +309,14 @@ class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B):
   TRAINING_OPTIMIZED_SHARDING = False
   USE_REPEATED_LAYER = True
 
+  def task(self) -> tasks_lib.SingleTask.HParams:
+    task_p = super().task()
+    task_p = template.set_decoding_sharding_hparams(
+        task_p,
+        mesh_shape=self.ICI_MESH_SHAPE,
+    )
+    return task_p
+
 
 @servable_model_registry.register
 class LmCloudSpmd2BTest(LmCloudSpmd2B):
