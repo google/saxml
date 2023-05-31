@@ -28,7 +28,7 @@ class ImageNetResNet50(
   """ImageNet ResNet50 base model for classification tasks."""
 
   IMAGE_SIZE = 224
-  BATCH_SIZE = 1
+  BATCH_SIZE = [1]
   TOP_K = 5
 
   @classmethod
@@ -53,7 +53,7 @@ class ImageNetResNet50(
 
   def input_for_model_init(self):
     # Batch-2 is sufficient for model init. Imagenet num_classes=1000
-    batch_size, image_size, num_classes = self.BATCH_SIZE, self.IMAGE_SIZE, 1000
+    batch_size, image_size, num_classes = 2, self.IMAGE_SIZE, 1000
     img_shape = (batch_size, image_size, image_size, 3)
     label_shape = (batch_size, num_classes)
 
