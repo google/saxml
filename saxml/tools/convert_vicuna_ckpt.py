@@ -22,7 +22,7 @@ pip3 install git+https://github.com/huggingface/transformers
 # in https://github.com/lm-sys/FastChat to get vicuna weights.
 
 # Example cmd:
-python3 -m convert_huggingface_ckpt --base vicuna_7b --pax pax_7b
+python3 -m convert_vicuna_ckpt --base vicuna_7b --pax pax_7b
 """
 # pylint: disable=g-line-too-long
 import argparse
@@ -34,7 +34,6 @@ from paxml import checkpoints
 from paxml import train_states
 from praxis import py_utils
 
-import torch
 from transformers import AutoModelForCausalLM
 
 
@@ -50,7 +49,7 @@ def convert(base_model_path, pax_model_path):
   print(f'Loading the base model from {base_model_path}')
 
   base = AutoModelForCausalLM.from_pretrained(
-      base_model_path, torch_dtype=torch.float16, low_cpu_mem_usage=True)
+      base_model_path, low_cpu_mem_usage=True)
 
   jax_weights = {
       'lm': {

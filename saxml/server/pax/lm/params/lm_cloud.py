@@ -29,6 +29,7 @@ from praxis.layers import activations
 from saxml.server import servable_model_registry
 from saxml.server.pax import quantization
 from saxml.server.pax.lm.layers import LLaMARotaryEmbedding
+from saxml.server.pax.lm.layers import ParallelTransformer
 from saxml.server.pax.lm.params import template
 
 
@@ -50,8 +51,6 @@ class BaseLLaMA(base_experiment.BaseExperiment):
   FPROP_DTYPE = jnp.bfloat16
   MODEL_DTYPE = jnp.bfloat16
 
-  NORM_POLICY = 'pre'
-  COMBINE_QKV = True
   ACTIVATION_CLS = activations.SiLU
   USE_GATED_ACTIVATION = True
   RMS_NORM_EPSILON = 1.0e-05
@@ -125,7 +124,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     transformer_layer_p.tr_atten_tpl.internal_enable_per_dim_scale = False
     transformer_layer_p.tr_atten_tpl.internal_enable_query_scale = True
     transformer_layer_p.tr_atten_tpl.use_bias = False
-    transformer_layer_p.tr_atten_tpl.combine_qkv = self.COMBINE_QKV
+    transformer_layer_p.tr_atten_tpl.combine_qkv = True
     transformer_layer_p.tr_atten_tpl.rotary_position_emb_tpl = (
         pax_fiddle.Config(LLaMARotaryEmbedding)
     )
@@ -289,6 +288,124 @@ class LLaMA65B(BaseLLaMA):
   @property
   def test_mode(self) -> bool:
     return True
+
+
+# GPT-J/NeoX family
+@template.make_servable()
+class BaseNeoX(base_experiment.BaseExperiment):
+  """Base GPTJ/NeoX Transformer LM configuration."""
+
+  SPM_MODEL = '/cns/mf-d/home/huangyp/ulm/pax-gptj/tokenizer.model'
+  SOS_ID = 0
+  EOS_ID = 2
+
+  # architecture related
+  NUM_LAYERS = 32
+  VOCAB_SIZE = 32000
+  DIMS_PER_HEAD = 128
+  NUM_HEADS = 32
+  MODEL_DIMS = 4096
+  HIDDEN_DIMS = MODEL_DIMS * 4
+  NORM_POLICY = 'pre-hybrid'
+  FPROP_DTYPE = jnp.bfloat16
+  MODEL_DTYPE = jnp.bfloat16
+
+  ACTIVATION_CLS = activations.GELU
+  RMS_NORM_EPSILON = 1.0e-05
+
+  # Sub-class has to specify a mesh.
+  ICI_MESH_SHAPE = [1, 1, 1]
+  DCN_MESH_SHAPE = None
+  DECODE_MESH_TRANSPOSE = None
+
+  BATCH_SIZE = 1
+  NUM_SAMPLES = 1
+  ENABLE_GENERATE_STREAM = True
+  STREAM_INTERVAL_STEPS = 16
+  FPROP_FOR_PREFIX = True
+  INPUT_SEQ_LEN = 4096
+  BUCKET_KEYS = [128, 1024, 4096]
+  MAX_DECODE_STEPS = [128, 512, 1024]
+  EXTRA_INPUTS = {
+      'temperature': 0.5,
+      'per_example_max_decode_steps': 128,
+      'per_example_top_k': 200,
+      'per_example_top_p': 0.95,
+  }
+
+  def datasets(self) -> List[base_input.BaseInput.HParams]:
+    return []
+
+  def task(self) -> tasks_lib.SingleTask.HParams:
+    """Returns the task parameters."""
+    task_p = tasks_lib.SingleTask.HParams(name='xformer_task')
+    task_p.model = pax_fiddle.Config(layers.LanguageModel, name='xformer_lm')
+    model_p = task_p.model
+    model_p.lm_tpl.packed_input = False
+    model_p.lm_tpl.model_dims = self.MODEL_DIMS
+    model_p.lm_tpl.vocab_size = self.VOCAB_SIZE
+    model_p.lm_tpl.position_emb_tpl = None
+    model_p.lm_tpl.softmax_tpl = pax_fiddle.Config(
+        layers.FullSoftmax,
+        name='output',
+        input_dims=self.MODEL_DIMS,
+        num_classes=self.VOCAB_SIZE,
+    )
+    model_p.lm_tpl.softmax_tpl.feed_forward_tpl.has_bias = False
+    model_p.lm_tpl.separate_embedding_tpl = pax_fiddle.Config(
+        layers.Embedding,
+        name='tok_embeddings',
+        input_dims=self.MODEL_DIMS,
+        num_classes=self.VOCAB_SIZE,
+    )
+    model_p.lm_tpl.final_ln_tpl.epsilon = self.RMS_NORM_EPSILON
+
+    stacked_transformer_tpl = pax_fiddle.Config(layers.StackedTransformer)
+    stacked_transformer_tpl.model_dims = self.MODEL_DIMS
+    stacked_transformer_tpl.hidden_dims = self.HIDDEN_DIMS
+    stacked_transformer_tpl.num_layers = self.NUM_LAYERS
+    stacked_transformer_tpl.num_heads = self.NUM_HEADS
+    stacked_transformer_tpl.dim_per_head = self.DIMS_PER_HEAD
+
+    transformer_layer_p = cast(
+        pax_fiddle.Config[ParallelTransformer],
+        stacked_transformer_tpl.transformer_layer_params_tpl,
+    )
+    transformer_layer_p.norm_policy = self.NORM_POLICY
+    transformer_layer_p.ln_tpl.epsilon = self.RMS_NORM_EPSILON
+    transformer_layer_p.tr_atten_tpl.internal_enable_per_dim_scale = False
+    transformer_layer_p.tr_atten_tpl.internal_enable_query_scale = True
+    transformer_layer_p.tr_atten_tpl.use_bias = True
+    transformer_layer_p.tr_atten_tpl.combine_qkv = True
+    transformer_layer_p.tr_atten_tpl.rotary_position_emb_tpl = (
+        pax_fiddle.Config(LLaMARotaryEmbedding)
+    )
+    transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
+
+    transformer_layer_p.tr_fflayer_tpl.has_bias = True
+    transformer_layer_p.tr_fflayer_tpl.activation_tpl = pax_fiddle.Config(
+        self.ACTIVATION_CLS
+    )
+    transformer_layer_p.tr_fflayer_tpl.use_gated_activation = False
+
+    model_p.lm_tpl.stacked_transformer_tpl = stacked_transformer_tpl
+
+    model_p.fprop_dtype = self.FPROP_DTYPE
+    model_p.dtype = self.MODEL_DTYPE
+
+    # Set sharding
+    task_p = template.set_decoding_sharding_hparams(
+        task_p,
+        mesh_shape=self.ICI_MESH_SHAPE,
+        decode_mesh_transpose=self.DECODE_MESH_TRANSPOSE,
+    )
+    # Unused.
+    lp = task_p.train.learner
+    lp.loss_name = 'total_loss'
+    lp.optimizer = optimizers.ShardedSgd.HParams(
+        learning_rate=1e-3, lr_schedule=schedules.Constant.HParams()
+    )
+    return task_p
 
 
 @servable_model_registry.register
