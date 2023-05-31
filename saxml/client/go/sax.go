@@ -108,6 +108,8 @@ func (m *Model) Saver() *Saver {
 type Options struct {
 	// `numConn` is the preferred number of modelet servers to connect to.
 	numConn int
+	// `proxyAddr` is the (optional) proxy to route SAX model traffic through.
+	proxyAddr string
 	// Add other possible options.
 }
 
@@ -118,6 +120,13 @@ type OptionSetter func(*Options)
 func WithNumConn(num int) OptionSetter {
 	return func(o *Options) {
 		o.numConn = num
+	}
+}
+
+// WithProxy redirects all SAX model traffic via a proxy.
+func WithProxy(addr string) OptionSetter {
+	return func(o *Options) {
+		o.proxyAddr = addr
 	}
 }
 
@@ -193,6 +202,13 @@ func Open(id string, options ...OptionSetter) (*Model, error) {
 	}
 	if opts.numConn <= 0 {
 		return nil, fmt.Errorf("open() expect positive numConn %w", errors.ErrInvalidArgument)
+	}
+	if opts.proxyAddr != "" {
+		model := &Model{
+			modelID:           id,
+			connectionFactory: connection.DirectConnectionFactory{Address: opts.proxyAddr},
+		}
+		return model, nil
 	}
 	if strings.HasPrefix(id, "google:///") {
 		// This is a self-hosted model.Skip sax cell resolution and connect to it directly.

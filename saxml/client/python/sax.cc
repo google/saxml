@@ -29,11 +29,10 @@ PYBIND11_MODULE(sax, m) {
            [](const sax::client::Options& self) {
              return sax::client::Options(self);
            })
-      .def("__deepcopy__",
-           [](sax::client::Options& self, py::dict) {
-             return sax::client::Options(self);
-           })
-      .def_readwrite("num_conn", &sax::client::Options::num_conn);
+      .def("__deepcopy__", [](sax::client::Options& self,
+                              py::dict) { return sax::client::Options(self); })
+      .def_readwrite("num_conn", &sax::client::Options::num_conn)
+      .def_readwrite("proxy_addr", &sax::client::Options::proxy_addr);
 
   py::class_<sax::client::ModelOptions>(m, "ModelOptions")
       .def(py::init<>())

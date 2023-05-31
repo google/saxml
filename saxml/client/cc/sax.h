@@ -32,6 +32,7 @@ namespace client {
 // Options contains options for creating sax client.
 struct Options {
   int num_conn = 3;  // Perferred number of connections to sax backend.
+  std::string proxy_addr = "";  // Optional proxy address.
 };
 
 // Model options.

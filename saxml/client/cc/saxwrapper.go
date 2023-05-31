@@ -106,9 +106,10 @@ func go_release_model(in C.long) {
 }
 
 //export go_create_model_with_config
-func go_create_model_with_config(idData *C.char, idSize C.int, numConn C.int, out *C.long, errMsg **C.char, errCode *C.int) {
+func go_create_model_with_config(idData *C.char, idSize C.int, numConn C.int, proxyAddrData *C.char, proxyAddrSize C.int, out *C.long, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
-	m, err := sax.Open(id, sax.WithNumConn(int(numConn)))
+	proxyAddr := C.GoStringN(proxyAddrData, proxyAddrSize)
+	m, err := sax.Open(id, sax.WithNumConn(int(numConn)), sax.WithProxy(proxyAddr))
 	if err != nil {
 		*errMsg = C.CString(err.Error())
 		*errCode = C.int(int32(errors.Code(err)))

@@ -743,9 +743,10 @@ absl::Status Model::Open(absl::string_view id, const Options* options,
   } else {
     // Otherwise, pass options to Go.
     // Cannot pass sax.Options directly so flatten it here.
-    go_create_model_with_config(const_cast<char*>(id.data()), id.size(),
-                                options->num_conn, &base_model, &errMsgStr,
-                                &errCode);
+    go_create_model_with_config(
+        const_cast<char*>(id.data()), id.size(), options->num_conn,
+        const_cast<char*>(options->proxy_addr.data()),
+        options->proxy_addr.size(), &base_model, &errMsgStr, &errCode);
   }
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
