@@ -429,8 +429,10 @@ func (m *Mgr) pruneModelets(timeout time.Duration) {
 		// modelets. If any model is scheduled to be unloaded and therefore not in WantedModels,
 		// the corresponding unloadModels will eventually remove addr from those models' addrWatcher.
 		for fullName := range modelet.WantedModels() {
-			model := m.models[fullName]
-			model.addrWatcher.Del(string(addr))
+			model, ok := m.models[fullName]
+			if ok {
+				model.addrWatcher.Del(string(addr))
+			}
 		}
 		// Subtract models that are loaded from the waiter. Also be conservative and subtract loading
 		// models, regardless of the loading result later.
