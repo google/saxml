@@ -43,7 +43,7 @@ class CommonServingTemplate:
   BATCH_SIZE = 1
   BATCH_WAIT_SECS = None
   INPUT_SEQ_LEN = 256
-  SUFFIX_SEQ_LEN = 0  # Defaults to half of`INPUT_SEQ_LEN`.
+  SUFFIX_SEQ_LEN = 0  # Deprecating this attribute.
   MAX_DECODE_STEPS = 32
   NUM_SAMPLES = 2
   TOP_K = 40
@@ -121,10 +121,6 @@ class ServingTemplate(
       return None
     input_seq_len = self.INPUT_SEQ_LEN
     suffix_seq_len = self.SUFFIX_SEQ_LEN
-    if not suffix_seq_len:
-      assert self.INPUT_SEQ_LEN % 2 == 0
-      input_seq_len = self.INPUT_SEQ_LEN // 2
-      suffix_seq_len = self.INPUT_SEQ_LEN // 2
     return servable_lm_model.ScoreHParams(
         batch_size=self.BATCH_SIZE,
         polymorphic_seq_len_exclusion=self.POLYMORPHIC_SEQ_LEN_EXCLUSION,
@@ -312,11 +308,6 @@ class ServingWithGradientTemplate(ServingTemplate):
 
     input_seq_len = self.INPUT_SEQ_LEN
     suffix_seq_len = self.SUFFIX_SEQ_LEN
-    if not suffix_seq_len:
-      assert self.INPUT_SEQ_LEN % 2 == 0
-      input_seq_len = self.INPUT_SEQ_LEN // 2
-      suffix_seq_len = self.INPUT_SEQ_LEN // 2
-
     return servable_lm_model.GradientHParams(
         batch_size=self.BATCH_SIZE,
         polymorphic_seq_len_exclusion=self.POLYMORPHIC_SEQ_LEN_EXCLUSION,
