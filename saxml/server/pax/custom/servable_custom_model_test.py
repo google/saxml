@@ -66,11 +66,14 @@ class TestModel(base_model.BaseModel):
 class TestExpt(base_experiment.BaseExperiment):
   """Test experitment."""
 
-  def _optimizer(self) -> optimizers.BaseOptimizer.HParams:
-    return optimizers.ShardedSgd.HParams(momentum=0.9, nesterov=True)
+  def _optimizer(self) -> pax_fiddle.Config[optimizers.BaseOptimizer]:
+    return pax_fiddle.Config(
+        optimizers.ShardedSgd,
+        momentum=0.9,
+        nesterov=True)
 
-  def _learner(self) -> learners.Learner.HParams:
-    lp = learners.Learner.HParams()
+  def _learner(self) -> pax_fiddle.Config[learners.Learner]:
+    lp = pax_fiddle.Config(learners.Learner)
     lp.optimizer = self._optimizer()
     lp.loss_name = 'loss'
     op = lp.optimizer
@@ -78,25 +81,27 @@ class TestExpt(base_experiment.BaseExperiment):
     op.learning_rate = 0.1
     return lp
 
-  def _lr_schedule(self) -> schedules.BaseSchedule.HParams:
+  def _lr_schedule(self) -> pax_fiddle.Config[schedules.BaseSchedule]:
     lrs = [1, 0.1]
     boundaries = [10, 100]
-    return schedules.LinearRampupPiecewiseConstant.HParams(
-        boundaries=boundaries, values=lrs
+    return pax_fiddle.Config(
+        schedules.LinearRampupPiecewiseConstant,
+        boundaries=boundaries,
+        values=lrs
     )
 
-  def datasets(self) -> List[base_input.BaseInput.HParams]:
+  def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     """Returns a list of dataset parameters."""
     pass
 
   def get_input_specs_provider_params(
       self,
-  ) -> base_input.BaseInputSpecsProvider.HParams:
+  ) -> pax_fiddle.Config[base_input.BaseInputSpecsProvider]:
     pass
 
-  def task(self) -> tasks_lib.SingleTask.HParams:
+  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
     """Returns the task parameters."""
-    task_p = tasks_lib.SingleTask.HParams(name='test_task')
+    task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='test_task')
 
     model_p = pax_fiddle.Config(TestModel, name='test_model')
     task_p.model = model_p

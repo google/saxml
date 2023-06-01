@@ -27,6 +27,7 @@ from praxis import base_layer
 from praxis import base_model
 from praxis import decoder_hparams
 from praxis import decoder_utils
+from praxis import pax_fiddle
 from praxis import py_utils
 from praxis import pytypes
 from saxml.server.jax import np_tf_sess_wrapper
@@ -155,7 +156,7 @@ class ServableLMModelParams(
   """A base class that each LM model config needs to implement for serving."""
 
   @abc.abstractmethod
-  def serving_tokenizer(self) -> lm_tokenizer.LMTokenizer.HParams:
+  def serving_tokenizer(self) -> pax_fiddle.Config[lm_tokenizer.LMTokenizer]:
     """Tokenizer params used by serving."""
 
   def methods(self) -> Dict[str, servable_model_params.ServableMethodParams]:
@@ -456,7 +457,7 @@ class LMScoreMethod(ServableLMMethod):
     non_paddings = 1.0 - model_fn_inputs.paddings  # pytype: disable=attribute-error  # jax-ndarray
     if (
         not self._score_params.include_eos_score
-        and self._tokenizer.hparams.append_eos
+        and self._tokenizer.append_eos
     ):
       non_paddings = jnp.pad(
           # TODO(b/263808957): change back to non_paddings[:, 1:] once the bug
