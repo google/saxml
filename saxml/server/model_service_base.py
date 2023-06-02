@@ -133,7 +133,8 @@ class Method:
   admissioner: utils.Admissioner
 
   # statistic tracker.
-  stats: utils.RequestStats
+  ok_stats: utils.RequestStats
+  err_stats: utils.RequestStats
 
   # Sizes of recent batches.
   recent_batch_sizes: Deque[int]
@@ -153,7 +154,10 @@ class Method:
     self.max_live_batches = max_live_batches
     self.queue = utils.RpcQueue(batching_wait_secs=batching_wait_secs)
     self.admissioner = utils.Admissioner(limit=self.limit())
-    self.stats = utils.RequestStats(timespan_sec=60.0)  # pytype: disable=wrong-arg-types  # numpy-scalars
+    # pytype: disable=wrong-arg-types  # numpy-scalars
+    self.ok_stats = utils.RequestStats(timespan_sec=60.0)
+    self.err_stats = utils.RequestStats(timespan_sec=60.0)
+    # pytype: enable=wrong-arg-types  # numpy-scalars
     self.recent_batch_sizes = collections.deque()
 
   def record_batch_size(self, size: int):
@@ -346,12 +350,24 @@ class PerMethodBatcher:
 
   def get_method_stats(
       self,
-  ) -> List[Tuple[MethodKey, utils.RequestStats.Stats, List[int]]]:
+  ) -> List[
+      Tuple[
+          MethodKey,
+          utils.RequestStats.Stats,
+          utils.RequestStats.Stats,
+          List[int],
+      ]
+  ]:
     """Returns the latest stats for every method key."""
     ret = []
     for mkey, method in self._per_method_queues.items():
       # TODO(zhifengc): Consider making 100 samples tunable.
-      ret.append((mkey, method.stats.get(100), list(method.recent_batch_sizes)))
+      ret.append((
+          mkey,
+          method.ok_stats.get(100),
+          method.err_stats.get(1),
+          list(method.recent_batch_sizes),
+      ))
     return ret
 
   def add_item(
@@ -373,7 +389,10 @@ class PerMethodBatcher:
       if optional_done:
         optional_done(status, *args)
       if method is not None:
-        method.stats.add(time.time() - start_ts)
+        if status.ok():
+          method.ok_stats.add(time.time() - start_ts)
+        else:
+          method.err_stats.add(time.time() - start_ts)
 
     if method is None:
       return done(utils.not_found(f'method {key} is unloaded'))
