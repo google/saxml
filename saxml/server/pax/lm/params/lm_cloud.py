@@ -437,7 +437,9 @@ class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B):
 
 @servable_model_registry.register
 class LmCloudSpmd2BTest(LmCloudSpmd2B):
-  """Servable config on 1x1x4 in test mode."""
+  """2B Servable config on 1x1x1 in test mode."""
+
+  ICI_MESH_SHAPE = [1, 1, 1]
 
   @property
   def test_mode(self) -> bool:
@@ -445,14 +447,31 @@ class LmCloudSpmd2BTest(LmCloudSpmd2B):
 
 
 @servable_model_registry.register
-class LmCloudSpmd2BMultiHostTest(LmCloudSpmd2B):
-  """Servable config on 1x1x16 in test mode."""
+class LmCloudSpmd2B4Test(LmCloudSpmd2BTest):
+  """2B Servable config on 1x1x4 in test mode."""
+
+  ICI_MESH_SHAPE = [1, 1, 4]
+
+
+@servable_model_registry.register
+class LmCloudSpmd2B8Test(LmCloudSpmd2BTest):
+  """2B Servable config on 1x1x8 in test mode."""
+
+  ICI_MESH_SHAPE = [1, 1, 8]
+
+
+@servable_model_registry.register
+class LmCloudSpmd2B16Test(LmCloudSpmd2BTest):
+  """2B Servable config on 1x1x16 in test mode."""
 
   ICI_MESH_SHAPE = [1, 1, 16]
 
-  @property
-  def test_mode(self) -> bool:
-    return True
+
+@servable_model_registry.register
+class LmCloudSpmd2B32Test(LmCloudSpmd2BTest):
+  """2B Servable config on 1x1x32 in test mode."""
+
+  ICI_MESH_SHAPE = [1, 1, 32]
 
 
 @servable_model_registry.register
@@ -492,3 +511,31 @@ class LmCloudSpmd175BTest(LmCloudSpmd175B):
   @property
   def test_mode(self) -> bool:
     return True
+
+
+@servable_model_registry.register
+class LmCloudSpmd175B32Test(LmCloudSpmd175BTest):
+  """175B Servable config on 1x1x32 in test mode."""
+
+  ICI_MESH_SHAPE = [1, 1, 32]
+
+
+@servable_model_registry.register
+class LmCloudSpmd175B64Test(LmCloudSpmd175BTest):
+  """175B Servable config on 1x1x64 in test mode."""
+
+  ICI_MESH_SHAPE = [1, 1, 64]
+
+
+@servable_model_registry.register
+class LmCloudSpmd175B128Test(LmCloudSpmd175BTest):
+  """175B Servable config on 1x1x128 in test mode."""
+
+  ICI_MESH_SHAPE = [1, 1, 128]
+
+
+@servable_model_registry.register
+class LmCloudSpmd175B256Test(LmCloudSpmd175BTest):
+  """175B Servable config on 1x1x256 in test mode."""
+
+  ICI_MESH_SHAPE = [1, 1, 256]
