@@ -1,3 +1,9 @@
+# Release 0.2.2
+
+## Bug Fixes
+
+*   Improved compatibility with new Cloud TPU systems.
+
 # Release 0.2.1
 
 ## Bug Fixes
