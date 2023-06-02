@@ -151,7 +151,7 @@ gin-config==0.5.0
     # via
     #   mesh-tensorflow
     #   t5
-google-auth==2.19.0
+google-auth==2.19.1
     # via
     #   google-auth-oauthlib
     #   tensorboard
@@ -175,7 +175,7 @@ grpcio-reflection==1.48.2
     # via -r requirements.in
 h5py==3.8.0
     # via tensorflow
-huggingface-hub==0.14.1
+huggingface-hub==0.15.1
     # via transformers
 idna==3.4
     # via
@@ -187,6 +187,7 @@ immutabledict==2.2.4
 importlib-metadata==6.6.0
     # via
     #   -r requirements.in
+    #   jax
     #   jupyter-client
     #   markdown
     #   nbconvert
@@ -236,7 +237,7 @@ jax @ git+https://github.com/google/jax
     #   seqio-nightly
 jax-bitempered-loss==0.0.2
     # via praxis
-jaxlib==0.4.10+cuda11.cudnn86
+jaxlib==0.4.11+cuda11.cudnn86
     # via
     #   chex
     #   clu
@@ -312,7 +313,7 @@ libclang==16.0.0
     # via tensorflow
 libcst==1.0.0
     # via fiddle
-libtpu-nightly==0.1.dev20230511
+libtpu-nightly==0.1.dev20230531
     # via jax
 lingvo==0.12.6
     # via
@@ -588,7 +589,6 @@ regex==2023.5.5
 requests==2.31.0
     # via
     #   huggingface-hub
-    #   jax
     #   requests-oauthlib
     #   tensorboard
     #   tensorflow-datasets
@@ -636,7 +636,7 @@ sentencepiece==0.1.99
     #   t5
 seqio @ git+https://github.com/google/seqio
     # via paxml
-seqio-nightly==0.0.15.dev20230531
+seqio-nightly==0.0.15.dev20230602
     # via t5
 six==1.16.0
     # via
@@ -777,7 +777,7 @@ traitlets==5.9.0
     #   qtconsole
 transformers==4.29.2
     # via t5
-typing-extensions==4.6.2
+typing-extensions==4.6.3
     # via
     #   chex
     #   clu
