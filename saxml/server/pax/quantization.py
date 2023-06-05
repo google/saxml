@@ -105,7 +105,7 @@ def for_transformer(
             quantization_type_str
         )
         assert num_bits == 8 or num_bits == 4
-        quantize.set_quantization(
+        quantize.set_transformer_quantization(
             task_p.model,
             quantization_type,
             mode=mode,
