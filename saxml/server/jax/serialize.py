@@ -77,7 +77,7 @@ def serialize_pjittable_function(
     flat_in_shardings = []
     for s, x in zip(mesh_comp.compile_args['in_shardings'], global_in_avals):
       # pylint: disable=protected-access
-      flat_in_shardings.append(s._to_xla_op_sharding(x.ndim))
+      flat_in_shardings.append(s._to_xla_hlo_sharding(x.ndim).to_proto())
       # pylint: enable=protected-access
     ir = lowered.compiler_ir()
   return SerializedPjitFunction(
