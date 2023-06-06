@@ -37,7 +37,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"golang.org/x/oauth2/google"
+	"saxml/common/basiceventlogger"
 	"saxml/common/errors"
+	"saxml/common/eventlog"
 	"saxml/common/platform/env"
 	"github.com/google/safehtml/template"
 
@@ -564,4 +566,9 @@ func (e *Env) NewServer() (env.Server, error) {
 	s := &Server{grpc.NewServer()}
 	reflection.Register(s.GRPCServer())
 	return s, nil
+}
+
+// NewEventLogger creates new event logger for cloud environment.
+func (e *Env) NewEventLogger() eventlog.Logger {
+	return basiceventlogger.New()
 }

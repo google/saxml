@@ -25,6 +25,7 @@ go_library(
     name = "env",
     srcs = ["env.go"],
     deps = [
+        "//saxml/common:eventlog",
         "//saxml/protobuf:admin_go_proto_grpc",
         "@com_github_golang_glog//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
@@ -53,7 +54,9 @@ go_library(
     deps = [
         ":env",
         # unused internal flag dependency,
+        "//saxml/common:basiceventlogger",
         "//saxml/common:errors",
+        "//saxml/common:eventlog",
         "//saxml/protobuf:admin_go_proto_grpc",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_google_safehtml//template:go_default_library",

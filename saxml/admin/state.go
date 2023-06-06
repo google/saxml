@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 	"saxml/admin/protobuf"
 	"saxml/common/errors"
+	"saxml/common/eventlog"
 	"saxml/common/naming"
 	"saxml/common/platform/env"
 	"saxml/common/waitable"
@@ -165,6 +166,9 @@ type State struct {
 	// Last successful refresh time.
 	muLastPing sync.Mutex
 	lastPing   time.Time
+
+	// Logger to log events such as publish, unpublish, etc.
+	eventLogger eventlog.Logger
 }
 
 // SeenModels returns a copy of the reported server state.
@@ -246,6 +250,11 @@ func (s *State) act(a *action) {
 			if a.waiter != nil {
 				a.waiter.Add(1)
 			}
+			s.eventLogger.Log(eventlog.ServingStart, &apb.Model{
+				ModelId:        a.fullName.ModelFullName(),
+				ModelPath:      a.model.Path,
+				CheckpointPath: a.model.Checkpoint,
+			}, s.Addr)
 		} else {
 			log.Warningf("Failed to load model %v onto server %v", a.fullName, s.Addr)
 			// On failure, we don't remove a.fullName from s.wanted, so we can show the failed status in
@@ -259,6 +268,11 @@ func (s *State) act(a *action) {
 			if a.waiter != nil {
 				a.waiter.Add(-1)
 			}
+			s.eventLogger.Log(eventlog.ServingStop, &apb.Model{
+				ModelId:        a.fullName.ModelFullName(),
+				ModelPath:      a.model.Path,
+				CheckpointPath: a.model.Checkpoint,
+			}, s.Addr)
 		} else {
 			log.Warningf("Failed to unload model %v from server %v (%v)", a.fullName, s.Addr, err)
 			// On failure, we put a.fullName back into s.wanted, so the unload failure shows up as a
@@ -468,15 +482,16 @@ func (s *State) Close() {
 }
 
 // New creates a new State instance from a running model server.
-func New(addr, debugAddr string, specs *protobuf.ModelServer) *State {
+func New(addr, debugAddr string, specs *protobuf.ModelServer, eventLogger eventlog.Logger) *State {
 	if specs == nil {
 		specs = &protobuf.ModelServer{}
 	}
 	return &State{
-		Addr:      addr,
-		DebugAddr: debugAddr,
-		Specs:     specs,
-		seen:      make(map[naming.ModelFullName]*ModelWithStatus),
-		wanted:    make(map[naming.ModelFullName]*Model),
+		Addr:        addr,
+		DebugAddr:   debugAddr,
+		Specs:       specs,
+		seen:        make(map[naming.ModelFullName]*ModelWithStatus),
+		wanted:      make(map[naming.ModelFullName]*Model),
+		eventLogger: eventLogger,
 	}
 }

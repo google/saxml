@@ -258,3 +258,17 @@ go_test(
         ":waitable",
     ],
 )
+
+go_library(
+    name = "basiceventlogger",
+    srcs = ["basiceventlogger.go"],
+    deps = [
+        ":eventlog",
+        "@com_github_golang_glog//:go_default_library",
+    ],
+)
+
+go_library(
+    name = "eventlog",
+    srcs = ["eventlog.go"],
+)

@@ -22,6 +22,7 @@ import (
 
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
+	"saxml/common/eventlog"
 
 	pb "saxml/protobuf/admin_go_proto_grpc"
 )
@@ -108,6 +109,9 @@ type Env interface {
 	RequiredACLNamePrefix() string
 	// NewServer creates a server.
 	NewServer() (Server, error)
+
+	// NewEventLogger creates new client for logging lineage events.
+	NewEventLogger() eventlog.Logger
 }
 
 // Register lets a platform register its Env implementation.

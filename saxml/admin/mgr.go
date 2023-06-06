@@ -28,7 +28,9 @@ import (
 	"saxml/admin/state"
 	"saxml/admin/validator"
 	"saxml/common/errors"
+	"saxml/common/eventlog"
 	"saxml/common/naming"
+	"saxml/common/platform/env"
 	"saxml/common/waitable"
 	"saxml/common/watchable"
 
@@ -108,6 +110,8 @@ type Mgr struct {
 	// Ticker for calling refresh periodically.
 	ticker     *time.Ticker
 	tickerStop chan bool
+
+	eventLogger eventlog.Logger
 }
 
 // Publish publishes a model.
@@ -133,6 +137,8 @@ func (m *Mgr) Publish(specs *apb.Model) error {
 		addrWatcher: watchable.New(),
 		waiter:      waitable.New(),
 	}
+
+	m.eventLogger.Log(eventlog.Deploy, specs)
 
 	return nil
 }
@@ -269,7 +275,7 @@ func (m *Mgr) Join(ctx context.Context, addr, debugAddr string, specs *apb.Model
 	maddr := modeletAddr(addr)
 
 	createNewServerState := func() error {
-		modelServer := state.New(addr, debugAddr, protobuf.NewModelServer(specs))
+		modelServer := state.New(addr, debugAddr, protobuf.NewModelServer(specs), m.eventLogger)
 		if err := modelServer.Start(ctx, m); err != nil {
 			return fmt.Errorf("failed to start a connection with %v: %w", addr, err)
 		}
@@ -784,6 +790,7 @@ func (m *Mgr) Close() {
 	m.ticker.Stop()
 	m.tickerStop <- true
 	<-m.tickerStop
+	m.eventLogger.Close()
 }
 
 // New creates an empty manager with a backing store.
@@ -794,5 +801,6 @@ func New(store Store) *Mgr {
 		assignment:         make(map[modelFullName][]modeletAddr),
 		pendingUnpublished: make(map[modelFullName]bool),
 		store:              store,
+		eventLogger:        env.Get().NewEventLogger(),
 	}
 }
