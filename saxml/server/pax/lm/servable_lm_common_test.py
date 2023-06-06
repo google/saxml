@@ -17,6 +17,7 @@ import os
 
 from absl import flags
 import numpy as np
+from praxis import pax_fiddle
 from praxis import py_utils
 from praxis import test_utils
 from saxml.server.jax import np_tf_sess_wrapper
@@ -28,7 +29,8 @@ FLAGS = flags.FLAGS
 
 
 def create_tokenizer_params():
-  p = lm_tokenizer.LMTokenizer.HParams(
+  p = pax_fiddle.Config(
+      lm_tokenizer.LMTokenizer,
       spm_model=os.path.join(
           FLAGS.test_srcdir,
           '__main__/saxml/server/pax/lm/test_data',

@@ -22,6 +22,7 @@ from paxml import base_task
 from paxml import checkpoints
 from praxis import base_input
 from praxis import base_model
+from praxis import pax_fiddle
 from praxis import py_utils
 from praxis import pytypes
 from saxml.server.pax import servable_model
@@ -60,10 +61,10 @@ class UnionModelParams(
   def input_for_model_init(self) -> NestedMap:
     raise NotImplementedError('should not be called')
 
-  def task(self) -> base_task.BaseTask.HParams:
+  def task(self) -> pax_fiddle.Config[base_task.BaseTask]:
     raise NotImplementedError('should not be called')
 
-  def datasets(self) -> List[base_input.BaseInput.HParams]:
+  def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     raise NotImplementedError('should not be called')
 
 

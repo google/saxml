@@ -209,7 +209,7 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
     # pylint: enable=assignment-from-none
     return methods
 
-  def task(self) -> base_task.BaseTask.HParams:
+  def task(self) -> pax_fiddle.Config[base_task.BaseTask]:
     p = super().task()
     # We do this because p looks like a BaseParameterizable, not a BaseModel
     # that has a model attribute.

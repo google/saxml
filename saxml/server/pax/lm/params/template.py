@@ -141,7 +141,8 @@ class ServingTemplate(
         else self._dataset_train().input.tokenizer.spm_model
     )
 
-    return lm_tokenizer.LMTokenizer.HParams(
+    return pax_fiddle.Config(
+        lm_tokenizer.LMTokenizer,
         spm_model=spm_model,
         target_sos_id=self.SOS_ID,
         target_eos_id=self.EOS_ID,
@@ -389,7 +390,7 @@ def make_servable(servable_class=ServingTemplate):
         # cls is a subclass of sax_registration_name defined somewhere else.
         return None
 
-      def task(self) -> base_task.BaseTask.HParams:
+      def task(self) -> pax_fiddle.Config[base_task.BaseTask]:
         task_p = super().task()
 
         if not hasattr(task_p, 'model'):
@@ -425,11 +426,11 @@ def make_servable(servable_class=ServingTemplate):
 
 
 def set_decoding_sharding_hparams(
-    task_p: tasks_lib.SingleTask.HParams,
+    task_p: pax_fiddle.Config[tasks_lib.SingleTask],
     mesh_shape: Sequence[int],
     decode_mesh_transpose: Optional[Dict[str, str]] = None,
     mqa_kv_state_batch_sharding: Optional[bool] = False,
-) -> tasks_lib.SingleTask.HParams:
+) -> pax_fiddle.Config[tasks_lib.SingleTask]:
   """Set spmd sharding params that works for decoding.
 
   Args:

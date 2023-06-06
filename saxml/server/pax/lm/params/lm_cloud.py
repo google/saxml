@@ -75,12 +75,12 @@ class BaseLLaMA(base_experiment.BaseExperiment):
       'per_example_top_p': 0.95,
   }
 
-  def datasets(self) -> List[base_input.BaseInput.HParams]:
+  def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     return []
 
-  def task(self) -> tasks_lib.SingleTask.HParams:
+  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
     """Returns the task parameters."""
-    task_p = tasks_lib.SingleTask.HParams(name='xformer_task')
+    task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='xformer_task')
     task_p.model = pax_fiddle.Config(layers.LanguageModel, name='xformer_lm')
     model_p = task_p.model
     model_p.lm_tpl.packed_input = False
@@ -153,8 +153,10 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     # Unused.
     lp = task_p.train.learner
     lp.loss_name = 'total_loss'
-    lp.optimizer = optimizers.ShardedSgd.HParams(
-        learning_rate=1e-3, lr_schedule=schedules.Constant.HParams()
+    lp.optimizer = pax_fiddle.Config(
+        optimizers.ShardedSgd,
+        learning_rate=1e-3,
+        lr_schedule=pax_fiddle.Config(schedules.Constant)
     )
     return task_p
 
@@ -333,12 +335,12 @@ class BaseNeoX(base_experiment.BaseExperiment):
       'per_example_top_p': 0.95,
   }
 
-  def datasets(self) -> List[base_input.BaseInput.HParams]:
+  def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     return []
 
-  def task(self) -> tasks_lib.SingleTask.HParams:
+  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
     """Returns the task parameters."""
-    task_p = tasks_lib.SingleTask.HParams(name='xformer_task')
+    task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='xformer_task')
     task_p.model = pax_fiddle.Config(layers.LanguageModel, name='xformer_lm')
     model_p = task_p.model
     model_p.lm_tpl.packed_input = False
@@ -402,8 +404,10 @@ class BaseNeoX(base_experiment.BaseExperiment):
     # Unused.
     lp = task_p.train.learner
     lp.loss_name = 'total_loss'
-    lp.optimizer = optimizers.ShardedSgd.HParams(
-        learning_rate=1e-3, lr_schedule=schedules.Constant.HParams()
+    lp.optimizer = pax_fiddle.Config(
+        optimizers.ShardedSgd,
+        learning_rate=1e-3,
+        lr_schedule=pax_fiddle.Config(schedules.Constant)
     )
     return task_p
 
@@ -426,7 +430,7 @@ class LmCloudSpmd2B(lm_cloud.LmCloudSpmd2B):
   TRAINING_OPTIMIZED_SHARDING = False
   USE_REPEATED_LAYER = True
 
-  def task(self) -> tasks_lib.SingleTask.HParams:
+  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
     task_p = super().task()
     task_p = template.set_decoding_sharding_hparams(
         task_p,

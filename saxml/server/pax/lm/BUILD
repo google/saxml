@@ -50,6 +50,7 @@ py_strict_test(
         ":lm_tokenizer",
         "//third_party/py/absl-py/flags",
         "//third_party/py/praxis:base_layer",
+        "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )
@@ -81,6 +82,7 @@ py_strict_test(
         "//saxml/server/jax:np_tf_sess_wrapper",
         "//third_party/py/absl-py/flags",
         "//third_party/py/numpy",
+        "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis:test_utils",
         "//third_party/py/tensorflow:tensorflow_no_contrib",

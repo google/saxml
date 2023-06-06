@@ -17,6 +17,7 @@ import os
 
 from absl import flags
 from praxis import base_layer
+from praxis import pax_fiddle
 from saxml.server.pax.lm import lm_tokenizer
 import tensorflow as tf
 
@@ -25,7 +26,8 @@ FLAGS = flags.FLAGS
 
 
 def _CreateParams():
-  p = lm_tokenizer.LMTokenizer.HParams(
+  p = pax_fiddle.Config(
+      lm_tokenizer.LMTokenizer,
       # From https://github.com/google/sentencepiece/tree/master/python:
       #   <unk>:  0
       #   <s>:    1
