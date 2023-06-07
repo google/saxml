@@ -473,7 +473,7 @@ func go_generate_stream(ptr C.long, timeout C.float, textData *C.char, textSize 
 				item := &lmpb.GenerateStreamItem{
 					Text:      v.Text,
 					PrefixLen: int32(v.PrefixLen),
-					Score:     v.Score,
+					Scores:    v.Scores,
 				}
 				ret.Items = append(ret.GetItems(), item)
 			}

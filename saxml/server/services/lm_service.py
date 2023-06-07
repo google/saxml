@@ -64,9 +64,13 @@ class LmService(model_service_base.ModelService):
       return
     if method_name == LMMethodName.GENERATE_STREAM:
       texts, scores = method_outputs
-      for text, score in zip(texts, scores):
+      for text, item_scores in zip(texts, scores):
         # Let GenerateStream below add the correct value of prefix_len.
-        response.items.append(lm_pb2.GenerateStreamItem(text=text, score=score))
+        if not isinstance(item_scores, Iterable):
+          item_scores = [item_scores]
+        response.items.append(
+            lm_pb2.GenerateStreamItem(text=text, scores=item_scores)
+        )
       return
     if method_name == LMMethodName.EMBED:
       embeddings = method_outputs

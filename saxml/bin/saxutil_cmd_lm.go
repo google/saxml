@@ -74,7 +74,8 @@ func (c *GenerateCmd) SetFlags(f *flag.FlagSet) {
 func (c *GenerateCmd) streamingGenerate(ctx context.Context, query string, lm *sax.LanguageModel) subcommands.ExitStatus {
 	chanStreamResults := lm.GenerateStream(ctx, query, ExtraInputs(c.extra)...)
 	var accumulatedResults []string
-	var scores []float64
+	var allScores [][]float64
+	var lastScore [][]float64
 	for {
 		select {
 		case <-ctx.Done():
@@ -87,8 +88,10 @@ func (c *GenerateCmd) streamingGenerate(ctx context.Context, query string, lm *s
 				for len(accumulatedResults) < len(streamResult.Items) {
 					accumulatedResults = append(accumulatedResults, "")
 				}
-				for len(scores) < len(streamResult.Items) {
-					scores = append(scores, 0.0)
+				for len(allScores) < len(streamResult.Items) {
+					s := make([]float64, len(streamResult.Items[0].Scores))
+					allScores = append(allScores, s)
+					lastScore = append(lastScore, s)
 				}
 				clear()
 				for i, item := range streamResult.Items {
@@ -98,23 +101,47 @@ func (c *GenerateCmd) streamingGenerate(ctx context.Context, query string, lm *s
 					}
 					accumulatedResults[i] = accumulatedResults[i][:item.PrefixLen] + item.Text
 					// Accumulate the scores.
-					scores[i] += item.Score
+					for j := range item.Scores {
+						allScores[i][j] += item.Scores[j]
+					}
+					lastScore[i] = item.Scores
 
 					// Print all suffixes separated by one blank line.
 					fmt.Println(accumulatedResults[i])
 					fmt.Println()
 				}
 			case io.EOF:
-				var strs []string
-				for _, score := range scores {
-					strs = append(strs, fmt.Sprintf("%v", score))
+				if len(allScores) == 0 {
+					continue
 				}
-				if len(strs) == 1 {
-					fmt.Print("Score: ")
-				} else {
-					fmt.Print("Scores: ")
+				for i := range allScores[0] {
+					var strs []string
+					for _, scores := range allScores {
+						if len(scores) > 0 {
+							strs = append(strs, fmt.Sprintf("%v", scores[i]))
+						}
+					}
+					if len(allScores[0]) == 1 {
+						fmt.Print("Scores: ")
+					} else {
+						fmt.Printf("Total Scores[%v]: ", i)
+					}
+					fmt.Println(strings.Join(strs, ", "))
 				}
-				fmt.Println(strings.Join(strs, ", "))
+				// In some cases, users may want the last score instead.
+				if len(lastScore[0]) > 1 {
+					fmt.Println()
+					for i := range lastScore[0] {
+						var strs []string
+						for _, scores := range lastScore {
+							if len(scores) > 0 {
+								strs = append(strs, fmt.Sprintf("%v", scores[i]))
+							}
+						}
+						fmt.Printf("Last Score[%v]: ", i)
+						fmt.Println(strings.Join(strs, ", "))
+					}
+				}
 				return subcommands.ExitSuccess
 			default:
 				fmt.Printf("Command failed: %v\n", streamResult.Err)

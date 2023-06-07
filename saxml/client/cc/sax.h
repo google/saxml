@@ -232,7 +232,7 @@ class LanguageModel {
   //   scores.resize(items.size(), 0.0);
   //   for (int i = 0; i < items.size(); i++) {
   //     texts[i] = texts[i].substr(0, items[i].prefix_len) + items[i].text;
-  //     scores[i] = items[i].score;
+  //     scores[i] = items[i].scores[0];
   //   }
   // }
   // absl::Status status = lm.GenerateStream(prefix, callback);
@@ -240,7 +240,7 @@ class LanguageModel {
   struct GenerateItem {
     std::string text;
     int prefix_len;
-    double score;
+    std::vector<double> scores;
   };
   typedef std::function<void(bool last, const std::vector<GenerateItem>& items)>
       GenerateCallback;

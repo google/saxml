@@ -113,7 +113,8 @@ PYBIND11_MODULE(sax, m) {
           [](sax::client::pybind::LanguageModel& lm, absl::string_view text,
              py::function py_callback,
              const sax::client::ModelOptions* options) -> absl::Status {
-            // py_callback: Callable[[bool, list[tuple[str, int, float]]], None]
+            // py_callback:
+            // Callable[[bool, list[tuple[str, int, list[float]]]], None]
             return lm.GenerateStream(text, py_callback, options);
           },
           py::arg("text"), py::arg("callback"), py::arg("options") = nullptr)

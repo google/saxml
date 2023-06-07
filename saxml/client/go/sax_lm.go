@@ -97,7 +97,7 @@ func (l *LanguageModel) Generate(ctx context.Context, text string, options ...Mo
 type GenerateStreamItem struct {
 	Text      string
 	PrefixLen int
-	Score     float64
+	Scores    []float64
 }
 
 // StreamResult is the result for streaming generate.
@@ -113,7 +113,12 @@ type StreamResult struct {
 func extractGenerateStreamResponse(res *pb.GenerateStreamResponse) []GenerateStreamItem {
 	results := make([]GenerateStreamItem, 0, len(res.GetItems()))
 	for _, item := range res.GetItems() {
-		candidate := GenerateStreamItem{Text: item.GetText(), PrefixLen: int(item.GetPrefixLen()), Score: item.GetScore()}
+		candidate := GenerateStreamItem{Text: item.GetText(), PrefixLen: int(item.GetPrefixLen()), Scores: item.GetScores()}
+		// Populate the score from deprecated `score` field if `scores` is empty.
+		// TODO(b/286079331): Remove this fallback.
+		if len(candidate.Scores) == 0 {
+			candidate.Scores = append(candidate.Scores, item.GetScore())
+		}
 		results = append(results, candidate)
 	}
 	return results
@@ -137,7 +142,7 @@ func extractGenerateStreamResponse(res *pb.GenerateStreamResponse) []GenerateStr
 //					if i >= len(scores) {
 //						scores = append(scores, 0.0)
 //					}
-//					scores[i] = item.Score
+//					scores[i] = item.Scores[0]
 //				}
 //			case io.EOF:
 //	     log.Info("EOF")

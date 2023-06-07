@@ -75,7 +75,7 @@ message GenerateResponse {
 // for response in range(get_streaming_responses()):
 //   for i, item in enumerate(response.items):
 //     results[i] = results[i][:item.prefix_len] + item.text
-//     scores[i] = item.score
+//     scores[i] = item.score[0]
 //
 // results[i] and scores[i] will contain the fully decoded text and score for
 // the ith item.
@@ -90,7 +90,12 @@ message GenerateStreamItem {
 
   // The final response in a stream is required to contain scores for each
   // fully decoded item.
-  double score = 3;
+  // TODO(b/286079331): Remove this field.
+  double score = 3 [deprecated = true];
+
+  // Various scores corresponding to each stream item (e.g. log_prob or scores
+  // for attributes such safety, quality, etc.).
+  repeated double scores = 4;
 }
 
 // Each response message represents one incremental decoding result in a

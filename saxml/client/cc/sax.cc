@@ -288,8 +288,15 @@ static void GenerateCallbackWrapper(void* cbCtx, void* outData, int outSize) {
   out.ParseFromArray(outData, outSize);
   free(outData);
   for (const auto& item : out.items()) {
-    items.push_back(LanguageModel::GenerateItem{item.text(), item.prefix_len(),
-                                                item.score()});
+    auto generate_item = LanguageModel::GenerateItem{
+        item.text(), item.prefix_len(),
+        std::vector<double>{item.scores().begin(), item.scores().end()}};
+    // Populate the score from deprecated `score` field if `scores` is empty.
+    // TODO(b/286079331): Remove this fallback.
+    if (generate_item.scores.empty()) {
+      generate_item.scores.push_back(item.score());
+    }
+    items.push_back(generate_item);
   }
   return (*cb)(/*last=*/false, items);
 }

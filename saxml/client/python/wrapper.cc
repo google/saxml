@@ -180,13 +180,13 @@ absl::Status LanguageModel::GenerateStream(absl::string_view prefix,
       [callback](bool last,
                  const std::vector<::sax::client::LanguageModel::GenerateItem>&
                      items) {
-        std::vector<std::tuple<std::string, int, double>> r;
+        std::vector<std::tuple<std::string, int, std::vector<double>>> r;
         r.reserve(items.size());
         if (last) return callback(true, r);
         for (size_t i = 0; i < items.size(); i++) {
           auto& item = items[i];
           r.emplace_back(std::make_tuple(std::move(item.text), item.prefix_len,
-                                         item.score));
+                                         item.scores));
         }
         callback(false, std::move(r));
       };

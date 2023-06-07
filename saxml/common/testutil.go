@@ -381,11 +381,11 @@ func (s *stubLanguageModelServer) GenerateStream(in *lmpb.GenerateRequest, strea
 				&lmpb.GenerateStreamItem{
 					Text: text + "_0_" + strconv.Itoa(i),
 					// TODO(sax-dev): Also fill in PrefixLen for additional testing.
-					Score: float64(len(text)) * 0.1 * temperature,
+					Scores: []float64{float64(len(text)) * 0.1 * temperature},
 				},
 				&lmpb.GenerateStreamItem{
-					Text:  text + "_1_" + strconv.Itoa(i),
-					Score: float64(len(text)) * 0.2 * temperature,
+					Text:   text + "_1_" + strconv.Itoa(i),
+					Scores: []float64{float64(len(text)) * 0.2 * temperature},
 				},
 			},
 		}
