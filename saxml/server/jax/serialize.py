@@ -28,9 +28,9 @@ class SerializedPjitFunction:
   # Serializable IR for the device computation.
   ir: Any
   # Abstract arrays for the flattend inputs.
-  flat_global_in_avals: Sequence[jax.abstract_arrays.ShapedArray]
+  flat_global_in_avals: Sequence[jax.core.ShapedArray]
   # Abstract arrays for the flattend outputs.
-  flat_global_out_avals: Sequence[jax.abstract_arrays.ShapedArray]
+  flat_global_out_avals: Sequence[jax.core.ShapedArray]
   # Whether the compilation uses a tuple to hold all args.
   tuple_args: bool
   # Shardings for the flattened inputs.
