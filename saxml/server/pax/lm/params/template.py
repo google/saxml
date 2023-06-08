@@ -341,7 +341,7 @@ def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
   if issubclass(layer_p.tr_atten_tpl.cls, attentions.DotProductAttention):
     lbp_tr_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
     layer_p.tr_atten_tpl = lbp_tr_atten_tpl
-  elif layer_p.tr_atten_tpl.cls in [mqa_cls, mqs_lpb_cls]:
+  elif issubclass(layer_p.tr_atten_tpl.cls, mqa_cls):
     lbp_multi_query_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
     layer_p.tr_atten_tpl = lbp_multi_query_atten_tpl
   else:
