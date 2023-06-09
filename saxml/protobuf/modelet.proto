@@ -42,7 +42,19 @@ message LoadRequest {
   map<string, string> overrides = 5;
 }
 
-message LoadResponse {}
+message LoadResponse {
+}
+
+message UpdateLoadedRequest {
+  // Key identifying the model to load.
+  string model_key = 1;
+
+  // ACLs protecting data methods supported by this model.
+  AccessControlLists acls = 2;
+}
+
+message UpdateLoadedResponse {
+}
 
 message UnloadRequest {
   string model_key = 1;
@@ -132,6 +144,9 @@ message GetStatusResponse {
 service Modelet {
   // Loads a model onto the model server.
   rpc Load(LoadRequest) returns (LoadResponse);
+
+  // Updates a model loaded on the model server.
+  rpc UpdateLoaded(UpdateLoadedRequest) returns (UpdateLoadedResponse);
 
   // Unloads a model from the model server.
   rpc Unload(UnloadRequest) returns (UnloadResponse);

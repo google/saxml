@@ -262,6 +262,10 @@ func (s *stubModeletServer) Load(ctx context.Context, in *mpb.LoadRequest) (*mpb
 	return &mpb.LoadResponse{}, nil
 }
 
+func (s *stubModeletServer) UpdateLoaded(ctx context.Context, in *mpb.UpdateLoadedRequest) (*mpb.UpdateLoadedResponse, error) {
+	return &mpb.UpdateLoadedResponse{}, nil
+}
+
 func (s *stubModeletServer) Unload(ctx context.Context, in *mpb.UnloadRequest) (*mpb.UnloadResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -640,7 +644,7 @@ func StartStubModelServerT(t *testing.T, port int) {
 	t.Helper()
 	ch, err := StartStubModelServer(Language, port, 0, "", 0)
 	if err != nil {
-		t.Fatalf("StartStubModelServer failed: %v")
+		t.Fatalf("StartStubModelServer failed: %v", err)
 	}
 	t.Cleanup(func() { close(ch) })
 }

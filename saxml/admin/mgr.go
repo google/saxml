@@ -156,8 +156,20 @@ func (m *Mgr) Update(fullName modelFullName, newSpecs *apb.Model) error {
 		return fmt.Errorf("invalid model update: %w", err)
 	}
 	existing.specs = proto.Clone(newSpecs).(*apb.Model)
-	// TODO(zhifengc): Adds a method state.Update(newSpec) so that
-	// acl changes can propagate to all model servers.
+
+	addrs, ok := m.assignment[fullName]
+	if !ok {
+		// No server serving this model.
+		return nil
+	}
+	for _, addr := range addrs {
+		state, ok := m.modelets[modeletAddr(addr)]
+		if ok {
+			state.Update(fullName, newSpecs)
+		} else {
+			log.Errorf("Failed to find the server for addr %v", addr)
+		}
+	}
 	return nil
 }
 
@@ -497,7 +509,7 @@ func (m *Mgr) ComputeAssignment() RefreshResult {
 	}
 
 	// Iterates through model servers in sorted address order.
-	// This way, newAssigment[*] are also sorted and stable.
+	// This way, newAssignment[*] are also sorted and stable.
 	var addrs []string
 	for addr := range m.modelets {
 		addrs = append(addrs, string(addr))

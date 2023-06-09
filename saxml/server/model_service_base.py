@@ -458,7 +458,6 @@ class LoadedModelManager:
     self._models = {}
     # Indexed by key.
     self._model_metadata = {}
-    self._model_overrides = {}
     # Indexed by key.
     self._errors = {}
     self._primary_process_id = primary_process_id
@@ -519,11 +518,22 @@ class LoadedModelManager:
 
     self._status[key] = common_pb2.ModelStatus.LOADED
     self._model_metadata[key] = dict(
-        checkpoint_path=ckpt_path, model_path=model_path
+        checkpoint_path=ckpt_path,
+        model_path=model_path,
+        acls=acls,
+        overrides=copy.deepcopy(overrides),
     )
-    self._model_overrides[key] = copy.deepcopy(overrides)
     self._models[key] = loaded
     return loaded
+
+  def update(self, key: str, acls: Dict[str, str]) -> None:
+    """Updates a model's metadata. E.g., ACLs."""
+    model = self.maybe_get_model(key)
+    if model:
+      model.set_acls(acls)
+      meta = self._model_metadata.get(key, None)
+      if meta:
+        meta['acls'] = acls
 
   def unload(self, key: str) -> None:
     """Unloads a model."""
@@ -560,11 +570,8 @@ class LoadedModelManager:
   def get_model(self, key: str) -> servable_model.ServableModel:
     return self._models[key]
 
-  def get_model_metadata(self, key: str) -> Mapping[str, str]:
+  def get_model_metadata(self, key: str) -> Mapping[str, Any]:
     return self._model_metadata[key]
-
-  def get_model_overrides(self, key: str) -> Mapping[str, str]:
-    return self._model_overrides[key]
 
   def maybe_get_model(self, key: str) -> Optional[servable_model.ServableModel]:
     return self._models.get(key)
@@ -856,6 +863,18 @@ class ModeletService:
         MethodKey(_LOAD_METHOD_KEY), rpc_context, req, resp, done_with_status
     )
 
+  def update(
+      self,
+      req: modelet_pb2.UpdateLoadedRequest,
+      done_with_status: StatusCallback,
+  ) -> None:
+    """Updates a model."""
+    if not req.model_key:
+      done_with_status(utils.invalid_arg('model_key is not specified.'))
+      return
+    self._loader.update(req.model_key, dict(req.acls.items))
+    done_with_status(utils.ok())
+
   def unload(
       self,
       rpc_context: utils.RPCContext,
@@ -965,6 +984,13 @@ class ModeletServiceGRPC(ModeletService, modelet_pb2_grpc.ModeletServicer):
     resp = modelet_pb2.LoadResponse()
     fut, done = self._future_and_done_cb(context)
     self.load(utils.RPCContextGRPC(context), request, resp, done)
+    await fut
+    return resp
+
+  async def UpdateLoaded(self, request, context):
+    resp = modelet_pb2.UpdateLoadedResponse()
+    fut, done = self._future_and_done_cb(context)
+    self.update(request, done)
     await fut
     return resp
 

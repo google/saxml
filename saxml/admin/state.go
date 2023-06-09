@@ -114,6 +114,7 @@ type actionKind int
 const (
 	load actionKind = iota
 	unload
+	update
 )
 
 func (k actionKind) String() string {
@@ -215,6 +216,20 @@ func (s *State) Load(ctx context.Context, fullName naming.ModelFullName, spec *a
 	return nil
 }
 
+// Update asynchronously the spec on the loaded model replica.
+func (s *State) Update(fullName naming.ModelFullName, spec *apb.Model) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.wanted[fullName]; !ok {
+		return fmt.Errorf("model %v is not loaded: %w", fullName, errors.ErrNotFound)
+	}
+	model := newModel(spec)
+	s.wanted[fullName] = model
+	s.queue <- &action{update, context.Background(), fullName, model.clone(), nil}
+	return nil
+}
+
 // Unload asynchronously unloads a model.
 func (s *State) Unload(ctx context.Context, fullName naming.ModelFullName, waiter *waitable.Waitable) error {
 	s.mu.Lock()
@@ -236,7 +251,7 @@ func (s *State) Unload(ctx context.Context, fullName naming.ModelFullName, waite
 func (s *State) act(a *action) {
 	switch a.kind {
 	case load:
-		log.V(1).Infof("Loading model %v onto server %v with overrides %v", a.fullName, s.Addr, a.model.Overrides)
+		log.V(0).Infof("Loading model %v onto server %v with overrides %v", a.fullName, s.Addr, a.model.Overrides)
 		req := &mpb.LoadRequest{
 			ModelKey:       a.fullName.ModelFullName(),
 			ModelPath:      a.model.Path,
@@ -260,7 +275,19 @@ func (s *State) act(a *action) {
 			// On failure, we don't remove a.fullName from s.wanted, so we can show the failed status in
 			// GetStatus responses to the user.
 		}
+	case update:
+		log.V(0).Infof("Updating model %v onto server %v", a.fullName, s.Addr)
+		req := &mpb.UpdateLoadedRequest{
+			ModelKey: a.fullName.ModelFullName(),
+			Acls: &cpb.AccessControlLists{
+				Items: a.model.Acls,
+			},
+		}
+		if _, err := s.client.UpdateLoaded(a.ctx, req); err != nil {
+			log.Warningf("Failed to update model %v onto server %v (%v)", a.fullName, s.Addr, err)
+		}
 	case unload:
+		log.V(0).Infof("Unloading model %v from server %v", a.fullName, s.Addr)
 		req := &mpb.UnloadRequest{
 			ModelKey: a.fullName.ModelFullName(),
 		}
@@ -337,16 +364,19 @@ func (s *State) initialize(ctx context.Context, modelFinder ModelFinder) error {
 	log.V(3).Infof("The server sees %v", seen)
 
 	for fullName, status := range seen {
-		model := modelFinder.FindModel(fullName)
-		if model == nil {
+		modelPb := modelFinder.FindModel(fullName)
+		if modelPb == nil {
 			log.Infof("Ignoring an unknown model %v with status %v on server %s", fullName, status, s.Addr)
 			continue
 		}
 		log.Infof("Found a model %v with status %v on server %s", fullName, status, s.Addr)
+		model := newModel(modelPb)
 		if status == protobuf.Loading || status == protobuf.Loaded || status == protobuf.Failed {
-			s.wanted[fullName] = newModel(model)
+			s.wanted[fullName] = model
+			// Possibly need to update the model metadata such as ACLs.
+			s.queue <- &action{update, context.Background(), fullName, model.clone(), nil}
 		}
-		s.seen[fullName] = &ModelWithStatus{Model: *newModel(model), Status: status}
+		s.seen[fullName] = &ModelWithStatus{Model: *model, Status: status}
 	}
 
 	s.muLastPing.Lock()
@@ -422,12 +452,6 @@ func (s *State) Start(ctx context.Context, modelFinder ModelFinder) error {
 	}
 	s.client = mgrpc.NewModeletClient(s.conn)
 
-	// Make a GetStatus call and use the result to initialize state.
-	log.Infof("Initializing state from model server %v", s.Addr)
-	if err := s.initialize(ctx, modelFinder); err != nil {
-		return fmt.Errorf("Start failed to initialize state: %w", err)
-	}
-
 	// Start a goroutine that drains the action queue, stopping when s.Close is called.
 	log.Info("Starting a queue that drains pending model server actions")
 	s.queue = make(chan *action, 10)
@@ -444,6 +468,12 @@ func (s *State) Start(ctx context.Context, modelFinder ModelFinder) error {
 			}
 		}
 	}()
+
+	// Make a GetStatus call and use the result to initialize state.
+	log.Infof("Initializing state from model server %v", s.Addr)
+	if err := s.initialize(ctx, modelFinder); err != nil {
+		return fmt.Errorf("Start failed to initialize state: %w", err)
+	}
 
 	// Start a goroutine that calls refresh periodically, stopping when s.Close is called.
 	log.Infof("Refreshing model server state every %v", refreshPeriod)
