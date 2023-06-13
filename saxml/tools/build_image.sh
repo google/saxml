@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Run with:
+#   third_party/py/saxml/tools/build_image.sh
+#   docker run -it -v ~/.config/gcloud:/root/.config/gcloud saxml:latest
 
 set -e
 
