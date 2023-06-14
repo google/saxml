@@ -25,6 +25,7 @@ package_group(
     packages = [
         "//cloud/ai/platform/llm/sax/...",
         "//learning/deepmind/models/serving/...",
+        "//learning/gemini/...",
         "//translate/prototypes/saxproxy/...",
     ],
 )
