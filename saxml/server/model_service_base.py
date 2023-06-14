@@ -1045,7 +1045,7 @@ class Exporter:
     if isinstance(e, ValueError):
       return utils.invalid_arg(msg)
     elif isinstance(e, NotImplementedError):
-      return utils.not_implemented(msg)
+      return utils.unimplemented(msg)
     elif isinstance(e, FileExistsError):
       return utils.already_exists(msg)
     else:
