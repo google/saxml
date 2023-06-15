@@ -147,6 +147,17 @@ go_grpc_library(
     deps = [":modelet_go_proto"],
 )
 
+cc_proto_library(
+    name = "modelet_cc_proto",
+    deps = [":modelet_proto"],
+)
+
+cc_grpc_library(
+    name = "modelet_cc_proto_grpc",
+    srcs = [":modelet_proto"],
+    deps = [":modelet_cc_proto"],
+)
+
 py_proto_library(
     name = "modelet_py_pb2",
     api_version = 2,
