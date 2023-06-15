@@ -475,9 +475,6 @@ class ServableModel(servable_model.ServableModel):
           )
         try:
           step = CKPT_MODULE.get_step_from_checkpoint_asset(checkpoint_path)
-          maybe_updated_format = CKPT_MODULE.maybe_update_checkpoint_type(
-              self._ckpt_type, checkpoint_path
-          )
           checkpoint_path = checkpoint_path.parent
         except Exception as e:
           raise ValueError(
@@ -488,7 +485,7 @@ class ServableModel(servable_model.ServableModel):
             train_state_global_shapes,
             checkpoint_path,
             global_mesh=global_mesh,
-            checkpoint_type=maybe_updated_format,
+            checkpoint_type=self._ckpt_type,
             state_specs=partition_specs,
             step=step,
         )
