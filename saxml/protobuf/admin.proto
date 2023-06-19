@@ -85,6 +85,11 @@ message Model {
   // model config overrides, e.g.
   // BATCH_SIZE: 1
   map<string, string> overrides = 7;
+
+  // Identifies specific deployment of the model to the SAX. It spans lifetime
+  // of the model from publish to unpublish.
+  // It's a random 128-bit number represented as an array of bytes.
+  bytes uuid = 8;
 }
 
 // The state of a published model.

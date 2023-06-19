@@ -24,6 +24,7 @@ import (
 
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/proto"
+	"github.com/pborman/uuid"
 	"saxml/admin/protobuf"
 	"saxml/admin/state"
 	"saxml/admin/validator"
@@ -132,8 +133,10 @@ func (m *Mgr) Publish(specs *apb.Model) error {
 	}
 	log.Infof("Published with overrides: %v", specs.GetOverrides())
 
+	specsWithUUID := proto.Clone(specs).(*apb.Model)
+	specsWithUUID.Uuid = uuid.NewRandom()
 	m.models[fullName] = &modelState{
-		specs:       proto.Clone(specs).(*apb.Model),
+		specs:       specsWithUUID,
 		addrWatcher: watchable.New(),
 		waiter:      waitable.New(),
 	}
@@ -155,7 +158,11 @@ func (m *Mgr) Update(fullName modelFullName, newSpecs *apb.Model) error {
 	if err := validator.ValidateModelUpdate(existing.specs, newSpecs, fullName.CellFullName()); err != nil {
 		return fmt.Errorf("invalid model update: %w", err)
 	}
-	existing.specs = proto.Clone(newSpecs).(*apb.Model)
+
+	// Copy UUID from existing model.
+	specsWithUUID := proto.Clone(newSpecs).(*apb.Model)
+	specsWithUUID.Uuid = existing.specs.Uuid
+	existing.specs = specsWithUUID
 
 	addrs, ok := m.assignment[fullName]
 	if !ok {
@@ -194,8 +201,11 @@ func (m *Mgr) makePublishedModelLocked(fullName modelFullName, model *apb.Model)
 	for _, addr := range m.assignment[fullName] {
 		addrs = append(addrs, string(addr))
 	}
+	cloned := proto.Clone(model).(*apb.Model)
+	// Clean Uuid field to not expose it to users.
+	cloned.Uuid = nil
 	return &apb.PublishedModel{
-		Model:            proto.Clone(model).(*apb.Model),
+		Model:            cloned,
 		ModeletAddresses: addrs,
 	}
 }
