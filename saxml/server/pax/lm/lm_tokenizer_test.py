@@ -47,6 +47,29 @@ def _CreateParams():
   return p
 
 
+def _CreateTokenizedParams():
+  p = pax_fiddle.Config(
+      lm_tokenizer.LMTokenizer,
+      # From https://github.com/google/sentencepiece/tree/master/python:
+      #   <unk>:  0
+      #   <s>:    1
+      #   </s>:   2
+      #   _He:    151
+      #   ll:     88
+      #   o:      21
+      #   _world: 887
+      spm_model=os.path.join(
+          FLAGS.test_srcdir,
+          '__main__/saxml/server/pax/lm/test_data',
+          'test_model.model',
+      ),
+      target_sos_id=0,
+      target_eos_id=1,
+      tokenized=True,
+  )
+  return p
+
+
 class LMTokenizerTest(tf.test.TestCase):
 
   def testStringsToIds(self):
@@ -90,6 +113,49 @@ class LMTokenizerTest(tf.test.TestCase):
     # This SPM doesn't understand padding so manually truncate.
     strs = [tf.strings.substr(s, 0, 5) for s in strs]
     self.assertEqual([b'Hello', b'world'], strs)
+
+  def testTokenizedStringsToIds(self):
+    p = _CreateTokenizedParams()
+    tokenizer = p.Instantiate()
+    max_length = 5
+    strs = ['151,88,21', '887']
+    ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
+    print('ids: ', ids)
+    print('labels: ', labels)
+    print('ipaddingsds: ', paddings)
+    self.assertAllEqual([[0, 151, 88, 21, 0], [0, 887, 0, 0, 0]], ids)
+    self.assertAllEqual([[151, 88, 21, 1, 0], [887, 1, 0, 0, 0]], labels)
+    self.assertAllEqual(
+        [[0.0, 0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0, 1.0]], paddings
+    )
+
+  def testTokenizedStringsToIdsSliceLeft(self):
+    p = _CreateTokenizedParams()
+    tokenizer = instantiate(p)
+    max_length = 3
+    strs = ['151,88,21', '887']
+    ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
+    self.assertAllEqual([[0, 151, 88], [0, 887, 0]], ids)
+    self.assertAllEqual([[151, 88, 1], [887, 1, 0]], labels)
+    self.assertAllEqual([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]], paddings)
+
+  def testTokenizedStringsToIdsSliceRight(self):
+    p = _CreateTokenizedParams()
+    p.slice_left = False
+    tokenizer = instantiate(p)
+    max_length = 3
+    strs = ['151,88,21', '887']
+    ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
+    self.assertAllEqual([[0, 88, 21], [0, 887, 0]], ids)
+    self.assertAllEqual([[88, 21, 1], [887, 1, 0]], labels)
+    self.assertAllEqual([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]], paddings)
+
+  def testIdsToTokenizedStrings(self):
+    p = _CreateTokenizedParams()
+    tokenizer = instantiate(p)
+    ids = [[151, 88, 21, 0, 0], [887, 0, 0, 0, 0]]
+    strs = tokenizer.IdsToStrings(ids)
+    self.assertAllEqual([b'151,88,21,0,0', b'887,0,0,0,0'], strs.numpy())
 
 
 if __name__ == '__main__':

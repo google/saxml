@@ -47,6 +47,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
   target_eos_id: int = 1
   slice_left: bool = True
   streaming_whitespace_preserving_prefix: str = 'a'
+  tokenized: bool = False
 
   _vocab: seqio.SentencePieceVocabulary = dataclasses.field(
       init=False, repr=False
@@ -78,7 +79,11 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     assert max_length is not None
     batch = tf.shape(strs)[0]
     # labels is a ragged Tensor.
-    labels = self._vocab.tf_tokenizer.tokenize(strs)
+    if p.tokenized:
+      labels_in_str = tf.strings.split(strs, sep=',', maxsplit=-1)
+      labels = tf.strings.to_number(labels_in_str, out_type=tf.int32)
+    else:
+      labels = self._vocab.tf_tokenizer.tokenize(strs)
     if p.slice_left:
       labels = labels[:, : max_length - 1]
     else:
@@ -138,6 +143,13 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       sequences - A vector of shape [batch]. The converted string sequence.
     """
     p = self.hparams
+
+    if p.tokenized:
+      ids_as_string = tf.strings.as_string(ids)
+      reduced_ids_as_string = tf.strings.reduce_join(
+          ids_as_string, separator=',', axis=-1
+      )
+      return reduced_ids_as_string
     assert p.spm_model
     return self._vocab.tf_tokenizer.detokenize(ids)
 
