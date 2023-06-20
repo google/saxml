@@ -62,3 +62,13 @@ pytype_strict_library(
         "//third_party/py/praxis/layers:activations",
     ],
 )
+
+pytype_strict_library(
+    name = "c4",
+    srcs = ["c4.py"],
+    deps = [
+        ":template",
+        "//saxml/server:servable_model_registry",
+        "//third_party/py/paxml/tasks/lm/params",
+    ],
+)
