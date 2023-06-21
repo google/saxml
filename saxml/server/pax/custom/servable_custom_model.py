@@ -330,7 +330,7 @@ class ServableCustomMethod(servable_model.ServableMethod):
       )
     # Let the parent class handle the batch dim.
     return super().resize_host_array(
-        x, global_input_shape_dtype, unpadded_input_shape
+        x, global_input_shape_dtype, InputShapeInfo(x.shape[0])
     )
 
 
