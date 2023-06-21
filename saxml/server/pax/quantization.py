@@ -54,6 +54,7 @@ def for_transformer(
     transposed_embedding_softmax: bool = False,
     quantize_ngrammer_embedding: bool = False,
     dtype: jnp.dtype = jnp.int8,
+    block_size: int = 0,
 ):
   """Find and quantize transformer.
 
@@ -79,6 +80,7 @@ def for_transformer(
     quantize_ngrammer_embedding: Quantize embedding table of each embedding in
       Ngrammer/VQNgrammer layer.
     dtype: Dtype of the quantized variables.
+    block_size: Block size for sub-channel quantization. Defaults to off.
 
   Returns:
     a modifier that quantizes transformers when applied to a config.
@@ -116,6 +118,7 @@ def for_transformer(
             transposed_embedding_softmax=transposed_embedding_softmax,
             quantize_ngrammer_embedding=quantize_ngrammer_embedding,
             dtype=dtype,
+            block_size=block_size,
         )
         return task_p
 
