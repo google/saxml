@@ -1671,23 +1671,26 @@ class ModelServicesRunner:
             # Failed preprosessing. Since we have already informed secondary
             # hosts, we need to compute on tensors.
             if self._spmd_backend.spmd_host_count() > 1:
-              result = method_obj.device_compute_with_dummy_data(
-                  batch.unpadded_shape
-              )
+              # JAX dispatches device_compute synchronously to XLA:GPU. Hence
+              # _postprocess_stream_async must start before device_compute,
+              # otherwise device_compute may block the consumption of streaming
+              # queue until it finishes.
               if method_obj.streamable:
                 streaming_done = utils.Notification()
                 self._postprocess_stream_async(model, batch, streaming_done)
+              result = method_obj.device_compute_with_dummy_data(
+                  batch.unpadded_shape
+              )
             else:
               result = None
           else:
+            if method_obj.streamable:
+              streaming_done = utils.Notification()
+              self._postprocess_stream_async(model, batch, streaming_done)
             result = method_obj.device_compute(
                 input_batch=batch.input_tensors,
                 unpadded_shape=batch.unpadded_shape,
             )
-
-            if method_obj.streamable:
-              streaming_done = utils.Notification()
-              self._postprocess_stream_async(model, batch, streaming_done)
           utils.traceprint_all(
               batch.rpc_tasks, f'After device compute {batch.method}'
           )
