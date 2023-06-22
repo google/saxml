@@ -248,6 +248,13 @@ go_repository(
         version = "v0.1.0",
 )
 
+go_repository(
+        name = "com_github_pborman_uuid",
+        importpath = "github.com/pborman/uuid",
+        sum = "h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=",
+        version = "v1.2.0",
+)
+
 go_rules_dependencies()
 
 go_register_toolchains(version = "1.19.2")

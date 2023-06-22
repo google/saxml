@@ -24,7 +24,7 @@ import (
 
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/proto"
-	"github.com/pborman/uuid"
+	"google3/third_party/golang/uuid/uuid"
 	"saxml/admin/protobuf"
 	"saxml/admin/state"
 	"saxml/admin/validator"

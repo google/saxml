@@ -77,8 +77,8 @@ go_library(
         "//saxml/protobuf:admin_go_proto_grpc",
         "//saxml/protobuf:common_go_proto",
         "//saxml/protobuf:modelet_go_proto_grpc",
-        "//third_party/golang/uuid",
         "@com_github_golang_glog//:go_default_library",
+        "@com_github_pborman_uuid//:go_default_library",
         "@org_golang_google_protobuf//proto",
     ],
 )
