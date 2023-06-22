@@ -180,6 +180,8 @@ idna==3.4
     #   anyio
     #   jsonschema
     #   requests
+immutabledict==2.2.4
+    #   via t5
 importlib-metadata==6.6.0
     # via
     #   -r requirements.in
@@ -654,6 +656,8 @@ seqio==0.0.15
     # via
     #   paxml
     #   t5
+seqio-nightly==0.0.15.dev20230531
+    #   via t5
 six==1.16.0
     # via
     #   asttokens
@@ -681,7 +685,7 @@ sympy==1.12
     # via
     #   lingvo
     #   torch
-t5==0.9.3
+t5==0.9.4
     # via paxml
 tabulate==0.9.0
     # via sacrebleu
