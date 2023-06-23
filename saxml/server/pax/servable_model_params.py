@@ -52,6 +52,10 @@ class ServableModelParams(
   def test_mode(self) -> bool:
     return False
 
+  @property
+  def enable_auto_sharding(self) -> bool:
+    return False
+
   @classmethod
   def get_supported_device_mesh(
       cls,

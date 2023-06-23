@@ -203,6 +203,7 @@ class ServableLMModelParams(
         primary_process_id,
         self.get_checkpoint_type(),
         test_mode=self.test_mode,
+        enable_auto_sharding=self.enable_auto_sharding,
     )
 
 
