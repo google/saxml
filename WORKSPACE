@@ -255,6 +255,13 @@ go_repository(
         version = "v1.2.0",
 )
 
+go_repository(
+        name = "com_github_google_uuid",
+        importpath = "github.com/google/uuid",
+        sum = "h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=",
+        version = "v1.3.0",
+)
+
 go_rules_dependencies()
 
 go_register_toolchains(version = "1.19.2")
