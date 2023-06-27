@@ -247,8 +247,6 @@ class ServableMethod(servable_model.ServableMethod):
     input_pspecs = jax.tree_util.tree_map(_get_pspec, host_dummy)
     num_cores = len(self.model_state.global_mesh.devices.flat)
 
-    # Initialize the device function.
-    device_fn = self._pjit_device_fn(input_pspecs, input_shape.batch_size)
     global_inputs_shape_dtype = jax.tree_util.tree_map(
         lambda x: ((num_cores,) + x.shape, x.dtype), host_dummy
     )
@@ -256,6 +254,22 @@ class ServableMethod(servable_model.ServableMethod):
         lambda x: jax.core.ShapedArray((num_cores,) + x.shape, x.dtype),
         host_dummy,
     )
+
+    self._per_bs_infos[input_shape] = MethodInputInfo(
+        input_pspecs=input_pspecs,
+        global_inputs_shape_dtype=global_inputs_shape_dtype,
+    )
+    info = self._per_bs_infos[input_shape]
+
+    info.dummy_inputs_per_device_buffers = self._input_to_device_buffers(
+        batched_host_dummy, input_shape, is_dummy=True
+    )
+    info.dummy_inputs = self._device_buffers_to_jax_arrays(
+        info.dummy_inputs_per_device_buffers, input_shape
+    )
+
+    # Initialize the device function.
+    device_fn = self._pjit_device_fn(input_pspecs, input_shape.batch_size)
 
     if self._enable_auto_sharding or self._compiler_options:
       device_fn = self.jax_aot_compile(
@@ -298,19 +312,8 @@ class ServableMethod(servable_model.ServableMethod):
             mdl_var_pspecs,
         )
 
-    self._per_bs_infos[input_shape] = MethodInputInfo(
-        input_pspecs=input_pspecs,
-        global_inputs_shape_dtype=global_inputs_shape_dtype,
-    )
-    info = self._per_bs_infos[input_shape]
     info.device_fn = device_fn
 
-    info.dummy_inputs_per_device_buffers = self._input_to_device_buffers(
-        batched_host_dummy, input_shape, is_dummy=True
-    )
-    info.dummy_inputs = self._device_buffers_to_jax_arrays(
-        info.dummy_inputs_per_device_buffers, input_shape
-    )
     # Compute with dummy to trigger compilation.
     if self.model_state.precompile:
       init_dummy_outputs = self.device_compute(info.dummy_inputs, input_shape)
@@ -618,10 +621,7 @@ class ServableMethod(servable_model.ServableMethod):
     if self._enable_auto_sharding:
       return pjit.pjit(
           _wrapped_fn,
-          in_shardings=(
-              pjit.AUTO(self.model_state.global_mesh),
-              input_pspecs
-          ),
+          in_shardings=(pjit.AUTO(self.model_state.global_mesh), input_pspecs),
           out_shardings=None,
       )
     else:
