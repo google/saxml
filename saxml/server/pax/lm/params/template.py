@@ -117,6 +117,22 @@ class ServingTemplate(
   Language model parameters can be found at go/sax-lm-decode-params.
   """
 
+  def serving_tokenizer(self):
+    spm_model = (
+        self.SPM_MODEL
+        if self.SPM_MODEL is not None
+        else self._dataset_train().input.tokenizer.spm_model
+    )
+
+    return pax_fiddle.Config(
+        lm_tokenizer.LMTokenizer,
+        spm_model=spm_model,
+        target_sos_id=self.SOS_ID,
+        target_eos_id=self.EOS_ID,
+        slice_left=self.SLICE_LEFT,
+        tokenized=self.TOKENIZED,
+    )
+
   def score(self) -> Optional[servable_lm_model.ScoreHParams]:
     if self.GENERATE_ONLY:
       return None
@@ -133,22 +149,6 @@ class ServingTemplate(
         extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
         fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
         output_geometric_mean_prob_score=self.SCORING_USE_GEOMEAN_PROB_SCORE,
-    )
-
-  def serving_tokenizer(self):
-    spm_model = (
-        self.SPM_MODEL
-        if self.SPM_MODEL is not None
-        else self._dataset_train().input.tokenizer.spm_model
-    )
-
-    return pax_fiddle.Config(
-        lm_tokenizer.LMTokenizer,
-        spm_model=spm_model,
-        target_sos_id=self.SOS_ID,
-        target_eos_id=self.EOS_ID,
-        slice_left=self.SLICE_LEFT,
-        tokenized=self.TOKENIZED,
     )
 
   def generate(self) -> Optional[servable_lm_model.DecodeHParams]:

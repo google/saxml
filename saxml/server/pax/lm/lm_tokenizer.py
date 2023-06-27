@@ -80,7 +80,18 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     batch = tf.shape(strs)[0]
     # labels is a ragged Tensor.
     if p.tokenized:
+      # `strs` may contain empty string elements. This happens either when
+      # the user explicitly sends them to indicate empty inputs, or when
+      # dummy inputs defined with empty strings are given to the model.
+      # tf.strings.split would generate [b''] for empty string elements,
+      # which tf.strings.to_number cannot handle. Convert [b''] to [] to be
+      # consistent with the not p.tokenized path.
       labels_in_str = tf.strings.split(strs, sep=',', maxsplit=-1)
+      empty_str_tensor = tf.constant([], dtype=tf.string)
+      labels_in_str = tf.map_fn(
+          lambda x: empty_str_tensor if x.shape == [1] and x[0] == b'' else x,  # pylint: disable=g-explicit-bool-comparison
+          labels_in_str,
+      )
       labels = tf.strings.to_number(labels_in_str, out_type=tf.int32)
     else:
       labels = self._vocab.tf_tokenizer.tokenize(strs)

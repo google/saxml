@@ -72,6 +72,18 @@ def _CreateTokenizedParams():
 
 class LMTokenizerTest(tf.test.TestCase):
 
+  def testEmptyStringsToIds(self):
+    p = _CreateParams()
+    tokenizer = p.Instantiate()
+    max_length = 5
+    strs = ['', '']
+    ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
+    self.assertAllEqual([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], ids)
+    self.assertAllEqual([[1, 0, 0, 0, 0], [1, 0, 0, 0, 0]], labels)
+    self.assertAllEqual(
+        [[0.0, 1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0, 1.0]], paddings
+    )
+
   def testStringsToIds(self):
     p = _CreateParams()
     tokenizer = p.Instantiate()
@@ -114,15 +126,24 @@ class LMTokenizerTest(tf.test.TestCase):
     strs = [tf.strings.substr(s, 0, 5) for s in strs]
     self.assertEqual([b'Hello', b'world'], strs)
 
+  def testEmptyTokenizedStringsToIds(self):
+    p = _CreateTokenizedParams()
+    tokenizer = p.Instantiate()
+    max_length = 5
+    strs = ['', '']
+    ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
+    self.assertAllEqual([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], ids)
+    self.assertAllEqual([[1, 0, 0, 0, 0], [1, 0, 0, 0, 0]], labels)
+    self.assertAllEqual(
+        [[0.0, 1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0, 1.0]], paddings
+    )
+
   def testTokenizedStringsToIds(self):
     p = _CreateTokenizedParams()
     tokenizer = p.Instantiate()
     max_length = 5
     strs = ['151,88,21', '887']
     ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
-    print('ids: ', ids)
-    print('labels: ', labels)
-    print('ipaddingsds: ', paddings)
     self.assertAllEqual([[0, 151, 88, 21, 0], [0, 887, 0, 0, 0]], ids)
     self.assertAllEqual([[151, 88, 21, 1, 0], [887, 1, 0, 0, 0]], labels)
     self.assertAllEqual(
