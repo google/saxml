@@ -127,7 +127,11 @@ class ServableMethod(servable_model.ServableMethod):
       prng_key: jnp.ndarray,
       dummy_input_sample: Any,
       enable_auto_sharding: bool = False,
+      compiler_options: dict[str, dict[str, bool]] | None = None,
   ) -> None:
+    # TODO(yuanzx): Need update the docstring.
+    # The `compiler options` will be passed to JAX `lowered.compile` during AOT
+    # compiliation.
     super().__init__(method_params)
     self._model_state = model_state
     self._per_bs_infos: Dict[InputShapeInfo, MethodInputInfo] = {}
@@ -137,6 +141,7 @@ class ServableMethod(servable_model.ServableMethod):
     self._local_devices = list(model_state.global_mesh.local_devices)
     self._callback_device_index = 0
     self._enable_auto_sharding = enable_auto_sharding
+    self._compiler_options = compiler_options
     logging.info(
         'Primary host: %d, Current: %d',
         model_state.primary_process_id,
@@ -173,28 +178,22 @@ class ServableMethod(servable_model.ServableMethod):
         [self._dummy_input_sample] * input_shape.batch_size
     )
 
-  # TODO(pratikf): A similar function exists in Pax (in
-  # third_party/py/paxml/partitioning.py), and they should be
-  # de-duplicated somewhere
-  def compile_for_auto_sharding(
+  def jax_aot_compile(
       self,
       step_fn: Any,
       train_state: ServableModelState,
-      step_key: pytypes.PRNGKey,
-      inputs_shape_dtype: pytypes.NestedShapeDtypeLike,
-  ):
+      inputs_shape_dtype: pytypes.NestedShapedArray,
+      compiler_options: dict[str, dict[str, bool]] | None,
+  ) -> Any:
     """Compiles step_fn ahead of time to extract the shardings.
-
-    The sharding is returned by the auto spmd partitioner and is attached on the
-    compiled object.
 
     Args:
       step_fn: The step_fn function which will be compiled ahead of time.
       train_state: Train state which contains abstract values for ahead of time
         compilation.
-      step_key: Prng key.
       inputs_shape_dtype: Inputs with shape/dtype attributes to be used for
         shape inference.
+      compiler_options: The compiler_option passed to `compile` API.
 
     Returns:
       * A compiled step_fn function
@@ -205,12 +204,17 @@ class ServableMethod(servable_model.ServableMethod):
       # canonicalize_dtype is necessary to avoid errors like
       # data types are different when compiling and when being called.
       dtype = jax.dtypes.canonicalize_dtype(x.dtype)
-      return jax.core.ShapedArray(x.shape, dtype)
+      return jax.ShapeDtypeStruct(x.shape, dtype)
 
+    logging.info(
+        'SAX servable_model JAX AOT compiler_options = %s',
+        self._compiler_options,
+    )
     compiled = step_fn.lower(
-        jax.tree_map(_create_aval, train_state.mdl_vars), inputs_shape_dtype
-    ).compile()
-    return compiled, compiled.input_shardings[0]
+        jax.tree_map(_create_aval, train_state.mdl_vars),
+        inputs_shape_dtype,
+    ).compile(compiler_options=compiler_options)
+    return compiled
 
   def _register_for_input_shape(self, input_shape: InputShapeInfo) -> None:
     batched_host_dummy = self.get_dummy_inputs(input_shape)
@@ -242,9 +246,6 @@ class ServableMethod(servable_model.ServableMethod):
 
     input_pspecs = jax.tree_util.tree_map(_get_pspec, host_dummy)
     num_cores = len(self.model_state.global_mesh.devices.flat)
-    global_inputs_shape_dtype = jax.tree_util.tree_map(
-        lambda x: ((num_cores,) + x.shape, x.dtype), host_dummy
-    )
 
     # Initialize the device function.
     device_fn = self._pjit_device_fn(input_pspecs, input_shape.batch_size)
@@ -256,43 +257,46 @@ class ServableMethod(servable_model.ServableMethod):
         host_dummy,
     )
 
-    if self._enable_auto_sharding:
-      self._prng_key, step_key = jax.random.split(self._prng_key)
-      device_fn, input_shardings = self.compile_for_auto_sharding(
+    if self._enable_auto_sharding or self._compiler_options:
+      device_fn = self.jax_aot_compile(
           step_fn=device_fn,
           train_state=self.model_state,
-          step_key=step_key,
           inputs_shape_dtype=global_inputs_shaped_arrays,
+          compiler_options=self._compiler_options,
       )
-      input_pspecs = jax.tree_util.tree_map(
-          lambda x: x.spec, input_shardings[1]
-      )
-      mdl_var_pspecs = input_shardings[0]
 
-      # Reshard model vars based on shardings inferred by the
-      # auto-sharding pass. In PAX, we create model vars and
-      # initialize them based on the shardings inferred. In SAX, we
-      # need to re-shard them as they are created before we run
-      # auto-sharding (say when the model is loaded from a
-      # checkpoint).
-      resharded_mdl_vars = jax.device_put(
-          self.model_state.mdl_vars, mdl_var_pspecs
-      )
-      # Update the model state (self._model_state) with the resharded
-      # model vars and their shardings. Note that self.model_state is
-      # a getter for the underlying self._model_state field (see
-      # below).
-      self._model_state = ServableModelState(
-          resharded_mdl_vars,
-          self.model_state.mdl_var_unpadded_shapes,
-          self.model_state.is_primary_host,
-          self.model_state.primary_process_id,
-          self.model_state.input_prefetch,
-          self.model_state.precompile,
-          self.model_state.step,
-          self.model_state.global_mesh,
-          mdl_var_pspecs,
-      )
+      if self._enable_auto_sharding:
+        input_shardings = device_fn.input_shardings[0]
+        self._prng_key, _ = jax.random.split(self._prng_key)
+        input_pspecs = jax.tree_util.tree_map(
+            lambda x: x.spec, input_shardings[1]
+        )
+        mdl_var_pspecs = input_shardings[0]
+
+        # Reshard model vars based on shardings inferred by the
+        # auto-sharding pass. In PAX, we create model vars and
+        # initialize them based on the shardings inferred. In SAX, we
+        # need to re-shard them as they are created before we run
+        # auto-sharding (say when the model is loaded from a
+        # checkpoint).
+        resharded_mdl_vars = jax.device_put(
+            self.model_state.mdl_vars, mdl_var_pspecs
+        )
+        # Update the model state (self._model_state) with the resharded
+        # model vars and their shardings. Note that self.model_state is
+        # a getter for the underlying self._model_state field (see
+        # below).
+        self._model_state = ServableModelState(
+            resharded_mdl_vars,
+            self.model_state.mdl_var_unpadded_shapes,
+            self.model_state.is_primary_host,
+            self.model_state.primary_process_id,
+            self.model_state.input_prefetch,
+            self.model_state.precompile,
+            self.model_state.step,
+            self.model_state.global_mesh,
+            mdl_var_pspecs,
+        )
 
     self._per_bs_infos[input_shape] = MethodInputInfo(
         input_pspecs=input_pspecs,

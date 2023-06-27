@@ -418,6 +418,7 @@ class LMScoreMethod(ServableLMMethod):
       tokenizer_p: Any,
       exportable: bool = False,
       enable_auto_sharding: bool = False,
+      compiler_options: dict[str, dict[str, bool]] | None = None,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._score_params = score_params
@@ -437,6 +438,7 @@ class LMScoreMethod(ServableLMMethod):
         dummy_input_sample,
         exportable=exportable,
         enable_auto_sharding=enable_auto_sharding,
+        compiler_options=compiler_options,
     )
 
   def fetch_output(
@@ -598,6 +600,7 @@ class LMDecodeMethod(ServableLMMethod):
       streamable: bool = False,
       load: bool = True,
       enable_auto_sharding: bool = False,
+      compiler_options: Optional[Dict[str, Dict[str, bool]]] = None,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._method_hparams = method_hparams
@@ -652,6 +655,7 @@ class LMDecodeMethod(ServableLMMethod):
         exportable=exportable,
         load=load,
         enable_auto_sharding=enable_auto_sharding,
+        compiler_options=compiler_options,
     )
 
   def call_model_function(self, inputs, mdl_vars, prng_key):
@@ -916,6 +920,7 @@ class TextToEmbedding(servable_model.ServableMethod):
       tokenizer_p: Any,
       prng_key: PRNGKey,
       enable_auto_sharding: bool = False,
+      compiler_options: Optional[Dict[str, Dict[str, bool]]] = None,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._text_to_embedding_hparams = text_to_embedding_hparams
@@ -931,6 +936,7 @@ class TextToEmbedding(servable_model.ServableMethod):
         prng_key,
         dummy_input_sample,
         enable_auto_sharding=enable_auto_sharding,
+        compiler_options=compiler_options,
     )
 
   @classmethod
@@ -1025,6 +1031,7 @@ class LMGradientMethod(ServableLMMethod):
       tokenizer_p: Any,
       exportable: bool = False,
       enable_auto_sharding: bool = False,
+      compiler_options: Optional[Dict[str, Dict[str, bool]]] = None,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._gradient_params = gradient_params
@@ -1047,6 +1054,7 @@ class LMGradientMethod(ServableLMMethod):
         dummy_input_sample,
         exportable=exportable,
         enable_auto_sharding=enable_auto_sharding,
+        compiler_options=compiler_options,
     )
 
   def call_model_function(
@@ -1254,6 +1262,7 @@ class ServableLMModel(servable_model.ServableModel):
           tokenizer_p,
           exportable=True,
           enable_auto_sharding=self._enable_auto_sharding,
+          compiler_options=self._compiler_options,
       )
     elif method == LMMethodName.GENERATE:
       assert isinstance(method_params, DecodeHParams)
@@ -1265,6 +1274,7 @@ class ServableLMModel(servable_model.ServableModel):
           tokenizer_p,
           exportable=True,
           enable_auto_sharding=self._enable_auto_sharding,
+          compiler_options=self._compiler_options,
       )
     elif method == LMMethodName.GENERATE_STREAM:
       assert isinstance(method_params, DecodeHParams)
@@ -1277,6 +1287,7 @@ class ServableLMModel(servable_model.ServableModel):
           exportable=False,
           streamable=True,
           enable_auto_sharding=self._enable_auto_sharding,
+          compiler_options=self._compiler_options,
       )
     elif method == LMMethodName.EMBED:
       assert isinstance(method_params, TextToEmbeddingHParams)
@@ -1293,6 +1304,7 @@ class ServableLMModel(servable_model.ServableModel):
           tokenizer_p,
           prng_key=prng_key,
           enable_auto_sharding=self._enable_auto_sharding,
+          compiler_options=self._compiler_options,
       )
     elif method == LMMethodName.GRADIENT:
       assert isinstance(method_params, GradientHParams)
@@ -1308,6 +1320,7 @@ class ServableLMModel(servable_model.ServableModel):
           tokenizer_p,
           exportable=True,
           enable_auto_sharding=self._enable_auto_sharding,
+          compiler_options=self._compiler_options,
       )
     else:
       raise NotImplementedError(f'method {method} not implemented')

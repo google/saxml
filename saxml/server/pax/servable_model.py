@@ -84,6 +84,7 @@ class ServableMethod(servable_model.ServableMethod):
       exportable: bool = False,
       load: bool = True,
       enable_auto_sharding: bool = False,
+      compiler_options: Optional[Dict[str, Dict[str, bool]]] = None,
   ):
     """Initializes the method.
 
@@ -102,7 +103,8 @@ class ServableMethod(servable_model.ServableMethod):
         problems like NaNs are fine).
       exportable: whether this method is exportable to a SavedModel.
       load: Whether to load this method during this __init__ call.
-      enable_auto_sharding: Whether to run the XLA auto-sharding pass
+      enable_auto_sharding: Whether to run the XLA auto-sharding pass.
+      compiler_options: Whether to override the env compiler options.
     """
     super().__init__(
         method_params,
@@ -110,6 +112,7 @@ class ServableMethod(servable_model.ServableMethod):
         prng_key,
         dummy_input_sample,
         enable_auto_sharding,
+        compiler_options,
     )
     self._model = model
     self._model_fn_name = model_fn_name
@@ -359,6 +362,7 @@ class ServableModel(servable_model.ServableModel):
       ckpt_type: CheckpointType,
       test_mode: bool = False,
       enable_auto_sharding: bool = False,
+      compiler_options: dict[str, dict[str, bool]] | None = None,
   ):
     super().__init__()
     self._test_mode = test_mode
@@ -367,6 +371,7 @@ class ServableModel(servable_model.ServableModel):
     self._ckpt_type = ckpt_type
     self._model_config = model_config
     self._enable_auto_sharding = enable_auto_sharding
+    self._compiler_options = compiler_options
 
   @property
   def primary_process_id(self) -> int:
@@ -638,7 +643,9 @@ class ServableModel(servable_model.ServableModel):
   ) -> None:
     # The mesh context manager is required for XLA auto-sharding as it
     # currently does not work without one
-    if self._enable_auto_sharding:
+    # The mesh context manager is also required if users want to override the
+    # compiler options.
+    if self._enable_auto_sharding or self._compiler_options:
       with self._global_mesh:
         try:
           method_params = self.model_config.methods()
