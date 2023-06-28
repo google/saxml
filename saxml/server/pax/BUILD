@@ -94,6 +94,14 @@ pytype_strict_library(
 )
 
 pytype_strict_library(
+    name = "auto_sharding",
+    srcs = ["auto_sharding.py"],
+    deps = [
+        "//third_party/py/jax",
+    ],
+)
+
+pytype_strict_library(
     name = "quantization",
     srcs = ["quantization.py"],
     deps = [
