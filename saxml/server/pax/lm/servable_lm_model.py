@@ -30,6 +30,7 @@ from praxis import decoder_utils
 from praxis import pax_fiddle
 from praxis import py_utils
 from praxis import pytypes
+from saxml.server import utils
 from saxml.server.jax import np_tf_sess_wrapper
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
@@ -198,13 +199,20 @@ class ServableLMModelParams(
     return None
 
   def create_model(self, primary_process_id: int) -> 'ServableLMModel':
-    return ServableLMModel(
+    compiler_options = {}
+    if hasattr(self, 'XLA_TPU_FLAGS'):
+      compiler_options = utils.translate_xla_tpu_flags_to_compiler_options(
+          self.XLA_TPU_FLAGS
+      )
+    model = ServableLMModel(
         self,
         primary_process_id,
         self.get_checkpoint_type(),
         test_mode=self.test_mode,
         enable_auto_sharding=self.enable_auto_sharding,
+        compiler_options=compiler_options,
     )
+    return model
 
 
 class ServableLMMethod(servable_model.ServableMethod):

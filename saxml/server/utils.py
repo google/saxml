@@ -431,3 +431,33 @@ def is_mock_tpu_backend() -> bool:
     True if Mock TPU backend detected.
   """
   return 'MOCK' in str(jax.devices()[0])
+
+
+def translate_xla_tpu_flags_to_compiler_options(
+    xla_tpu_flags: list[str],
+) -> dict[str, str]:
+  """Reset the compiler_options dict from  Users XLA_TPU_FLAGS format.
+
+  For example:
+
+  XLA_TPU_FLAGS = [
+      '--xla_tpu_<option_name>=True'
+  ]
+
+  The compiler_options dict from this is
+  {
+      'xla_tpu_<option_name>': 'True'
+  }
+
+  Args:
+    xla_tpu_flags: XLA TPU flags.
+
+  Returns:
+    xla_tpu_compiler_options: The python dicts of xla tpu options.
+  """
+  compiler_options = {}
+  for item in xla_tpu_flags:
+    item = item.strip('-')  # Remove leading dashes
+    key, value = item.split('=', 1)
+    compiler_options[key] = value
+  return compiler_options

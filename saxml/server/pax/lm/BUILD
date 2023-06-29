@@ -100,6 +100,7 @@ pytype_strict_library(
     deps = [
         ":lm_tokenizer",
         ":servable_lm_common",
+        "//saxml/server:utils",
         "//saxml/server/jax:np_tf_sess_wrapper",
         "//saxml/server/pax:servable_model",
         "//saxml/server/pax:servable_model_params",
