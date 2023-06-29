@@ -16,6 +16,7 @@
 import copy
 import dataclasses
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import jax
 from jax import numpy as jnp
 from lingvo.core import cluster_factory
 import numpy as np
@@ -576,6 +577,7 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
         method_hparams,
         prng_key,
         dummy_input_sample,
+        exportable=True,
     )
 
   @classmethod
@@ -589,20 +591,48 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
     image_embedding = model_fn_outputs[0].GetItem(self._embedding_name)  # pytype: disable=attribute-error  # jax-ndarray
     return NestedMap(image_embedding=image_embedding)
 
+  def input_signature(self, batch_size: int | None) -> List[NestedTfTensorSpec]:
+    return [
+        tf.TensorSpec(shape=[batch_size], dtype=tf.string, name='image_bytes')
+    ]
+
+  @property
+  def model_fn_input_polymorphic_shape(self) -> pytypes.Nested[str]:
+    """Returns a batch polymorphic shape for jax2tf."""
+    if self._extra_inputs:
+      raise NotImplementedError(
+          'Exporting vm.embed with extra inputs is not implemented yet'
+      )
+    dummy_inputs = self.get_dummy_inputs(self.get_sorted_input_shapes()[0])
+    return jax.tree_util.tree_map(lambda _: 'b, ...', dummy_inputs)
+
   @tf.function
-  def _preprocess_batch(self, image_bytes_batch):
-    return tf.map_fn(
-        self._image_preprocessor, image_bytes_batch, dtype=tf.float32
+  def tf_pre_processing(self, image_bytes_batch: tf.Tensor) -> NestedTfTensor:
+    return NestedMap(
+        image=tf.map_fn(
+            self._image_preprocessor, image_bytes_batch, dtype=tf.float32
+        )
     )
+
+  def tf_post_processing(
+      self, compute_outputs: NestedTfTensor
+  ) -> NestedTfTensor:
+    image_embedding = compute_outputs['image_embedding']
+    if image_embedding.dtype not in [tf.float32, tf.float64]:
+      image_embedding = tf.cast(image_embedding, tf.float32)
+    return {'image_embedding': image_embedding}
+
+  @property
+  def tf_trackable_resources(self) -> NestedTfTrackable | None:
+    return None
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
     image_bytes_batch = tf.convert_to_tensor(
         [inp['image_bytes'] for inp in raw_inputs]
     )
-    images = self._preprocess_batch(image_bytes_batch).numpy()
-    processed_input_batch = NestedMap(image=images)
-    return processed_input_batch
+    processed_input_batch = self.tf_pre_processing(image_bytes_batch)
+    return jax.tree_util.tree_map(lambda x: x.numpy(), processed_input_batch)
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
