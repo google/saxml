@@ -70,7 +70,7 @@ def serialize_pjittable_function(
   with mesh:
     lowered = pjitted.lower(*global_inputs_shape_dtype)
     mesh_comp = lowered._lowering  # pylint: disable=protected-access
-    assert isinstance(mesh_comp, jax.pxla.MeshComputation)
+    assert isinstance(mesh_comp, jax.interpreters.pxla.MeshComputation)
     global_in_avals = mesh_comp.compile_args['global_in_avals']
     global_out_avals = mesh_comp.compile_args['global_out_avals']
     tuple_args = mesh_comp.compile_args['tuple_args']
@@ -113,7 +113,7 @@ def deserialize_pjitted_function(
     num_ins = len(serialized.flat_in_op_shardings)
     num_outs = len(serialized.flat_global_out_avals)
 
-    mc = jax.pxla.MeshComputation(
+    mc = jax.interpreters.pxla.MeshComputation(
         'step_fn',
         serialized.ir,
         False,
