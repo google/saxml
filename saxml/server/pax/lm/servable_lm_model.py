@@ -200,7 +200,7 @@ class ServableLMModelParams(
 
   def create_model(self, primary_process_id: int) -> 'ServableLMModel':
     compiler_options = {}
-    if hasattr(self, 'XLA_TPU_FLAGS'):
+    if hasattr(self, 'XLA_TPU_FLAGS') and self.XLA_TPU_FLAGS is not None:
       compiler_options = utils.translate_xla_tpu_flags_to_compiler_options(
           self.XLA_TPU_FLAGS
       )
