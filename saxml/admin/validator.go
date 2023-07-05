@@ -31,7 +31,7 @@ import (
 
 const (
 	// Valid FS root pattern.
-	fsRootPattern = "^[a-zA-Z0-9_./-]+$"
+	fsRootPattern = "^[a-zA-Z0-9_./=-]+$"
 
 	// Valid model path pattern.
 	modelPathPattern = "^[a-zA-Z]+[a-zA-Z0-9_.-]*$"

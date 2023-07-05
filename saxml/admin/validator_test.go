@@ -98,6 +98,11 @@ func TestCheckConfigProto(t *testing.T) {
 			nil,
 		},
 		{
+			"FS root equal sign ok",
+			validConfig().withFsRoot("/some/a=b/path"),
+			nil,
+		},
+		{
 			"admin ACL empty ok",
 			validConfig().withAdminACL(""),
 			nil,
