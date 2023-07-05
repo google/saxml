@@ -33,6 +33,7 @@ def to_chip_type(chip: Optional[str]) -> admin_pb2.ModelServer.ChipType:
       't4': admin_pb2.ModelServer.ChipType.CHIP_TYPE_GPU_T4,
       'a100': admin_pb2.ModelServer.ChipType.CHIP_TYPE_GPU_A100,
       'cpu': admin_pb2.ModelServer.ChipType.CHIP_TYPE_CPU,
+      'h100': admin_pb2.ModelServer.ChipType.CHIP_TYPE_GPU_H100,
   }
   return chip_map.get(chip.lower(), default)
 
