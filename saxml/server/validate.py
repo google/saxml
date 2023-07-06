@@ -49,16 +49,14 @@ def ValidateRequestForExtraInputs(
   if req is None:
     return utils.ok()
 
-  req_extra_inputs = (
-      dict(req.extra_inputs.items)
-      if hasattr(req, 'extra_inputs') and req.extra_inputs
-      else None
-  )
-
-  if req_extra_inputs is None:
+  if not hasattr(req, 'extra_inputs') or not req.extra_inputs:
     return utils.ok()
 
-  for input_key in req_extra_inputs:
+  items_dict = dict(req.extra_inputs.items)
+  tensors_dict = dict(req.extra_inputs.tensors)
+  strings_dict = dict(req.extra_inputs.strings)
+
+  for input_key in items_dict:
     if extra_inputs is None or input_key not in extra_inputs:
       return utils.invalid_arg(
           f'The extra_inputs key `{input_key}` in the RPC request is not'
@@ -66,14 +64,14 @@ def ValidateRequestForExtraInputs(
           f' ServableModel.extra_inputs is {extra_inputs}.'
       )
 
-  for key, tensor in dict(req.extra_inputs.tensors).items():
+  for key, tensor in tensors_dict.items():
     if extra_inputs is None or key not in extra_inputs:
       return utils.invalid_arg(
           f'The extra_inputs key `{key}` in the RPC request is not'
           ' defined in ServableModel.extra_inputs. Current'
           f' ServableModel.extra_inputs is {extra_inputs}.'
       )
-    if key in req_extra_inputs:
+    if key in items_dict:
       return utils.invalid_arg(
           'It is invalid for the same key to appear in both items and tensors.'
       )
@@ -84,6 +82,22 @@ def ValidateRequestForExtraInputs(
     if len(list(tensor.values)) != len(extra_inputs[key]):
       return utils.invalid_arg(
           f'Extra inputs `{key}` does not have the same size as the default.'
+      )
+  for key in strings_dict:
+    if extra_inputs is None or key not in extra_inputs:
+      return utils.invalid_arg(
+          f'The extra_inputs key `{key}` in the RPC request is not'
+          ' defined in ServableModel.extra_inputs. Current'
+          f' ServableModel.extra_inputs is {extra_inputs}.'
+      )
+    if key in items_dict:
+      return utils.invalid_arg(
+          'It is invalid for the same key to appear in both items and strings.'
+      )
+    if key in tensors_dict:
+      return utils.invalid_arg(
+          'It is invalid for the same key to appear in both tensors and'
+          ' strings.'
       )
 
   return utils.ok()

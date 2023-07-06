@@ -1333,6 +1333,9 @@ class ModelServicesRunner:
               # (Reshaping is delegated to the model.)
               for k, v in dict(t.request.extra_inputs.tensors).items():
                 extra_inputs[-1][k] = list(v.values)
+              # Strings
+              for k, v in dict(t.request.extra_inputs.strings).items():
+                extra_inputs[-1][k] = v
 
           inputs = method.update_extra_inputs(
               inputs, len(rpc_tasks), extra_inputs
