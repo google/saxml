@@ -434,7 +434,7 @@ def is_mock_tpu_backend() -> bool:
 
 
 def translate_xla_tpu_flags_to_compiler_options(
-    xla_tpu_flags: list[str],
+    xla_tpu_flags: Optional[list[str]],
 ) -> dict[str, str]:
   """Reset the compiler_options dict from  Users XLA_TPU_FLAGS format.
 
@@ -456,8 +456,9 @@ def translate_xla_tpu_flags_to_compiler_options(
     xla_tpu_compiler_options: The python dicts of xla tpu options.
   """
   compiler_options = {}
-  for item in xla_tpu_flags:
-    item = item.strip('-')  # Remove leading dashes
-    key, value = item.split('=', 1)
-    compiler_options[key] = value
+  if xla_tpu_flags:
+    for item in xla_tpu_flags:
+      item = item.strip('-')  # Remove leading dashes
+      key, value = item.split('=', 1)
+      compiler_options[key] = value
   return compiler_options
