@@ -13,7 +13,10 @@ licenses(["notice"])
 
 package_group(
     name = "friends",
-    packages = ["//audio/hearing/recomposition/..."],
+    packages = [
+        "//audio/hearing/recomposition/...",
+        "//learning/multipod/pax/pathways/component/examples/...",
+    ],
 )
 
 bzl_library(
