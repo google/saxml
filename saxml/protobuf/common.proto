@@ -65,4 +65,12 @@ message ExtraInputs {
   // }
   // It is invalid for the same key to appear in both items and tensors.
   map<string, Tensor> tensors = 2;
+  // strings[input_key] specifies value in string type set for an input_key.
+  // E.g., the following extra inputs will change input.strings as decoding
+  // constraint.
+  // strings {
+  //   "regex" : "a*b*c*d*e*f*g*h*"
+  // }
+  // It is invalid if the same key has appeared in items and tensors.
+  map<string, string> strings = 3;
 }
