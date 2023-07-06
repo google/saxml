@@ -16,6 +16,7 @@
 import abc
 import dataclasses
 import functools
+import inspect
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from absl import logging
@@ -682,6 +683,10 @@ class LMDecodeMethod(ServableLMMethod):
           ),
           interval_steps=self._method_hparams.stream_interval_steps,
       )
+
+    if 'callback_device_index' in inspect.signature(
+        self._model.decode_with_params).parameters:
+      kwargs['callback_device_index'] = self.callback_device_index
 
     outputs = self._model.apply(
         mdl_vars,

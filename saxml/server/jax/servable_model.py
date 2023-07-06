@@ -17,7 +17,7 @@ import abc
 import dataclasses
 import functools
 import threading
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from absl import logging
 from flax import struct as flax_struct
@@ -26,11 +26,14 @@ from jax import numpy as jnp
 from jax.experimental import host_callback as hcb
 from jax.experimental import pjit
 import numpy as np
+from paxml import host_callback as paxml_hcb
 from praxis import pytypes
 from saxml.server import servable_model
 from saxml.server import servable_model_params
 
-ExtraInput = Dict[str, float]
+# string values can be used in host callbacks and are converted to integers
+# when passing around through a global repository on host.
+ExtraInput = Dict[str, Union[float, str]]
 # TODO(sax-dev): define these types or use pax's definitions.
 HostTensors = Any
 DeviceTensors = Any
@@ -536,7 +539,13 @@ class ServableMethod(servable_model.ServableMethod):
     for input_key, default_value in self.default_extra_inputs.items():
       input_value = []
       for i in range(batch_size):
-        input_value.append(extra_inputs[i].get(input_key, default_value))
+        value = extra_inputs[i].get(input_key, default_value)
+        if isinstance(value, str):
+          # Map string to int.
+          # Downstream usage will look up the string with the repository.
+          value = paxml_hcb.repository(input_key).add(value)
+        input_value.append(value)
+
       # Some extra inputs such as per_example_max_decode_steps are ints
       extra_input_tensors[input_key] = np.array(
           input_value, dtype=extra_input_dyptes.get(input_key, np.float32)
