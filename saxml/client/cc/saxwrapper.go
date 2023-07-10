@@ -59,6 +59,9 @@ func protoOptionToSetter(options *cpb.ExtraInputs) []sax.ModelOptionSetter {
 		for name, val := range options.GetTensors() {
 			extra = append(extra, sax.WithExtraInputTensor(name, val.GetValues()))
 		}
+		for name, val := range options.GetStrings() {
+			extra = append(extra, sax.WithExtraInputString(name, val))
+		}
 	}
 	return extra
 }

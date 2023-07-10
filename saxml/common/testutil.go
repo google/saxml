@@ -316,6 +316,11 @@ func (s *stubLanguageModelServer) Score(ctx context.Context, in *lmpb.ScoreReque
 			extraVector = append(extraVector, float64(value))
 		}
 	}
+	extraString := ""
+	extraS := in.GetExtraInputs().GetStrings()
+	if val, found := extraS["extra_string"]; found {
+		extraString = val
+	}
 	product := 1.0
 	for _, value := range extraVector {
 		product *= value
@@ -323,7 +328,7 @@ func (s *stubLanguageModelServer) Score(ctx context.Context, in *lmpb.ScoreReque
 	time.Sleep(s.scoreDelay)
 	var logP []float64
 	for _, suffix := range suffixes {
-		logP = append(logP, float64(len(prefix)+len(suffix))*0.1*temperature*product)
+		logP = append(logP, float64(len(prefix)+len(suffix)+len(extraString))*0.1*temperature*product)
 	}
 	return &lmpb.ScoreResponse{
 		Logp: logP,
@@ -351,6 +356,11 @@ func (s *stubLanguageModelServer) Generate(ctx context.Context, in *lmpb.Generat
 			extraVector = append(extraVector, float64(value))
 		}
 	}
+	extraString := ""
+	extraS := in.GetExtraInputs().GetStrings()
+	if val, found := extraS["extra_string"]; found {
+		extraString = val
+	}
 	product := 1.0
 	for _, value := range extraVector {
 		product *= value
@@ -359,11 +369,11 @@ func (s *stubLanguageModelServer) Generate(ctx context.Context, in *lmpb.Generat
 		Texts: []*lmpb.DecodedText{
 			&lmpb.DecodedText{
 				Text:  text + "_0",
-				Score: float64(len(text)) * 0.1 * temperature * product,
+				Score: float64(len(text)+len(extraString)) * 0.1 * temperature * product,
 			},
 			&lmpb.DecodedText{
 				Text:  text + "_1",
-				Score: float64(len(text)) * 0.2 * temperature * product,
+				Score: float64(len(text)+len(extraString)) * 0.2 * temperature * product,
 			},
 		},
 	}, nil

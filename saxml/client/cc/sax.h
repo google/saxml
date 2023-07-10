@@ -50,7 +50,9 @@ class ModelOptions {
   void SetExtraInput(absl::string_view key, float value);
   void SetExtraInputTensor(
     absl::string_view key, const std::vector<float>& value);
-  // Set ExtraInput and ExtraInputTensors from proto.
+  void SetExtraInputString(
+    absl::string_view key, std::string value);
+  // Set extra input, extra input tensors, and extra input strings from proto.
   void FromProto(const ::sax::ExtraInputs& proto);
 
   void ToProto(::sax::ExtraInputs* proto) const;
@@ -59,6 +61,8 @@ class ModelOptions {
   std::map<std::string, float> kv_;  // key-value pair for extra input to model.
   // key-value pair for extra input tensors to model.
   std::map<std::string, std::vector<float>> kv_t_;
+  // key-value pair for extra input strings to model.
+  std::map<std::string, std::string> kv_s_;
   float timeout_ = -1;  // Query timeout. Negative value means no timeout.
 };
 

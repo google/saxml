@@ -82,6 +82,11 @@ void ModelOptions::SetExtraInputTensor(absl::string_view key,
   kv_t_[std::string(key)] = value;
 }
 
+void ModelOptions::SetExtraInputString(
+    absl::string_view key, std::string value) {
+  kv_s_[std::string(key)] = value;
+}
+
 void ModelOptions::ToProto(ExtraInputs* proto) const {
   for (auto const& option : kv_) {
     (*proto->mutable_items())[option.first] = option.second;
@@ -90,6 +95,9 @@ void ModelOptions::ToProto(ExtraInputs* proto) const {
     Tensor tensor;
     tensor.mutable_values()->Assign(option.second.begin(), option.second.end());
     (*proto->mutable_tensors())[option.first] = tensor;
+  }
+  for (auto const& option : kv_s_) {
+    (*proto->mutable_strings())[option.first] = option.second;
   }
 }
 
@@ -100,6 +108,9 @@ void ModelOptions::FromProto(const ExtraInputs& proto) {
   for (auto const& option : proto.tensors()) {
     kv_t_[option.first].assign(option.second.values().begin(),
                                option.second.values().end());
+  }
+  for (auto const& option : proto.strings()) {
+    kv_s_[option.first] = option.second;
   }
 }
 

@@ -134,6 +134,7 @@ func WithProxy(addr string) OptionSetter {
 type ModelOptions struct {
 	kv  map[string]float32
 	kvT map[string][]float32
+	kvS map[string]string
 }
 
 // ExtraInputs creates a ExtraInputs proto from a ModelOptions.
@@ -142,7 +143,7 @@ func (mo *ModelOptions) ExtraInputs() *pb.ExtraInputs {
 	for key, value := range mo.kvT {
 		tensors[key] = &pb.Tensor{Values: value}
 	}
-	return &pb.ExtraInputs{Items: mo.kv, Tensors: tensors}
+	return &pb.ExtraInputs{Items: mo.kv, Tensors: tensors, Strings: mo.kvS}
 }
 
 // ModelOptionSetter are setters for sax options.
@@ -162,11 +163,19 @@ func WithExtraInputTensor(name string, value []float32) ModelOptionSetter {
 	}
 }
 
+// WithExtraInputString sets options (key-string pairs) for the query.
+func WithExtraInputString(name string, value string) ModelOptionSetter {
+	return func(o *ModelOptions) {
+		o.kvS[name] = value
+	}
+}
+
 // NewModelOptions creates a ModelOption by applying a list of key value pairs.
 func NewModelOptions(setters ...ModelOptionSetter) *ModelOptions {
 	opts := &ModelOptions{
 		kv:  make(map[string]float32),
 		kvT: make(map[string][]float32),
+		kvS: make(map[string]string),
 	}
 	for _, op := range setters {
 		op(opts)
