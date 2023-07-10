@@ -228,8 +228,8 @@ class ServableMethod(servable_model.ServableMethod):
     )
 
     def _assert_type(x):
-      assert isinstance(
-          x, np.ndarray
+      assert isinstance(x, np.ndarray) or isinstance(
+          x, jnp.ndarray
       ), f'Output of pre_processing contained an invalid type: {type(x)}'
       return x
 
