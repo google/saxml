@@ -175,3 +175,5 @@ saxutil lm.generate /sax/test/lm2b "Q: Who is Harry Porter's mother? A: "
 ```
 
 The result will be printed in the terminal.
+
+Test CI
