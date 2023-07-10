@@ -111,7 +111,7 @@ class ServableMethod(abc.ABC):
 
   @property
   def batching_wait_secs(self) -> Optional[float]:
-    """Bathing waiting secs in the server for this method."""
+    """Batching waiting secs in the server for this method."""
     return self._batching_wait_secs
 
   @abc.abstractmethod
