@@ -49,7 +49,7 @@ import (
 const (
 	// sax_root flag values with this prefix are interpreted as Google Cloud Storage paths.
 	gcsURLPrefix = "gs://"
-	// Interally, sax_root flag values with "gs://..." URLs inside are converted to "/cns/..." paths,
+	// Internally, sax_root flag values with "gs://..." URLs inside are converted to "/cns/..." paths,
 	// so we can handle them uniformly as file paths without needing to import the net/url package.
 	gcsPathPrefix = "/gcs/"
 
