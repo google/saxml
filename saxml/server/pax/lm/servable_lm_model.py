@@ -93,7 +93,9 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
   """
 
   max_input_seq_len: int = 0
-  decoder: decoder_hparams.DecoderHParams = decoder_hparams.DecoderHParams()
+  decoder: decoder_hparams.DecoderHParams = dataclasses.field(
+      default_factory=decoder_hparams.DecoderHParams
+  )
   include_prefix_in_result: bool = False
   encoder_decoder_model: bool = False
   t5_model: bool = False
