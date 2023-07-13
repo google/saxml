@@ -93,16 +93,13 @@ class ServableModelParams(metaclass=abc.ABCMeta):
     """Custom registration name for the model."""
     return None
 
-  def apply_model_overrides(self, overrides: Dict[str, str]) -> None:
+  def apply_model_overrides(self, overrides: Dict[str, Any]) -> None:
     """Receive custom config overrides from Publish.
 
     The default handling of overrides is as follows:
-      - If the current value of the key is a list, then we assume that the
-        override value is a comma-separated list of items of the same type
-        as the items in the current value.
-      - Otherwise, we try to cast the value to the type of the current value.
-      - If this object does not has an attr corresponding to this key, we
-        cowardly refuse to set it.
+      - Replace the value with the provided one.
+      - Fail if the types of override is mismatched.
+      - Fail if there is no key.
 
     This method may be overridden by subclasses for more customized behavior.
 
@@ -111,23 +108,16 @@ class ServableModelParams(metaclass=abc.ABCMeta):
           supplied by the Publish command.
     """
     for k, v in overrides.items():
-      if hasattr(self, k):
-        cur_v = getattr(self, k)
-        try:
-          if isinstance(cur_v, list):
-            elem_ts = set(type(e) for e in cur_v)
-            # if the list is empty or has multiple types then default to string
-            elem_t = elem_ts.pop() if len(elem_ts) == 1 else str
-            typed_v = [elem_t(e) for e in v.split(',')]
-          else:
-            value_t = type(getattr(self, k))
-            typed_v = value_t(v)
-          setattr(self, k, typed_v)
-          logging.info('Set override %s to %s on %s', k, typed_v, self)
-        except (TypeError, ValueError) as e:
-          logging.warn('Could not set override %s on %s: %e', k, self, e)
-      else:
-        logging.warn("Can't override %s because it's not set on %s", k, self)
+      if not hasattr(self, k):
+        raise ValueError(
+            "Can't override %s because it's not set on %s" % (k, self))
+      cur_v = getattr(self, k)
+      if type(v) != type(cur_v):  # pylint: disable=unidiomatic-typecheck
+        raise ValueError(
+            'Mismatched type of override: original: %s; override: %s' % (
+                cur_v, v))
+      setattr(self, k, v)
+      logging.info('Set override %s to %s on %s', k, v, self)
 
 
 ServableModelParamsT = Type[ServableModelParams]

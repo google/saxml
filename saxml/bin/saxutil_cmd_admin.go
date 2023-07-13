@@ -17,6 +17,7 @@ package saxcommand
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -229,6 +230,8 @@ func (*PublishCmd) Synopsis() string { return "publish a model" }
 func (*PublishCmd) Usage() string {
 	return `publish <model ID> <model path> <checkpoint path> <num of replicas> [override_key=override_val]*:
 	Publish a model using the given number of server replicas.
+
+	override_val should be a JSON. This means strings must be in double quotes.
 `
 }
 
@@ -262,6 +265,11 @@ func (c *PublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) 
 		parts := strings.Split(item, "=")
 		if len(parts) != 2 {
 			log.Errorf("Overrides should be of the form key=val")
+			return subcommands.ExitUsageError
+		}
+		var parsedValue any
+		if err := json.Unmarshal([]byte(parts[1]), &parsedValue); err != nil {
+			log.Errorf("Override value is not a valid JSON: %v", err)
 			return subcommands.ExitUsageError
 		}
 		overrides[parts[0]] = parts[1]

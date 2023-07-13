@@ -19,22 +19,38 @@ from google3.testing.pybase import googletest
 
 class ServableModelParamsTest(googletest.TestCase):
 
-  def test_overrides(self):
+  def setUp(self):
+    super().setUp()
     servable_model_params.ServableModelParams.__abstractmethods__ = set()
-    params = servable_model_params.ServableModelParams()
+    self.params = servable_model_params.ServableModelParams()
+
+  def test_overrides(self):
+    params = self.params
     params.INT_KEY = 42
     params.STR_KEY = "hi there"
     params.LIST_KEY = [128, 256]
     params.ANOTHER_LIST_KEY = [1, 2]
     params.apply_model_overrides(dict(
-        INT_KEY="100",
+        INT_KEY=100,
         STR_KEY="foo",
-        LIST_KEY="55,65,75"
+        LIST_KEY=[55, 65, 75],
     ))
     self.assertEqual(params.INT_KEY, 100)
     self.assertEqual(params.STR_KEY, "foo")
     self.assertEqual(params.LIST_KEY, [55, 65, 75])
     self.assertEqual(params.ANOTHER_LIST_KEY, [1, 2])
+
+  def test_exception_on_missing_field(self):
+    params = self.params
+    params.INT_KEY = 42
+    self.assertRaises(ValueError, params.apply_model_overrides, dict(
+        ANOTHER_INT_KEY=100,))
+
+  def test_exception_on_different_type(self):
+    params = self.params
+    params.INT_KEY = 42
+    self.assertRaises(ValueError, params.apply_model_overrides, dict(
+        INT_KEY=False,))
 
 
 if __name__ == "__main__":

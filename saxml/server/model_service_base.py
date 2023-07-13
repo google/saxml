@@ -482,7 +482,7 @@ class LoadedModelManager:
       ckpt_path: Path of the checkpoint.
       acls: ACL names for this model's methods.
       overrides: Overrides that can be used for dynamic reconfiguration of
-        params.
+        params. Values must be serialized JSONs.
       prng_key: PRNG key for this model.
       register_methods_callback: Optional callback to initialize model methods.
 
@@ -501,8 +501,10 @@ class LoadedModelManager:
         raise ValueError(f'{model_path} is not a ServableModelParams')
       # pytype: disable=not-instantiable
       params = model_class()
-      logging.info('model_service_base overrides= %s', overrides)
-      params.apply_model_overrides(overrides)
+      parsed_overrides = {
+          key: json.loads(value) for key, value in overrides.items()}
+      logging.info('model_service_base overrides= %s', parsed_overrides)
+      params.apply_model_overrides(parsed_overrides)
       loaded = params.load(key, ckpt_path, self._primary_process_id, prng_key)
       # pytype: enable=not-instantiable
       loaded.set_acls(acls)
