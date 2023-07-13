@@ -34,7 +34,7 @@ go_library(
 
 config_setting(
     name = "vertex",
-    values = {"go_tag": "sax_env_vertex"},
+    values = {"define": "sax_env_vertex=1"},
 )
 
 go_library(
