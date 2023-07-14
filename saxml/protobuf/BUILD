@@ -235,6 +235,12 @@ rpc_endpoint_interface(
 
 cc_proto_library(
     name = "lm_cc_proto",
+    visibility = [
+        "//learning/deepmind/evergreen/boq/proxy/sax_lm/service:__pkg__",
+        "//learning/deepmind/goodall/boq/prober/service:__pkg__",
+        "//learning/genai/root/util:__pkg__",
+        "//saxml:internal",
+    ],
     deps = [":lm_proto"],
 )
 
