@@ -44,6 +44,7 @@ class CommonServingTemplate:
   BATCH_WAIT_SECS = None
   INPUT_SEQ_LEN = 256
   SUFFIX_SEQ_LEN = 0  # Deprecating this attribute.
+  MIN_DECODE_STEPS = 0  # Currently ignored by all but BeamSearchHParams
   MAX_DECODE_STEPS = 32
   NUM_SAMPLES = 2
   TOP_K = 40
@@ -169,6 +170,7 @@ class ServingTemplate(
     if self.USE_BEAM_SEARCH:
       generate_hparams = decoder_hparams.BeamSearchHParams(
           fprop_for_prefix=True,
+          min_decode_steps=self.MIN_DECODE_STEPS,
           max_decode_steps=self.MAX_DECODE_STEPS,
           seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           beam_size=self.BEAM_SIZE,
@@ -180,6 +182,7 @@ class ServingTemplate(
     elif self.NUM_SAMPLES == 1 and self.TOP_K == 1:
       generate_hparams = decoder_hparams.GreedyDecoderHParams(
           fprop_for_prefix=self.FPROP_FOR_PREFIX,
+          min_decode_steps=self.MIN_DECODE_STEPS,
           max_decode_steps=self.MAX_DECODE_STEPS,
           seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           eos_id=stop_token_ids,
@@ -193,6 +196,7 @@ class ServingTemplate(
           lazy_prefix_broadcast=self.FPROP_FOR_PREFIX
           and self.NUM_SAMPLES > 1
           and self.SUPPORT_LAZY_PREFIX_BROADCAST,
+          min_decode_steps=self.MIN_DECODE_STEPS,
           max_decode_steps=self.MAX_DECODE_STEPS,
           seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           num_samples=self.NUM_SAMPLES,
@@ -530,4 +534,3 @@ def set_decoding_sharding_hparams(
   )
 
   return task_p
-
