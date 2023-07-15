@@ -326,8 +326,8 @@ class ServableMethod(servable_model.ServableMethod):
     # pjit-ed function.
     return pjit.pjit(
         _wrapped_fn,
-        in_axis_resources=(self.model_state.mdl_var_pspecs, None),
-        out_axis_resources=None,
+        in_shardings=(self.model_state.mdl_var_pspecs, None),
+        out_shardings=None,
         donate_argnums=(1,),
     )
 
