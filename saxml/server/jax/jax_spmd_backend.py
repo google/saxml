@@ -48,7 +48,7 @@ def _decode_tensor_to_str(tensor: JTensor) -> str:
   return data.decode()
 
 
-@functools.partial(pjit.pjit, out_axis_resources=None)
+@functools.partial(pjit.pjit, out_shardings=None)
 def _all_reduce(x: jax.Array) -> jax.Array:
   """Computes a sum of the values of x across all devices."""
   return jnp.sum(x, axis=0, promote_integers=False)
