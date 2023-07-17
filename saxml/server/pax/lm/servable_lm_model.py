@@ -17,6 +17,7 @@ import abc
 import dataclasses
 import functools
 import inspect
+import os
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from absl import logging
@@ -54,6 +55,16 @@ ShapesAndDtypes = servable_model.ShapesAndDtypes
 InputShapeInfo = servable_lm_common.InputShapeInfo
 
 decode_tf_post_processing = servable_lm_common.decode_tf_post_processing
+
+
+def _string_to_bool(argument: str) -> bool:
+  """Converts a boolean string representation to a bool."""
+  if argument.lower() in ('true', 't', '1'):
+    return True
+  elif argument.lower() in ('false', 'f', '0'):
+    return False
+  else:
+    raise ValueError(f'Non-boolean argument to boolean flag {argument}')
 
 
 @dataclasses.dataclass
@@ -203,10 +214,16 @@ class ServableLMModelParams(
 
   def create_model(self, primary_process_id: int) -> 'ServableLMModel':
     compiler_options = {}
-    if hasattr(self, 'XLA_TPU_FLAGS') and self.XLA_TPU_FLAGS is not None:
-      compiler_options = utils.translate_xla_tpu_flags_to_compiler_options(
-          self.XLA_TPU_FLAGS
-      )
+    if hasattr(self, 'XLA_TPU_FLAGS') and getattr(self, 'XLA_TPU_FLAGS', None):
+      if _string_to_bool(
+          os.environ.get('IGNORE_PRESET_XLA_TPU_FLAGS', 'false')
+      ):
+        logging.info('Ignoring preset XLA_TPU_FLAGS on JAX AOT compilation.')
+      else:
+        compiler_options = utils.translate_xla_tpu_flags_to_compiler_options(
+            self.XLA_TPU_FLAGS
+        )
+
     model = ServableLMModel(
         self,
         primary_process_id,

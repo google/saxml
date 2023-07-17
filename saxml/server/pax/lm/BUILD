@@ -120,6 +120,16 @@ pytype_strict_library(
     ],
 )
 
+py_strict_test(
+    name = "servable_lm_model_test",
+    srcs = ["servable_lm_model_test.py"],
+    deps = [
+        ":servable_lm_model",
+        "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/absl-py/testing:parameterized",
+    ],
+)
+
 pytype_strict_library(
     name = "layers",
     srcs = ["layers.py"],
