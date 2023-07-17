@@ -20,4 +20,5 @@ package_group(
 bzl_library(
     name = "saxml_bzl",
     srcs = ["saxml.bzl"],
+    deps = ["//third_party/bazel_rules/rules_python/python:proto_bzl"],
 )
