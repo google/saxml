@@ -179,6 +179,13 @@ proto_library(
     deps = [":common_proto"],
 )
 
+rpc_endpoint_interface(
+    name = "custom_endpoint",
+    proto_library = ":custom_proto",
+    rpc_service_name = "sax.server.custom.CustomService",
+    visibility = ["//visibility:public"],
+)
+
 cc_proto_library(
     name = "custom_cc_proto",
     deps = [":custom_proto"],
