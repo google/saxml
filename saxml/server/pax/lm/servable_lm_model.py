@@ -146,21 +146,15 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
 
 
 @dataclasses.dataclass
-class GradientHParams(servable_model_params.ServableMethodParams):
-  """HParameters for LM gradient method.
+class GradientHParams(ScoreHParams):
+  """HParameters for LM gradient method, inheriting from ScoreHParams.
 
-  Attributes:
-    max_input_seq_len: static sequence length dimension size. Inputs are padded
-      or truncated to this size.
-    include_eos_score: whether to add EOS score to the result.
+  Additional attributes:
     inputs_tensor_names: tensors to take gradients with respect to in inputs.
     mdl_vars_tensors_names: tensors to take gradients with respect to in
       mdl_vars.
   """
 
-  max_input_seq_len: int = 0
-  max_suffix_seq_len: int = 0
-  include_eos_score: bool = False
   inputs_tensor_names: Optional[List[str]] = None
   mdl_vars_tensor_names: Optional[List[str]] = None
 
@@ -1067,6 +1061,9 @@ class LMGradientMethod(ServableLMMethod):
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._gradient_params = gradient_params
+    # gradient param contains all score params as well.
+    # used for computing score
+    self._score_params = gradient_params
     self._delimiter = '/'
     dummy_input_sample = ('', '')
     logging.info(
@@ -1158,7 +1155,16 @@ class LMGradientMethod(ServableLMMethod):
   ) -> NestedJTensor:
     # fetch loss and gradients from the model output
     metrics, per_example_output = model_fn_outputs[0]
-    output = dict(scores=per_example_output['scores'])
+    output = dict(
+        # LMScore's fetch_output uses only the 0-th element of output.
+        # per_example_output contains a 'scores' field by default from the loss
+        # output, which will be the scores by default for fetch_output.
+        # Models can retrieve intermediate per_token_xent from the forward pass
+        # for fetch_output to mask out paddings.
+        scores=LMScoreMethod.fetch_output(
+            self, [per_example_output], model_fn_inputs
+        )
+    )
 
     for grads_type, grads_dict in metrics['gradients'].items():
       for tensor_name, grads in grads_dict.items():

@@ -322,6 +322,7 @@ class ServingWithGradientTemplate(ServingTemplate):
         max_suffix_seq_len=suffix_seq_len,
         bucket_keys=self.BUCKET_KEYS,
         include_eos_score=self.INCLUDE_EOS_SCORE,
+        output_geometric_mean_prob_score=self.GENERATION_USE_GEOMEAN_PROB_SCORE,
         inputs_tensor_names=self.GRADIENT_WRT_INPUT_TENSOR_NAMES,
         mdl_vars_tensor_names=None,
         extra_inputs=self.SCORE_EXTRA_INPUTS,
