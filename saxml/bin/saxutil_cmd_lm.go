@@ -39,6 +39,7 @@ var clear = func() {
 // GenerateCmd is the command for generate
 type GenerateCmd struct {
 	extra      string
+	proxy      string
 	stream     bool
 	terse      bool
 	maxOutputs int
@@ -66,6 +67,7 @@ Usage: saxutil lm.generate [-n=<N>] [-stream] [-terse] [-extra=<extra>] <ModelID
 // SetFlags sets the flags for GenerateCmd.
 func (c *GenerateCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.extra, "extra", "", "extra arguments for Generate().")
+	f.StringVar(&c.proxy, "proxy", "", "SAX Proxy address, e.g., sax.server.lm.lmservice-prod.blade.gslb.googleprod.com")
 	f.BoolVar(&c.stream, "stream", false, "stream responses")
 	f.BoolVar(&c.terse, "terse", false, "print generated texts one line per result, descending by score")
 	f.IntVar(&c.maxOutputs, "n", 0, "maximum number of generated texts to output or zero for all")
@@ -158,7 +160,7 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		return subcommands.ExitUsageError
 	}
 
-	m, err := sax.Open(f.Args()[0])
+	m, err := sax.Open(f.Args()[0], sax.WithProxy(c.proxy))
 	if err != nil {
 		log.Errorf("Failed to open model: %v", err)
 		return subcommands.ExitFailure
@@ -220,6 +222,7 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 // ScoreCmd is the command for Score.
 type ScoreCmd struct {
 	extra string
+	proxy string
 }
 
 // Name returns the name of the ScoreCmd.
@@ -238,6 +241,7 @@ func (*ScoreCmd) Usage() string {
 // SetFlags sets flags for ScoreCmd.
 func (c *ScoreCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.extra, "extra", "", "extra arguments for Score().")
+	f.StringVar(&c.proxy, "proxy", "", "SAX Proxy address, e.g., sax.server.lm.lmservice-prod.blade.gslb.googleprod.com")
 }
 
 // Execute executes ScoreCmd.
@@ -247,7 +251,7 @@ func (c *ScoreCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 		return subcommands.ExitUsageError
 	}
 
-	m, err := sax.Open(f.Args()[0])
+	m, err := sax.Open(f.Args()[0], sax.WithProxy(c.proxy))
 	if err != nil {
 		log.Errorf("Failed to open model: %v", err)
 		return subcommands.ExitFailure
@@ -285,6 +289,7 @@ func (c *ScoreCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 // EmbedTextCmd is the command for embedding text.
 type EmbedTextCmd struct {
 	extra string
+	proxy string
 }
 
 // Name returns the name of EmbedTextCmd.
@@ -302,6 +307,7 @@ func (*EmbedTextCmd) Usage() string {
 // SetFlags sets flags for EmbedTextCmd.
 func (c *EmbedTextCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.extra, "extra", "", "extra arguments for Embed().")
+	f.StringVar(&c.proxy, "proxy", "", "SAX Proxy address, e.g., sax.server.lm.lmservice-prod.blade.gslb.googleprod.com")
 }
 
 // Execute executes EmbedTextCmd.
@@ -311,7 +317,7 @@ func (c *EmbedTextCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any
 		return subcommands.ExitUsageError
 	}
 
-	m, err := sax.Open(f.Args()[0])
+	m, err := sax.Open(f.Args()[0], sax.WithProxy(c.proxy))
 	if err != nil {
 		log.Errorf("Failed to open model: %v", err)
 		return subcommands.ExitFailure
@@ -338,6 +344,7 @@ func (c *EmbedTextCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any
 // GradientCmd is the command for Gradient.
 type GradientCmd struct {
 	extra string
+	proxy string
 }
 
 // Name returns the name of the ScoreCmd.
@@ -358,6 +365,7 @@ func (*GradientCmd) Usage() string {
 // SetFlags sets flags for ScoreCmd.
 func (c *GradientCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.extra, "extra", "", "extra arguments for Gradient().")
+	f.StringVar(&c.proxy, "proxy", "", "SAX Proxy address, e.g., sax.server.lm.lmservice-prod.blade.gslb.googleprod.com")
 }
 
 // Execute executes ScoreCmd.
@@ -367,7 +375,7 @@ func (c *GradientCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		return subcommands.ExitUsageError
 	}
 
-	m, err := sax.Open(f.Args()[0])
+	m, err := sax.Open(f.Args()[0], sax.WithProxy(c.proxy))
 	if err != nil {
 		log.Errorf("Failed to open model: %v", err)
 		return subcommands.ExitFailure
