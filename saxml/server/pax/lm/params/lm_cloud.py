@@ -166,7 +166,7 @@ class LLaMA7BFP16(BaseLLaMA):
   """7B model on a A100-40GB.
 
   Checkpoint:
-  gs://sax-data/pax-llama/7B
+  /cns/mf-d/home/huangyp/sax/pax-llama/7B/checkpoint_00000000/
 
   April 14, 2023
   Latency = 3.619s with 128 decoded tokens. 27ms per output token
