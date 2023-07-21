@@ -363,6 +363,7 @@ class ServableModel(servable_model.ServableModel):
       test_mode: bool = False,
       enable_auto_sharding: bool = False,
       compiler_options: dict[str, dict[str, bool]] | None = None,
+      do_eval: bool = False,
   ):
     super().__init__()
     self._test_mode = test_mode
@@ -372,6 +373,7 @@ class ServableModel(servable_model.ServableModel):
     self._model_config = model_config
     self._enable_auto_sharding = enable_auto_sharding
     self._compiler_options = compiler_options
+    self._do_eval = do_eval
 
   @property
   def primary_process_id(self) -> int:
@@ -451,7 +453,7 @@ class ServableModel(servable_model.ServableModel):
     sample_input_for_init = self.model_config.input_for_model_init()
     with global_mesh:
       vars_weight_params = jax_task.model.abstract_init_with_metadata(
-          sample_input_for_init
+          sample_input_for_init, do_eval=self._do_eval
       )
       discard_opt_states = not tasks_lib.has_ema(jax_task)
       train_state_global_shapes = jax_task.create_train_state_padded_shapes(
@@ -504,6 +506,7 @@ class ServableModel(servable_model.ServableModel):
                 partition_specs,
                 discard_opt_states=discard_opt_states,
                 global_mesh=global_mesh,
+                is_eval=self._do_eval,
             )
         )
         step = 0
