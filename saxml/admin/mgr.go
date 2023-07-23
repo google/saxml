@@ -141,7 +141,7 @@ func (m *Mgr) Publish(specs *apb.Model) error {
 		waiter:      waitable.New(),
 	}
 
-	m.eventLogger.Log(eventlog.Deploy, specs)
+	m.eventLogger.Log(eventlog.Deploy, specsWithUUID)
 
 	return nil
 }

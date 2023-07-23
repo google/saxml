@@ -16,6 +16,7 @@
 package state
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
@@ -63,6 +64,7 @@ type Model struct {
 	Checkpoint string
 	Acls       map[string]string
 	Overrides  map[string]string
+	UUID       []byte
 }
 
 func cloneAcls(src map[string]string) map[string]string {
@@ -87,6 +89,7 @@ func newModel(spec *apb.Model) *Model {
 		Checkpoint: spec.GetCheckpointPath(),
 		Acls:       cloneAcls(spec.GetAcls().GetItems()),
 		Overrides:  spec.GetOverrides(),
+		UUID:       spec.GetUuid(),
 	}
 }
 
@@ -96,6 +99,7 @@ func (m *Model) clone() *Model {
 		Checkpoint: m.Checkpoint,
 		Acls:       cloneAcls(m.Acls),
 		Overrides:  cloneOverrides(m.Overrides),
+		UUID:       bytes.Clone(m.UUID),
 	}
 }
 
@@ -269,6 +273,7 @@ func (s *State) act(a *action) {
 				ModelId:        a.fullName.ModelFullName(),
 				ModelPath:      a.model.Path,
 				CheckpointPath: a.model.Checkpoint,
+				Uuid:           a.model.UUID,
 			}, s.Addr)
 		} else {
 			log.Warningf("Failed to load model %v onto server %v", a.fullName, s.Addr)
@@ -299,6 +304,7 @@ func (s *State) act(a *action) {
 				ModelId:        a.fullName.ModelFullName(),
 				ModelPath:      a.model.Path,
 				CheckpointPath: a.model.Checkpoint,
+				Uuid:           a.model.UUID,
 			}, s.Addr)
 		} else {
 			log.Warningf("Failed to unload model %v from server %v (%v)", a.fullName, s.Addr, err)

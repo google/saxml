@@ -23,6 +23,7 @@ import (
 
 	"flag"
 	log "github.com/golang/glog"
+	// internal import
 	"saxml/admin/admin"
 	"saxml/common/platform/env"
 	_ "saxml/common/platform/register" // registers a platform

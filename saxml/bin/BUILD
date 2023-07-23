@@ -11,6 +11,7 @@ go_binary(
     srcs = ["admin_server.go"],
     deps = [
         # unused internal flag dependency,
+        # internal dependencies,
         "//saxml/admin",
         "//saxml/common/platform:env",
         "//saxml/common/platform:register",
