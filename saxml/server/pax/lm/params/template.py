@@ -51,6 +51,7 @@ class CommonServingTemplate:
   TOP_K_RECALL_TARGET = 1.0  # When < 1.0, use tpu optimized approx_max_k
   USE_TOP_K_FOR_LOGPROBS = False
   BEAM_SIZE = 4
+  TOKENS_PER_BEAM = None
   FPROP_FOR_PREFIX = False
   GLOBAL_NORMALIZE = False
   VOCAB_SIZE = 32000
@@ -174,6 +175,7 @@ class ServingTemplate(
           max_decode_steps=self.MAX_DECODE_STEPS,
           seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           beam_size=self.BEAM_SIZE,
+          tokens_per_beam=self.TOKENS_PER_BEAM,
           eos_id=stop_token_ids,
           length_norm_alpha=self.LENGTH_NORM_ALPHA,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
