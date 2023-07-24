@@ -548,7 +548,7 @@ class ServableMethod(servable_model.ServableMethod):
 
       # Some extra inputs such as per_example_max_decode_steps are ints
       extra_input_tensors[input_key] = np.array(
-          input_value, dtype=extra_input_dyptes.get(input_key, None)
+          input_value, dtype=extra_input_dyptes.get(input_key, np.float32)
       )
     return self.add_extra_inputs(input_batch, extra_input_tensors)
 
