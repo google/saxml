@@ -445,6 +445,12 @@ class LMScoreMethod(ServableLMMethod):
     self._tokenizer = tokenizer_p.Instantiate()
     self._score_params = score_params
     dummy_input_sample = ('', [''])
+    # TODO(b/289379065): Remove this workaround here.
+    if (
+        isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
+        and self._tokenizer.tokenized
+    ):
+      dummy_input_sample = ('1', ['1'])
     logging.info('Using np_tf_sess_wrapper on LMScoreMethod.tf_pre_processing')
     self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
         # `bucketize_inputs` is only used in SavedModel export. The sax-native
@@ -627,6 +633,12 @@ class LMDecodeMethod(ServableLMMethod):
     self._tokenizer = tokenizer_p.Instantiate()
     self._method_hparams = method_hparams
     dummy_input_sample = ''
+    # TODO(b/289379065): Remove this workaround here.
+    if (
+        isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
+        and self._tokenizer.tokenized
+    ):
+      dummy_input_sample = '1'
     if isinstance(method_hparams, DecodeHParams):
       self._include_prefix_in_result = method_hparams.include_prefix_in_result
     logging.info('Using np_tf_sess_wrapper on LMDecodeMethod.tf_pre_processing')
@@ -951,6 +963,12 @@ class TextToEmbedding(servable_model.ServableMethod):
     self._tokenizer = tokenizer_p.Instantiate()
     self._text_to_embedding_hparams = text_to_embedding_hparams
     dummy_input_sample = ''
+    # TODO(b/289379065): Remove this workaround here.
+    if (
+        isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
+        and self._tokenizer.tokenized
+    ):
+      dummy_input_sample = '1'
     self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
         self.tf_pre_processing
     )
@@ -1066,6 +1084,12 @@ class LMGradientMethod(ServableLMMethod):
     self._score_params = gradient_params
     self._delimiter = '/'
     dummy_input_sample = ('', '')
+    # TODO(b/289379065): Remove this workaround here.
+    if (
+        isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
+        and self._tokenizer.tokenized
+    ):
+      dummy_input_sample = ('1', '1')
     logging.info(
         'Using np_tf_sess_wrapper on LMGradientMethod.tf_pre_processing'
     )
