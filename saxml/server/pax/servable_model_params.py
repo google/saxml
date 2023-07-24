@@ -53,6 +53,10 @@ class ServableModelParams(
     return False
 
   @property
+  def do_eval(self) -> bool:
+    return False
+
+  @property
   def enable_auto_sharding(self) -> bool:
     return False
 

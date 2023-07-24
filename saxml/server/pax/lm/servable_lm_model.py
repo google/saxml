@@ -225,6 +225,7 @@ class ServableLMModelParams(
         test_mode=self.test_mode,
         enable_auto_sharding=self.enable_auto_sharding,
         compiler_options=compiler_options,
+        do_eval=self.do_eval,
     )
     return model
 
