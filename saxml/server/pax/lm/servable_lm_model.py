@@ -420,9 +420,15 @@ class ServableLMMethod(servable_model.ServableMethod):
         lambda x: seq_pattern if len(x.shape) == 2 else f'{batch_pattern}, ...',
         batched_host_dummy,
     )
-    # apply seq len polymorphism exclusion.
-    if self.method_params.polymorphic_seq_len_exclusion:
-      for key in self.method_params.polymorphic_seq_len_exclusion:
+    # Apply seq len polymorphism exclusion.
+    polymorphic_seq_len_exclusion = set(
+        self.method_params.polymorphic_seq_len_exclusion or []
+    )
+    # Do not apply polymorphic seq len to extra inputs.
+    if self.default_extra_inputs:
+      polymorphic_seq_len_exclusion |= self.default_extra_inputs.keys()
+    if polymorphic_seq_len_exclusion:
+      for key in polymorphic_seq_len_exclusion:
         shape_patterns[key] = f'{batch_pattern}, ...'
 
     return shape_patterns
