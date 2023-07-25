@@ -176,6 +176,9 @@ class ServingTemplate(
           seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
           beam_size=self.BEAM_SIZE,
           tokens_per_beam=self.TOKENS_PER_BEAM,
+          lazy_prefix_broadcast=self.FPROP_FOR_PREFIX
+          and self.SUPPORT_LAZY_PREFIX_BROADCAST
+          and self.BEAM_SIZE > 1,
           eos_id=stop_token_ids,
           length_norm_alpha=self.LENGTH_NORM_ALPHA,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
@@ -422,7 +425,13 @@ def make_servable(servable_class=ServingTemplate):
           )
         if decode_params is not None:
           if decode_params.decoder.lazy_prefix_broadcast:
-            assert decode_params.decoder.num_samples > 1  # pytype: disable=attribute-error
+            assert (
+                (hasattr(decode_params.decoder, 'num_samples') and
+                 decode_params.decoder.num_samples > 1) or
+                (isinstance(decode_params.decoder,
+                            decoder_hparams.BeamSearchHParams) and
+                 decode_params.decoder.beam_size > 1)
+            )  # pytype: disable=attribute-error
             lazy_prefix_broadcast = True
 
         if lazy_prefix_broadcast:
