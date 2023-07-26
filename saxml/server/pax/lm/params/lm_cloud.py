@@ -37,7 +37,7 @@ from saxml.server.pax.lm.params import template
 class BaseLLaMA(base_experiment.BaseExperiment):
   """Base LLaMA Transformer LM configuration."""
 
-  SPM_MODEL = 'gs://sax-data/pax-llama/tokenizer.model'
+  SPM_MODEL = '/cns/mf-d/home/huangyp/ulm/pax-llama/tokenizer.model'
   SOS_ID = 1
   EOS_ID = 2
 
@@ -166,7 +166,7 @@ class LLaMA7BFP16(BaseLLaMA):
   """7B model on a A100-40GB.
 
   Checkpoint:
-  /cns/mf-d/home/huangyp/sax/pax-llama/7B/checkpoint_00000000/
+  gs://sax-data/pax-llama/7B/checkpoint_00000000/
 
   April 14, 2023
   Latency = 3.619s with 128 decoded tokens. 27ms per output token

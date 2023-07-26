@@ -15,7 +15,7 @@ r"""Convert weights from a llama/vicuna model to a pax one.
 
 Usage:
 
-# Get LLaMA pytorch_vars from Meta,or follow the steps  
+# Get LLaMA pytorch_vars from Meta 
 
 # Example cmd:
 python3 -m convert_llama_ckpt --base llama_7b --pax pax_7b

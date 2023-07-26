@@ -259,3 +259,36 @@ saxutil publish \
 ```
 
 Use the same `saxutil lm.generate` command as above to query the model.
+
+## Use Sax to load LLaMA 7B model:
+
+First get LLaMA pytorch_vars from Meta, then run the following script to
+convert the LLaMA PyTorch checkpoint to SAX format
+
+```
+python3 -m saxml/tools/convert_llama_ckpt --base llama_7b --pax pax_7b
+```
+
+Then start the GPU server
+
+```
+SAX_ROOT=gs://${GSBUCKET}/sax-root \
+bazel run saxml/server:server -- \
+  --sax_cell=/sax/test \
+  --port=10001 \
+  --platform_chip=a100 \
+  --platform_topology=1 \
+  --jax_platforms=cuda \
+  --alsologtostderr
+```
+
+Finally move the converted ckpt to your google cloud data bucket and publish
+the model
+
+```
+saxutil publish \
+  /sax/test/llama-7b \
+  saxml.server.pax.lm.params.lm_cloud.LLaMA7BFP16 \
+  gs://sax-data/pax-llama/7B \
+  1
+```
