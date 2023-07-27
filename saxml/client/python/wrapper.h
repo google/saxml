@@ -28,6 +28,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "saxml/client/cc/sax.h"
+#include "saxml/protobuf/multimodal.proto.h"
 #include "pybind11/pytypes.h"
 
 namespace sax {
@@ -128,6 +129,26 @@ class LanguageModel {
   friend class Model;
 };
 
+class MultimodalModel {
+ public:
+  MultimodalModel() = delete;
+  MultimodalModel(const MultimodalModel& obj);
+  ~MultimodalModel();
+
+  // Invokes the model to generate given 'GenerateRequest.data_items'.
+  absl::StatusOr<::sax::server::multimodal::GenerateResponse> Generate(
+      const ::sax::server::multimodal::GenerateRequest& request,
+      const ModelOptions* options = nullptr) const;
+
+ private:
+  explicit MultimodalModel(::sax::client::Model* base,
+                           const absl::Status& status);
+  ::sax::client::Model* base_ = nullptr;
+  ::sax::client::MultimodalModel* model_ = nullptr;
+  absl::Status status_;
+  friend class Model;
+};
+
 class VisionModel {
  public:
   VisionModel() = delete;
@@ -213,6 +234,7 @@ class Model {
   LanguageModel LM();
   VisionModel VM();
   CustomModel CM();
+  MultimodalModel MM();
 
  private:
   ::sax::client::Model* base_ = nullptr;

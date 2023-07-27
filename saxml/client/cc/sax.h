@@ -25,6 +25,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "saxml/protobuf/common.pb.h"
+#include "saxml/protobuf/multimodal.proto.h"
 
 namespace sax {
 namespace client {
@@ -282,6 +283,34 @@ class LanguageModel {
   int64_t model_handle_;
 };
 
+class MultimodalModel {
+ public:
+  MultimodalModel(const MultimodalModel&) = delete;
+  MultimodalModel(MultimodalModel&&) = default;
+  MultimodalModel& operator=(const MultimodalModel&) = delete;
+  MultimodalModel& operator=(MultimodalModel&&) = default;
+  ~MultimodalModel();
+
+  // Samples the model and produces results given the
+  // 'GenerateRequest.data_items'.
+  //
+  // On success, returns OK and fills in results and their scores computed by
+  // the model. Otherwise, returns an error.
+  absl::Status Generate(
+      const ::sax::server::multimodal::GenerateRequest& request,
+      ::sax::server::multimodal::GenerateResponse* response) const;
+  absl::Status Generate(
+      const ModelOptions& options,
+      const ::sax::server::multimodal::GenerateRequest& request,
+      ::sax::server::multimodal::GenerateResponse* response) const;
+
+ private:
+  explicit MultimodalModel(int64_t model_handle)
+      : model_handle_(model_handle) {}
+  friend class Model;
+  int64_t model_handle_;
+};
+
 // VisionModel provides common vision model API against a given model in
 // the sax cluster.
 //
@@ -448,6 +477,8 @@ class Model {
   // Create a CustomModel instance. User takes ownership of the resulting
   // object. The lifetime of CUstomModel is independent of Model.
   CustomModel* CM();
+
+  MultimodalModel* MM();
 
  private:
   explicit Model(int64_t model_handle) : model_handle_(model_handle) {}

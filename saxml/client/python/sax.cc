@@ -12,17 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <vector>
+
 #include "saxml/client/python/wrapper.h"
 #include "saxml/protobuf/common.pb.h"
+#include "saxml/protobuf/multimodal.proto.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/pytypes.h"
 #include "pybind11_abseil/absl_casters.h"    // IWYU pragma: keep
 #include "pybind11_abseil/status_casters.h"  // IWYU pragma: keep
+#include "pybind11_protobuf/native_proto_caster.h"
 
 namespace py = pybind11;
 
 PYBIND11_MODULE(sax, m) {
   py::google::ImportStatusModule();
+  pybind11_protobuf::ImportNativeProtoCasters();
+
   py::class_<sax::client::Options>(m, "Options")
       .def(py::init<>())
       .def("__copy__",
@@ -131,6 +137,10 @@ PYBIND11_MODULE(sax, m) {
           },
           py::arg("prefix"), py::arg("suffix"), py::arg("options") = nullptr);
 
+  py::class_<sax::client::pybind::MultimodalModel>(m, "MultimodalModel")
+      .def("Generate", &sax::client::pybind::MultimodalModel::Generate,
+           py::arg("request"), py::arg("options") = nullptr);
+
   py::class_<sax::client::pybind::VisionModel>(m, "VisionModel")
       .def(
           "Classify",
@@ -217,7 +227,8 @@ PYBIND11_MODULE(sax, m) {
       .def("AM", &sax::client::pybind::Model::AM)
       .def("LM", &sax::client::pybind::Model::LM)
       .def("VM", &sax::client::pybind::Model::VM)
-      .def("CM", &sax::client::pybind::Model::CM);
+      .def("CM", &sax::client::pybind::Model::CM)
+      .def("MM", &sax::client::pybind::Model::MM);
 
   m.def("StartDebugPort", &sax::client::pybind::StartDebugPort);
 

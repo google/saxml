@@ -217,6 +217,8 @@ go_library(
         # unused internal lm gRPC dependency,
         "//saxml/protobuf:modelet_go_proto_grpc",
         # unused internal modelet gRPC dependency,
+        "//saxml/protobuf:multimodal_go_proto",
+        "//saxml/protobuf:multimodal_go_proto_grpc",
         "//saxml/protobuf:vision_go_proto_grpc",
         # unused internal vision gRPC dependency,
         "@com_github_golang_glog//:go_default_library",
