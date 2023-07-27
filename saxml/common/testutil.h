@@ -19,7 +19,7 @@
 
 namespace sax {
 
-enum ModelType { Language, Vision, Audio, Custom, Multimodal };
+enum ModelType { Language, Vision, Audio, Custom };
 
 // Sets up and starts a Sax testing environment.
 void SetUp(const std::string& sax_cell);

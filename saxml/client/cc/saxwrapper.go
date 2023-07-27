@@ -44,7 +44,6 @@ import (
 	cpb "saxml/protobuf/common_go_proto"
 	cmpb "saxml/protobuf/custom_go_proto_grpc"
 	lmpb "saxml/protobuf/lm_go_proto_grpc"
-	mmpb "saxml/protobuf/multimodal_go_proto"
 	vmpb "saxml/protobuf/vision_go_proto_grpc"
 )
 
@@ -154,16 +153,6 @@ func go_create_cm(in C.long, out *C.long) {
 		return
 	}
 	*out = C.long(rcgo.NewHandle(m.CM()))
-}
-
-//export go_create_mm
-func go_create_mm(in C.long, out *C.long) {
-	m := rcgo.Handle(C.long(in)).Value().(*sax.Model)
-	if m == nil {
-		*out = nilModel
-		return
-	}
-	*out = C.long(rcgo.NewHandle(m.MM()))
 }
 
 //export go_create_lm
@@ -588,55 +577,6 @@ func go_gradient(ptr C.long, timeout C.float, requestData *C.char, requestSize C
 	for k, v := range gradients {
 		resp.Gradients[k] = &lmpb.GradientResponse_Gradient{Values: v}
 	}
-	content, err := proto.Marshal(resp)
-	if err != nil {
-		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
-		return
-	}
-	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Multimodal model methods
-//////////////////////////////////////////////////////////////////////////
-
-//export go_mm_generate
-func go_mm_generate(ptr C.long, timeout C.float, requestData *C.char, requestSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
-	mm := rcgo.Handle(ptr).Value().(*sax.MultimodalModel)
-	if mm == nil {
-		// This is not expected.
-		log.Fatalf("generate() called on nil multimodal model.")
-	}
-
-	optionsByte := C.GoBytes(unsafe.Pointer(optionsData), optionsSize)
-	options := &cpb.ExtraInputs{}
-	if err := proto.Unmarshal(optionsByte, options); err != nil {
-		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
-		return
-	}
-
-	requestByte := C.GoBytes(unsafe.Pointer(requestData), requestSize)
-	request := &mmpb.GenerateRequest{}
-	if err := proto.Unmarshal(requestByte, request); err != nil {
-		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
-		return
-	}
-
-	ctx, cancel := createContextWithTimeout(timeout)
-	if cancel != nil {
-		defer cancel()
-	}
-
-	results, err := mm.Generate(ctx, request.GetItems(), protoOptionToSetter(options)...)
-	if err != nil {
-		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
-		return
-	}
-
-	resp := &mmpb.GenerateResponse{
-		Results: results,
-	}
-
 	content, err := proto.Marshal(resp)
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)

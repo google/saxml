@@ -46,8 +46,6 @@ import (
 	lmgrpc "saxml/protobuf/lm_go_proto_grpc"
 	mpb "saxml/protobuf/modelet_go_proto_grpc"
 	mgrpc "saxml/protobuf/modelet_go_proto_grpc"
-	mmpb "saxml/protobuf/multimodal_go_proto"
-	mmgrpc "saxml/protobuf/multimodal_go_proto_grpc"
 	vmpb "saxml/protobuf/vision_go_proto_grpc"
 	vmgrpc "saxml/protobuf/vision_go_proto_grpc"
 )
@@ -425,6 +423,7 @@ func (s *stubLanguageModelServer) Embed(ctx context.Context, in *lmpb.EmbedReque
 }
 
 func (s *stubLanguageModelServer) Gradient(ctx context.Context, in *lmpb.GradientRequest) (*lmpb.GradientResponse, error) {
+
 	return &lmpb.GradientResponse{
 		Score: []float64{float64(len(in.GetPrefix())) * 0.2},
 		Gradients: map[string]*lmpb.GradientResponse_Gradient{
@@ -604,20 +603,6 @@ func (s *stubCustomModelServer) Custom(ctx context.Context, in *cmpb.CustomReque
 	}, nil
 }
 
-type stubMultimodalModelServer struct{}
-
-func (m *stubMultimodalModelServer) Generate(ctx context.Context, in *mmpb.GenerateRequest) (*mmpb.GenerateResponse, error) {
-	res := &mmpb.GenerateResponse{}
-	res.Results = make([]*mmpb.GenerateResult, len(in.Items))
-	for i, item := range in.Items {
-		res.Results[i] = &mmpb.GenerateResult{
-			Items: []*mmpb.DataItem{item},
-			Score: float64(i) * 2,
-		}
-	}
-	return res, nil
-}
-
 // StartStubModelServer starts a new model server of a given type with stub implementations, which
 // also runs a modelet service.
 // Close the returned channel to close the server.
@@ -644,8 +629,6 @@ func StartStubModelServer(modelType ModelType, modelPort int, scoreDelay time.Du
 		amgrpc.RegisterAudioServiceServer(gRPCServer.GRPCServer(), &stubAudioModelServer{})
 	case Custom:
 		cmgrpc.RegisterCustomServiceServer(gRPCServer.GRPCServer(), &stubCustomModelServer{})
-	case Multimodal:
-		mmgrpc.RegisterMultimodalServiceServer(gRPCServer.GRPCServer(), &stubMultimodalModelServer{})
 	}
 
 	modeletServer := &stubModeletServer{
@@ -706,7 +689,6 @@ const (
 	Vision
 	Audio
 	Custom
-	Multimodal
 )
 
 // Cluster is a test cluster with a stub admin server and one or many stub model server(s).
@@ -720,7 +702,7 @@ type Cluster struct {
 	numberModelets    int             // default: 1
 	modelType         ModelType       // default: language
 	scoreDelays       []time.Duration // A list of delays for language servers.
-	unavailableModels []string        // A list of unavailable models for language servers.
+	unavailableModels []string        // A list of unavailable modles for language servers.
 }
 
 // SetAdminPort sets the admin server port of a test cluster.
