@@ -251,7 +251,7 @@ def tf_tokenize_inputs(
     max_prefix_seq_len: int,
     max_suffix_seq_len: int,
     include_eos: bool,
-) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+) -> NestedMap:
   """Tokenize inputs."""
   seqlen = max_prefix_seq_len + max_suffix_seq_len
   if not max_suffix_seq_len:
@@ -331,7 +331,14 @@ def tf_tokenize_inputs(
   )
 
   weights = 1.0 - paddings
-  return ids, labels, paddings, weights, score_masks, inputs_indicator
+  return NestedMap(
+      ids=ids,
+      labels=labels,
+      paddings=paddings,
+      weights=weights,
+      score_masks=score_masks,
+      inputs_indicator=inputs_indicator,
+  )
 
 
 def bucketize_tokenized_inputs(

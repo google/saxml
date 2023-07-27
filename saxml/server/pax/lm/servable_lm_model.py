@@ -565,24 +565,13 @@ class LMScoreMethod(ServableLMMethod):
     Returns:
       A NestedMap of preprocessed tensors.
     """
-    (ids, labels, paddings, weights, score_masks, inputs_indicator) = (
-        servable_lm_common.tf_tokenize_inputs(
-            prefixes,
-            suffixes,
-            self._tokenizer,
-            self._score_params.max_input_seq_len,
-            self._score_params.max_suffix_seq_len,
-            self._score_params.include_eos_score,
-        )
-    )
-
-    preprocessed = py_utils.NestedMap(
-        ids=ids,
-        labels=labels,
-        paddings=paddings,
-        weights=weights,
-        score_masks=score_masks,
-        inputs_indicator=inputs_indicator,
+    preprocessed = servable_lm_common.tf_tokenize_inputs(
+        prefixes,
+        suffixes,
+        self._tokenizer,
+        self._score_params.max_input_seq_len,
+        self._score_params.max_suffix_seq_len,
+        self._score_params.include_eos_score,
     )
 
     if bucketize_inputs:
@@ -1036,23 +1025,21 @@ class TextToEmbedding(servable_model.ServableMethod):
     Returns:
       A NestedMap of preprocessed tensors.
     """
-    (ids, labels, paddings, weights, _, inputs_indicator) = (
-        servable_lm_common.tf_tokenize_inputs(
-            prefixes,
-            suffixes,
-            self._tokenizer,
-            self._text_to_embedding_hparams.max_input_seq_len,
-            self._text_to_embedding_hparams.max_suffix_seq_len,
-            self._text_to_embedding_hparams.include_eos_score,
-        )
+    result = servable_lm_common.tf_tokenize_inputs(
+        prefixes,
+        suffixes,
+        self._tokenizer,
+        self._text_to_embedding_hparams.max_input_seq_len,
+        self._text_to_embedding_hparams.max_suffix_seq_len,
+        self._text_to_embedding_hparams.include_eos_score,
     )
 
     preprocessed = py_utils.NestedMap(
-        ids=ids,
-        labels=labels,
-        paddings=paddings,
-        weights=weights,
-        inputs_indicator=inputs_indicator,
+        ids=result.ids,
+        labels=result.labels,
+        paddings=result.paddings,
+        weights=result.weights,
+        inputs_indicator=result.inputs_indicator,
     )
 
     return preprocessed
@@ -1245,24 +1232,13 @@ class LMGradientMethod(ServableLMMethod):
     Returns:
       A NestedMap of preprocessed tensors.
     """
-    (ids, labels, paddings, weights, score_masks, inputs_indicator) = (
-        servable_lm_common.tf_tokenize_inputs(
-            prefixes,
-            suffixes,
-            self._tokenizer,
-            self._gradient_params.max_input_seq_len,
-            self._gradient_params.max_suffix_seq_len,
-            self._gradient_params.include_eos_score,
-        )
-    )
-
-    preprocessed = py_utils.NestedMap(
-        ids=ids,
-        labels=labels,
-        paddings=paddings,
-        weights=weights,
-        score_masks=score_masks,
-        inputs_indicator=inputs_indicator,
+    preprocessed = servable_lm_common.tf_tokenize_inputs(
+        prefixes,
+        suffixes,
+        self._tokenizer,
+        self._gradient_params.max_input_seq_len,
+        self._gradient_params.max_suffix_seq_len,
+        self._gradient_params.include_eos_score,
     )
 
     if bucketize_inputs:
