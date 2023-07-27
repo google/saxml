@@ -395,62 +395,6 @@ go_grpc_library(
 )
 
 proto_library(
-    name = "multimodal_proto",
-    srcs = ["multimodal.proto"],
-    has_services = True,
-    visibility = ["//visibility:public"],
-    deps = [":common_proto"],
-)
-
-rpc_endpoint_interface(
-    name = "multimodal_endpoint",
-    proto_library = ":multimodal_proto",
-    rpc_service_name = "sax.server.multimodal.MultimodalService",
-    visibility = ["//visibility:public"],
-)
-
-cc_proto_library(
-    name = "multimodal_cc_proto",
-    visibility = ["//visibility:public"],
-    deps = [":multimodal_proto"],
-)
-
-cc_stubby_library(
-    name = "multimodal_cc_stubby",
-    srcs = [":multimodal_proto"],
-    visibility = [":sax_rpc_visibility"],
-    deps = [":multimodal_cc_proto"],
-)
-
-py_proto_library(
-    name = "multimodal_py_pb2",
-    api_version = 2,
-    extra_deps = [":common_py_pb2"],
-    visibility = ["//visibility:public"],
-    deps = [":multimodal_proto"],
-)
-
-py_grpc_library(
-    name = "multimodal_py_pb2_grpc",
-    srcs = [":multimodal_proto"],
-    deps = [":multimodal_py_pb2"],
-)
-
-go_proto_library(
-    name = "multimodal_go_proto",
-    extra_deps = [":common_go_proto"],
-    visibility = ["//visibility:public"],
-    deps = [":multimodal_proto"],
-)
-
-go_grpc_library(
-    name = "multimodal_go_proto_grpc",
-    srcs = [":multimodal_proto"],
-    extra_deps = [":common_go_proto"],
-    deps = [":multimodal_go_proto"],
-)
-
-proto_library(
     name = "internal_proto",
     srcs = ["internal.proto"],
     has_services = True,
