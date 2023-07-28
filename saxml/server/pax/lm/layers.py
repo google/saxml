@@ -116,6 +116,16 @@ class ParallelTransformer(layers.Transformer):
   use_cross_attention = False
   tr_fflayer_tpl: LayerTpl = template_field(TransformerMLP)
 
+  def ffn_norm(self, inputs: JTensor, inputs_normalized: JTensor) -> JTensor:
+    # Apply FFN layer
+    if self.norm_policy == 'primer_hybrid':
+      ffn_inputs = self.post_layer_norm(inputs)
+    elif self.norm_policy == 'pre':
+      ffn_inputs = inputs_normalized
+    else:
+      ffn_inputs = inputs
+    return ffn_inputs
+
   def __call__(
       self,
       inputs: JTensor,
@@ -172,13 +182,7 @@ class ParallelTransformer(layers.Transformer):
     # Residual dropout and connection
     atten_output = self.residual_dropout(atten_output)
 
-    # Apply FFN layer
-    if self.norm_policy == 'primer_hybrid':
-      ffn_inputs = self.post_layer_norm(inputs)
-    elif self.norm_policy == 'pre':
-      ffn_inputs = inputs_normalized
-    else:
-      ffn_inputs = inputs
+    ffn_inputs = self.ffn_norm(inputs, inputs_normalized)
     ffn_output = self.ff_layer(ffn_inputs, paddings=paddings)
     output = atten_output + ffn_output + inputs
     return output, atten_probs  # pytype: disable=bad-return-type  # jax-ndarray
@@ -243,14 +247,21 @@ class ParallelTransformer(layers.Transformer):
     # Residual dropout and connection
     atten_output = self.residual_dropout(atten_output)
     # Apply FFN layer
-    if self.norm_policy == 'primer_hybrid':
-      ffn_inputs = self.post_layer_norm(inputs)
-    elif self.norm_policy == 'pre':
-      ffn_inputs = inputs_normalized
-    else:
-      ffn_inputs = inputs
-
-    # Apply FFN layer
+    ffn_inputs = self.ffn_norm(inputs, inputs_normalized)
     ffn_output = self.ff_layer.extend_step(ffn_inputs, time_step=time_step)
     output = atten_output + ffn_output + inputs
     return output
+
+
+class ParallelTransformerOnlyNormAttentionInputs(ParallelTransformer):
+  """Transformer with parallel attention and feedforward."""
+
+  def ffn_norm(self,
+               inputs: JTensor,
+               inputs_normalized: JTensor) -> JTensor:
+    # Apply FFN layer
+    if self.norm_policy == 'primer_hybrid':
+      ffn_inputs = self.post_layer_norm(inputs)
+    else:
+      ffn_inputs = inputs_normalized
+    return ffn_inputs
