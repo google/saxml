@@ -15,6 +15,7 @@ package_group(
     name = "friends",
     packages = [
         "//audio/hearing/recomposition/...",
+        "//learning/multipod/pax/aicore/...",
         "//learning/multipod/pax/pathways/component/examples/...",
     ],
 )
