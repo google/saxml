@@ -16,6 +16,7 @@
 import abc
 import dataclasses
 import functools
+import pprint
 import threading
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
@@ -210,8 +211,8 @@ class ServableMethod(servable_model.ServableMethod):
       return jax.ShapeDtypeStruct(x.shape, dtype)
 
     logging.info(
-        'SAX servable_model JAX AOT compiler_options = %s',
-        self._compiler_options,
+        'SAX servable_model JAX AOT compiler_options:\n%s',
+        pprint.pformat(self._compiler_options),
     )
     compiled = step_fn.lower(
         jax.tree_map(_create_aval, train_state.mdl_vars),
