@@ -47,7 +47,7 @@ go_library(
     ],
     deps = [
         # unused internal flag dependency,
-        # Internal TF Hub dependencies,
+        # Internal storage dependencies,
         "//saxml/admin:validator",
         "//saxml/client/go:sax",
         "//saxml/client/go:saxadmin",

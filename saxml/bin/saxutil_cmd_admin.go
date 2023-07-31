@@ -28,7 +28,7 @@ import (
 
 	"flag"
 	log "github.com/golang/glog"
-	// Internal TF Hub imports
+	// Internal storage imports
 	"google.golang.org/protobuf/proto"
 	"github.com/google/subcommands"
 	"github.com/olekukonko/tablewriter"
@@ -217,7 +217,7 @@ func (c *ListCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) sub
 
 // PublishCmd is the command for Publish.
 type PublishCmd struct {
-	// Internal TF Hub setting
+	// Internal storage setting
 }
 
 // Name returns the name of PublishCmd.
@@ -237,7 +237,7 @@ func (*PublishCmd) Usage() string {
 
 // SetFlags sets flags for PublishCmd.
 func (c *PublishCmd) SetFlags(f *flag.FlagSet) {
-	// Internal TF Hub flag configuration
+	// Internal storage flag configuration
 }
 
 // Execute executes PublishCmd.
@@ -259,7 +259,9 @@ func (c *PublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) 
 		return subcommands.ExitUsageError
 	}
 
-	// Internal TF Hub code
+	// Internal storage code
+	// Storage error handling
+
 	overrides := make(map[string]string)
 	for _, item := range f.Args()[4:] {
 		parts := strings.Split(item, "=")
