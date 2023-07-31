@@ -17,6 +17,7 @@
 
 # Import the servables.
 from saxml.server.pax.lm.params import lm_cloud
+from saxml.server.pax.lm.params import c4
 # Experimental models.
 
 # Specify the registry root.
