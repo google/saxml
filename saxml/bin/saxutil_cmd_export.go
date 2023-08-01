@@ -20,6 +20,7 @@ import (
 
 	"flag"
 	log "github.com/golang/glog"
+	// Internal storage imports
 	"github.com/google/subcommands"
 	"saxml/client/go/sax"
 )
@@ -54,6 +55,7 @@ func (s *Signatures) String() string {
 type ExportCmd struct {
 	rngSeedMode string
 	signatures  Signatures
+	// Internal storage setting
 }
 
 // Name returns the name of ExportCmd.
@@ -73,6 +75,7 @@ func (*ExportCmd) Usage() string {
 func (c *ExportCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.rngSeedMode, "rng_seed_mode", "stateful", "RNG seed mode. 'stateful', 'stateless', or 'fixed'.")
 	f.Var(&c.signatures, "signatures", "comma-separated list of signatures to export to. Must equal to the length of Methods to export and ordering.")
+	// Internal storage flag configuration
 }
 
 // Execute executes ExportCmd.
@@ -82,15 +85,21 @@ func (c *ExportCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		return subcommands.ExitUsageError
 	}
 
-	m, err := sax.Open(f.Args()[0])
+	modelName := f.Args()[0]
+	m, err := sax.Open(modelName)
 	if err != nil {
 		log.Errorf("Failed to open model: %v", err)
 		return subcommands.ExitFailure
 	}
 
-	if err := m.Exporter().Export(ctx, strings.Split(f.Args()[1], ","), f.Args()[2], c.rngSeedMode, c.signatures); err != nil {
+	exportPath := f.Args()[2]
+	if err := m.Exporter().Export(ctx, strings.Split(f.Args()[1], ","), exportPath, c.rngSeedMode, c.signatures); err != nil {
 		log.Errorf("Failed to export model: %v", err)
 		return subcommands.ExitFailure
 	}
+
+	// Internal storage code
+	// Storage error handling
+
 	return subcommands.ExitSuccess
 }
