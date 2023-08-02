@@ -1096,7 +1096,7 @@ class ModelServicesRunner:
 
     if spmd_backend is None:
       if not self._is_primary:
-        raise NotImplementedError('No spmd_backend provided for mult-host.')
+        raise NotImplementedError('No spmd_backend provided for multi-host.')
       self._spmd_backend = SingleHostBackend()
     else:
       self._spmd_backend = spmd_backend
