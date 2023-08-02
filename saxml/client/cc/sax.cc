@@ -30,6 +30,7 @@
 #include "saxml/protobuf/common.pb.h"
 #include "saxml/protobuf/custom.pb.h"
 #include "saxml/protobuf/lm.pb.h"
+#include "saxml/protobuf/multimodal.proto.h"
 #include "saxml/protobuf/vision.pb.h"
 
 namespace sax {
@@ -430,6 +431,45 @@ absl::Status LanguageModel::Gradient(
 
 LanguageModel::~LanguageModel() { go_release_model(model_handle_); }
 
+absl::Status MultimodalModel::Generate(
+    const ::sax::server::multimodal::GenerateRequest& request,
+    ::sax::server::multimodal::GenerateResponse* response) const {
+  return MultimodalModel::Generate(ModelOptions(), request, response);
+}
+
+absl::Status MultimodalModel::Generate(
+    const ModelOptions& options,
+    const ::sax::server::multimodal::GenerateRequest& request,
+    ::sax::server::multimodal::GenerateResponse* response) const {
+  ExtraInputs extra;
+  options.ToProto(&extra);
+  std::string extraStr = "";
+  extra.SerializeToString(&extraStr);
+
+  std::string reqStr = "";
+  request.SerializeToString(&reqStr);
+
+  char* outputStr = nullptr;
+  int outputSize = 0;
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  go_mm_generate(model_handle_, options.GetTimeout(),
+                 const_cast<char*>(reqStr.data()), reqStr.size(),
+                 const_cast<char*>(extraStr.data()), extraStr.size(),
+                 &outputStr, &outputSize, &errMsgStr, &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+
+  if (outputStr != nullptr) {
+    response->ParseFromArray(outputStr, outputSize);
+    free(outputStr);
+  }
+  return absl::OkStatus();
+}
+
+MultimodalModel::~MultimodalModel() { go_release_model(model_handle_); }
+
 absl::Status VisionModel::Classify(absl::string_view text,
                                    std::vector<ScoredText>* result) const {
   return VisionModel::Classify(ModelOptions(), text, result);
@@ -802,6 +842,12 @@ LanguageModel* Model::LM() {
   int64_t handle_;
   go_create_lm(model_handle_, &handle_);
   return new LanguageModel(handle_);
+}
+
+MultimodalModel* Model::MM() {
+  int64_t handle_;
+  go_create_mm(model_handle_, &handle_);
+  return new MultimodalModel(handle_);
 }
 
 void StartDebugPort(int port) { go_start_debug(port); }

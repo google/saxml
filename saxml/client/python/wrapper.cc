@@ -21,6 +21,7 @@
 
 #include "absl/status/status.h"
 #include "saxml/client/cc/sax.h"
+#include "saxml/protobuf/multimodal.proto.h"
 #include "pybind11/gil.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/pytypes.h"
@@ -227,6 +228,41 @@ LanguageModel::Gradient(absl::string_view prefix, absl::string_view suffix,
         model_->Gradient(*options, prefix, suffix, &score, &gradients));
   }
   return std::make_pair(score, gradients);
+}
+
+// Construct MultimodalModel with sax::client::Model. MultimodalModel does not
+// take ownership of Model.
+MultimodalModel::MultimodalModel(::sax::client::Model* base,
+                                 const absl::Status& status) {
+  status_ = status;
+  base_ = base;
+  if (base_) model_ = base_->MM();
+}
+
+MultimodalModel::MultimodalModel(const MultimodalModel& obj) {
+  status_ = obj.status_;
+  base_ = obj.base_;
+  if (base_) model_ = base_->MM();
+}
+
+MultimodalModel::~MultimodalModel() {
+  if (model_) delete model_;
+}
+
+absl::StatusOr<::sax::server::multimodal::GenerateResponse>
+MultimodalModel::Generate(
+    const ::sax::server::multimodal::GenerateRequest& request,
+    const ModelOptions* options) const {
+  if (!status_.ok()) return status_;
+
+  pybind11::gil_scoped_release release;
+  ::sax::server::multimodal::GenerateResponse response;
+  if (options == nullptr) {
+    RETURN_IF_ERROR(model_->Generate(request, &response));
+  } else {
+    RETURN_IF_ERROR(model_->Generate(*options, request, &response));
+  }
+  return response;
 }
 
 // Construct VisionModel with sax::client::Model. VisionModel does not take
@@ -446,6 +482,8 @@ LanguageModel Model::LM() { return LanguageModel(base_, status_); }
 VisionModel Model::VM() { return VisionModel(base_, status_); }
 
 CustomModel Model::CM() { return CustomModel(base_, status_); }
+
+MultimodalModel Model::MM() { return MultimodalModel(base_, status_); }
 
 void StartDebugPort(int port) { ::sax::client::StartDebugPort(port); }
 

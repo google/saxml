@@ -93,6 +93,11 @@ func (m *Model) CM() *CustomModel {
 	return &CustomModel{model: m}
 }
 
+// MM creates a multimodal model.
+func (m *Model) MM() *MultimodalModel {
+	return &MultimodalModel{model: m}
+}
+
 // Exporter creates a model exporter.
 func (m *Model) Exporter() *Exporter {
 	return &Exporter{model: m}
