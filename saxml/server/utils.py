@@ -433,10 +433,10 @@ def is_mock_tpu_backend() -> bool:
   return 'MOCK' in str(jax.devices()[0])
 
 
-def translate_xla_tpu_flags_to_compiler_options(
-    xla_tpu_flags: Optional[list[str]],
+def translate_xla_flags_to_compiler_options(
+    xla_flags: Optional[list[str]],
 ) -> dict[str, str]:
-  """Reset the compiler_options dict from  Users XLA_TPU_FLAGS format.
+  """Reset the compiler_options dict from Users XLA_T(G)PU_FLAGS format.
 
   For example:
 
@@ -450,14 +450,14 @@ def translate_xla_tpu_flags_to_compiler_options(
   }
 
   Args:
-    xla_tpu_flags: XLA TPU flags.
+    xla_flags: XLA TPU/GPU FLAGS.
 
   Returns:
-    xla_tpu_compiler_options: The python dicts of xla tpu options.
+    xla_compiler_options: The python dicts of xla tpu options.
   """
   compiler_options = {}
-  if xla_tpu_flags:
-    for item in xla_tpu_flags:
+  if xla_flags:
+    for item in xla_flags:
       item = item.strip('-')  # Remove leading dashes
       key, value = item.split('=', 1)
       compiler_options[key] = value

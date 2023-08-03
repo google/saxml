@@ -216,9 +216,13 @@ class ServableLMModelParams(
       ):
         logging.info('Ignoring preset XLA_TPU_FLAGS on JAX AOT compilation.')
       else:
-        compiler_options = utils.translate_xla_tpu_flags_to_compiler_options(
+        compiler_options = utils.translate_xla_flags_to_compiler_options(
             self.XLA_TPU_FLAGS
         )
+    if hasattr(self, 'XLA_GPU_FLAGS') and self.XLA_GPU_FLAGS is not None:
+      compiler_options.update(
+          utils.translate_xla_flags_to_compiler_options(self.XLA_GPU_FLAGS)
+      )
 
     model = ServableLMModel(
         self,
