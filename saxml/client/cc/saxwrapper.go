@@ -44,7 +44,7 @@ import (
 	cpb "saxml/protobuf/common_go_proto"
 	cmpb "saxml/protobuf/custom_go_proto_grpc"
 	lmpb "saxml/protobuf/lm_go_proto_grpc"
-	mmpb "saxml/protobuf/multimodal_go_proto"
+	mmpb "saxml/protobuf/multimodal_go_proto_grpc"
 	vmpb "saxml/protobuf/vision_go_proto_grpc"
 )
 

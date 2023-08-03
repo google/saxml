@@ -56,7 +56,7 @@ go_binary(
         "//saxml/protobuf:common_go_proto",
         "//saxml/protobuf:custom_go_proto_grpc",
         "//saxml/protobuf:lm_go_proto_grpc",
-        "//saxml/protobuf:multimodal_go_proto",
+        "//saxml/protobuf:multimodal_go_proto_grpc",
         "//saxml/protobuf:vision_go_proto_grpc",
         "@com_github_golang_glog//:go_default_library",
         "@org_golang_google_protobuf//proto",

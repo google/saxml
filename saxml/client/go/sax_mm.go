@@ -19,7 +19,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	mmpb "saxml/protobuf/multimodal_go_proto"
+	mmpb "saxml/protobuf/multimodal_go_proto_grpc"
 	pbgrpc "saxml/protobuf/multimodal_go_proto_grpc"
 )
 

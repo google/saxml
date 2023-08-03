@@ -46,7 +46,7 @@ import (
 	lmgrpc "saxml/protobuf/lm_go_proto_grpc"
 	mpb "saxml/protobuf/modelet_go_proto_grpc"
 	mgrpc "saxml/protobuf/modelet_go_proto_grpc"
-	mmpb "saxml/protobuf/multimodal_go_proto"
+	mmpb "saxml/protobuf/multimodal_go_proto_grpc"
 	mmgrpc "saxml/protobuf/multimodal_go_proto_grpc"
 	vmpb "saxml/protobuf/vision_go_proto_grpc"
 	vmgrpc "saxml/protobuf/vision_go_proto_grpc"
