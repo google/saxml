@@ -40,6 +40,7 @@ class CommonServingTemplate:
 
   ICI_MESH_SHAPE = [1, 1, 8]
   USE_BEAM_SEARCH = False
+  USE_MATMUL_BEAM_SHUFFLE = False
   BATCH_SIZE = 1
   BATCH_WAIT_SECS = None
   INPUT_SEQ_LEN = 256
@@ -183,6 +184,7 @@ class ServingTemplate(
           length_norm_alpha=self.LENGTH_NORM_ALPHA,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
           emb_lookup_style=self.EMB_LOOKUP_STYLE,
+          use_matmul_beam_shuffle=self.USE_MATMUL_BEAM_SHUFFLE,
       )
     elif self.NUM_SAMPLES == 1 and self.TOP_K == 1:
       generate_hparams = decoder_hparams.GreedyDecoderHParams(
