@@ -10,3 +10,4 @@ jax[tpu] @ git+https://github.com/google/jax
 paxml @ git+https://github.com/google/paxml
 praxis @ git+https://github.com/google/praxis
 seqio
+orbax-export>=0.0.3

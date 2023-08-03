@@ -65,6 +65,7 @@ pytype_strict_library(
         "//saxml/server/pax:servable_model",
         "//third_party/py/jax",
         "//third_party/py/numpy",
+        "//third_party/py/orbax/export",
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis:pytypes",
         "//third_party/py/seqio",

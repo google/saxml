@@ -53,6 +53,7 @@ LMMethodName = lm_service.LMMethodName
 HostTensors = servable_model.HostTensors
 ShapesAndDtypes = servable_model.ShapesAndDtypes
 InputShapeInfo = servable_lm_common.InputShapeInfo
+TensorSpec = servable_lm_common.TensorSpec
 
 decode_tf_post_processing = servable_lm_common.decode_tf_post_processing
 
@@ -601,7 +602,7 @@ class LMScoreMethod(ServableLMMethod):
 
   def input_signature(
       self, batch_size: Optional[int]
-  ) -> Tuple[tf.TensorSpec, tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
+  ) -> Tuple[TensorSpec, TensorSpec, Mapping[str, TensorSpec]]:
     """Implements `ExportableToSavedModel.input_signature`."""
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),

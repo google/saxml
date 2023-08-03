@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 import jax
 from jax import numpy as jnp
 import numpy as np
+import orbax.export as oex
 from praxis import py_utils
 from praxis import pytypes
 from saxml.server.pax import branch_selection
@@ -35,6 +36,7 @@ NestedTfTensor = pytypes.Nested[tf.Tensor]
 NestedNpOrTfTensor = Union[NestedNpTensor, NestedTfTensor]
 HostTensors = servable_model.HostTensors
 ShapesAndDtypes = servable_model.ShapesAndDtypes
+TensorSpec = Union[tf.TensorSpec, oex.TensorSpecWithDefault]
 
 
 @dataclasses.dataclass(eq=True, frozen=True)
