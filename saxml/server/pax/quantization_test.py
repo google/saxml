@@ -39,6 +39,13 @@ class QuantizationModelAsy(LmCloudSpmd2B):
   pass
 
 
+@quantization.for_transformer(rank=128, linear_only=True)
+class QuantizationModelRank128(LmCloudSpmd2B):
+  """Quantize low-rank transformer for GLaM100MTarzanC30PF1x1x2Serving."""
+
+  pass
+
+
 class DecoratorTest(test_utils.TestCase):
 
   @parameterized.named_parameters(
@@ -113,6 +120,24 @@ class DecoratorTestLinearOnly(test_utils.TestCase):
         quantization_hparams.QuantizationMode.MATERIALIZE,
     )
 
+
+class DecoratorTestRank(test_utils.TestCase):
+
+  def test_for_transformer(self):
+    config = QuantizationModelRank128()
+    task_p = config.task()
+    self.assertEqual(
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_atten_tpl.proj_tpl.cls,
+        layers.attentions.AttentionProjection,
+    )
+    self.assertEqual(
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.cls,
+        qlayer.linears.Linear,
+    )
+    self.assertEqual(
+        task_p.model.lm_tpl.stacked_transformer_tpl.block.transformer_layer_params_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.rank,
+        128,
+    )
 
 if __name__ == '__main__':
   absltest.main()

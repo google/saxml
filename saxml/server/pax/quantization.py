@@ -50,6 +50,7 @@ def for_transformer(
     num_bits: int = 8,
     linear_only: bool = False,
     use_symmetric: bool = True,
+    rank: int = -1,
     quantize_embedding_softmax: bool = False,
     transposed_embedding_softmax: bool = False,
     quantize_ngrammer_embedding: bool = False,
@@ -73,6 +74,8 @@ def for_transformer(
       but any integer [1, 8] works.
     linear_only: Quantize only the linear layers.
     use_symmetric: use symmetric weight quantization.
+    rank: If positive, factorize weight matrix for linear layers to two [in_dim,
+      rank], [rank, out_dim] matrices.
     quantize_embedding_softmax: If true, Quantize embedding table of embedding
       softmax layer.
     transposed_embedding_softmax: If the model is using transposed embedding for
@@ -114,6 +117,7 @@ def for_transformer(
             num_bits=num_bits,
             linear_only=linear_only,
             use_symmetric=use_symmetric,
+            rank=rank,
             quantize_embedding_softmax=quantize_embedding_softmax,
             transposed_embedding_softmax=transposed_embedding_softmax,
             quantize_ngrammer_embedding=quantize_ngrammer_embedding,
