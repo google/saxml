@@ -17,7 +17,6 @@ import abc
 import dataclasses
 import functools
 import inspect
-import os
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from absl import logging
@@ -32,7 +31,6 @@ from praxis import decoder_utils
 from praxis import pax_fiddle
 from praxis import py_utils
 from praxis import pytypes
-from saxml.server import utils
 from saxml.server.jax import np_tf_sess_wrapper
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
@@ -56,16 +54,6 @@ InputShapeInfo = servable_lm_common.InputShapeInfo
 TensorSpec = servable_lm_common.TensorSpec
 
 decode_tf_post_processing = servable_lm_common.decode_tf_post_processing
-
-
-def _string_to_bool(argument: str) -> bool:
-  """Converts a boolean string representation to a bool."""
-  if argument.lower() in ('true', 't', '1'):
-    return True
-  elif argument.lower() in ('false', 'f', '0'):
-    return False
-  else:
-    raise ValueError(f'Non-boolean argument to boolean flag {argument}')
 
 
 @dataclasses.dataclass
@@ -102,8 +90,8 @@ class DecodeHParams(servable_model_params.ServableMethodParams):
     t5_model: whether this is a T5 flaxformer based model.
     output_geometric_mean_prob_score: Whether to return geometric mean of prob
       score instead of sum of log prob as the score.
-    output_avg_entropy_score: Whether to return avg entropy score instead of
-      sum of log prob as the score.
+    output_avg_entropy_score: Whether to return avg entropy score instead of sum
+      of log prob as the score.
   """
 
   max_input_seq_len: int = 0
@@ -132,10 +120,10 @@ class TextToEmbeddingHParams(servable_model_params.ServableMethodParams):
     include_eos_score: whether to add EOS score to the result.
     output_embedding_name: The name of the embedding to use from the model's
       outputs.  Required.
-    output_padding_name: The name of padding to use from the model's
-      outputs. This is used when output embedding has a variable length.
-      For example, returning embeddings of all tokens in a sequence, rather than
-      pooling one embedding out.
+    output_padding_name: The name of padding to use from the model's outputs.
+      This is used when output embedding has a variable length. For example,
+      returning embeddings of all tokens in a sequence, rather than pooling one
+      embedding out.
     model_method_name: The name of the method to call to extract embeddings from
       an input image.  Required.
   """
@@ -210,31 +198,15 @@ class ServableLMModelParams(
     return None
 
   def create_model(self, primary_process_id: int) -> 'ServableLMModel':
-    compiler_options = {}
-    if hasattr(self, 'XLA_TPU_FLAGS') and getattr(self, 'XLA_TPU_FLAGS', None):
-      if _string_to_bool(
-          os.environ.get('IGNORE_PRESET_XLA_TPU_FLAGS', 'false')
-      ):
-        logging.info('Ignoring preset XLA_TPU_FLAGS on JAX AOT compilation.')
-      else:
-        compiler_options = utils.translate_xla_flags_to_compiler_options(
-            self.XLA_TPU_FLAGS
-        )
-    if hasattr(self, 'XLA_GPU_FLAGS') and self.XLA_GPU_FLAGS is not None:
-      compiler_options.update(
-          utils.translate_xla_flags_to_compiler_options(self.XLA_GPU_FLAGS)
-      )
-
-    model = ServableLMModel(
+    return ServableLMModel(
         self,
         primary_process_id,
         self.get_checkpoint_type(),
         test_mode=self.test_mode,
         enable_auto_sharding=self.enable_auto_sharding,
-        compiler_options=compiler_options,
+        compiler_options=self.compiler_options(),
         do_eval=self.do_eval,
     )
-    return model
 
 
 class ServableLMMethod(servable_model.ServableMethod):
@@ -454,7 +426,7 @@ class LMScoreMethod(ServableLMMethod):
       tokenizer_p: Any,
       exportable: bool = False,
       enable_auto_sharding: bool = False,
-      compiler_options: dict[str, dict[str, bool]] | None = None,
+      compiler_options: jax.stages.CompilerOptions | None = None,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._score_params = score_params
@@ -500,10 +472,7 @@ class LMScoreMethod(ServableLMMethod):
     assert xnent_len == model_fn_inputs.ids.shape[1]  # pytype: disable=attribute-error  # jax-ndarray
     per_token_logprobs = -model_fn_outputs[0].per_token_xent  # pytype: disable=attribute-error  # jax-ndarray
     non_paddings = 1.0 - model_fn_inputs.paddings  # pytype: disable=attribute-error  # jax-ndarray
-    if (
-        not self._score_params.include_eos_score
-        and self._tokenizer.append_eos
-    ):
+    if not self._score_params.include_eos_score and self._tokenizer.append_eos:
       non_paddings = jnp.pad(
           # TODO(b/263808957): change back to non_paddings[:, 1:] once the bug
           # is fixed.
@@ -521,7 +490,8 @@ class LMScoreMethod(ServableLMMethod):
       num_output_tokens = jnp.sum(
           model_fn_inputs.score_masks * non_paddings,  # pytype: disable=attribute-error  # jax-ndarray
           axis=-1,
-          keepdims=True)
+          keepdims=True,
+      )
       num_output_tokens = jnp.where(num_output_tokens > 0, num_output_tokens, 1)
       return jnp.exp(sum_per_token_logprobs / num_output_tokens)
     else:
@@ -634,7 +604,7 @@ class LMDecodeMethod(ServableLMMethod):
       streamable: bool = False,
       load: bool = True,
       enable_auto_sharding: bool = False,
-      compiler_options: Optional[Dict[str, Dict[str, bool]]] = None,
+      compiler_options: jax.stages.CompilerOptions | None = None,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._method_hparams = method_hparams
@@ -715,8 +685,10 @@ class LMDecodeMethod(ServableLMMethod):
           interval_steps=self._method_hparams.stream_interval_steps,
       )
 
-    if 'callback_device_index' in inspect.signature(
-        self._model.decode_with_params).parameters:
+    if (
+        'callback_device_index'
+        in inspect.signature(self._model.decode_with_params).parameters
+    ):
       kwargs['callback_device_index'] = self.callback_device_index
 
     outputs = self._model.apply(
@@ -787,8 +759,10 @@ class LMDecodeMethod(ServableLMMethod):
     batched_scores = post_processed['topk_scores']
 
     # Override scores according to hparams
-    assert (not self._method_hparams.output_geometric_mean_prob_score or
-            not self._method_hparams.output_avg_entropy_score)
+    assert (
+        not self._method_hparams.output_geometric_mean_prob_score
+        or not self._method_hparams.output_avg_entropy_score
+    )
     if self._method_hparams.output_geometric_mean_prob_score:
       num_output_tokens = np.count_nonzero(post_processed['topk_ids'], axis=2)
       num_output_tokens = np.where(num_output_tokens > 0, num_output_tokens, 1)
@@ -964,7 +938,7 @@ class TextToEmbedding(servable_model.ServableMethod):
       tokenizer_p: Any,
       prng_key: PRNGKey,
       enable_auto_sharding: bool = False,
-      compiler_options: Optional[Dict[str, Dict[str, bool]]] = None,
+      compiler_options: jax.stages.CompilerOptions | None = None,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._text_to_embedding_hparams = text_to_embedding_hparams
@@ -1079,7 +1053,7 @@ class LMGradientMethod(ServableLMMethod):
       tokenizer_p: Any,
       exportable: bool = False,
       enable_auto_sharding: bool = False,
-      compiler_options: Optional[Dict[str, Dict[str, bool]]] = None,
+      compiler_options: jax.stages.CompilerOptions | None = None,
   ):
     self._tokenizer = tokenizer_p.Instantiate()
     self._gradient_params = gradient_params

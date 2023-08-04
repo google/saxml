@@ -16,8 +16,8 @@
 import abc
 import dataclasses
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
-from absl import logging
 
+from absl import logging
 import jax
 from jax.experimental import mesh_utils
 import numpy as np
@@ -59,6 +59,10 @@ class ServableModelParams(
   @property
   def enable_auto_sharding(self) -> bool:
     return False
+
+  def compiler_options(self) -> jax.stages.CompilerOptions:
+    """Return compiler options, e.g. XLA TPU flags."""
+    return {}
 
   @classmethod
   def get_supported_device_mesh(

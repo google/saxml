@@ -131,7 +131,7 @@ class ServableMethod(servable_model.ServableMethod):
       prng_key: jnp.ndarray,
       dummy_input_sample: Any,
       enable_auto_sharding: bool = False,
-      compiler_options: dict[str, dict[str, bool]] | None = None,
+      compiler_options: jax.stages.CompilerOptions | None = None,
   ) -> None:
     # TODO(yuanzx): Need update the docstring.
     # The `compiler options` will be passed to JAX `lowered.compile` during AOT
@@ -187,7 +187,7 @@ class ServableMethod(servable_model.ServableMethod):
       step_fn: Any,
       train_state: ServableModelState,
       inputs_shape_dtype: pytypes.NestedShapedArray,
-      compiler_options: dict[str, dict[str, bool]] | None,
+      compiler_options: jax.stages.CompilerOptions | None,
   ) -> Any:
     """Compiles step_fn ahead of time to extract the shardings.
 

@@ -362,7 +362,7 @@ class ServableModel(servable_model.ServableModel):
       ckpt_type: CheckpointType,
       test_mode: bool = False,
       enable_auto_sharding: bool = False,
-      compiler_options: dict[str, dict[str, bool]] | None = None,
+      compiler_options: jax.stages.CompilerOptions | None = None,
       do_eval: bool = False,
   ):
     super().__init__()

@@ -103,7 +103,6 @@ pytype_strict_library(
     deps = [
         ":lm_tokenizer",
         ":servable_lm_common",
-        "//saxml/server:utils",
         "//saxml/server/jax:np_tf_sess_wrapper",
         "//saxml/server/pax:servable_model",
         "//saxml/server/pax:servable_model_params",
@@ -120,16 +119,6 @@ pytype_strict_library(
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis:pytypes",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
-    ],
-)
-
-py_strict_test(
-    name = "servable_lm_model_test",
-    srcs = ["servable_lm_model_test.py"],
-    deps = [
-        ":servable_lm_model",
-        "//third_party/py/absl-py/testing:absltest",
-        "//third_party/py/absl-py/testing:parameterized",
     ],
 )
 
