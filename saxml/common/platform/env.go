@@ -81,6 +81,8 @@ type Env interface {
 
 	// RootDir returns the directory path where all Sax cells store their metadata.
 	RootDir(ctx context.Context) string
+	// FsRootDir reformats the directory path where the admin server periodically dumps its state.
+	FsRootDir(fsRoot string) string
 	// CreateDir creates a directory.
 	CreateDir(ctx context.Context, path, acl string) error
 	// ListSubdirs lists subdirectories in a directory.

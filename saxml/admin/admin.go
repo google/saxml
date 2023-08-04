@@ -306,7 +306,7 @@ func (s *Server) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("config.Load error: %w", err)
 	}
-	fsRoot := s.cfg.GetFsRoot()
+	fsRoot := env.Get().FsRootDir(s.cfg.GetFsRoot())
 	if fsRoot == "" {
 		return fmt.Errorf("no fs_root specified")
 	}

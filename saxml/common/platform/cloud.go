@@ -304,6 +304,21 @@ func (e *Env) RootDir(ctx context.Context) string {
 	return ""
 }
 
+// FsRootDir returns the directory path where the admin server periodically dumps its state.
+//
+// On Cloud, this can be either a local file system path (e.g. /home/user/sax-root/) or a Google
+// Cloud Storage URL (e.g. gs://bucket/sax-root/). Note the trailing slash is required.
+func (e *Env) FsRootDir(fsRoot string) string {
+	if fsRoot != "" {
+		if strings.HasPrefix(fsRoot, gcsURLPrefix) {
+			return gcsPathPrefix + strings.TrimPrefix(fsRoot, gcsURLPrefix)
+		}
+		return fsRoot
+	}
+	log.Fatal("fsRoot cannot be empty")
+	return ""
+}
+
 // CreateDir creates a directory.
 func (e *Env) CreateDir(ctx context.Context, path, acl string) error {
 	if acl != "" {
