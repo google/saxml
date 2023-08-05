@@ -25,7 +25,6 @@ from praxis import py_utils
 from praxis import pytypes
 from saxml.server.pax import branch_selection
 from saxml.server.pax import servable_model
-import seqio
 import tensorflow as tf
 
 
@@ -254,7 +253,6 @@ def tf_tokenize_inputs(
     max_prefix_seq_len: int,
     max_suffix_seq_len: int,
     include_eos: bool,
-    t5_model: bool = False,
 ) -> NestedMap:
   """Tokenize inputs."""
   seqlen = max_prefix_seq_len + max_suffix_seq_len
@@ -308,16 +306,6 @@ def tf_tokenize_inputs(
       tf.less(tf.range(max_prefix_seq_len, dtype=tf.int32),
               pfx_lengths[:, tf.newaxis]), tf.int32)
   sfx_inputs_indicator = tf.zeros_like(sfx_paddings, dtype=tf.int32)
-
-  if t5_model:
-    # Match seqio.feature_converter.EncDecFeatureConverter
-    return NestedMap(
-        encoder_input_tokens=pfx_labels,
-        decoder_input_tokens=tf.map_fn(
-            seqio.utils.make_autoregressive_inputs, sfx_labels),
-        decoder_target_tokens=sfx_labels,
-        decoder_loss_weights=1.0-tf.cast(sfx_paddings, tf.float32),
-    )
 
   def _combine(pfx, pfx_lens, sfx, sfx_lens):
     r_pfx = tf.RaggedTensor.from_tensor(pfx, pfx_lens)

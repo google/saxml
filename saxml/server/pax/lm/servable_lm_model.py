@@ -66,7 +66,6 @@ class ScoreHParams(servable_model_params.ServableMethodParams):
       to be equal to `max_input_seq_len` if not set. Inputs are padded or
       truncated to (max_input_seq_len + max_suffix_seq_len) size.
     include_eos_score: whether to add EOS score to the result.
-    t5_mode: whether this is a T5 flaxformer based model.
   """
 
   max_input_seq_len: int = 0
@@ -74,7 +73,6 @@ class ScoreHParams(servable_model_params.ServableMethodParams):
   include_eos_score: bool = False
   fetch_prefix_lengths_from_inputs: bool = False
   output_geometric_mean_prob_score: bool = False
-  t5_model: bool = False
 
 
 @dataclasses.dataclass
@@ -549,10 +547,7 @@ class LMScoreMethod(ServableLMMethod):
         self._score_params.max_input_seq_len,
         self._score_params.max_suffix_seq_len,
         self._score_params.include_eos_score,
-        t5_model=self._score_params.t5_model,
     )
-    if self._score_params.t5_model:
-      return preprocessed
 
     if bucketize_inputs:
       preprocessed = servable_lm_common.bucketize_tokenized_inputs(

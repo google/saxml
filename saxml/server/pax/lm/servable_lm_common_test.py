@@ -92,32 +92,6 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
         np.asarray([4, 6]), tf.squeeze(out['topk_decode_lengths']).numpy()
     )
 
-  def test_tf_tokenize_inputs_t5(self):
-    out = servable_lm_common.tf_tokenize_inputs(
-        prefixes=['Hello world'],
-        suffixes=['test'],
-        max_prefix_seq_len=8,
-        max_suffix_seq_len=8,
-        tokenizer=self.tokenizer,
-        include_eos=False,
-        t5_model=True,
-    )
-    self.assertArraysEqual(
-        np.asarray([[151, 88, 21, 887, 1, 0, 0, 0]]),
-        out.encoder_input_tokens.numpy(),
-    )
-    self.assertArraysEqual(
-        np.asarray([[0, 4, 15, 400, 1, 0, 0, 0]]),
-        out.decoder_input_tokens.numpy(),
-    )
-    self.assertArraysEqual(
-        np.asarray([[4, 15, 400, 1, 0, 0, 0, 0]]),
-        out.decoder_target_tokens.numpy(),
-    )
-    self.assertArraysEqual(
-        np.asarray([[1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0]]),
-        out.decoder_loss_weights.numpy(),
-    )
 
 if __name__ == '__main__':
   tf.test.main()

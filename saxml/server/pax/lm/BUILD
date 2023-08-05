@@ -68,7 +68,6 @@ pytype_strict_library(
         "//third_party/py/orbax-export",
         "//third_party/py/praxis:py_utils",
         "//third_party/py/praxis:pytypes",
-        "//third_party/py/seqio",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )
