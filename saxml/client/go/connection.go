@@ -150,17 +150,25 @@ func (f SaxConnectionFactory) Poison(address string) {
 
 // DirectConnectionFactory connects to the given address directly.
 type DirectConnectionFactory struct {
-	Address string
+	Address    string
+	mu         sync.Mutex
+	connection *grpc.ClientConn
 }
 
 // GetOrCreate returns a connection and address of the model server.
-func (f DirectConnectionFactory) GetOrCreate(ctx context.Context) (*grpc.ClientConn, string, error) {
+func (f *DirectConnectionFactory) GetOrCreate(ctx context.Context) (*grpc.ClientConn, string, error) {
 	// WithDefaultServiceConfig is required for MBNS. It will be ignored if the server is backed by GRPC.
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.connection != nil {
+		return f.connection, f.Address, nil
+	}
 	connection, err := env.Get().DialContext(ctx, f.Address, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
-	return connection, f.Address, err
+	f.connection = connection
+	return f.connection, f.Address, err
 }
 
 // Poison marks a model address invalid.
-func (f DirectConnectionFactory) Poison(address string) {
+func (f *DirectConnectionFactory) Poison(address string) {
 	// No-op.
 }

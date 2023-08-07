@@ -220,7 +220,7 @@ func Open(id string, options ...OptionSetter) (*Model, error) {
 	if opts.proxyAddr != "" {
 		model := &Model{
 			modelID:           id,
-			connectionFactory: connection.DirectConnectionFactory{Address: opts.proxyAddr},
+			connectionFactory: &connection.DirectConnectionFactory{Address: opts.proxyAddr},
 		}
 		return model, nil
 	}
@@ -228,7 +228,7 @@ func Open(id string, options ...OptionSetter) (*Model, error) {
 		// This is a self-hosted model.Skip sax cell resolution and connect to it directly.
 		model := &Model{
 			modelID:           id,
-			connectionFactory: connection.DirectConnectionFactory{Address: id},
+			connectionFactory: &connection.DirectConnectionFactory{Address: id},
 		}
 		return model, nil
 	}
