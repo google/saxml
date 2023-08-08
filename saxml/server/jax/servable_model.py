@@ -594,7 +594,7 @@ class ServableMethod(servable_model.ServableMethod):
           remove_padding, mdl_vars, self.model_state.mdl_var_unpadded_shapes
       )
       mdl_vars = jax.tree_util.tree_map(
-          pjit.with_sharding_constraint,
+          jax.lax.with_sharding_constraint,
           mdl_vars,
           self.model_state.mdl_var_pspecs,
       )
@@ -602,7 +602,7 @@ class ServableMethod(servable_model.ServableMethod):
       # Only one core has real data, others have zeros. Summing on the
       # leading `cores` dimension can make data replicated.
       def _replicate(x):
-        return pjit.with_sharding_constraint(
+        return jax.lax.with_sharding_constraint(
             jnp.sum(x, axis=0, promote_integers=False), None
         )
 

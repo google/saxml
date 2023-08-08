@@ -19,6 +19,7 @@ from absl import logging
 from etils import epath
 from flax.training import checkpoints as flax_checkpoints
 import jax
+from jax import lax
 from jax import numpy as jnp
 from jax.experimental import pjit
 from jax.experimental.array_serialization.serialization import GlobalAsyncCheckpointManager
@@ -315,7 +316,7 @@ class ServableMethod(servable_model.ServableMethod):
           self.model_state.mdl_var_unpadded_shapes,
       )
       mdl_vars = jax.tree_util.tree_map(
-          pjit.with_sharding_constraint,
+          lax.with_sharding_constraint,
           mdl_vars,
           self.model_state.mdl_var_pspecs,
       )
