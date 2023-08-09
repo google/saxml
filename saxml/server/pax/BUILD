@@ -114,7 +114,6 @@ pytype_strict_library(
 py_strict_test(
     name = "quantization_test",
     srcs = ["quantization_test.py"],
-    tags = ["manual"],
     deps = [
         ":quantization",
         "//saxml/server/pax/lm/params:lm_cloud",

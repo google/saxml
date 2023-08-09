@@ -30,7 +30,6 @@ py_strict_test(
     srcs = ["servable_custom_model_test.py"],
     python_version = "PY3",
     srcs_version = "PY3",
-    tags = ["manual"],
     deps = [
         ":servable_custom_model",
         "//third_party/py/absl-py/logging",
