@@ -611,7 +611,7 @@ func (m *stubMultimodalModelServer) Generate(ctx context.Context, in *mmpb.Gener
 	res.Results = make([]*mmpb.GenerateResult, len(in.Items))
 	for i, item := range in.Items {
 		res.Results[i] = &mmpb.GenerateResult{
-			Items: []*mmpb.MultimodalDataItem{item},
+			Items: []*mmpb.DataItem{item},
 			Score: float64(i) * 2,
 		}
 	}

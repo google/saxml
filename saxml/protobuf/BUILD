@@ -12,6 +12,10 @@ load(
     "py_proto_library",
     "rpc_endpoint_interface",
 )
+load(
+    "//third_party/protobuf/build_defs:kt_jvm_proto_library.bzl",
+    "kt_jvm_proto_library",
+)
 
 package(
     default_visibility = ["//saxml:internal"],
@@ -398,6 +402,7 @@ proto_library(
     name = "multimodal_proto",
     srcs = ["multimodal.proto"],
     has_services = True,
+    use_java_stubby_library = True,
     visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )
@@ -448,6 +453,18 @@ go_grpc_library(
     srcs = [":multimodal_proto"],
     extra_deps = [":common_go_proto"],
     deps = [":multimodal_go_proto"],
+)
+
+java_proto_library(
+    name = "multimodal_java_proto",
+    visibility = ["//visibility:public"],
+    deps = [":multimodal_proto"],
+)
+
+kt_jvm_proto_library(
+    name = "multimodal_kt_proto",
+    visibility = ["//visibility:public"],
+    deps = [":multimodal_proto"],
 )
 
 proto_library(

@@ -20,27 +20,30 @@ package sax.server.multimodal;
 
 import "saxml/protobuf/common.proto";
 
-message MultimodalIdList {
+option java_package = "com.google.saxml";
+option use_java_stubby_library = true;
+
+message IdList {
   repeated int64 id = 1;
 }
 
-message MultimodalDataItem {
+message DataItem {
   oneof item {
     string text = 1;
     bytes image_bytes = 2;
-    MultimodalIdList image_tokens = 3;
+    IdList image_tokens = 3;
     // bytes audio = 4;
   }
 }
 
 message GenerateRequest {
   string model_key = 3;
-  repeated MultimodalDataItem items = 1;
+  repeated DataItem items = 1;
   .sax.ExtraInputs extra_inputs = 2;
 }
 
 message GenerateResult {
-  repeated MultimodalDataItem items = 1;
+  repeated DataItem items = 1;
   double score = 2;
 }
 

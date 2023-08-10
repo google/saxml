@@ -30,7 +30,7 @@ type MultimodalModel struct {
 }
 
 // Generate performs generation for `dataItems` on a multimodal model.
-func (m *MultimodalModel) Generate(ctx context.Context, dataItems []*mmpb.MultimodalDataItem, options ...ModelOptionSetter) ([]*mmpb.GenerateResult, error) {
+func (m *MultimodalModel) Generate(ctx context.Context, dataItems []*mmpb.DataItem, options ...ModelOptionSetter) ([]*mmpb.GenerateResult, error) {
 	opts := NewModelOptions(options...)
 	req := &mmpb.GenerateRequest{
 		Items:       dataItems,
