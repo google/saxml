@@ -12,10 +12,13 @@ load(
     "py_proto_library",
     "rpc_endpoint_interface",
 )
+
+# copybara:strip_begin(kotlin)
 load(
     "//third_party/protobuf/build_defs:kt_jvm_proto_library.bzl",
     "kt_jvm_proto_library",
 )
+# copybara:strip_end
 
 package(
     default_visibility = ["//saxml:internal"],
@@ -461,11 +464,13 @@ java_proto_library(
     deps = [":multimodal_proto"],
 )
 
+# copybara:strip_begin(kotlin)
 kt_jvm_proto_library(
     name = "multimodal_kt_proto",
     visibility = ["//visibility:public"],
     deps = [":multimodal_proto"],
 )
+# copybara:strip_end
 
 proto_library(
     name = "internal_proto",
