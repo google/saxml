@@ -11,10 +11,7 @@ exports_files(["LICENSE"])
 
 package_group(
     name = "internal",
-    packages = [
-        "//learning/brain/research/grand_vision/sax/...",
-        "//saxml/...",
-    ],
+    packages = ["//saxml/..."],
 )
 
 bzl_library(

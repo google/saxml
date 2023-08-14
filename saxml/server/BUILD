@@ -11,14 +11,7 @@ package(
 
 licenses(["notice"])
 
-package_group(
-    name = "friends",
-    packages = [
-        "//audio/hearing/recomposition/...",
-        "//learning/multipod/pax/aicore/...",
-        "//learning/multipod/pax/pathways/component/examples/...",
-    ],
-)
+package_group(name = "friends")
 
 bzl_library(
     name = "build_defs_bzl",

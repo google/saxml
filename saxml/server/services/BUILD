@@ -40,7 +40,6 @@ pytype_strict_library(
     srcs = ["vision_service.py"],
     srcs_version = "PY3",
     visibility = [
-        "//learning/multipod/sax/server/vision:__pkg__",
         "//saxml:internal",
         "//saxml/server/pax/vision:__pkg__",
     ],
