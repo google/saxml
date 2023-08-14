@@ -21,6 +21,7 @@ from absl import flags
 from absl import logging
 import grpc
 import jax
+from jax.experimental.compilation_cache import compilation_cache
 import jax.experimental.maps  # needed by experimental_xmap_spmd_lowering* below
 from saxml.protobuf import modelet_pb2
 from saxml.protobuf import modelet_pb2_grpc
@@ -58,6 +59,13 @@ _JAX_PROFILER_PORT = flags.DEFINE_integer(
     (
         'If set, the jax.profiler port to use. Only needed for profiling in'
         ' open source.'
+    ),
+)
+_JAX_CACHE_DIR = flags.DEFINE_string(
+    'jax_cache_dir',
+    None,
+    (
+        'If set, tries to use cached jits at this directory.'
     ),
 )
 
@@ -136,6 +144,10 @@ def setup_jax(
   tf.config.set_visible_devices([], 'GPU')
   if globally_use_hardware_rng:
     jax.config.update('jax_default_prng_impl', 'rbg')
+
+  # Initializing cache
+  if _JAX_CACHE_DIR.value is not None:
+    compilation_cache.initialize_cache(_JAX_CACHE_DIR.value)
 
   # Log tracing and compilation time.
   jax.config.update('jax_log_compiles', True)
