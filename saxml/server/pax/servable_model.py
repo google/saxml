@@ -13,6 +13,7 @@
 # limitations under the License.
 """Wraps a model with service APIs."""
 
+import inspect
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from absl import logging
@@ -201,10 +202,20 @@ class ServableMethod(servable_model.ServableMethod):
       self, inputs: NestedJTensor, mdl_vars: NestedJTensor, prng_key: PRNGKey
   ) -> NestedJTensor:
     k1, k2 = prng_key
+    # `callback_device_index` is determined at server start time so we pass it
+    # to methods asking for it. Methods with host callbacks can use this
+    # argument to run on same host as preprocessing.
+    def method_fn(model, *args, **kwargs):
+      method = getattr(model, self._model_fn_name)
+      if 'callback_device_index' in inspect.signature(method).parameters:
+        return method(*args, **kwargs,
+                      callback_device_index=self.callback_device_index)
+      else:
+        return method(*args, **kwargs)
     outputs = self._model.apply(
         mdl_vars,
         inputs,
-        method=getattr(self._model, self._model_fn_name),
+        method=method_fn,
         mutable=[
             base_layer.NON_TRAINABLE,
             base_layer.DECODE_CACHE,
