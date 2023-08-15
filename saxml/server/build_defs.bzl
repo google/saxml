@@ -60,8 +60,10 @@ def create_binary(
 
 def create_server_binary(
         imports_targets = None,
-        extra_deps = None,
-        name = "server"):
+        extra_deps = [],
+        name = "server",
+        main = "//saxml/server:model_service_main.py",
+        default_deps = ["//saxml/server:server_deps"]):
     """Macro to define a server binary with selected imports.
 
     Args:
@@ -70,10 +72,9 @@ def create_server_binary(
         //saxml/server:server_deps or imports_targets.
       name: binary name.
     """
-    extra_deps = extra_deps or []
     create_binary(
         imports_targets = imports_targets,
-        extra_deps = extra_deps + ["//saxml/server:server_deps"],
+        extra_deps = extra_deps + default_deps,
         name = name,
-        main = "//saxml/server:model_service_main.py",
+        main = main,
     )

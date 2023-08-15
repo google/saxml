@@ -3,7 +3,11 @@
 load("//saxml:saxml.bzl", "go_binary", "go_library")
 
 package(
-    default_visibility = ["//saxml:internal"],
+    # unused internal package attribute
+    default_visibility = [
+        "//saxml:internal",
+        "//saxml/server:friends",
+    ],
 )
 
 go_binary(

@@ -4,9 +4,11 @@ load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_binary", "pytype_stri
 load("//saxml/server:build_defs.bzl", "create_server_binary")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
+default_visibility = ["//saxml:internal"]
+
 package(
     # unused internal package attribute
-    default_visibility = ["//saxml:internal"],
+    default_visibility = default_visibility,
 )
 
 licenses(["notice"])
@@ -25,6 +27,7 @@ pytype_strict_library(
     srcs = ["all_imports.py"],
     srcs_version = "PY3",
     tags = ["keep_dep"],
+    visibility = default_visibility + ["//saxml/server:friends"],
     deps = [
         ":servable_model_registry",
         "//saxml/server/pax:all_imports",
@@ -219,6 +222,7 @@ pytype_strict_library(
 
 pytype_strict_library(
     name = "server_deps",
+    visibility = default_visibility + ["//saxml/server:friends"],
     deps = [
         ":model_service_base",
         ":model_service_main_lib",
@@ -234,6 +238,7 @@ pytype_strict_library(
         "//third_party/py/jax",
         "//third_party/py/libtpu-nightly",
         "//third_party/py/paxml:setup_jax",
+        "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )
 
@@ -255,6 +260,13 @@ pytype_strict_library(
         "//third_party/py/jax",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
+)
+
+exports_files(
+    srcs = [
+        "model_service_main.py",
+    ],
+    visibility = default_visibility + ["//saxml/server:friends"],
 )
 
 pytype_strict_binary(
