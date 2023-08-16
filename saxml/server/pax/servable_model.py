@@ -411,7 +411,7 @@ class ServableModel(servable_model.ServableModel):
   def save(self, checkpoint_path: Optional[str]) -> None:
     model_state = list(self.methods.values())[0].model_state
     # TODO(b/262297404): Handles padded shapes.
-    train_state = train_states.TrainState(
+    train_state = train_states.TrainState(  # pytype: disable=wrong-arg-types  # dataclass_transform
         step=jnp.asarray(model_state.step),
         mdl_vars=model_state.mdl_vars,
         opt_states={},
