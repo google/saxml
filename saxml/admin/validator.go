@@ -51,6 +51,7 @@ var (
 		"lm.generate_stream":        {},
 		"lm.embed":                  {},
 		"lm.gradient":               {},
+		"mm.generate":               {},
 		"vm.classify":               {},
 		"vm.generate":               {},
 		"vm.embed":                  {},
