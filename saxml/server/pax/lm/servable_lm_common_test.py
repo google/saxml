@@ -92,6 +92,27 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
         np.asarray([4, 6]), tf.squeeze(out['topk_decode_lengths']).numpy()
     )
 
+  @test_utils.parameterized.named_parameters(
+      [('None batch_size', None), ('With batch_size', 2)]
+  )
+  def test_extra_inputs_to_tf_signature(self, batch_size):
+    default_extra_inputs = {
+        'a': tf.zeros(3, dtype=tf.float32),
+        'b': tf.ones(5, dtype=tf.float32),
+    }
+    extra_inputs_dtypes = {
+        'a': tf.float32,
+        'b': tf.float32,
+    }
+    extra_tensor_specs = servable_lm_common.extra_inputs_to_tf_signature(
+        default_extra_inputs, batch_size, extra_inputs_dtypes
+    )
+
+    default_val_a = tf.zeros([batch_size or 1, 3], dtype=tf.float32)
+    default_val_b = tf.ones([batch_size or 1, 5], dtype=tf.float32)
+    self.assertArraysEqual(extra_tensor_specs['a'].default_val, default_val_a)
+    self.assertArraysEqual(extra_tensor_specs['b'].default_val, default_val_b)
+
 
 if __name__ == '__main__':
   tf.test.main()

@@ -794,22 +794,6 @@ class LMDecodeMethod(ServableLMMethod):
 
     return [(d, s) for (d, s) in zip(batch_decoded, scores)], stream_state
 
-  @tf.function(autograph=True, jit_compile=False)
-  def tf_pre_batching_processing(
-      self,
-      texts: NestedNpOrTfTensor,
-      extra_inputs: Optional[Mapping[str, Any]] = None,
-  ):
-    """Preprocessing step to turn extra inputs into batched tensors."""
-    batched_extra_inputs = {}
-    if extra_inputs:
-      for k, v in extra_inputs.items():
-        assert v.shape
-        if tf.shape(v)[0] == 1:
-          v = tf.repeat(v, tf.shape(texts)[0], axis=0)
-        batched_extra_inputs[k] = v
-    return texts, batched_extra_inputs
-
   def tf_pre_processing(
       self,
       texts: NestedNpOrTfTensor,
@@ -904,7 +888,7 @@ class LMDecodeMethod(ServableLMMethod):
 
   def input_signature(
       self, batch_size: Optional[int]
-  ) -> Tuple[tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
+  ) -> Tuple[TensorSpec, Mapping[str, TensorSpec]]:
     """Implements `ExportableToSavedModel.input_signature`."""
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='text'),
@@ -1242,7 +1226,7 @@ class LMGradientMethod(ServableLMMethod):
 
   def input_signature(
       self, batch_size: Optional[int]
-  ) -> Tuple[tf.TensorSpec, tf.TensorSpec, Mapping[str, tf.TensorSpec]]:
+  ) -> Tuple[TensorSpec, TensorSpec, Mapping[str, TensorSpec]]:
     """Implements `ExportableToSavedModel.input_signature`."""
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),

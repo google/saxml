@@ -377,19 +377,39 @@ def bucketize_tokenized_inputs(
 def extra_inputs_to_tf_signature(
     sample_extra_inputs: Optional[Mapping[str, Any]],
     batch_size: Optional[int],
-    sample_extra_inputs_dtypes: Optional[Mapping[str, Any]] = None
-) -> Mapping[str, tf.TensorSpec]:
-  """Generate input signature from sample extra inputs."""
+    sample_extra_inputs_dtypes: Optional[Mapping[str, Any]] = None,
+) -> Mapping[str, TensorSpec]:
+  """Generate input signature from sample extra inputs.
+
+  All extra inputs will have default values repeated to shape `(batch_size,
+  ...)`, or `(1, ...)` if batch_size is None.
+
+  Args:
+    sample_extra_inputs: Extra inputs defined in the model.
+    batch_size: Batch size of the model. `None` batch_size means batch
+      polymorphic, it usually comes when there is a list of batch sizes in SAX
+      config.
+    sample_extra_inputs_dtypes: Extra inputs' data types.
+
+  Returns:
+    A dict mapping extra inputs' names to converted TensorSpecs and default
+    values.
+  """
   extra_tensor_specs = {}
+  sample_extra_inputs_dtypes = sample_extra_inputs_dtypes or {}
   if sample_extra_inputs:
     for name, val in sample_extra_inputs.items():
-      val_tf = tf.convert_to_tensor(val)
-      if sample_extra_inputs_dtypes:
-        val_dtype = sample_extra_inputs_dtypes.get(name, val_tf.dtype)
-      else:
-        val_dtype = val_tf.dtype
-      extra_tensor_specs[name] = tf.TensorSpec(
-          [batch_size, *val_tf.shape.as_list()], val_dtype, name=name
+      val_tf = tf.convert_to_tensor(
+          val, sample_extra_inputs_dtypes.get(name, None)
+      )
+      default_val = tf.expand_dims(val_tf, axis=0)
+      if batch_size:
+        default_val = tf.repeat(default_val, batch_size, axis=0)
+      extra_tensor_specs[name] = oex.TensorSpecWithDefault(
+          tf.TensorSpec(
+              [batch_size, *val_tf.shape.as_list()], val_tf.dtype, name=name
+          ),
+          default_val,
       )
   return extra_tensor_specs
 
