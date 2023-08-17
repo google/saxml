@@ -32,6 +32,7 @@
 #include "saxml/protobuf/lm.pb.h"
 #include "saxml/protobuf/multimodal.proto.h"
 #include "saxml/protobuf/vision.pb.h"
+#include "util/task/status_macros.h"
 
 namespace sax {
 namespace client {
@@ -816,6 +817,13 @@ absl::Status Model::Open(absl::string_view id, const Options* options,
 
 absl::Status Model::Open(absl::string_view id, Model** model) {
   return Model::Open(id, nullptr, model);
+}
+
+absl::StatusOr<std::unique_ptr<Model>> Model::Open(
+    absl::string_view id, const Options* options) {
+  Model* model = nullptr;
+  RETURN_IF_ERROR(Model::Open(id, options, &model));
+  return std::unique_ptr<Model>(model);
 }
 
 Model::~Model() { go_release_model(model_handle_); }

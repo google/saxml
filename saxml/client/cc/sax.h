@@ -18,11 +18,13 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "saxml/protobuf/common.pb.h"
 #include "saxml/protobuf/multimodal.proto.h"
@@ -458,6 +460,12 @@ class Model {
   // Create a Model instance without options. User takes ownership of the
   // resulting object.
   static absl::Status Open(absl::string_view id, Model** model);
+
+  // Create a Model instance. Optionally provide Options which configure the
+  // behavior of the model.
+  static absl::StatusOr<std::unique_ptr<Model>> Open(
+      absl::string_view id, const Options* options = nullptr);
+
   Model(const Model&) = delete;
   Model& operator=(const Model&) = delete;
   ~Model();
