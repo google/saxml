@@ -33,6 +33,7 @@ type MultimodalModel struct {
 func (m *MultimodalModel) Generate(ctx context.Context, dataItems []*mmpb.DataItem, options ...ModelOptionSetter) ([]*mmpb.GenerateResult, error) {
 	opts := NewModelOptions(options...)
 	req := &mmpb.GenerateRequest{
+		ModelKey:    m.model.modelID,
 		Items:       dataItems,
 		ExtraInputs: opts.ExtraInputs(),
 	}
