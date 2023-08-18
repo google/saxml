@@ -30,6 +30,8 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
   Attributes:
     append_eos: Whether to append </s> at the end and treat it as a non-padded
       label, always set to True.
+    prepend_sos: Whether to prepend sos at the beginning and treat it as a
+      non-padded label, default is set to True.
     spm_model: File name for a sentencepiece model.
     target_sos_id: Start of sentence id.
     target_eos_id: End of sentence id.
@@ -41,6 +43,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       the string result. It must be a regular token in the vocabulary.
   """
 
+  prepend_sos: bool = True
   append_eos: bool = True
   spm_model: str = None
   target_sos_id: int = 0
@@ -100,8 +103,12 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     else:
       labels = labels[:, -(max_length - 1) :]
 
-    sos_ids = tf.fill([batch, 1], tf.constant(p.target_sos_id, dtype=tf.int32))
-    ids = tf.concat([sos_ids, labels], axis=1)
+    if p.prepend_sos:
+      sos_ids = tf.fill(
+          [batch, 1], tf.constant(p.target_sos_id, dtype=tf.int32))
+      ids = tf.concat([sos_ids, labels], axis=1)
+    else:
+      ids = tf.identity(labels)
     eos_ids = tf.fill([batch, 1], tf.constant(p.target_eos_id, dtype=tf.int32))
     labels = tf.concat([labels, eos_ids], axis=1)
     # Convert raggedtensor to padded tensor.
@@ -132,11 +139,18 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     )
     eos_indices = tf.stack([eos_indices] * max_length, axis=1)
     indices = tf.repeat([tf.range(max_length)], batch, axis=0)
-    paddings = tf.where(
-        indices <= eos_indices,
-        tf.zeros_like(indices, tf.float32),
-        tf.ones_like(indices, tf.float32),
-    )
+    if p.prepend_sos:
+      paddings = tf.where(
+          indices <= eos_indices,
+          tf.zeros_like(indices, tf.float32),
+          tf.ones_like(indices, tf.float32),
+      )
+    else:
+      paddings = tf.where(
+          indices < eos_indices,
+          tf.zeros_like(indices, tf.float32),
+          tf.ones_like(indices, tf.float32),
+      )
 
     return ids, labels, paddings
 
