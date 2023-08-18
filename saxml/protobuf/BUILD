@@ -12,7 +12,8 @@ load(
     "py_proto_library",
     "rpc_endpoint_interface",
 )
-# unused internal load
+# unused internal Kotlin Protobuf load
+# unused internal Kotlin gRPC load
 
 package(
     default_visibility = ["//saxml:internal"],
@@ -224,6 +225,7 @@ proto_library(
     name = "lm_proto",
     srcs = ["lm.proto"],
     has_services = True,
+    use_java_stubby_library = True,
     visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )

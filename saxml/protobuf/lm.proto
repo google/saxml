@@ -20,6 +20,8 @@ package sax.server.lm;
 
 import "saxml/protobuf/common.proto";
 
+option use_java_stubby_library = true;
+
 // Usage:
 //
 //   score_req = ScoreRequest(model_key="lm1t",
