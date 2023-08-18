@@ -63,6 +63,7 @@ class CommonServingTemplate:
   SPM_MODEL = None
   TOKENIZED = False  # When the input and output are in tokens instead of text
   PREPEND_SOS = True
+  EOS_PADDING_AND_NO_SOS = False
   SOS_ID = 0
   EOS_ID = 1
   STOP_TOKEN_IDS = None
@@ -137,6 +138,7 @@ class ServingTemplate(
         slice_left=self.SLICE_LEFT,
         tokenized=self.TOKENIZED,
         prepend_sos=self.PREPEND_SOS,
+        eos_padding_and_no_sos=self.EOS_PADDING_AND_NO_SOS,
     )
 
   def score(self) -> Optional[servable_lm_model.ScoreHParams]:

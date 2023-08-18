@@ -41,6 +41,9 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       streaming decoding step to prevent the leading whitespace from being
       removed by sentencepiece; after decoding the step, it will be removed from
       the string result. It must be a regular token in the vocabulary.
+    eos_padding_and_no_sos: Do not use EOS or SOS for id or label, and use EOS
+      for padding. This is a special tokenization specific to GPTJ MLPerf
+      inference implementation. Only used when tokenized=True.
   """
 
   prepend_sos: bool = True
@@ -51,6 +54,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
   slice_left: bool = True
   streaming_whitespace_preserving_prefix: str = 'a'
   tokenized: bool = False
+  eos_padding_and_no_sos: bool = False
 
   _vocab: seqio.SentencePieceVocabulary = dataclasses.field(
       init=False, repr=False
@@ -59,6 +63,53 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
   def __post_init__(self):
     assert self.append_eos
     self._vocab = seqio.SentencePieceVocabulary(self.hparams.spm_model, 0)
+
+  def StringsToIdsTokenized(
+      self, strs: tf.Tensor, max_length: int
+  ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
+    p = self.hparams
+    batch = tf.shape(strs)[0]
+
+    # `strs` may contain empty string elements. This happens either when
+    # the user explicitly sends them to indicate empty inputs, or when
+    # dummy inputs defined with empty strings are given to the model.
+    # tf.strings.split would generate [b''] for empty string elements,
+    # which tf.strings.to_number cannot handle. Convert [b''] to [] to be
+    # consistent with the not p.tokenized path.
+    labels_in_str = tf.strings.split(strs, sep=',', maxsplit=-1)
+    empty_str_tensor = tf.constant([], dtype=tf.string)
+    labels_in_str = tf.map_fn(
+        lambda x: empty_str_tensor if x.shape == [1] and x[0] == b'' else x,  # pylint: disable=g-explicit-bool-comparison
+        labels_in_str,
+    )
+    labels = tf.strings.to_number(labels_in_str, out_type=tf.int32)
+    if p.slice_left:
+      labels = labels[:, :max_length]
+    else:
+      labels = labels[:, -(max_length):]
+    # Get the shape of each ragged tensor and drop the dimension of the shape.
+    padding_indices = max_length - (
+        tf.map_fn(tf.squeeze, tf.map_fn(tf.shape, labels).to_tensor())
+    )
+    # Convert to tensor and pad at the same time.
+    lengths = labels.row_lengths()
+    to_pad_as_flat_tensor = tf.repeat(
+        self.target_eos_id, repeats=tf.reduce_sum(max_length - lengths)
+    )
+    to_pad = tf.RaggedTensor.from_row_lengths(
+        to_pad_as_flat_tensor, max_length - lengths
+    )
+    labels = tf.concat([labels, to_pad], axis=1).to_tensor()
+
+    padding_indices = tf.stack([padding_indices] * max_length, axis=1)
+    indices = tf.repeat([tf.range(max_length)], batch, axis=0)
+
+    paddings = tf.where(
+        indices >= padding_indices,
+        tf.zeros_like(indices, tf.float32),
+        tf.ones_like(indices, tf.float32),
+    )
+    return labels, labels, tf.reverse(paddings, axis=[1])
 
   def StringsToIds(
       self, strs: tf.Tensor, max_length: int
@@ -80,6 +131,10 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     p = self.hparams
     assert p.spm_model
     assert max_length is not None
+
+    if p.tokenized and p.eos_padding_and_no_sos:
+      return self.StringsToIdsTokenized(strs, max_length)
+
     batch = tf.shape(strs)[0]
     # labels is a ragged Tensor.
     if p.tokenized:

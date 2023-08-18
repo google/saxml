@@ -70,6 +70,7 @@ def decode_tf_tokenize_inputs(
     # Use labels prepended with SOS as IDs.
     ids = tf.concat([ids[:, 0:1], labels[:, :-1]], axis=1)
     prefix_lengths += 1
+
   return ids, paddings, prefix_lengths, weights
 
 

@@ -64,8 +64,9 @@ def _CreateTokenizedParams():
           'test_model.model',
       ),
       target_sos_id=0,
-      target_eos_id=1,
+      target_eos_id=50256,
       tokenized=True,
+      eos_padding_and_no_sos=True,
   )
   return p
 
@@ -132,10 +133,22 @@ class LMTokenizerTest(tf.test.TestCase):
     max_length = 5
     strs = ['', '']
     ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
-    self.assertAllEqual([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], ids)
-    self.assertAllEqual([[1, 0, 0, 0, 0], [1, 0, 0, 0, 0]], labels)
     self.assertAllEqual(
-        [[0.0, 1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0, 1.0]], paddings
+        [
+            [50256, 50256, 50256, 50256, 50256],
+            [50256, 50256, 50256, 50256, 50256],
+        ],
+        ids,
+    )
+    self.assertAllEqual(
+        [
+            [50256, 50256, 50256, 50256, 50256],
+            [50256, 50256, 50256, 50256, 50256],
+        ],
+        labels,
+    )
+    self.assertAllEqual(
+        [[1.0, 1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0, 1.0]], paddings
     )
 
   def testTokenizedStringsToIds(self):
@@ -144,32 +157,36 @@ class LMTokenizerTest(tf.test.TestCase):
     max_length = 5
     strs = ['151,88,21', '887']
     ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
-    self.assertAllEqual([[0, 151, 88, 21, 0], [0, 887, 0, 0, 0]], ids)
-    self.assertAllEqual([[151, 88, 21, 1, 0], [887, 1, 0, 0, 0]], labels)
     self.assertAllEqual(
-        [[0.0, 0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0, 1.0]], paddings
+        [[151, 88, 21, 50256, 50256], [887, 50256, 50256, 50256, 50256]], ids
+    )
+    self.assertAllEqual(
+        [[151, 88, 21, 50256, 50256], [887, 50256, 50256, 50256, 50256]], labels
+    )
+    self.assertAllEqual(
+        [[0.0, 0.0, 0.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0, 1.0]], paddings
     )
 
   def testTokenizedStringsToIdsSliceLeft(self):
     p = _CreateTokenizedParams()
     tokenizer = instantiate(p)
-    max_length = 3
-    strs = ['151,88,21', '887']
+    max_length = 2
+    strs = tf.ragged.constant(['151,88,21', '887'])
     ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
-    self.assertAllEqual([[0, 151, 88], [0, 887, 0]], ids)
-    self.assertAllEqual([[151, 88, 1], [887, 1, 0]], labels)
-    self.assertAllEqual([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]], paddings)
+    self.assertAllEqual([[151, 88], [887, 50256]], ids)
+    self.assertAllEqual([[151, 88], [887, 50256]], labels)
+    self.assertAllEqual([[0.0, 0.0], [0.0, 1.0]], paddings)
 
   def testTokenizedStringsToIdsSliceRight(self):
     p = _CreateTokenizedParams()
     p.slice_left = False
     tokenizer = instantiate(p)
-    max_length = 3
+    max_length = 2
     strs = ['151,88,21', '887']
     ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
-    self.assertAllEqual([[0, 88, 21], [0, 887, 0]], ids)
-    self.assertAllEqual([[88, 21, 1], [887, 1, 0]], labels)
-    self.assertAllEqual([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]], paddings)
+    self.assertAllEqual([[88, 21], [887, 50256]], ids)
+    self.assertAllEqual([[88, 21], [887, 50256]], labels)
+    self.assertAllEqual([[0.0, 0.0], [0.0, 1.0]], paddings)
 
   def testIdsToTokenizedStrings(self):
     p = _CreateTokenizedParams()
