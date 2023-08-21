@@ -14,6 +14,7 @@ load(
 )
 # unused internal Kotlin Protobuf load
 # unused internal Kotlin gRPC load
+# unused internal JS Protobuf load
 
 package(
     default_visibility = ["//saxml:internal"],
