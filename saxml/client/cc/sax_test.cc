@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "saxml/client/cc/sax.h"
-#include <memory>
 
 #include "net/proto2/contrib/parse_proto/parse_text_proto.h"
 #include "gmock/gmock.h"
@@ -39,13 +38,6 @@ TEST(InvalidFormatSaxModel, ReturnsErrors) {
 
   Model* model = nullptr;
   EXPECT_FALSE(Model::Open("", &model).ok());
-}
-
-TEST(InvalidFormatSaxModel, UniquePtrReturnsError) {
-  // Check the Sax Go client can correctly initialize its platform environment.
-  sax::client::StartDebugPort(PickUnusedPortOrDie());
-
-  EXPECT_FALSE(Model::Open("").ok());
 }
 
 TEST(TestToProto, Valid) {
