@@ -24,6 +24,7 @@ PYBIND11_MODULE(testutil, m) {
       .value("Vision", ModelType::Vision)
       .value("Audio", ModelType::Audio)
       .value("Custom", ModelType::Custom)
+      .value("Multimodal", ModelType::Multimodal)
       .export_values();
 
   m.def("SetUp", &SetUp, "Set up a Sax test environment");

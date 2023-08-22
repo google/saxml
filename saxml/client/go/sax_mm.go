@@ -30,22 +30,22 @@ type MultimodalModel struct {
 }
 
 // Generate performs generation for `dataItems` on a multimodal model.
-func (m *MultimodalModel) Generate(ctx context.Context, dataItems []*mmpb.DataItem, options ...ModelOptionSetter) ([]*mmpb.GenerateResult, error) {
+func (m *MultimodalModel) Generate(ctx context.Context, req *mmpb.GenerateRequest, options ...ModelOptionSetter) (*mmpb.GenerateResponse, error) {
 	opts := NewModelOptions(options...)
-	req := &mmpb.GenerateRequest{
+	rpcReq := &mmpb.GenerateRpcRequest{
 		ModelKey:    m.model.modelID,
-		Items:       dataItems,
+		Request:     req,
 		ExtraInputs: opts.ExtraInputs(),
 	}
 
-	var resp *mmpb.GenerateResponse
+	var rpcResp *mmpb.GenerateRpcResponse
 	err := m.model.run(ctx, "Generate", func(conn *grpc.ClientConn) error {
 		var genErr error
-		resp, genErr = pbgrpc.NewMultimodalServiceClient(conn).Generate(ctx, req)
+		rpcResp, genErr = pbgrpc.NewMultimodalServiceClient(conn).Generate(ctx, rpcReq)
 		return genErr
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.GetResults(), nil
+	return rpcResp.GetResponse(), nil
 }

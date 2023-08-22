@@ -37,9 +37,9 @@ message DataItem {
 }
 
 message GenerateRequest {
-  string model_key = 3;
   repeated DataItem items = 1;
-  .sax.ExtraInputs extra_inputs = 2;
+
+  reserved 2, 3;
 }
 
 message GenerateResult {
@@ -51,7 +51,17 @@ message GenerateResponse {
   repeated GenerateResult results = 1;  // len(result) == # samples
 }
 
+message GenerateRpcRequest {
+  string model_key = 1;
+  GenerateRequest request = 2;
+  .sax.ExtraInputs extra_inputs = 3;
+}
+
+message GenerateRpcResponse {
+  GenerateResponse response = 1;
+}
+
 service MultimodalService {
   // Returns generated results using the data items in the request.
-  rpc Generate(GenerateRequest) returns (GenerateResponse);
+  rpc Generate(GenerateRpcRequest) returns (GenerateRpcResponse);
 }

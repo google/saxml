@@ -627,14 +627,10 @@ func go_mm_generate(ptr C.long, timeout C.float, requestData *C.char, requestSiz
 		defer cancel()
 	}
 
-	results, err := mm.Generate(ctx, request.GetItems(), protoOptionToSetter(options)...)
+	resp, err := mm.Generate(ctx, request, protoOptionToSetter(options)...)
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return
-	}
-
-	resp := &mmpb.GenerateResponse{
-		Results: results,
 	}
 
 	content, err := proto.Marshal(resp)

@@ -606,11 +606,12 @@ func (s *stubCustomModelServer) Custom(ctx context.Context, in *cmpb.CustomReque
 
 type stubMultimodalModelServer struct{}
 
-func (m *stubMultimodalModelServer) Generate(ctx context.Context, in *mmpb.GenerateRequest) (*mmpb.GenerateResponse, error) {
-	res := &mmpb.GenerateResponse{}
-	res.Results = make([]*mmpb.GenerateResult, len(in.Items))
-	for i, item := range in.Items {
-		res.Results[i] = &mmpb.GenerateResult{
+func (m *stubMultimodalModelServer) Generate(ctx context.Context, in *mmpb.GenerateRpcRequest) (*mmpb.GenerateRpcResponse, error) {
+	res := &mmpb.GenerateRpcResponse{}
+	res.Response = &mmpb.GenerateResponse{}
+	res.Response.Results = make([]*mmpb.GenerateResult, len(in.GetRequest().GetItems()))
+	for i, item := range in.GetRequest().GetItems() {
+		res.Response.Results[i] = &mmpb.GenerateResult{
 			Items: []*mmpb.DataItem{item},
 			Score: float64(i) * 2,
 		}
