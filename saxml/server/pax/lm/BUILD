@@ -60,6 +60,10 @@ pytype_strict_library(
     name = "servable_lm_common",
     srcs = ["servable_lm_common.py"],
     srcs_version = "PY3",
+    visibility = [
+        "//saxml:internal",
+        "//saxml/server:friends",
+    ],
     deps = [
         "//saxml/server/pax:branch_selection",
         "//saxml/server/pax:servable_model",
