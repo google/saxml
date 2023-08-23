@@ -16,6 +16,8 @@
 package main
 
 /*
+#include <stdbool.h>
+
 typedef void (*generate_callback)(void* cbCtx, void* outData, int outSize);
 
 static inline void generate_callback_bridge(generate_callback cb, void* cbCtx, void* outData, int outSize) {
@@ -110,10 +112,10 @@ func go_release_model(in C.long) {
 }
 
 //export go_create_model_with_config
-func go_create_model_with_config(idData *C.char, idSize C.int, numConn C.int, proxyAddrData *C.char, proxyAddrSize C.int, out *C.long, errMsg **C.char, errCode *C.int) {
+func go_create_model_with_config(idData *C.char, idSize C.int, numConn C.int, proxyAddrData *C.char, proxyAddrSize C.int, failFast C.bool, out *C.long, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
 	proxyAddr := C.GoStringN(proxyAddrData, proxyAddrSize)
-	m, err := sax.Open(id, sax.WithNumConn(int(numConn)), sax.WithProxy(proxyAddr))
+	m, err := sax.Open(id, sax.WithNumConn(int(numConn)), sax.WithProxy(proxyAddr), sax.WithFailFast(bool(failFast)))
 	if err != nil {
 		*errMsg = C.CString(err.Error())
 		*errCode = C.int(int32(errors.Code(err)))

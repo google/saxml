@@ -34,6 +34,9 @@ namespace client {
 struct Options {
   int num_conn = 3;  // Perferred number of connections to sax backend.
   std::string proxy_addr = "";  // Optional proxy address.
+  // Whether the model should fail fast instead of waiting for servers to be
+  // available.
+  bool fail_fast = false;
 };
 
 // Model options.

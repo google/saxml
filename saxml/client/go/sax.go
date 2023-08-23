@@ -49,6 +49,7 @@ const timeout = 10 * time.Second
 type Model struct {
 	modelID           string
 	connectionFactory connection.Factory
+	retryingBehavior  func(err error) bool
 }
 
 // run runs a callback function (`callMethod`) against sax system with retries through gRPC.
@@ -65,7 +66,8 @@ func (m *Model) run(ctx context.Context, methodName string, callMethod func(conn
 		}
 		return err
 	}
-	err := retrier.Do(ctx, makeQuery, errors.ServerShouldRetry)
+
+	err := retrier.Do(ctx, makeQuery, m.retryingBehavior)
 	if err != nil {
 		log.V(1).Infof("%s() failed: %s", methodName, err)
 		return err
@@ -115,6 +117,8 @@ type Options struct {
 	numConn int
 	// `proxyAddr` is the (optional) proxy to route SAX model traffic through.
 	proxyAddr string
+	// `failFast` disables some retrying behavior when true. Useful for when the model servers are unresponsive.
+	failFast bool
 	// Add other possible options.
 }
 
@@ -132,6 +136,13 @@ func WithNumConn(num int) OptionSetter {
 func WithProxy(addr string) OptionSetter {
 	return func(o *Options) {
 		o.proxyAddr = addr
+	}
+}
+
+// WithFailFast changes the retry behaviour to not wait for servers to become available.
+func WithFailFast(failFast bool) OptionSetter {
+	return func(o *Options) {
+		o.failFast = failFast
 	}
 }
 
@@ -217,10 +228,16 @@ func Open(id string, options ...OptionSetter) (*Model, error) {
 	if opts.numConn <= 0 {
 		return nil, fmt.Errorf("open() expect positive numConn %w", errors.ErrInvalidArgument)
 	}
+
+	retryingBehavior := errors.ServerShouldRetry
+	if opts.failFast {
+		retryingBehavior = errors.IsNotFound
+	}
 	if opts.proxyAddr != "" {
 		model := &Model{
 			modelID:           id,
 			connectionFactory: &connection.DirectConnectionFactory{Address: opts.proxyAddr},
+			retryingBehavior:  retryingBehavior,
 		}
 		return model, nil
 	}
@@ -229,6 +246,7 @@ func Open(id string, options ...OptionSetter) (*Model, error) {
 		model := &Model{
 			modelID:           id,
 			connectionFactory: &connection.DirectConnectionFactory{Address: id},
+			retryingBehavior:  retryingBehavior,
 		}
 		return model, nil
 	}
@@ -240,6 +258,7 @@ func Open(id string, options ...OptionSetter) (*Model, error) {
 	model := &Model{
 		modelID:           id,
 		connectionFactory: connection.SaxConnectionFactory{Location: location.NewLocationTable(admin, id, opts.numConn)},
+		retryingBehavior:  retryingBehavior,
 	}
 	return model, nil
 }
