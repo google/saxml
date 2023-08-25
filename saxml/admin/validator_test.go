@@ -410,6 +410,7 @@ func TestValidateJoinRequest(t *testing.T) {
 func TestMain(m *testing.M) {
 	env.Get().SetTestACLNames(map[string][]string{
 		env.Get().RequiredACLNamePrefix() + "sax-dev": []string{"userA", "userB"},
+		env.Get().RequiredACLNamePrefix() + "all":     nil,
 	})
 	os.Exit(m.Run())
 }

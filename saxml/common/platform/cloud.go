@@ -75,6 +75,8 @@ var (
 	// This in-process implementation makes the unit test pass.
 	muLeader sync.Mutex
 
+	testACLNames = make(map[string][]string)
+
 	tmplStatus = template.Must(template.New("Status").Parse(`
 <!DOCTYPE html>
 <html>
@@ -418,12 +420,21 @@ func (e *Env) ValidateACLName(aclname string) error {
 	if aclname == "" {
 		return nil
 	}
+	if _, ok := testACLNames[aclname]; ok {
+		return nil
+	}
 	return fmt.Errorf("ACL check is not supported: %w", errors.ErrUnimplemented)
 }
 
 // SetTestACLNames creates the ACL database for testing.
 func (e *Env) SetTestACLNames(aclnames map[string][]string) {
-	// Do nothing
+	testACLNames = make(map[string][]string)
+	for aclgroup, aclnames := range aclnames {
+		testACLNames[aclgroup] = nil
+		for _, aclname := range aclnames {
+			testACLNames[aclgroup] = append(testACLNames[aclgroup], aclname)
+		}
+	}
 }
 
 // Watch watches for content changes in a file and sends the new content on the returned channel.
