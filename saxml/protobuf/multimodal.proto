@@ -27,12 +27,16 @@ message IdList {
   repeated int64 id = 1;
 }
 
+message AudioFloatSamples {
+  repeated float sample = 1;
+}
+
 message DataItem {
   oneof item {
     string text = 1;
     bytes image_bytes = 2;
     IdList image_tokens = 3;
-    // bytes audio = 4;
+    AudioFloatSamples audio_float_samples = 4;
   }
 }
 
