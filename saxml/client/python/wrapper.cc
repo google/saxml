@@ -21,7 +21,7 @@
 
 #include "absl/status/status.h"
 #include "saxml/client/cc/sax.h"
-#include "saxml/protobuf/multimodal.proto.h"
+#include "saxml/protobuf/multimodal.pb.h"
 #include "pybind11/gil.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/pytypes.h"

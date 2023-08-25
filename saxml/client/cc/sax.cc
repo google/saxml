@@ -30,7 +30,7 @@
 #include "saxml/protobuf/common.pb.h"
 #include "saxml/protobuf/custom.pb.h"
 #include "saxml/protobuf/lm.pb.h"
-#include "saxml/protobuf/multimodal.proto.h"
+#include "saxml/protobuf/multimodal.pb.h"
 #include "saxml/protobuf/vision.pb.h"
 
 namespace sax {
@@ -100,6 +100,19 @@ void ModelOptions::ToProto(ExtraInputs* proto) const {
   for (auto const& option : kv_s_) {
     (*proto->mutable_strings())[option.first] = option.second;
   }
+}
+
+float ModelOptions::GetExtraInput(absl::string_view key) const {
+  return kv_.at(std::string(key));
+}
+
+std::vector<float> ModelOptions::GetExtraInputTensor(
+    absl::string_view key) const {
+  return kv_t_.at(std::string(key));
+}
+
+std::string ModelOptions::GetExtraInputString(absl::string_view key) const {
+  return kv_s_.at(std::string(key));
 }
 
 void ModelOptions::FromProto(const ExtraInputs& proto) {

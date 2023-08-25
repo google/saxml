@@ -16,7 +16,7 @@
 
 #include "saxml/client/python/wrapper.h"
 #include "saxml/protobuf/common.pb.h"
-#include "saxml/protobuf/multimodal.proto.h"
+#include "saxml/protobuf/multimodal.pb.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/pytypes.h"
 #include "pybind11_abseil/absl_casters.h"    // IWYU pragma: keep

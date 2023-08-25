@@ -14,10 +14,10 @@
 
 #include "saxml/client/cc/sax.h"
 
-#include "net/proto2/contrib/parse_proto/parse_text_proto.h"
-#include "gmock/gmock.h"
+#include <string>
+#include <vector>
+
 #include "gtest/gtest.h"
-#include "absl/strings/str_format.h"
 #include "saxml/common/platform/env.h"
 #include "saxml/protobuf/common.pb.h"
 
@@ -28,9 +28,6 @@ namespace {
 using AMAsrHyp = AudioModel::AsrHyp;
 using LMScoredText = LanguageModel::ScoredText;
 using VMScoredText = VisionModel::ScoredText;
-using ::proto2::contrib::parse_proto::ParseTextProtoOrDie;
-using ::testing::Eq;
-using ::testing::EqualsProto;
 
 TEST(InvalidFormatSaxModel, ReturnsErrors) {
   // Check the Sax Go client can correctly initialize its platform environment.
@@ -42,63 +39,74 @@ TEST(InvalidFormatSaxModel, ReturnsErrors) {
 
 TEST(TestToProto, Valid) {
   const float kTemp = 0.1;
-  const float kDecodeSteps = 32;
+  const float kSteps = 32;
   const float kTopK = 10;
 
   ModelOptions options;
   options.SetExtraInput("temperature", kTemp);
-  options.SetExtraInput("per_example_max_decode_steps", kDecodeSteps);
+  options.SetExtraInput("per_example_max_decode_steps", kSteps);
   options.SetExtraInput("per_example_top_k", kTopK);
 
   ExtraInputs result;
   options.ToProto(&result);
 
-  ExtraInputs expected = ParseTextProtoOrDie(
-      absl::StrFormat(R"pb(
-                        items { key: "temperature" value: %f }
-                        items { key: "per_example_max_decode_steps" value: %f }
-                        items { key: "per_example_top_k" value: %f }
-                      )pb",
-                      kTemp, kDecodeSteps, kTopK));
-
-  EXPECT_THAT(result, EqualsProto(expected));
+  EXPECT_FLOAT_EQ(result.items().at("temperature"), kTemp);
+  EXPECT_FLOAT_EQ(result.items().at("per_example_max_decode_steps"), kSteps);
+  EXPECT_FLOAT_EQ(result.items().at("per_example_top_k"), kTopK);
 }
 
-TEST(TestFromProtoToProto, Valid) {
-  ExtraInputs expected = ParseTextProtoOrDie(R"pb(
-    items { key: "temperature" value: 0.9 }
-    items { key: "per_example_max_decode_steps" value: 256 }
-    items { key: "per_example_top_k" value: 0 }
-    tensors {
-      key: "prompt_embeddings"
-      value: { values: 0.1 values: 0.2 }
-    }
-  )pb");
+TEST(TestFromProto, Valid) {
+  const float kTemp = 0.1;
+  const float kSteps = 32;
+  const float kTopK = 10;
+  const float kVal0 = 0.1;
+  const float kVal1 = 0.2;
+  const std::string kStr = "match";
+
+  ExtraInputs expected;
+  expected.mutable_items()->insert({"temperature", kTemp});
+  expected.mutable_items()->insert({"per_example_max_decode_steps", kSteps});
+  expected.mutable_items()->insert({"per_example_top_k", kTopK});
+  Tensor tensor;
+  tensor.mutable_values()->Add(kVal0);
+  tensor.mutable_values()->Add(kVal1);
+  expected.mutable_tensors()->insert({"prompt_embeddings", tensor});
+  expected.mutable_strings()->insert({"regex", kStr});
 
   ModelOptions options;
   options.FromProto(expected);
 
-  ExtraInputs result;
-  options.ToProto(&result);
-  EXPECT_THAT(result, EqualsProto(expected));
+  EXPECT_FLOAT_EQ(options.GetExtraInput("temperature"), kTemp);
+  EXPECT_FLOAT_EQ(options.GetExtraInput("per_example_max_decode_steps"),
+                  kSteps);
+  EXPECT_FLOAT_EQ(options.GetExtraInput("per_example_top_k"), kTopK);
+  std::vector<float> values = options.GetExtraInputTensor("prompt_embeddings");
+  EXPECT_FLOAT_EQ(values[0], kVal0);
+  EXPECT_FLOAT_EQ(values[1], kVal1);
+  EXPECT_EQ(options.GetExtraInputString("regex"), kStr);
 }
 
 TEST(SaxModelOptions, Copy) {
+  const float kTemp = 0.1;
+  const float kSteps = 32;
+  const float kTopK = 10;
+  const int kTimeout = 17;
+
   ModelOptions options;
-  options.SetExtraInput("temperature", 0.1);
-  options.SetExtraInput("per_example_max_decode_steps", 32);
-  options.SetExtraInput("per_example_top_k", 10);
-  options.SetTimeout(17);
+  options.SetExtraInput("temperature", kTemp);
+  options.SetExtraInput("per_example_max_decode_steps", kSteps);
+  options.SetExtraInput("per_example_top_k", kTopK);
+  options.SetTimeout(kTimeout);
 
   ModelOptions other_options(options);
+  ExtraInputs other_options_proto;
+  other_options.ToProto(&other_options_proto);
 
-  ExtraInputs proto_options;
-  ExtraInputs proto_other_options;
-  options.ToProto(&proto_options);
-  other_options.ToProto(&proto_other_options);
-
-  EXPECT_THAT(proto_other_options, EqualsProto(proto_options));
-  EXPECT_THAT(other_options.GetTimeout(), Eq(options.GetTimeout()));
+  EXPECT_FLOAT_EQ(other_options_proto.items().at("temperature"), kTemp);
+  EXPECT_FLOAT_EQ(
+      other_options_proto.items().at("per_example_max_decode_steps"), kSteps);
+  EXPECT_FLOAT_EQ(other_options_proto.items().at("per_example_top_k"), kTopK);
+  EXPECT_EQ(other_options.GetTimeout(), kTimeout);
 }
 
 }  // namespace

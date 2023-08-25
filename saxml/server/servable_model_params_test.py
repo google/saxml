@@ -13,11 +13,11 @@
 # limitations under the License.
 """Tests for servable_model_params."""
 
+from absl.testing import absltest
 from saxml.server import servable_model_params
-from google3.testing.pybase import googletest
 
 
-class ServableModelParamsTest(googletest.TestCase):
+class ServableModelParamsTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -54,4 +54,4 @@ class ServableModelParamsTest(googletest.TestCase):
 
 
 if __name__ == "__main__":
-  googletest.main()
+  absltest.main()

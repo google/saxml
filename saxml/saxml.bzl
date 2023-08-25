@@ -28,6 +28,7 @@ def proto_library(
         name,
         srcs = [],
         has_services = None,  # @unused
+        use_java_stubby_library = None,  # @unused
         deps = [],
         **kwargs):
     _proto_library(name = name, srcs = srcs, deps = deps, **kwargs)

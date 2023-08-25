@@ -1,12 +1,9 @@
 load("//saxml:saxml.bzl", "pybind_extension", "pybind_library")
 
-# This is the public python SAX client library to link / use.
+# This is the public Python Sax client library to link/use.
 pybind_extension(
     name = "sax",
     srcs = ["sax.cc"],
-    py_deps = [
-        "//saxml/protobuf:multimodal_py_pb2",
-    ],
     visibility = ["//visibility:public"],
     deps = [
         ":wrapper",

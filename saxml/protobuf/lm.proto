@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This API is experimental and under-development.
+// This API is experimental and under development.
 
 syntax = "proto3";
 
@@ -20,7 +20,7 @@ package sax.server.lm;
 
 import "saxml/protobuf/common.proto";
 
-option use_java_stubby_library = true;
+// unused internal Java option
 
 // Usage:
 //

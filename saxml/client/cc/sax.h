@@ -25,7 +25,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "saxml/protobuf/common.pb.h"
-#include "saxml/protobuf/multimodal.proto.h"
+#include "saxml/protobuf/multimodal.pb.h"
 
 namespace sax {
 namespace client {
@@ -52,13 +52,17 @@ class ModelOptions {
   float GetTimeout() const;
 
   void SetExtraInput(absl::string_view key, float value);
+  float GetExtraInput(absl::string_view key) const;
+
   void SetExtraInputTensor(
     absl::string_view key, const std::vector<float>& value);
+  std::vector<float> GetExtraInputTensor(absl::string_view key) const;
+
   void SetExtraInputString(
     absl::string_view key, std::string value);
-  // Set extra input, extra input tensors, and extra input strings from proto.
-  void FromProto(const ::sax::ExtraInputs& proto);
+  std::string GetExtraInputString(absl::string_view key) const;
 
+  void FromProto(const ::sax::ExtraInputs& proto);
   void ToProto(::sax::ExtraInputs* proto) const;
 
  private:

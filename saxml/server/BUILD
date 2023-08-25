@@ -87,8 +87,7 @@ py_strict_test(
     srcs = ["servable_model_params_test.py"],
     deps = [
         ":servable_model_params",
-        "//testing/pybase",
-        "//third_party/py/mock",
+        "//third_party/py/absl-py/testing:absltest",
     ],
 )
 
