@@ -52,20 +52,33 @@ func TestWatch(t *testing.T) {
 	fname := "foo"
 	path := filepath.Join(dir, fname)
 
+	// Faster watch updates but still long enough for the file modification to finish.
 	cloud.SetOptionsForTesting(200 * time.Millisecond)
 
-	if err := env.Get().WriteFile(ctx, path, nil); err != nil {
+	// Write an empty file.
+	has := []byte("")
+	if err := env.Get().WriteFile(ctx, path, has); err != nil {
 		t.Fatalf("WriteFile got error %v, expect no error", err)
 	}
+
+	// Start a watching channel. The first read should be empty.
 	ch, err := env.Get().Watch(ctx, path)
 	if err != nil {
 		t.Fatalf("Watch got error %v, expect no error", err)
 	}
-	has := []byte("bar")
+	got := <-ch
+	if !bytes.Equal(got, has) {
+		t.Errorf("Watch got %v, expect %v", got, has)
+	}
+
+	// Modify the file.
+	has = []byte("bar")
 	if err := env.Get().WriteFile(ctx, path, has); err != nil {
 		t.Fatalf("WriteFile got error %v, expect no error", err)
 	}
-	got := <-ch
+
+	// The next read should have the file update.
+	got = <-ch
 	if !bytes.Equal(got, has) {
 		t.Errorf("Watch got %v, expect %v", got, has)
 	}
