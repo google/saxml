@@ -116,7 +116,6 @@ def deserialize_pjitted_function(
     mc = jax.interpreters.pxla.MeshComputation(
         'step_fn',
         serialized.ir,
-        False,
         (False,) * num_ins,
         in_shardings=in_shardings,
         out_shardings=(rep_sharding,) * num_outs,
