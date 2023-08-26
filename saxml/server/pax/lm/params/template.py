@@ -310,6 +310,10 @@ class ServingTemplate(
         extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
     )
 
+  def lpb_params_setter(self, lm_tpl: LayerTpl) -> None:
+    """Set lazy prefix broadcast params. Allow subclasses to override."""
+    set_lazy_prefix_broadcast_params(lm_tpl)
+
 
 class ServingWithGradientTemplate(ServingTemplate):
   """Template servable config with gradient method."""
@@ -434,16 +438,18 @@ def make_servable(servable_class=ServingTemplate):
         if decode_params is not None:
           if decode_params.decoder.lazy_prefix_broadcast:
             assert (
-                (hasattr(decode_params.decoder, 'num_samples') and
-                 decode_params.decoder.num_samples > 1) or
-                (isinstance(decode_params.decoder,
-                            decoder_hparams.BeamSearchHParams) and
-                 decode_params.decoder.beam_size > 1)
+                hasattr(decode_params.decoder, 'num_samples')
+                and decode_params.decoder.num_samples > 1
+            ) or (
+                isinstance(
+                    decode_params.decoder, decoder_hparams.BeamSearchHParams
+                )
+                and decode_params.decoder.beam_size > 1
             )  # pytype: disable=attribute-error
             lazy_prefix_broadcast = True
 
         if lazy_prefix_broadcast:
-          set_lazy_prefix_broadcast_params(task_p.model.lm_tpl)  # pytype: disable=attribute-error  # enable-nested-classes
+          self.lpb_params_setter(task_p.model.lm_tpl)  # pytype: disable=attribute-error  # enable-nested-classes
         return task_p
 
     return Wrapped
