@@ -72,3 +72,22 @@ pytype_strict_library(
         "//third_party/py/paxml/tasks/lm/params",
     ],
 )
+
+pytype_strict_library(
+    name = "gptj",
+    srcs = ["gptj.py"],
+    deps = [
+        ":template",
+        "//saxml/server:servable_model_registry",
+        "//saxml/server/pax/lm:layers",
+        "//third_party/py/jax",
+        "//third_party/py/paxml:base_experiment",
+        "//third_party/py/paxml:tasks_lib",
+        "//third_party/py/praxis:base_input",
+        "//third_party/py/praxis:optimizers",
+        "//third_party/py/praxis:pax_fiddle",
+        "//third_party/py/praxis:schedules",
+        "//third_party/py/praxis/layers",
+        "//third_party/py/praxis/layers:activations",
+    ],
+)

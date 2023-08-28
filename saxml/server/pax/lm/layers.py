@@ -265,3 +265,80 @@ class ParallelTransformerOnlyNormAttentionInputs(ParallelTransformer):
     else:
       ffn_inputs = inputs_normalized
     return ffn_inputs
+
+
+class GPTJRotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
+  """GPTJ variant of ROPE where rotary_dim != dim_per_head."""
+
+  max_position_embeddings: Optional[int] = None
+  rotary_dim: Optional[int] = None
+
+  def setup(self) -> None:
+    super().setup()
+    self.embed_positions = self.create_sinusoidal_positions(
+        self.max_position_embeddings, self.rotary_dim
+    )
+
+  def create_sinusoidal_positions(self, num_pos, dim):
+    inv_freq = 1.0 / (10000 ** (jnp.arange(0, dim, 2) / dim))
+    sinusoid_inp = jnp.einsum(
+        'i , j -> i j', jnp.arange(num_pos), inv_freq
+    ).astype('float32')
+    sin, cos = jnp.sin(sinusoid_inp), jnp.cos(sinusoid_inp)
+    return jnp.concatenate((sin, cos), axis=-1)
+
+  def rotate_every_two(self, tensor):
+    rotate_half_tensor = jnp.stack(
+        (-tensor[:, :, :, 1::2], tensor[:, :, :, ::2]), axis=-1
+    )
+    rotate_half_tensor = rotate_half_tensor.reshape(
+        rotate_half_tensor.shape[:-2] + (-1,)
+    )
+    return rotate_half_tensor
+
+  def apply_rotary_pos_emb(self, tensor, sin_pos, cos_pos):
+    sin_pos = sin_pos[:, :, None, :].repeat(2, 3)
+    cos_pos = cos_pos[:, :, None, :].repeat(2, 3)
+    return (tensor * cos_pos) + (self.rotate_every_two(tensor) * sin_pos)
+
+  def __call__(
+      self,  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
+      inputs: JTensor,
+      position: Optional[JTensor] = None,
+  ) -> JTensor:
+    """Generates a JTensor of sinusoids with different frequencies.
+
+    Args:
+      inputs: The input sequence on which to apply the Rotary position
+        embedding. Since rotary position embeddings are applied to query and
+        keys after projection, it is assumed of shape [B, S, N, H].
+      position: Optional position JTensor which denotes the position of each
+        token in the sequence. This only needs to be supplied when the sequence
+        is packed. It is of shape [B, S].
+
+    Returns:
+      a JTensor of shape [B, S, N, H] which includes the inputs together with
+      the rotary position embedding incorporated in it.
+    """
+    if len(inputs.shape) != 4:
+      raise ValueError(
+          'Input is assumed to be a rank 4 tensor of shape'
+          '[batch, sequence, heads, dims].'
+      )
+
+    if position is None:
+      seq_length = inputs.shape[1]
+      position = jnp.arange(seq_length, dtype=jnp.int32)[jnp.newaxis, :]
+
+    sincos = jnp.take(self.embed_positions, position, axis=0)
+    sincos = jnp.split(sincos, 2, axis=-1)
+    sin, cos = sincos
+    inp_rot = inputs[:, :, :, : self.rotary_dim]
+    inp_pass = inputs[:, :, :, self.rotary_dim :]
+    inp_rot = self.apply_rotary_pos_emb(inp_rot, sin, cos)
+    first_part = inp_rot
+    second_part = inp_pass
+    if self.cast_as_fprop_dtype:
+      first_part = first_part.astype(self.fprop_dtype)
+      second_part = second_part.astype(self.fprop_dtype)
+    return jnp.concatenate([first_part, second_part], axis=-1)
