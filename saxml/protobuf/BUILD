@@ -445,12 +445,6 @@ go_grpc_library(
     deps = [":multimodal_go_proto"],
 )
 
-java_proto_library(
-    name = "multimodal_java_proto",
-    visibility = ["//visibility:public"],
-    deps = [":multimodal_proto"],
-)
-
 proto_library(
     name = "internal_proto",
     srcs = ["internal.proto"],
