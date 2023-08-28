@@ -13,7 +13,8 @@
 # limitations under the License.
 """Serving template params."""
 
-from typing import cast, Dict, Optional, Sequence, Type
+import functools
+from typing import Dict, Optional, Sequence, Type, cast
 
 import numpy as np
 from paxml import base_task
@@ -29,6 +30,7 @@ from praxis.layers import transformers
 from saxml.server import servable_model_registry
 from saxml.server.pax.lm import lm_tokenizer
 from saxml.server.pax.lm import servable_lm_model
+
 
 LayerTpl = pax_fiddle.Config[base_layer.BaseLayer]
 
@@ -403,6 +405,9 @@ def make_servable(servable_class=ServingTemplate):
     # pax_exp_class comes before servable_class so that overrides in
     # pax_exp_class are used.
 
+    # "wraps" only unhides the module-class path, assign () to "updated" to
+    # leave the attributes (items in "__dict__") intact.
+    @functools.wraps(pax_exp_class, updated=())
     class Wrapped(pax_exp_class, servable_class):
       """A wrapper that uses the template and overrides some common LM configs."""
 
