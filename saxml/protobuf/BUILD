@@ -256,7 +256,7 @@ py_proto_library(
     name = "lm_py_pb2",
     api_version = 2,
     extra_deps = [":common_py_pb2"],
-    visibility = ["//saxml/protobuf:sax_rpc_visibility"],
+    visibility = ["//visibility:public"],
     deps = [":lm_proto"],
 )
 
