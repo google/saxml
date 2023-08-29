@@ -56,6 +56,8 @@ def for_transformer(
     quantize_ngrammer_embedding: bool = False,
     dtype: jnp.dtype = jnp.int8,
     block_size: int = 0,
+    use_int4_packed_weights: bool = True,
+    int4_packed_weights_container_dtype: jnp.dtype = jnp.int32,
 ):
   """Find and quantize transformer.
 
@@ -84,6 +86,11 @@ def for_transformer(
       Ngrammer/VQNgrammer layer.
     dtype: Dtype of the quantized variables.
     block_size: Block size for sub-channel quantization. Defaults to off.
+    use_int4_packed_weights: If True, pack/unpack int4 weights into int32 or
+      int8. It is for int4 weights only and has not effect on other type. If
+      False int4 weights will be kept in int8.
+    int4_packed_weights_container_dtype: Container type for int4 weights: int32
+      to pack 8 int4s, or int8 to pack 2 int4s.
 
   Returns:
     a modifier that quantizes transformers when applied to a config.
@@ -123,6 +130,8 @@ def for_transformer(
             quantize_ngrammer_embedding=quantize_ngrammer_embedding,
             dtype=dtype,
             block_size=block_size,
+            use_int4_packed_weights=use_int4_packed_weights,
+            int4_packed_weights_container_dtype=int4_packed_weights_container_dtype,
         )
         return task_p
 
