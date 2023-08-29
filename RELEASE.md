@@ -1,3 +1,9 @@
+# Release 1.0.0
+
+## Major Features and Improvements
+
+*   Open-source models: LLaMA and GPT-J.
+
 # Release 0.2.2
 
 ## Bug Fixes
