@@ -103,7 +103,10 @@ func randomSelectAddress(address []string) string {
 }
 
 // ListCmd is the command for List.
-type ListCmd struct{}
+type ListCmd struct {
+	modelDetails bool
+	methodAcls   bool
+}
 
 // Name returns the name of ListCmd.
 func (*ListCmd) Name() string { return "ls" }
@@ -118,8 +121,16 @@ func (*ListCmd) Usage() string {
 `
 }
 
+const (
+	detailsFlag = "details"
+	aclsFlag    = "acls"
+)
+
 // SetFlags sets flags for ListCmd.
-func (c *ListCmd) SetFlags(f *flag.FlagSet) {}
+func (c *ListCmd) SetFlags(f *flag.FlagSet) {
+	f.BoolVar(&c.modelDetails, detailsFlag, true, "Show details about the model.")
+	f.BoolVar(&c.methodAcls, aclsFlag, true, "Show method ACLs of the model.")
+}
 
 func (c *ListCmd) handleSax(ctx context.Context) subcommands.ExitStatus {
 	cells, err := cell.ListAll(ctx)
@@ -157,6 +168,11 @@ func (c *ListCmd) handleSaxCell(ctx context.Context, cellFullName naming.CellFul
 }
 
 func (c *ListCmd) handleSaxModel(ctx context.Context, modelFullName naming.ModelFullName) subcommands.ExitStatus {
+	if !c.modelDetails && !c.methodAcls {
+		log.Errorf("You need to specify one of --%v or --%v for this command to print anything!", detailsFlag, aclsFlag)
+		return subcommands.ExitFailure
+	}
+
 	admin := saxadmin.Open(modelFullName.CellFullName())
 
 	publishedModel, err := admin.List(ctx, modelFullName.ModelFullName())
@@ -167,25 +183,30 @@ func (c *ListCmd) handleSaxModel(ctx context.Context, modelFullName naming.Model
 	model := publishedModel.GetModel()
 
 	// Print out list results in tables.
-	// Extra logic: display one random address if there are multiple.
-	randomSelectedAddress := randomSelectAddress(publishedModel.GetModeletAddresses())
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Model", "Model Path", "Checkpoint Path", "# of Replicas", "(Selected) ReplicaAddress"})
-	table.Append([]string{modelFullName.ModelName(), model.GetModelPath(), model.GetCheckpointPath(), strconv.Itoa(len(publishedModel.GetModeletAddresses())), randomSelectedAddress})
-	table.Render()
+	if c.modelDetails {
+		// Extra logic: display one random address if there are multiple.
+		randomSelectedAddress := randomSelectAddress(publishedModel.GetModeletAddresses())
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader([]string{"Model", "Model Path", "Checkpoint Path", "# of Replicas", "(Selected) ReplicaAddress"})
+		table.Append([]string{modelFullName.ModelName(), model.GetModelPath(), model.GetCheckpointPath(), strconv.Itoa(len(publishedModel.GetModeletAddresses())), randomSelectedAddress})
+		table.Render()
+	}
 
-	table = tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Method", "ACL"})
-	aclItems := model.GetAcls().GetItems()
-	methods := make([]string, 0, len(aclItems))
-	for method := range model.GetAcls().GetItems() {
-		methods = append(methods, method)
+	if c.methodAcls {
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader([]string{"Method", "ACL"})
+		aclItems := model.GetAcls().GetItems()
+		methods := make([]string, 0, len(aclItems))
+		for method := range model.GetAcls().GetItems() {
+			methods = append(methods, method)
+		}
+		sort.Strings(methods)
+		for _, method := range methods {
+			table.Append([]string{method, aclItems[method]})
+		}
+		table.Render()
 	}
-	sort.Strings(methods)
-	for _, method := range methods {
-		table.Append([]string{method, aclItems[method]})
-	}
-	table.Render()
+
 	return subcommands.ExitSuccess
 }
 
