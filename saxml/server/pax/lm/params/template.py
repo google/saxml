@@ -63,7 +63,8 @@ class CommonServingTemplate:
   SCORE_ONLY = False
   GENERATE_ONLY = False
   SPM_MODEL = None
-  TOKENIZED = False  # When the input and output are in tokens instead of text
+  TOKENIZED_INPUT = False  # When the input are in tokens instead of texts.
+  TOKENIZED_OUTPUT = False  # Output tokens instead of texts.
   PREPEND_SOS = True
   EOS_PADDING_AND_NO_SOS = False
   SOS_ID = 0
@@ -138,7 +139,8 @@ class ServingTemplate(
         target_sos_id=self.SOS_ID,
         target_eos_id=self.EOS_ID,
         slice_left=self.SLICE_LEFT,
-        tokenized=self.TOKENIZED,
+        tokenized_input=self.TOKENIZED_INPUT,
+        tokenized_output=self.TOKENIZED_OUTPUT,
         prepend_sos=self.PREPEND_SOS,
         eos_padding_and_no_sos=self.EOS_PADDING_AND_NO_SOS,
     )

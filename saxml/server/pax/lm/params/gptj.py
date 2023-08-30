@@ -179,7 +179,8 @@ class GPTJ(base_experiment.BaseExperiment):
 class GPTJ4TokenizedBF16BS32(GPTJ):
   """GPTJ Transformer LM tokenized configuration."""
 
-  TOKENIZED = True
+  TOKENIZED_INPUT = True
+  TOKENIZED_OUTPUT = True
   ICI_MESH_SHAPE = [1, 1, 4]
   BATCH_SIZE = 32
   FPROP_DTYPE = jnp.bfloat16

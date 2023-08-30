@@ -65,7 +65,8 @@ def _CreateTokenizedParams():
       ),
       target_sos_id=0,
       target_eos_id=50256,
-      tokenized=True,
+      tokenized_input=True,
+      tokenized_output=True,
       eos_padding_and_no_sos=True,
   )
   return p

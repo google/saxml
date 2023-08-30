@@ -432,7 +432,7 @@ class LMScoreMethod(ServableLMMethod):
     # TODO(b/289379065): Remove this workaround here.
     if (
         isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
-        and self._tokenizer.tokenized
+        and self._tokenizer.tokenized_input
     ):
       dummy_input_sample = ('1', ['1'])
     logging.info('Using np_tf_sess_wrapper on LMScoreMethod.tf_pre_processing')
@@ -607,7 +607,7 @@ class LMDecodeMethod(ServableLMMethod):
     # TODO(b/289379065): Remove this workaround here.
     if (
         isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
-        and self._tokenizer.tokenized
+        and self._tokenizer.tokenized_input
     ):
       dummy_input_sample = '1'
     if isinstance(method_hparams, DecodeHParams):
@@ -925,7 +925,7 @@ class TextToEmbedding(servable_model.ServableMethod):
     # TODO(b/289379065): Remove this workaround here.
     if (
         isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
-        and self._tokenizer.tokenized
+        and self._tokenizer.tokenized_input
     ):
       dummy_input_sample = '1'
     self._tf_sess_pre_processing = np_tf_sess_wrapper.wrap_tf_session(
@@ -1044,7 +1044,7 @@ class LMGradientMethod(ServableLMMethod):
     # TODO(b/289379065): Remove this workaround here.
     if (
         isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
-        and self._tokenizer.tokenized
+        and self._tokenizer.tokenized_input
     ):
       dummy_input_sample = ('1', '1')
     logging.info(

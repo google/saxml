@@ -41,6 +41,9 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       streaming decoding step to prevent the leading whitespace from being
       removed by sentencepiece; after decoding the step, it will be removed from
       the string result. It must be a regular token in the vocabulary.
+    tokenized_input: Whether to skip the input tokenization. This is useful
+      when the input are in tokens instead of texts
+    tokenized_output: Output tokens instead of texts.
     eos_padding_and_no_sos: Do not use EOS or SOS for id or label, and use EOS
       for padding. This is a special tokenization specific to GPTJ MLPerf
       inference implementation. Only used when tokenized=True.
@@ -53,7 +56,8 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
   target_eos_id: int = 1
   slice_left: bool = True
   streaming_whitespace_preserving_prefix: str = 'a'
-  tokenized: bool = False
+  tokenized_input: bool = False
+  tokenized_output: bool = False
   eos_padding_and_no_sos: bool = False
 
   _vocab: seqio.SentencePieceVocabulary = dataclasses.field(
@@ -132,12 +136,12 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     assert p.spm_model
     assert max_length is not None
 
-    if p.tokenized and p.eos_padding_and_no_sos:
+    if p.tokenized_input and p.eos_padding_and_no_sos:
       return self.StringsToIdsTokenized(strs, max_length)
 
     batch = tf.shape(strs)[0]
     # labels is a ragged Tensor.
-    if p.tokenized:
+    if p.tokenized_input:
       # `strs` may contain empty string elements. This happens either when
       # the user explicitly sends them to indicate empty inputs, or when
       # dummy inputs defined with empty strings are given to the model.
@@ -160,7 +164,8 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
 
     if p.prepend_sos:
       sos_ids = tf.fill(
-          [batch, 1], tf.constant(p.target_sos_id, dtype=tf.int32))
+          [batch, 1], tf.constant(p.target_sos_id, dtype=tf.int32)
+      )
       ids = tf.concat([sos_ids, labels], axis=1)
     else:
       ids = tf.identity(labels)
@@ -224,7 +229,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     """
     p = self.hparams
 
-    if p.tokenized:
+    if p.tokenized_output:
       ids_as_string = tf.strings.as_string(ids)
       reduced_ids_as_string = tf.strings.reduce_join(
           ids_as_string, separator=',', axis=-1
