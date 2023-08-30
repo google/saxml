@@ -14,7 +14,7 @@
 """A single model with multiple service APIs."""
 
 import abc
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from absl import logging
 import jax
@@ -42,6 +42,8 @@ class UnionModelParams(
   model in `children()` will be used to create the PAX model and states.
   """
 
+  overrides: Dict[str, Any] = {}
+
   @classmethod
   @abc.abstractmethod
   def children(cls) -> Sequence[servable_model_params.ServableModelParamsT]:
@@ -66,6 +68,10 @@ class UnionModelParams(
 
   def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     raise NotImplementedError('should not be called')
+
+  def apply_model_overrides(self, overrides: Dict[str, Any]) -> None:
+    """Delays the model overrides until child creation."""
+    self.overrides = overrides
 
 
 class UnionModel(servable_model.ServableModel):
@@ -92,12 +98,11 @@ class UnionModel(servable_model.ServableModel):
     children = union_config.children()
     if not children:
       raise ValueError('No children in UnionModelParams')
-    prng_key, init_key = jax.random.split(prng_key)
-    # pytype: disable=not-instantiable
-    self._models = [
-        child().create_model(self.primary_process_id) for child in children
-    ]
-    # pytype: enable=not-instantiable
+    self._models = []
+    for child in children:
+      child_inst = child()
+      child_inst.apply_model_overrides(union_config.overrides)
+      self._models.append(child_inst.create_model(self.primary_process_id))
     prng_key, init_key = jax.random.split(prng_key)
     pax_model, model_state = self._models[0].load_state(
         checkpoint_path, init_key, precompile
