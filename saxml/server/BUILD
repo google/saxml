@@ -13,6 +13,12 @@ package(
 
 licenses(["notice"])
 
+# NOTE In most cases, if you find that you need to add a package to
+# :friends here, you should first consider creating a sub-directory in
+# learning/multipod/sax/server/{lm,audio,...}, adds an OWNERS file
+# listing your team. Your model params and implementation should be in
+# that directory. If the above suggestion is not actionable for you,
+# please schedule a meeting talking to zhifengc@.
 package_group(name = "friends")
 
 bzl_library(
