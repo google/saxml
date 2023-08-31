@@ -81,7 +81,8 @@ class ModelOptions {
   std::map<std::string, std::string> kv_s_;
   float timeout_ = -1;  // Query timeout. Negative value means no timeout.
 
-  QueryCost* query_cost_;  // Cost of the query. Pointer is not owned.
+  // Cost of the query. Pointer is not owned.
+  QueryCost* query_cost_ = nullptr;
 };
 
 // AudioModel provides common audio model API against a given model in
