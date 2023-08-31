@@ -18,7 +18,9 @@ import (
 	"context"
 	"io"
 
+	log "github.com/golang/glog"
 	"google.golang.org/grpc"
+	"google3/third_party/golang/grpc/metadata/metadata"
 	"saxml/common/retrier"
 
 	pb "saxml/protobuf/lm_go_proto_grpc"
@@ -43,13 +45,17 @@ func (l *LanguageModel) Score(ctx context.Context, prefix string, suffix []strin
 	}
 
 	var resp *pb.ScoreResponse
+	var trailer metadata.MD
 	err := l.model.run(ctx, "Score", func(conn *grpc.ClientConn) error {
 		var scoreErr error
-		resp, scoreErr = pbgrpc.NewLMServiceClient(conn).Score(ctx, req)
+		resp, scoreErr = pbgrpc.NewLMServiceClient(conn).Score(ctx, req, grpc.Trailer(&trailer))
 		return scoreErr
 	})
 	if err != nil {
 		return []float64{0.0}, err
+	}
+	if err := opts.ExtractQueryCost(&trailer); err != nil {
+		return nil, err
 	}
 
 	logP := resp.GetLogp()
@@ -81,13 +87,17 @@ func (l *LanguageModel) Generate(ctx context.Context, text string, options ...Mo
 	}
 
 	var resp *pb.GenerateResponse
+	var trailer metadata.MD
 	err := l.model.run(ctx, "generate", func(conn *grpc.ClientConn) error {
 		var sampleErr error
-		resp, sampleErr = pbgrpc.NewLMServiceClient(conn).Generate(ctx, req)
+		resp, sampleErr = pbgrpc.NewLMServiceClient(conn).Generate(ctx, req, grpc.Trailer(&trailer))
 		return sampleErr
 	})
 	if err != nil {
 		return nil, err
+	}
+	if err := opts.ExtractQueryCost(&trailer); err != nil {
+		log.Errorf("ExtractQueryCost: %v", err)
 	}
 	res := extractGenerateResponse(resp)
 	return res, nil
@@ -151,19 +161,24 @@ func extractGenerateStreamResponse(res *pb.GenerateStreamResponse) []GenerateStr
 //			}
 //		}
 func (l *LanguageModel) GenerateStream(ctx context.Context, text string, options ...ModelOptionSetter) chan StreamResult {
+	opts := NewModelOptions(options...)
 	req := &pb.GenerateRequest{
 		ModelKey:    l.model.modelID,
 		Text:        text,
-		ExtraInputs: NewModelOptions(options...).ExtraInputs(),
+		ExtraInputs: opts.ExtraInputs(),
 	}
 
 	res := make(chan StreamResult)
 	go func() {
+		var trailer metadata.MD
 		err := l.model.run(ctx, "generateStream", func(conn *grpc.ClientConn) error {
 			client := pbgrpc.NewLMServiceClient(conn)
-			stream, err := client.GenerateStream(ctx, req)
+			stream, err := client.GenerateStream(ctx, req, grpc.Trailer(&trailer))
 			if err != nil {
 				return err
+			}
+			if err := opts.ExtractQueryCost(&trailer); err != nil {
+				log.Errorf("ExtractQueryCost: %v", err)
 			}
 			// If the model doesn't exist or is being loaded on the model server, the GenerateStream call
 			// above doesn't return any error. Instead, the first Recv call below returns a NotFound
@@ -213,12 +228,16 @@ func (l *LanguageModel) Embed(ctx context.Context, text string, options ...Model
 	}
 
 	var resp *pb.EmbedResponse
+	var trailer metadata.MD
 	err := l.model.run(ctx, "Embed", func(conn *grpc.ClientConn) error {
 		var embErr error
-		resp, embErr = pbgrpc.NewLMServiceClient(conn).Embed(ctx, req)
+		resp, embErr = pbgrpc.NewLMServiceClient(conn).Embed(ctx, req, grpc.Trailer(&trailer))
 		return embErr
 	})
 	if err != nil {
+		return nil, err
+	}
+	if err := opts.ExtractQueryCost(&trailer); err != nil {
 		return nil, err
 	}
 	return resp.GetEmbedding(), nil
@@ -235,12 +254,16 @@ func (l *LanguageModel) Gradient(ctx context.Context, prefix string, suffix stri
 	}
 
 	var resp *pb.GradientResponse
+	var trailer metadata.MD
 	err := l.model.run(ctx, "Gradient", func(conn *grpc.ClientConn) error {
 		var gradientErr error
-		resp, gradientErr = pbgrpc.NewLMServiceClient(conn).Gradient(ctx, req)
+		resp, gradientErr = pbgrpc.NewLMServiceClient(conn).Gradient(ctx, req, grpc.Trailer(&trailer))
 		return gradientErr
 	})
 	if err != nil {
+		return nil, nil, err
+	}
+	if err := opts.ExtractQueryCost(&trailer); err != nil {
 		return nil, nil, err
 	}
 

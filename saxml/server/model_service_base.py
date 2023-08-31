@@ -384,10 +384,10 @@ class PerMethodBatcher:
     tc = utils.get_current_trace_printer()
     tc(f'Add item {key}')
 
-    def done(status, *args):
+    def done(status, *args, **kwargs):
       """Helper to run the done callback if it's not None."""
       if optional_done:
-        optional_done(status, *args)
+        optional_done(status, *args, **kwargs)
       if method is not None:
         if status.ok():
           method.ok_stats.add(time.time() - start_ts)
@@ -428,8 +428,8 @@ class PerMethodBatcher:
           utils.resource_exhausted(f'Too many requests: {key} {method.limit()}')
       )
 
-    def _done(status: utils.Status, *args):
-      done(status, *args)
+    def _done(status: utils.Status, *args, **kwargs):
+      done(status, *args, **kwargs)
       method.admissioner.release()
 
     method.queue.send(rpc, req, resp, _done, tc)
@@ -677,7 +677,9 @@ class ModelServiceGRPC(ModelService):
     loop = asyncio.get_running_loop()
     fut = loop.create_future()
 
-    def _done(status: utils.Status):
+    def _done(status: utils.Status, query_cost: Optional[int] = None):
+      if query_cost:
+        context.set_trailing_metadata([('query_cost_v0', str(query_cost))])
       if not status.ok():
         context.set_code(status.code)
         context.set_details(status.details)
@@ -1151,6 +1153,7 @@ class ModelServicesRunner:
         platform_chip=platform_chip,
         platform_topology=platform_topology,
     )
+    self._platform_topology = platform_topology
     all_grpc_services = [self._modelet_service]
     service_names = [
         modelet_pb2.DESCRIPTOR.services_by_name['Modelet'].full_name,
@@ -1409,9 +1412,15 @@ class ModelServicesRunner:
           utils.traceprint_all(
               batch.rpc_tasks, f'in _postprocess_async: {batch.method}'
           )
+          start_ts = time.time()
           host_tensors = method_obj.output_to_host(
               out_tensors_container[0], len(batch.rpc_tasks)
           )
+          tpu_ms_per_chip = int(1000 * (time.time() - start_ts))
+          chips_count = (
+              proto_util.count_physical_chips(self._platform_topology) or 1
+          )
+          tpu_ms = (tpu_ms_per_chip * chips_count) // len(batch.rpc_tasks)
           # Free device tensors.
           del out_tensors_container[0]
           utils.traceprint_all(
@@ -1421,7 +1430,7 @@ class ModelServicesRunner:
             # No more result for streaming.
             if streaming_done is not None:
               for task in batch.rpc_tasks:
-                task.done(utils.ok())
+                task.done(utils.ok(), query_cost=tpu_ms)
               return
             # TODO(zhifengc): Might make more sense to split this phase into
             # two. One calls output_to_host and the other calls post_processing.
@@ -1433,7 +1442,7 @@ class ModelServicesRunner:
               self._model_services[batch.method.service_id].FillRPCResponse(
                   batch.method.name, out, task.response
               )
-              task.done(utils.ok())
+              task.done(utils.ok(), query_cost=tpu_ms)
               done_rpcs += 1
         except Exception as e:  # pylint: disable=broad-except
           if not pre_process_failure:
@@ -1477,16 +1486,18 @@ class ModelServicesRunner:
         if batch.input_tensors is not None:
           done_rpcs = 0
           try:
+            start_ts = time.time()
             outputs, stream_state = method_obj.post_processing_stream(
                 host_tensors, stream_state
             )
+            query_cost = (time.time() - start_ts) / len(batch.rpc_tasks)
             for out, task in zip(outputs, batch.rpc_tasks):
               # Use a new response each time.
               resp = copy.deepcopy(task.response)
               self._model_services[batch.method.service_id].FillRPCResponse(
                   batch.method.name, out, resp
               )
-              task.done(utils.ok(), resp)
+              task.done(utils.ok(), resp, query_cost=query_cost)
               done_rpcs += 1
           except Exception as e:  # pylint: disable=broad-except
             self._log_exception(

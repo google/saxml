@@ -68,6 +68,10 @@ absl::Status CreateErrorAndFree(int error_code, char* errMsgStr) {
   return status;
 }
 
+int* GetQueryCostTpuMs(const ModelOptions& opts) {
+  return opts.GetQueryCost() ? &opts.GetQueryCost()->tpu_ms : nullptr;
+}
+
 }  // namespace
 
 void ModelOptions::SetTimeout(float value) { timeout_ = value; }
@@ -127,6 +131,12 @@ void ModelOptions::FromProto(const ExtraInputs& proto) {
     kv_s_[option.first] = option.second;
   }
 }
+
+void ModelOptions::SetQueryCost(QueryCost* query_cost) {
+  query_cost_ = query_cost;
+}
+
+QueryCost* ModelOptions::GetQueryCost() const { return query_cost_; }
 
 absl::Status AudioModel::Recognize(absl::string_view audio_bytes,
                                    std::vector<AsrHyp>* result) const {
@@ -235,7 +245,7 @@ absl::Status LanguageModel::Score(const ModelOptions& options,
   go_score(model_handle_, options.GetTimeout(),
            const_cast<char*>(scoreReqStr.data()), scoreReqStr.size(),
            const_cast<char*>(extraStr.data()), extraStr.size(), &outputStr,
-           &outputSize, &errMsgStr, &errCode);
+           &outputSize, GetQueryCostTpuMs(options), &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -272,7 +282,7 @@ absl::Status LanguageModel::Generate(const ModelOptions& options,
   go_generate(model_handle_, options.GetTimeout(),
               const_cast<char*>(prefix.data()), prefix.size(),
               const_cast<char*>(extraStr.data()), extraStr.size(), &outputStr,
-              &outputSize, &errMsgStr, &errCode);
+              &outputSize, GetQueryCostTpuMs(options), &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -345,7 +355,8 @@ absl::Status LanguageModel::GenerateStream(const ModelOptions& options,
   go_generate_stream(model_handle_, options.GetTimeout(),
                      const_cast<char*>(prefix.data()), prefix.size(),
                      const_cast<char*>(extraStr.data()), extraStr.size(),
-                     GenerateCallbackWrapper, cbCtx, &errMsgStr, &errCode);
+                     GenerateCallbackWrapper, cbCtx, GetQueryCostTpuMs(options),
+                     &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -366,13 +377,12 @@ absl::Status LanguageModel::Embed(const ModelOptions& options,
   extra.SerializeToString(&extraStr);
   char* outputStr = nullptr;
   int outputSize = 0;
-
   char* errMsgStr = nullptr;
   int errCode = 0;
   go_lm_embed(model_handle_, options.GetTimeout(),
               const_cast<char*>(text.data()), text.size(),
               const_cast<char*>(extraStr.data()), extraStr.size(), &outputStr,
-              &outputSize, &errMsgStr, &errCode);
+              &outputSize, GetQueryCostTpuMs(options), &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -419,7 +429,7 @@ absl::Status LanguageModel::Gradient(
   go_gradient(model_handle_, options.GetTimeout(),
               const_cast<char*>(reqStr.data()), reqStr.size(),
               const_cast<char*>(extraStr.data()), extraStr.size(), &outputStr,
-              &outputSize, &errMsgStr, &errCode);
+              &outputSize, GetQueryCostTpuMs(options), &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }

@@ -19,11 +19,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
+	"google3/third_party/golang/grpc/metadata/metadata"
 	"saxml/client/go/connection"
 	"saxml/client/go/location"
 	"saxml/client/go/saxadmin"
@@ -50,6 +52,12 @@ type Model struct {
 	modelID           string
 	connectionFactory connection.Factory
 	retryingBehavior  func(err error) bool
+}
+
+// QueryCost represents the cost of the query.
+type QueryCost struct {
+	// Cost measured in TPU milliseconds
+	TpuMs int
 }
 
 // run runs a callback function (`callMethod`) against sax system with retries through gRPC.
@@ -148,9 +156,10 @@ func WithFailFast(failFast bool) OptionSetter {
 
 // ModelOptions contains options for model methods.
 type ModelOptions struct {
-	kv  map[string]float32
-	kvT map[string][]float32
-	kvS map[string]string
+	kv        map[string]float32
+	kvT       map[string][]float32
+	kvS       map[string]string
+	queryCost *QueryCost
 }
 
 // ExtraInputs creates a ExtraInputs proto from a ModelOptions.
@@ -160,6 +169,21 @@ func (mo *ModelOptions) ExtraInputs() *pb.ExtraInputs {
 		tensors[key] = &pb.Tensor{Values: value}
 	}
 	return &pb.ExtraInputs{Items: mo.kv, Tensors: tensors, Strings: mo.kvS}
+}
+
+// ExtractQueryCost extracts query costs from metadata and adds it to model options.
+func (mo *ModelOptions) ExtractQueryCost(md *metadata.MD) error {
+	if mo.queryCost == nil {
+		return nil
+	}
+	if tr := md.Get("query_cost_v0"); mo.queryCost != nil && len(tr) > 0 {
+		queryCost, err := strconv.Atoi(tr[0])
+		if err != nil {
+			return fmt.Errorf("metadata.Get(query_cost_v0) expected int, got %s", tr[0])
+		}
+		(*mo.queryCost).TpuMs = queryCost
+	}
+	return nil
 }
 
 // ModelOptionSetter are setters for sax options.
@@ -183,6 +207,13 @@ func WithExtraInputTensor(name string, value []float32) ModelOptionSetter {
 func WithExtraInputString(name string, value string) ModelOptionSetter {
 	return func(o *ModelOptions) {
 		o.kvS[name] = value
+	}
+}
+
+// WithQueryCost fetches and outputs query costs after the model runs a query.
+func WithQueryCost(cost *QueryCost) ModelOptionSetter {
+	return func(o *ModelOptions) {
+		o.queryCost = cost
 	}
 }
 

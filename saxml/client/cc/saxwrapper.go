@@ -372,7 +372,7 @@ func go_recognize(ci C.long, timeout C.float, audioBytesData *C.char, audioBytes
 //////////////////////////////////////////////////////////////////////////
 
 //export go_score
-func go_score(ptr C.long, timeout C.float, requestData *C.char, requestSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+func go_score(ptr C.long, timeout C.float, requestData *C.char, requestSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, queryCostTpuMs *C.int, errMsg **C.char, errCode *C.int) {
 	lm := rcgo.Handle(ptr).Value().(*sax.LanguageModel)
 	if lm == nil {
 		// This is not expected.
@@ -398,7 +398,10 @@ func go_score(ptr C.long, timeout C.float, requestData *C.char, requestSize C.in
 		defer cancel()
 	}
 
-	score, err := lm.Score(ctx, request.GetPrefix(), request.GetSuffix(), protoOptionToSetter(options)...)
+	setters := protoOptionToSetter(options)
+	queryCost := sax.QueryCost{}
+	setters = append(setters, sax.WithQueryCost(&queryCost))
+	score, err := lm.Score(ctx, request.GetPrefix(), request.GetSuffix(), setters...)
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return
@@ -416,7 +419,7 @@ func go_score(ptr C.long, timeout C.float, requestData *C.char, requestSize C.in
 }
 
 //export go_generate
-func go_generate(ptr C.long, timeout C.float, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+func go_generate(ptr C.long, timeout C.float, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, queryCostTpuMs *C.int, errMsg **C.char, errCode *C.int) {
 	lm := rcgo.Handle(ptr).Value().(*sax.LanguageModel)
 	if lm == nil {
 		// This is not expected.
@@ -436,7 +439,13 @@ func go_generate(ptr C.long, timeout C.float, textData *C.char, textSize C.int, 
 	}
 
 	text := C.GoStringN(textData, textSize)
-	res, err := lm.Generate(ctx, text, protoOptionToSetter(options)...)
+	setters := protoOptionToSetter(options)
+	queryCost := sax.QueryCost{}
+	setters = append(setters, sax.WithQueryCost(&queryCost))
+	res, err := lm.Generate(ctx, text, setters...)
+	if queryCostTpuMs != nil {
+		*queryCostTpuMs = C.int(queryCost.TpuMs)
+	}
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return
@@ -458,7 +467,7 @@ func go_generate(ptr C.long, timeout C.float, textData *C.char, textSize C.int, 
 }
 
 //export go_generate_stream
-func go_generate_stream(ptr C.long, timeout C.float, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, cb C.generate_callback, cbCtx unsafe.Pointer, errMsg **C.char, errCode *C.int) {
+func go_generate_stream(ptr C.long, timeout C.float, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, cb C.generate_callback, cbCtx unsafe.Pointer, queryCostTpuMs *C.int, errMsg **C.char, errCode *C.int) {
 	lm := rcgo.Handle(ptr).Value().(*sax.LanguageModel)
 	if lm == nil {
 		// This is not expected.
@@ -478,7 +487,13 @@ func go_generate_stream(ptr C.long, timeout C.float, textData *C.char, textSize 
 	}
 
 	text := C.GoStringN(textData, textSize)
-	ch := lm.GenerateStream(ctx, text, protoOptionToSetter(options)...)
+	setters := protoOptionToSetter(options)
+	queryCost := sax.QueryCost{}
+	setters = append(setters, sax.WithQueryCost(&queryCost))
+	ch := lm.GenerateStream(ctx, text, setters...)
+	if queryCostTpuMs != nil {
+		*queryCostTpuMs = C.int(queryCost.TpuMs)
+	}
 
 	for res := range ch {
 		err := res.Err
@@ -515,7 +530,7 @@ func go_generate_stream(ptr C.long, timeout C.float, textData *C.char, textSize 
 }
 
 //export go_lm_embed
-func go_lm_embed(ptr C.long, timeout C.float, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+func go_lm_embed(ptr C.long, timeout C.float, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, queryCostTpuMs *C.int, errMsg **C.char, errCode *C.int) {
 	lm := rcgo.Handle(ptr).Value().(*sax.LanguageModel)
 	if lm == nil {
 		// This is not expected.
@@ -535,7 +550,13 @@ func go_lm_embed(ptr C.long, timeout C.float, textData *C.char, textSize C.int, 
 	}
 
 	text := C.GoStringN(textData, textSize)
-	res, err := lm.Embed(ctx, text, protoOptionToSetter(options)...)
+	setters := protoOptionToSetter(options)
+	queryCost := sax.QueryCost{}
+	setters = append(setters, sax.WithQueryCost(&queryCost))
+	res, err := lm.Embed(ctx, text, setters...)
+	if queryCostTpuMs != nil {
+		*queryCostTpuMs = C.int(queryCost.TpuMs)
+	}
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return
@@ -553,7 +574,7 @@ func go_lm_embed(ptr C.long, timeout C.float, textData *C.char, textSize C.int, 
 }
 
 //export go_gradient
-func go_gradient(ptr C.long, timeout C.float, requestData *C.char, requestSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+func go_gradient(ptr C.long, timeout C.float, requestData *C.char, requestSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, queryCostTpuMs *C.int, errMsg **C.char, errCode *C.int) {
 	lm := rcgo.Handle(ptr).Value().(*sax.LanguageModel)
 	if lm == nil {
 		// This is not expected.
@@ -579,7 +600,13 @@ func go_gradient(ptr C.long, timeout C.float, requestData *C.char, requestSize C
 		defer cancel()
 	}
 
-	score, gradients, err := lm.Gradient(ctx, request.GetPrefix(), request.GetSuffix(), protoOptionToSetter(options)...)
+	setters := protoOptionToSetter(options)
+	queryCost := sax.QueryCost{}
+	setters = append(setters, sax.WithQueryCost(&queryCost))
+	score, gradients, err := lm.Gradient(ctx, request.GetPrefix(), request.GetSuffix(), setters...)
+	if queryCostTpuMs != nil {
+		*queryCostTpuMs = C.int(queryCost.TpuMs)
+	}
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return

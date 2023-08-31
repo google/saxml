@@ -40,6 +40,7 @@ go_library(
         # unused internal multimodal gRPC dependency,
         "//saxml/protobuf:vision_go_proto_grpc",
         # unused internal vision gRPC dependency,
+        "//third_party/golang/grpc/metadata",
         "@com_github_golang_glog//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],

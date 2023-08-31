@@ -186,6 +186,19 @@ pytype_strict_library(
     deps = ["//saxml/protobuf:admin_py_pb2"],
 )
 
+py_strict_test(
+    name = "proto_util_test",
+    srcs = ["proto_util_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":proto_util",
+        "//saxml/protobuf:admin_py_pb2",
+        "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/absl-py/testing:parameterized",
+    ],
+)
+
 pytype_strict_library(
     name = "ipaddr",
     srcs = ["ipaddr.py"],

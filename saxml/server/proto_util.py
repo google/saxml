@@ -13,6 +13,7 @@
 # limitations under the License.
 """Protobuf utilities."""
 
+import math
 from typing import Optional
 
 from saxml.protobuf import admin_pb2
@@ -81,3 +82,13 @@ def to_chip_topology(
       '8x8x8': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_8X8X8,
   }
   return topology_map.get(topology, default)
+
+
+def count_physical_chips(topology_str: Optional[str]) -> Optional[int]:
+  """Counts the number of physical chips in the topology."""
+  topology = to_chip_topology(topology_str)
+  if topology == admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_UNKNOWN:
+    return None
+  topology_str = admin_pb2.ModelServer.ChipTopology.Name(topology)
+  numbers = topology_str.split('_')[-1].split('X')
+  return math.prod((int(n) for n in numbers))

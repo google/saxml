@@ -39,6 +39,11 @@ struct Options {
   bool fail_fast = false;
 };
 
+// QueryCost represents the query cost in TPU milliseconds
+struct QueryCost {
+  int tpu_ms;
+};
+
 // Model options.
 class ModelOptions {
  public:
@@ -65,6 +70,9 @@ class ModelOptions {
   void FromProto(const ::sax::ExtraInputs& proto);
   void ToProto(::sax::ExtraInputs* proto) const;
 
+  void SetQueryCost(QueryCost* query_cost);
+  QueryCost* GetQueryCost() const;
+
  private:
   std::map<std::string, float> kv_;  // key-value pair for extra input to model.
   // key-value pair for extra input tensors to model.
@@ -72,6 +80,8 @@ class ModelOptions {
   // key-value pair for extra input strings to model.
   std::map<std::string, std::string> kv_s_;
   float timeout_ = -1;  // Query timeout. Negative value means no timeout.
+
+  QueryCost* query_cost_;  // Cost of the query. Pointer is not owned.
 };
 
 // AudioModel provides common audio model API against a given model in
