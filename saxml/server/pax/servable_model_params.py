@@ -48,15 +48,9 @@ class ServableModelParams(
   quantization_type: QuantizationType = QuantizationType.PTQ
   quant_mode: QuantizationMode = QuantizationMode.INFERENCE
 
-  def __init__(self):
-    self._test_mode = False
-
   @property
   def test_mode(self) -> bool:
-    return self._test_mode
-
-  def set_test_mode(self, test_mode: bool) -> None:
-    self._test_mode = test_mode
+    return False
 
   @property
   def do_eval(self) -> bool:
