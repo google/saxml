@@ -12,10 +12,6 @@ pytype_strict_library(
     name = "custom_service",
     srcs = ["custom_service.py"],
     srcs_version = "PY3",
-    visibility = [
-        "//saxml:internal",
-        "//saxml/server/pax/custom:__pkg__",
-    ],
     deps = [
         "//saxml/protobuf:custom_py_pb2",
         "//saxml/protobuf:custom_py_pb2_grpc",
