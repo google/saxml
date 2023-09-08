@@ -50,7 +50,17 @@ class ServableModelParams(
 
   @property
   def test_mode(self) -> bool:
-    return False
+    return getattr(self, '_test_mode', False)
+
+  def set_test_mode(self, test_mode: bool) -> None:
+    """Sets test mode at runtime.
+
+    This works when subclasses do not override the `test_mode` method above.
+
+    Args:
+      test_mode: boolean indicating test mode
+    """
+    self._test_mode = test_mode
 
   @property
   def do_eval(self) -> bool:
