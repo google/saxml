@@ -1,6 +1,7 @@
 # Description:
 #   Language model servable parameters definition.
 
+load("//devtools/python/blaze:strict.bzl", "py_strict_test")
 load("//saxml:saxml.bzl", "pytype_strict_library")
 
 package(
@@ -38,6 +39,17 @@ pytype_strict_library(
         "//third_party/py/praxis/layers:multi_query_attention",
         "//third_party/py/praxis/layers:transformer_models",
         "//third_party/py/praxis/layers:transformers",
+    ],
+)
+
+py_strict_test(
+    name = "template_test",
+    srcs = ["template_test.py"],
+    deps = [
+        ":lm_cloud",
+        ":template",
+        "//third_party/py/praxis:test_utils",
+        "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )
 

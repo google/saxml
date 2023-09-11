@@ -50,6 +50,7 @@ class CommonServingTemplate:
   SUFFIX_SEQ_LEN = 0  # Deprecating this attribute.
   MIN_DECODE_STEPS = 0  # Currently ignored by all but BeamSearchHParams
   MAX_DECODE_STEPS = 32
+  MAX_SEQ_LEN = None
   NUM_SAMPLES = 2
   TOP_K = 40
   TOP_K_RECALL_TARGET = 1.0  # When < 1.0, use tpu optimized approx_max_k
@@ -178,12 +179,18 @@ class ServingTemplate(
     if self.SCORE_ONLY:
       return None
 
+    seqlen = (
+        self.MAX_SEQ_LEN
+        if self.MAX_SEQ_LEN
+        else (self.INPUT_SEQ_LEN + max_decode_steps)
+    )
+
     if self.USE_BEAM_SEARCH:
       generate_hparams = decoder_hparams.BeamSearchHParams(
           fprop_for_prefix=True,
           min_decode_steps=self.MIN_DECODE_STEPS,
           max_decode_steps=self.MAX_DECODE_STEPS,
-          seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
+          seqlen=seqlen,
           beam_size=self.BEAM_SIZE,
           tokens_per_beam=self.TOKENS_PER_BEAM,
           lazy_prefix_broadcast=self.FPROP_FOR_PREFIX
@@ -201,7 +208,7 @@ class ServingTemplate(
           fprop_for_prefix=self.FPROP_FOR_PREFIX,
           min_decode_steps=self.MIN_DECODE_STEPS,
           max_decode_steps=self.MAX_DECODE_STEPS,
-          seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
+          seqlen=seqlen,
           eos_id=stop_token_ids,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
           emb_lookup_style=self.EMB_LOOKUP_STYLE,
@@ -215,7 +222,7 @@ class ServingTemplate(
           and self.SUPPORT_LAZY_PREFIX_BROADCAST,
           min_decode_steps=self.MIN_DECODE_STEPS,
           max_decode_steps=self.MAX_DECODE_STEPS,
-          seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
+          seqlen=seqlen,
           num_samples=self.NUM_SAMPLES,
           temperature=0.0,
           eos_id=stop_token_ids,
@@ -260,6 +267,12 @@ class ServingTemplate(
     if self.USE_BEAM_SEARCH:
       return None
 
+    seqlen = (
+        self.MAX_SEQ_LEN
+        if self.MAX_SEQ_LEN
+        else (self.INPUT_SEQ_LEN + max_decode_steps)
+    )
+
     generate_hparams = decoder_hparams.SampleDecoderHParams(
         fprop_for_prefix=self.FPROP_FOR_PREFIX,
         # Use LPB for whenever FPROP_FOR_PREFIX is enabled.
@@ -267,7 +280,7 @@ class ServingTemplate(
         and self.NUM_SAMPLES > 1
         and self.SUPPORT_LAZY_PREFIX_BROADCAST,
         max_decode_steps=self.MAX_DECODE_STEPS,
-        seqlen=self.INPUT_SEQ_LEN + max_decode_steps,
+        seqlen=seqlen,
         num_samples=self.NUM_SAMPLES,
         temperature=None,
         eos_id=stop_token_ids,
