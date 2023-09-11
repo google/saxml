@@ -345,13 +345,17 @@ def tf_tokenize_inputs(
 
 
 def bucketize_tokenized_inputs(
-    bucket_keys: List[int], inputs: NestedMap
+    bucket_keys: List[int],
+    inputs: NestedMap,
+    branch_index: tf.Tensor | None = None,
 ) -> NestedMap:
   """Bucketize tokenized input tensors.
 
   Args:
     bucket_keys: a bucket of sequence lengths.
     inputs: the tokenized tf.Tensors.
+    branch_index: if set and in [0, len(bucket_keys)), choose this index in
+      `bucket_keys` regardless of the input paddings.
 
   Returns:
     A NestedMap of tensors padded to the nearest length in the bucket greater
@@ -366,7 +370,17 @@ def bucketize_tokenized_inputs(
       tf.math.reduce_sum(1.0 - inputs['paddings'], axis=-1), tf.int32
   )
   branch_key = tf.math.reduce_max(seq_lengths)
-  branch_idx = branch_selector.get_branch_index_tf(branch_key)
+  if branch_index is not None:
+    branch_index = tf.squeeze(branch_index[0])
+    branch_idx = tf.cond(
+        tf.math.logical_and(
+            branch_index >= 0, branch_index < len(bucket_keys)
+        ),
+        lambda: branch_index,
+        lambda: branch_selector.get_branch_index_tf(branch_key),
+    )
+  else:
+    branch_idx = branch_selector.get_branch_index_tf(branch_key)
   seqlen = tf.constant(branch_selector.branch_keys)[branch_idx]
 
   def _slice_fn(x):

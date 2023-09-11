@@ -24,6 +24,7 @@ import jax
 from jax import numpy as jnp
 from jax.experimental import host_callback as hcb
 import numpy as np
+import orbax.export as oex
 from praxis import base_layer
 from praxis import base_model
 from praxis import decoder_hparams
@@ -38,6 +39,7 @@ from saxml.server.pax.lm import lm_tokenizer
 from saxml.server.pax.lm import servable_lm_common
 from saxml.server.services import lm_service
 import tensorflow as tf
+
 
 JTensor = pytypes.JTensor
 NestedJTensor = pytypes.NestedJTensor
@@ -522,7 +524,8 @@ class LMScoreMethod(ServableLMMethod):
       self,
       prefixes: NestedNpOrTfTensor,
       suffixes: NestedNpOrTfTensor,
-      extra_inputs: Optional[Mapping[str, Any]] = None,
+      extra_inputs: Mapping[str, Any] | None = None,
+      branch_index: NestedNpOrTfTensor | None = None,
       bucketize_inputs: bool = True,
   ) -> NestedTfTensor:
     """Tokenizes `prefixes` and `suffixes` using TF ops.
@@ -534,6 +537,8 @@ class LMScoreMethod(ServableLMMethod):
       suffixes: the suffix text batch of shape [batch_size].
       extra_inputs: optional mapping of extra input key to tensor or tensor spec
         of shape [batch_size].
+      branch_index: optional index to indicate which bucket key will be used by
+        `bucketize_tokenized_inputs`.
       bucketize_inputs: whether to bucketize the preprocessed inputs based on
         max sequence length in the batch.
 
@@ -551,7 +556,9 @@ class LMScoreMethod(ServableLMMethod):
 
     if bucketize_inputs:
       preprocessed = servable_lm_common.bucketize_tokenized_inputs(
-          self.sorted_seq_lens, preprocessed
+          self.sorted_seq_lens,
+          preprocessed,
+          branch_index
       )
 
     if extra_inputs:
@@ -567,7 +574,7 @@ class LMScoreMethod(ServableLMMethod):
 
   def input_signature(
       self, batch_size: Optional[int]
-  ) -> Tuple[TensorSpec, TensorSpec, Mapping[str, TensorSpec]]:
+  ) -> Tuple[TensorSpec, TensorSpec, Mapping[str, TensorSpec], TensorSpec]:
     """Implements `ExportableToSavedModel.input_signature`."""
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),
@@ -576,6 +583,12 @@ class LMScoreMethod(ServableLMMethod):
             self._extra_inputs,
             batch_size,
             self.method_params.extra_inputs_dtypes,
+        ),
+        oex.TensorSpecWithDefault(
+            tf.TensorSpec(
+                [batch_size], dtype=tf.int32, name='branch_index_warmup_only'
+            ),
+            tf.constant([-1], dtype=tf.int32, shape=[batch_size or 1]),
         ),
     )
 
@@ -797,7 +810,8 @@ class LMDecodeMethod(ServableLMMethod):
   def tf_pre_processing(
       self,
       texts: NestedNpOrTfTensor,
-      extra_inputs: Optional[Mapping[str, Any]] = None,
+      extra_inputs: Mapping[str, Any] | None = None,
+      branch_index: NestedNpOrTfTensor | None = None,
       bucketize_inputs: bool = True,
   ) -> NestedTfTensor:
     """Tokenizes `texts` using TF ops.
@@ -811,6 +825,8 @@ class LMDecodeMethod(ServableLMMethod):
       texts: the input text of shape [batch_size].
       extra_inputs: optional mapping of extra input key to tensor or tensor spec
         of shape [batch_size].
+      branch_index: optional index to indicate which bucket key will be used by
+        `bucketize_tokenized_inputs`.
       bucketize_inputs: whether to bucketize the preprocessed inputs based on
         max sequence length in the batch.
 
@@ -857,7 +873,9 @@ class LMDecodeMethod(ServableLMMethod):
 
     if bucketize_inputs:
       preprocessed = servable_lm_common.bucketize_tokenized_inputs(
-          self.sorted_seq_lens, preprocessed
+          self.sorted_seq_lens,
+          preprocessed,
+          branch_index,
       )
 
     if extra_inputs:
@@ -888,7 +906,7 @@ class LMDecodeMethod(ServableLMMethod):
 
   def input_signature(
       self, batch_size: Optional[int]
-  ) -> Tuple[TensorSpec, Mapping[str, TensorSpec]]:
+  ) -> Tuple[TensorSpec, Mapping[str, TensorSpec], TensorSpec]:
     """Implements `ExportableToSavedModel.input_signature`."""
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='text'),
@@ -896,6 +914,12 @@ class LMDecodeMethod(ServableLMMethod):
             self._extra_inputs,
             batch_size,
             self.method_params.extra_inputs_dtypes,
+        ),
+        oex.TensorSpecWithDefault(
+            tf.TensorSpec(
+                [batch_size], dtype=tf.int32, name='branch_index_warmup_only'
+            ),
+            tf.constant([-1], dtype=tf.int32, shape=[batch_size or 1]),
         ),
     )
 
@@ -1177,7 +1201,8 @@ class LMGradientMethod(ServableLMMethod):
       self,
       prefixes: NestedNpOrTfTensor,
       suffixes: NestedNpOrTfTensor,
-      extra_inputs: Optional[Mapping[str, Any]] = None,
+      extra_inputs: Mapping[str, Any] | None = None,
+      branch_index: NestedNpOrTfTensor | None = None,
       bucketize_inputs: bool = True,
   ) -> NestedTfTensor:
     """Tokenizes `prefixes` and `suffixes` using TF ops.
@@ -1189,6 +1214,8 @@ class LMGradientMethod(ServableLMMethod):
       suffixes: the suffix text batch of shape [batch_size].
       extra_inputs: optional mapping of extra input key to tensor or tensor spec
         of shape [batch_size].
+      branch_index: optional index to indicate which bucket key will be used by
+        `bucketize_tokenized_inputs`.
       bucketize_inputs: whether to bucketize the preprocessed inputs based on
         max sequence length in the batch.
 
@@ -1206,7 +1233,9 @@ class LMGradientMethod(ServableLMMethod):
 
     if bucketize_inputs:
       preprocessed = servable_lm_common.bucketize_tokenized_inputs(
-          self.sorted_seq_lens, preprocessed
+          self.sorted_seq_lens,
+          preprocessed,
+          branch_index,
       )
 
     if extra_inputs:
@@ -1226,7 +1255,7 @@ class LMGradientMethod(ServableLMMethod):
 
   def input_signature(
       self, batch_size: Optional[int]
-  ) -> Tuple[TensorSpec, TensorSpec, Mapping[str, TensorSpec]]:
+  ) -> Tuple[TensorSpec, TensorSpec, Mapping[str, TensorSpec], TensorSpec]:
     """Implements `ExportableToSavedModel.input_signature`."""
     return (
         tf.TensorSpec([batch_size], dtype=tf.string, name='prefixes'),
@@ -1235,6 +1264,12 @@ class LMGradientMethod(ServableLMMethod):
             self._extra_inputs,
             batch_size,
             self.method_params.extra_inputs_dtypes,
+        ),
+        oex.TensorSpecWithDefault(
+            tf.TensorSpec(
+                [batch_size], dtype=tf.int32, name='branch_index_warmup_only'
+            ),
+            tf.constant([-1], dtype=tf.int32, shape=[batch_size or 1]),
         ),
     )
 

@@ -115,6 +115,7 @@ pytype_strict_library(
         "//third_party/py/jax",
         "//third_party/py/jax:experimental",
         "//third_party/py/numpy",
+        "//third_party/py/orbax-export",
         "//third_party/py/praxis:base_layer",
         "//third_party/py/praxis:base_model",
         "//third_party/py/praxis:decoder_hparams",
