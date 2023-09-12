@@ -110,12 +110,14 @@ class ServableModelParams(metaclass=abc.ABCMeta):
     for k, v in overrides.items():
       if not hasattr(self, k):
         raise ValueError(
-            "Can't override %s because it's not set on %s" % (k, self))
+            "Can't override %s because it's not set on %s" % (k, self)
+        )
       cur_v = getattr(self, k)
-      if type(v) != type(cur_v):  # pylint: disable=unidiomatic-typecheck
+      if v is not None and type(v) != type(cur_v):  # pylint: disable=unidiomatic-typecheck
         raise ValueError(
-            'Mismatched type of override: original: %s; override: %s' % (
-                cur_v, v))
+            'Mismatched type of override: original: %s; override: %s'
+            % (cur_v, v)
+        )
       setattr(self, k, v)
       logging.info('Set override %s to %s on %s', k, v, self)
 
