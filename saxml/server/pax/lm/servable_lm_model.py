@@ -635,13 +635,7 @@ class LMDecodeMethod(ServableLMMethod):
         'Using np_tf_sess_wrapper on LMDecodeMethod.tf_post_processing'
     )
     self._tf_sess_post_processing = np_tf_sess_wrapper.wrap_tf_session(
-        # pylint: disable=g-long-lambda
-        lambda *args: decode_tf_post_processing(
-            *args,
-            tokenizer=self._tokenizer,
-            t5_model=self._method_hparams.t5_model,
-            include_prefix_in_result=self._include_prefix_in_result,
-        ),
+        self.tf_post_processing,
         False,
     )
     self._streamable = streamable
