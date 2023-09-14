@@ -502,7 +502,8 @@ class LoadedModelManager:
       # pytype: disable=not-instantiable
       params = model_class()
       parsed_overrides = {
-          key: json.loads(value) for key, value in overrides.items()}
+          key: json.loads(value) for key, value in overrides.items()
+      }
       logging.info('model_service_base overrides= %s', parsed_overrides)
       params.apply_model_overrides(parsed_overrides)
       loaded = params.load(key, ckpt_path, self._primary_process_id, prng_key)
