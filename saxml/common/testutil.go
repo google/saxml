@@ -619,6 +619,18 @@ func (m *stubMultimodalModelServer) Generate(ctx context.Context, in *mmpb.Gener
 	return res, nil
 }
 
+func (m *stubMultimodalModelServer) Score(ctx context.Context, in *mmpb.ScoreRpcRequest) (*mmpb.ScoreRpcResponse, error) {
+	res := &mmpb.ScoreRpcResponse{}
+	res.Response = &mmpb.ScoreResponse{}
+	res.Response.Results = make([]*mmpb.ScoreResult, len(in.GetRequest().GetPrefixItems()))
+	for i := range in.GetRequest().GetPrefixItems() {
+		res.Response.Results[i] = &mmpb.ScoreResult{
+			Score: float64(i) * 2,
+		}
+	}
+	return res, nil
+}
+
 // StartStubModelServer starts a new model server of a given type with stub implementations, which
 // also runs a modelet service.
 // Close the returned channel to close the server.

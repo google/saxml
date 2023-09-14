@@ -40,6 +40,19 @@ message DataItem {
   }
 }
 
+message ScoreRequest {
+  repeated DataItem prefix_items = 1;
+  repeated DataItem suffix_items = 2;
+}
+
+message ScoreResponse {
+  repeated ScoreResult results = 1;
+}
+
+message ScoreResult {
+  double score = 1;
+}
+
 message GenerateRequest {
   repeated DataItem items = 1;
 
@@ -55,10 +68,20 @@ message GenerateResponse {
   repeated GenerateResult results = 1;  // len(result) == # samples
 }
 
+message ScoreRpcRequest {
+  string model_key = 1;
+  ScoreRequest request = 2;
+  .sax.ExtraInputs extra_inputs = 3;
+}
+
 message GenerateRpcRequest {
   string model_key = 1;
   GenerateRequest request = 2;
   .sax.ExtraInputs extra_inputs = 3;
+}
+
+message ScoreRpcResponse {
+  ScoreResponse response = 1;
 }
 
 message GenerateRpcResponse {
@@ -68,4 +91,6 @@ message GenerateRpcResponse {
 service MultimodalService {
   // Returns generated results using the data items in the request.
   rpc Generate(GenerateRpcRequest) returns (GenerateRpcResponse);
+  // Returns score results of the suffix items in the request.
+  rpc Score(ScoreRpcRequest) returns (ScoreRpcResponse);
 }
