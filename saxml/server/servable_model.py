@@ -24,7 +24,7 @@ from saxml.server import servable_model_params
 
 HostTensors = Any
 DeviceTensors = Any
-ExtraInput = Dict[str, float]
+ExtraInput = Dict[str, str | float | List[float]]
 
 
 @dataclasses.dataclass(eq=True, frozen=True)
@@ -117,6 +117,22 @@ class ServableMethod(abc.ABC):
   @abc.abstractmethod
   def pre_processing(self, raw_inputs: List[Any]) -> HostTensors:
     """Preprocesses an unpadded batch of data into host arrays."""
+
+  def get_extra_inputs_from_request_inputs(self, request: Any) -> ExtraInput:
+    """Gets extra_inputs from request_inputs."""
+    extra_inputs: ExtraInput = {}
+    if hasattr(request, 'extra_inputs') and request.extra_inputs:
+      # Extract Scalars.
+      for k, v in dict(request.extra_inputs.items).items():
+        extra_inputs[k] = v
+      # Extract Tensors (1d list of floats).
+      # (Reshaping is delegated to the model.)
+      for k, v in dict(request.extra_inputs.tensors).items():
+        extra_inputs[k] = list(v.values)
+      # Extract Strings.
+      for k, v in dict(request.extra_inputs.strings).items():
+        extra_inputs[k] = v
+    return extra_inputs
 
   @abc.abstractmethod
   def update_extra_inputs(

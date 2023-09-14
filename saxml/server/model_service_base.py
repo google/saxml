@@ -1330,18 +1330,10 @@ class ModelServicesRunner:
 
           extra_inputs = []
           for t in rpc_tasks:
-            extra_inputs.append({})
-            if hasattr(t.request, 'extra_inputs') and t.request.extra_inputs:
-              # Scalars
-              for k, v in dict(t.request.extra_inputs.items).items():
-                extra_inputs[-1][k] = v
-              # Tensors (1d list of floats)
-              # (Reshaping is delegated to the model.)
-              for k, v in dict(t.request.extra_inputs.tensors).items():
-                extra_inputs[-1][k] = list(v.values)
-              # Strings
-              for k, v in dict(t.request.extra_inputs.strings).items():
-                extra_inputs[-1][k] = v
+            request_extra_inputs = method.get_extra_inputs_from_request_inputs(
+                t.request
+            )
+            extra_inputs.append(request_extra_inputs)
 
           inputs = method.update_extra_inputs(
               inputs, len(rpc_tasks), extra_inputs

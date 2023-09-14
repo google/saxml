@@ -34,7 +34,7 @@ from saxml.server import servable_model_params
 
 # string values can be used in host callbacks and are converted to integers
 # when passing around through a global repository on host.
-ExtraInput = Dict[str, Union[float, str]]
+ExtraInput = Dict[str, Union[float, str, List[float]]]
 # TODO(sax-dev): define these types or use pax's definitions.
 HostTensors = Any
 DeviceTensors = Any

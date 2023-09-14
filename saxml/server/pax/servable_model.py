@@ -190,7 +190,9 @@ class ServableMethod(servable_model.ServableMethod):
   ) -> NestedNpTensor:
     assert isinstance(
         input_batch, (NestedMap, dict)
-    ), 'extra_inputs unsupported on non-dict'
+    ), 'extra_inputs unsupported on non-dict. Got %s instead' % type(
+        input_batch
+    )
     for k, v in extra_input_tensors.items():
       if isinstance(input_batch, NestedMap):
         input_batch.Set(k, v)
