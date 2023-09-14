@@ -210,10 +210,6 @@ class ServableMethod(servable_model.ServableMethod):
       dtype = jax.dtypes.canonicalize_dtype(x.dtype)
       return jax.ShapeDtypeStruct(x.shape, dtype)
 
-    logging.info(
-        'SAX servable_model JAX AOT compiler_options:\n%s',
-        pprint.pformat(self._compiler_options),
-    )
     compiled = step_fn.lower(
         jax.tree_map(_create_aval, train_state.mdl_vars),
         inputs_shape_dtype,
@@ -275,6 +271,10 @@ class ServableMethod(servable_model.ServableMethod):
     # Initialize the device function.
     device_fn = self._pjit_device_fn(input_pspecs, input_shape.batch_size)
 
+    logging.info(
+        'SAX servable_model JAX AOT compiler_options:\n%s',
+        pprint.pformat(self._compiler_options),
+    )
     if self._enable_auto_sharding or self._compiler_options:
       device_fn = self.jax_aot_compile(
           step_fn=device_fn,
