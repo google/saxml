@@ -64,7 +64,7 @@ func (c *RecognizeCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any
 		return subcommands.ExitFailure
 	}
 	am := m.AM()
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	filePath := f.Args()[1]
 	var contents []byte

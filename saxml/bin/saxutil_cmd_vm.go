@@ -69,7 +69,7 @@ func (c *ClassifyCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		return subcommands.ExitFailure
 	}
 	vm := m.VM()
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	imagePath := f.Args()[1]
 	var contents []byte
@@ -147,7 +147,7 @@ func (c *TextToImageCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...a
 		return subcommands.ExitFailure
 	}
 	vm := m.VM()
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	text := f.Args()[1]
 
@@ -230,7 +230,7 @@ func (c *EmbedImageCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...an
 		return subcommands.ExitFailure
 	}
 	vm := m.VM()
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	imagePath := f.Args()[1]
 	var contents []byte
@@ -302,7 +302,7 @@ func (c *DetectCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		return subcommands.ExitFailure
 	}
 	vm := m.VM()
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	imagePath := f.Args()[1]
 	var contents []byte

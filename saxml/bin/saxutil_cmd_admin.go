@@ -43,8 +43,8 @@ import (
 	cpb "saxml/protobuf/common_go_proto"
 )
 
-const (
-	cmdTimeout = 60 * time.Second
+var (
+	cmdTimeout = flag.Duration("sax_timeout", 60*time.Second, "How many seconds to wait for command completion.")
 )
 
 // CreateCmd is the command for Create.
@@ -217,7 +217,7 @@ func (c *ListCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) sub
 		return subcommands.ExitUsageError
 	}
 	arg0 := f.Arg(0)
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
 	if arg0 == naming.Sax() {
@@ -300,7 +300,7 @@ func (c *PublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) 
 
 	admin := saxadmin.Open(modelID.CellFullName())
 
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	if err := admin.Publish(ctx, modelID.ModelFullName(), modelPath, ckptPath, numReplicas, overrides); err != nil {
 		log.Errorf("Failed to publish model: %v", err)
@@ -343,7 +343,7 @@ func (c *UnpublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any
 
 	admin := saxadmin.Open(modelID.CellFullName())
 
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	if err := admin.Unpublish(ctx, modelID.ModelFullName()); err != nil {
 		log.Errorf("Failed to unpublish model: %v", err)
@@ -406,7 +406,7 @@ func (c *UpdateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	model.RequestedNumReplicas = int32(c.numReplicas)
 	log.Infof("Updated model definition:\n%v", model)
 
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	if err := admin.Update(ctx, model); err != nil {
 		log.Errorf("Failed to update model: %v", err)
@@ -522,7 +522,7 @@ func (c *SetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		return subcommands.ExitUsageError
 	}
 	arg0 := f.Arg(0)
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
 	if cellFullName, err := naming.NewCellFullName(arg0); err == nil {
@@ -635,7 +635,7 @@ func (c *GetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		return subcommands.ExitUsageError
 	}
 	arg0 := f.Arg(0)
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
 	if cellFullName, err := naming.NewCellFullName(arg0); err == nil {

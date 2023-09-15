@@ -171,7 +171,7 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		return subcommands.ExitFailure
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
 	// Streaming generate.
@@ -262,7 +262,7 @@ func (c *ScoreCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 		return subcommands.ExitFailure
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
 	suffixes := f.Args()[2:]
@@ -323,7 +323,7 @@ func (c *EmbedTextCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any
 		return subcommands.ExitFailure
 	}
 	lm := m.LM()
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	text := f.Args()[1]
 
@@ -386,7 +386,7 @@ func (c *GradientCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		return subcommands.ExitFailure
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, cmdTimeout)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
 	scores, gradients, err := lm.Gradient(ctx, f.Args()[1], f.Args()[2], ExtraInputs(c.extra)...)
