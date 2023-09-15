@@ -35,6 +35,7 @@ proto_library(
 
 go_proto_library(
     name = "common_go_proto",
+    visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )
 
