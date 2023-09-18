@@ -104,7 +104,7 @@ def for_transformer(
       """Wrapper class for cls with Quantization enabled."""
 
       def task(self):
-        config = super(Wrapper, self)
+        config = super()
         if quantize_on_the_fly:
           mode = quantization_hparams.QuantizationMode.MATERIALIZE
         else:
