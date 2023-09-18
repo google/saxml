@@ -1,5 +1,10 @@
 load("//saxml:saxml.bzl", "pybind_extension", "pybind_library")
 
+package(
+    # unused internal package attribute
+    default_visibility = ["//visibility:private"],
+)
+
 # This is the public Python Sax client library to link/use.
 pybind_extension(
     name = "sax",
