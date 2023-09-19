@@ -420,6 +420,17 @@ func (e *Env) ValidateACLName(aclname string) error {
 	if aclname == "" {
 		return nil
 	}
+	isValidPrefix := false
+	validACLNamePrefixList := e.RequiredACLNamePrefixList()
+	for _, prefix := range validACLNamePrefixList {
+		if strings.HasPrefix(aclname, prefix) {
+			isValidPrefix = true
+			break
+		}
+	}
+	if !isValidPrefix {
+		return fmt.Errorf("%s is not a valid ACL name (must start with one of %s): %w", aclname, validACLNamePrefixList, errors.ErrInvalidArgument)
+	}
 	if _, ok := testACLNames[aclname]; ok {
 		return nil
 	}
@@ -491,9 +502,9 @@ func (e *Env) DialContext(ctx context.Context, target string, opts ...grpc.DialO
 	return grpc.DialContext(ctx, target, opts...)
 }
 
-// RequiredACLNamePrefix returns the string required to prefix all ACL names.
-func (e *Env) RequiredACLNamePrefix() string {
-	return "acl/"
+// RequiredACLNamePrefixList returns a list of possible strings required to prefix all ACL names.
+func (e *Env) RequiredACLNamePrefixList() []string {
+	return []string{"acl/"}
 }
 
 // Server extends the grpc server type with a GRPCServer method.

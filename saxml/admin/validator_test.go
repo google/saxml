@@ -36,7 +36,7 @@ func validConfig() *testConfig {
 	return &testConfig{
 		config: &apb.Config{
 			FsRoot:   "/path/to/root/dir",
-			AdminAcl: env.Get().RequiredACLNamePrefix() + "sax-dev",
+			AdminAcl: env.Get().RequiredACLNamePrefixList()[0] + "sax-dev",
 		},
 	}
 }
@@ -109,7 +109,7 @@ func TestCheckConfigProto(t *testing.T) {
 		},
 		{
 			"admin ACL invalid not ok",
-			validConfig().withAdminACL(env.Get().RequiredACLNamePrefix() + "does-not-exist-dev-group"),
+			validConfig().withAdminACL(env.Get().RequiredACLNamePrefixList()[0] + "does-not-exist-dev-group"),
 			cmpopts.AnyError,
 		},
 	}
@@ -151,7 +151,7 @@ func TestCheckConfigUpdate(t *testing.T) {
 		{
 			"admin ACL changed not ok",
 			validConfig(),
-			validConfig().withAdminACL(env.Get().RequiredACLNamePrefix() + "other-group"),
+			validConfig().withAdminACL(env.Get().RequiredACLNamePrefixList()[0] + "other-group"),
 			cmpopts.AnyError,
 		},
 	}
@@ -179,8 +179,8 @@ func validModel() *testModel {
 			RequestedNumReplicas: 10,
 			Acls: &cpb.AccessControlLists{
 				Items: map[string]string{
-					"lm.score":    env.Get().RequiredACLNamePrefix() + "all",
-					"lm.generate": env.Get().RequiredACLNamePrefix() + "sax-dev",
+					"lm.score":    env.Get().RequiredACLNamePrefixList()[0] + "all",
+					"lm.generate": env.Get().RequiredACLNamePrefixList()[0] + "sax-dev",
 				},
 			},
 		},
@@ -306,12 +306,12 @@ func TestCheckModelProto(t *testing.T) {
 		},
 		{
 			"invalid method name",
-			validModel().withACL("never.method", env.Get().RequiredACLNamePrefix()+"all"),
+			validModel().withACL("never.method", env.Get().RequiredACLNamePrefixList()[0]+"all"),
 			cmpopts.AnyError,
 		},
 		{
 			"invalid acl name",
-			validModel().withACL("lm.score", env.Get().RequiredACLNamePrefix()+"never_an_aclname"),
+			validModel().withACL("lm.score", env.Get().RequiredACLNamePrefixList()[0]+"never_an_aclname"),
 			cmpopts.AnyError,
 		},
 	}
@@ -409,8 +409,8 @@ func TestValidateJoinRequest(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	env.Get().SetTestACLNames(map[string][]string{
-		env.Get().RequiredACLNamePrefix() + "sax-dev": []string{"userA", "userB"},
-		env.Get().RequiredACLNamePrefix() + "all":     nil,
+		env.Get().RequiredACLNamePrefixList()[0] + "sax-dev": []string{"userA", "userB"},
+		env.Get().RequiredACLNamePrefixList()[0] + "all":     nil,
 	})
 	os.Exit(m.Run())
 }

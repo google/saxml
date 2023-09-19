@@ -20,7 +20,6 @@ package validator
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
 	"saxml/common/errors"
 	"saxml/common/naming"
@@ -69,10 +68,6 @@ func ValidateConfigProto(cfg *pb.Config) error {
 		return fmt.Errorf("FS root %q must match %q: %w", fsRoot, fsRootPattern, errors.ErrInvalidArgument)
 	}
 	if acl := cfg.GetAdminAcl(); acl != "" {
-		validACLNamePrefix := env.Get().RequiredACLNamePrefix()
-		if !strings.HasPrefix(acl, validACLNamePrefix) {
-			return fmt.Errorf("%s is not a valid ACL name (must start with %s): %w", acl, validACLNamePrefix, errors.ErrInvalidArgument)
-		}
 		if err := env.Get().ValidateACLName(acl); err != nil {
 			return err
 		}
@@ -117,11 +112,7 @@ func ValidateModelProto(model *pb.Model, saxCell string) error {
 	if model.GetRequestedNumReplicas() < 0 {
 		return fmt.Errorf("number of replicas %d must be non-negative: %w", model.GetRequestedNumReplicas(), errors.ErrInvalidArgument)
 	}
-	validACLNamePrefix := env.Get().RequiredACLNamePrefix()
 	if aclname := model.GetAdminAcl(); aclname != "" {
-		if !strings.HasPrefix(aclname, validACLNamePrefix) {
-			return fmt.Errorf("%s is not a valid ACL name (must start with %s): %w", aclname, validACLNamePrefix, errors.ErrInvalidArgument)
-		}
 		if err := env.Get().ValidateACLName(aclname); err != nil {
 			return err
 		}
@@ -130,9 +121,6 @@ func ValidateModelProto(model *pb.Model, saxCell string) error {
 		for method, aclname := range model.GetAcls().GetItems() {
 			if _, ok := validMethodName[method]; !ok {
 				return fmt.Errorf("%s is not a valid method name (%v): %w", method, validMethodName, errors.ErrInvalidArgument)
-			}
-			if !strings.HasPrefix(aclname, validACLNamePrefix) {
-				return fmt.Errorf("%s is not a valid ACL name (must start with %s): %w", aclname, validACLNamePrefix, errors.ErrInvalidArgument)
 			}
 			if err := env.Get().ValidateACLName(aclname); err != nil {
 				return err
