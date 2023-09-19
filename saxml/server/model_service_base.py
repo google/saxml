@@ -709,7 +709,13 @@ class ModelServiceGRPC(ModelService):
     loop = asyncio.get_running_loop()
     q = asyncio.Queue()
 
-    def _done(status: utils.Status, resp: Optional[message.Message] = None):
+    def _done(
+        status: utils.Status,
+        resp: Optional[message.Message] = None,
+        query_cost: Optional[int] = None,
+    ):
+      if query_cost:
+        context.set_trailing_metadata([('query_cost_v0', str(query_cost))])
       if not status.ok():
         context.set_code(status.code)
         context.set_details(status.details)
