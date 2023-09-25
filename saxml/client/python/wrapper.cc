@@ -531,6 +531,14 @@ absl::Status WaitForReady(absl::string_view id, int num_replicas) {
   return ::sax::client::WaitForReady(id, num_replicas);
 }
 
+absl::StatusOr<std::vector<::sax::client::ModelServerTypeStat>> Stats(
+    absl::string_view id) {
+  pybind11::gil_scoped_release release;
+  std::vector<::sax::client::ModelServerTypeStat> stats;
+  RETURN_IF_ERROR(::sax::client::Stats(id, &stats));
+  return stats;
+}
+
 }  // namespace pybind
 }  // namespace client
 }  // namespace sax

@@ -545,6 +545,18 @@ absl::Status ListAll(absl::string_view id, std::vector<std::string>* models);
 // On success, returns OK; Otherwise, returns an error.
 absl::Status WaitForReady(absl::string_view id, int num_replicas);
 
+struct ModelServerTypeStat {
+  std::string chip_type;
+  std::string chip_topology;
+  int num_replicas;
+};
+
+// Gets stats of a cell.
+//
+// On success, returns OK; Otherwise, returns an error.
+absl::Status Stats(absl::string_view id,
+                   std::vector<ModelServerTypeStat>* stats);
+
 }  // namespace client
 }  // namespace sax
 #endif  // SAXML_CLIENT_CC_SAX_H_

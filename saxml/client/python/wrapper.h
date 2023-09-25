@@ -261,6 +261,9 @@ absl::StatusOr<std::vector<std::string>> ListAll(absl::string_view id);
 
 absl::Status WaitForReady(absl::string_view id, int num_replicas);
 
+absl::StatusOr<std::vector<::sax::client::ModelServerTypeStat>> Stats(
+    absl::string_view id);
+
 }  // namespace pybind
 }  // namespace client
 }  // namespace sax

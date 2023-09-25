@@ -49,9 +49,9 @@ using ::sax::server::custom::CustomResponse;
 using ::sax::server::vision::ClassifyResponse;
 using ::sax::server::vision::DetectRequest;
 using ::sax::server::vision::DetectResponse;
+using ::sax::server::vision::ImageToImageResponse;
 using ::sax::server::vision::ImageToTextResponse;
 using ::sax::server::vision::TextAndImageToImageResponse;
-using ::sax::server::vision::ImageToImageResponse;
 using ::sax::server::vision::TextToImageResponse;
 using ::sax::server::vision::VideoToTextResponse;
 using VmEmbedResponse = ::sax::server::vision::EmbedResponse;
@@ -87,8 +87,8 @@ void ModelOptions::SetExtraInputTensor(absl::string_view key,
   kv_t_[std::string(key)] = value;
 }
 
-void ModelOptions::SetExtraInputString(
-    absl::string_view key, std::string value) {
+void ModelOptions::SetExtraInputString(absl::string_view key,
+                                       std::string value) {
   kv_s_[std::string(key)] = value;
 }
 
@@ -745,9 +745,10 @@ absl::Status VisionModel::ImageToImage(
   char* errMsgStr = nullptr;
   int errCode = 0;
   go_vm_image_to_image(model_handle_, options.GetTimeout(),
-                      const_cast<char*>(image_bytes.data()), image_bytes.size(),
-                      const_cast<char*>(extraStr.data()), extraStr.size(),
-                      &outputStr, &outputSize, &errMsgStr, &errCode);
+                       const_cast<char*>(image_bytes.data()),
+                       image_bytes.size(), const_cast<char*>(extraStr.data()),
+                       extraStr.size(), &outputStr, &outputSize, &errMsgStr,
+                       &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -976,6 +977,35 @@ absl::Status WaitForReady(absl::string_view id, int num_replicas) {
                     &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status Stats(absl::string_view id,
+                   std::vector<ModelServerTypeStat>* stats) {
+  std::string content;
+
+  char* outputStr = nullptr;
+  int outputSize = 0;
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  go_stats(const_cast<char*>(id.data()), id.size(), &outputStr, &outputSize,
+           &errMsgStr, &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+
+  sax::StatsResponse resp;
+  if (outputStr != nullptr) {
+    resp.ParseFromArray(outputStr, outputSize);
+    free(outputStr);
+  }
+
+  for (const auto& stat : resp.model_server_type_stats()) {
+    stats->push_back({sax::ModelServer::ChipType_Name(stat.chip_type()),
+                      sax::ModelServer::ChipTopology_Name(stat.chip_topology()),
+                      stat.num_replicas()});
   }
 
   return absl::OkStatus();

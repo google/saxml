@@ -276,6 +276,19 @@ PYBIND11_MODULE(sax, m) {
           return sax::client::pybind::ListAll(id);
         });
 
+  py::class_<sax::client::ModelServerTypeStat>(m, "ModelServerTypeStat")
+      .def_readonly("chip_type", &sax::client::ModelServerTypeStat::chip_type)
+      .def_readonly("chip_topology",
+                    &sax::client::ModelServerTypeStat::chip_topology)
+      .def_readonly("num_replicas",
+                    &sax::client::ModelServerTypeStat::num_replicas);
+
+  m.def("Stats",
+        [](absl::string_view id)
+            -> absl::StatusOr<std::vector<sax::client::ModelServerTypeStat>> {
+          return sax::client::pybind::Stats(id);
+        });
+
   m.def("WaitForReady",
         [](absl::string_view id, int num_replicas) -> absl::Status {
           return sax::client::pybind::WaitForReady(id, num_replicas);

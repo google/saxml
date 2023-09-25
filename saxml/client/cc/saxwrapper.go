@@ -320,6 +320,23 @@ func go_wait_for_ready(idData *C.char, idSize C.int, numReplicas C.int, errMsg *
 	}
 }
 
+//export go_stats
+func go_stats(idData *C.char, idSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+	id := C.GoStringN(idData, idSize)
+	admin := saxadmin.Open(id)
+	listResp, err := admin.Stats(context.Background(), "")
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+	content, err := proto.Marshal(listResp)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Audio model methods
 //////////////////////////////////////////////////////////////////////////
