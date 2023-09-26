@@ -477,11 +477,103 @@ def make_servable(servable_class=ServingTemplate):
   return _decorator
 
 
+def set_mqa_batch_sharding_hparams(
+    task_p: pax_fiddle.Config[tasks_lib.SingleTask],
+    mesh_shape: Sequence[int],
+    decode_mesh_transpose: Optional[Dict[str, str]] = None,
+) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+  """Set sharding params for MQA batch sharding.
+
+  Args:
+    task_p: The task params for ULM.
+    mesh_shape: The 3D mesh shape (replica, data/mdl2, mdl)
+    decode_mesh_transpose: If not None, 2 extra dims (fprop_data, fprop_mdl)
+      will the mesh shape will be added to the mesh dim, and the model will use
+      fprop/training-optimized sharding except for the prefix, and switch to
+      decoding-optimized sharding for the decoding loop.
+
+  Returns:
+    The updated task_p.
+  """
+  model_p = task_p.model
+  replica_axis = 'replica'
+  # We repurpose `data_mdl2` as the secondary model-parallel dim, but attention
+  # state blnh's b dim is also fully sharded on both `data_mdl2` and `replica`.
+  # Other activations' batch dim are not sharded by `data_mdl2`.
+  data_mdl2_axis = 'data_mdl2'
+  mdl_axis = 'mdl'
+  mesh_axis_names = [replica_axis, data_mdl2_axis, mdl_axis]
+  assert len(mesh_shape) == 3
+  assert (
+      not decode_mesh_transpose
+  ), 'decode_mesh_transpose is not supported for MQA batch sharding.'
+
+  model_p.ici_mesh_shape = mesh_shape
+  model_p.dcn_mesh_shape = None
+  model_p.mesh_axis_names = mesh_axis_names
+
+  # ffn0 weight
+  w_df = [data_mdl2_axis, mdl_axis]
+  # Attention weight.
+  w_dnh = [
+      data_mdl2_axis,
+      None,
+      None,
+  ]
+  # embedding weight
+  w_vd = [mdl_axis, data_mdl2_axis]
+  # Activations.
+  a_bld = [
+      (replica_axis, mdl_axis),
+      None,
+      data_mdl2_axis,
+  ]
+  a_blf = [replica_axis, None, mdl_axis]
+
+  a_blnh = [
+      (replica_axis, data_mdl2_axis, mdl_axis),
+      None,
+      None,
+      None,
+  ]
+  a_blh = [(replica_axis, mdl_axis), None, data_mdl2_axis]
+
+  a_blv = [replica_axis, None, mdl_axis]
+
+  lm_cls = cast(
+      Type[transformer_models.TransformerLm],
+      pax_fiddle.get_callable(model_p.lm_tpl),
+  )
+  model_p.lm_tpl = lm_cls.set_custom_sharding_params(
+      model_p.lm_tpl,
+      ici_mesh_shape=mesh_shape,
+      dcn_mesh_shape=None,
+      mesh_axis_names=mesh_axis_names,
+      w_df=w_df,
+      w_dnh=w_dnh,
+      w_vd=w_vd,
+      a_bld=a_bld,
+      a_blf=a_blf,
+      a_blh=a_blh,
+      a_blnh=a_blnh,
+      a_blv=a_blv,
+  )
+  # Transpose the mesh axes for the decoding loop.
+  model_p.decoder_tpl.decode_loop_mesh_axes_transpose = decode_mesh_transpose
+
+  # Set input sharding params.
+  task_p.train.inputs_split_mapping = py_utils.NestedMap(
+      map_1d=(replica_axis,),
+      map_2d=(replica_axis, None),
+  )
+
+  return task_p
+
+
 def set_decoding_sharding_hparams(
     task_p: pax_fiddle.Config[tasks_lib.SingleTask],
     mesh_shape: Sequence[int],
     decode_mesh_transpose: Optional[Dict[str, str]] = None,
-    mqa_kv_state_batch_sharding: Optional[bool] = False,
 ) -> pax_fiddle.Config[tasks_lib.SingleTask]:
   """Set spmd sharding params that works for decoding.
 
@@ -492,7 +584,6 @@ def set_decoding_sharding_hparams(
       will the mesh shape will be added to the mesh dim, and the model will use
       fprop/training-optimized sharding except for the prefix, and switch to
       decoding-optimized sharding for the decoding loop.
-    mqa_kv_state_batch_sharding: Shard along batch dim for MQA k,v activations.
 
   Returns:
     The updated task_p.
@@ -545,11 +636,7 @@ def set_decoding_sharding_hparams(
       maybe_fprop_mdl(mdl_axis),
       None,
   ]
-  if mqa_kv_state_batch_sharding and not decode_mesh_transpose:
-    # KV Attention state for multi-query shards batch by `mdl_axis`.
-    a_blh = [(replica_axis, mdl_axis), None, data_mdl2_axis]
-  else:
-    a_blh = None
+  a_blh = None
   a_blv = [maybe_fprop_data(replica_axis), None, maybe_fprop_mdl(mdl_axis)]
 
   lm_cls = cast(
