@@ -58,6 +58,10 @@ def for_transformer(
     block_size: int = 0,
     use_int4_packed_weights: bool = True,
     int4_packed_weights_container_dtype: jnp.dtype = jnp.int32,
+    weight_quant_only: bool = True,
+    quantize_self_attention: bool = True,
+    quantize_cross_attention: bool = True,
+    softmax_only: bool = True,
 ):
   """Find and quantize transformer.
 
@@ -74,14 +78,20 @@ def for_transformer(
       - When set to False, the input model is already quantized.
     num_bits: number of bits for quantized weights. Currently supports 8 and 4
       but any integer [1, 8] works.
-    linear_only: Quantize only the linear layers.
+    linear_only: If True, quantize only the linear layers inside the transforemr
+      layer. If False, linear layers inside the transformer layer are still
+      quantized, self attention and cross attention layers inside the
+      transformer layer maybe quantized. This argument does not impact whether
+      layers outside of transformer layer are quantized or not.
     use_symmetric: use symmetric weight quantization.
     rank: If positive, factorize weight matrix for linear layers to two [in_dim,
       rank], [rank, out_dim] matrices.
     quantize_embedding_softmax: If true, Quantize embedding table of embedding
-      softmax layer.
+      softmax layer. This applies to both softmax and embedding layers unless
+      softmax_only is set to True.
     transposed_embedding_softmax: If the model is using transposed embedding for
-      embedding softmax layer.
+      embedding softmax layer. This applies to both softmax and embedding layers
+      unless softmax_only is set to True.
     quantize_ngrammer_embedding: Quantize embedding table of each embedding in
       Ngrammer/VQNgrammer layer.
     dtype: Dtype of the quantized variables.
@@ -91,7 +101,17 @@ def for_transformer(
       False int4 weights will be kept in int8.
     int4_packed_weights_container_dtype: Container type for int4 weights: int32
       to pack 8 int4s, or int8 to pack 2 int4s.
-
+    weight_quant_only: If true, quantize weight only, otherweise quantize both
+      weight and activation except that softmax, embedding, Ngrammer/VQNgrammer
+      layer only support weight quantization regardless of this option.
+    quantize_self_attention: Quantize the self attention layer inside the
+      transformer layer. Must set linear_only to false to take effect.
+    quantize_cross_attention: Quantize the cross attention layer inside the
+      transformer layer. Must set linear_only to false to take effect.
+    softmax_only: Only quantize softmax layers and leave embedding layers
+      untouched. This option only works if softmax and embedding layers are
+      not sharing the same weights. This argument does not impact whether
+      layers other than softmax and embedding are quantized or not.
   Returns:
     a modifier that quantizes transformers when applied to a config.
   """
@@ -132,6 +152,10 @@ def for_transformer(
             block_size=block_size,
             use_int4_packed_weights=use_int4_packed_weights,
             int4_packed_weights_container_dtype=int4_packed_weights_container_dtype,
+            weight_quant_only=weight_quant_only,
+            quantize_self_attention=quantize_self_attention,
+            quantize_cross_attention=quantize_cross_attention,
+            softmax_only=softmax_only,
         )
         return task_p
 
