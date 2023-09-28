@@ -35,8 +35,8 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     spm_model: File name for a sentencepiece model.
     target_sos_id: Start of sentence id.
     target_eos_id: End of sentence id.
-    slice_left: Slice the left part of the sequence if it is too long.
-      Otherwise, slice the right part of the sequence.
+    slice_left: If true, keep the left part of the sequence if it is too long.
+      Otherwise, keep the right part of the sequence.
     streaming_whitespace_preserving_prefix: A prefix added to each non-SOS
       streaming decoding step to prevent the leading whitespace from being
       removed by sentencepiece; after decoding the step, it will be removed from
