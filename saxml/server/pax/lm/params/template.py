@@ -370,7 +370,7 @@ def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
   if xformer.cls == transformers.StackedTransformerRepeated:
     xformer = xformer.block
   assert xformer.cls == transformers.StackedTransformer
-  layer_p = xformer.transformer_layer_params_tpl
+  layer_ps = xformer.transformer_layer_params_tpl
   lbp_tr_atten_tpl = pax_fiddle.Config(
       attentions.DotProductAttentionWithLPB,
   )
@@ -379,17 +379,23 @@ def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
   lbp_multi_query_atten_tpl = pax_fiddle.Config(
       mqs_lpb_cls,
   )
-  if issubclass(layer_p.tr_atten_tpl.cls, attentions.DotProductAttention):
-    lbp_tr_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
-    layer_p.tr_atten_tpl = lbp_tr_atten_tpl
-  elif issubclass(layer_p.tr_atten_tpl.cls, mqa_cls):
-    lbp_multi_query_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
-    layer_p.tr_atten_tpl = lbp_multi_query_atten_tpl
-  else:
-    assert layer_p.tr_atten_tpl.cls == lbp_tr_atten_tpl.cls, (
-        'Attention layer does not support lazy prefix broadcast '
-        f'{layer_p.tr_atten_tpl.cls}.'
-    )
+  def _set_lpb_params_for_layer(layer_p: LayerTpl):
+    if issubclass(layer_p.tr_atten_tpl.cls, attentions.DotProductAttention):
+      lbp_tr_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
+      layer_p.tr_atten_tpl = lbp_tr_atten_tpl
+    elif issubclass(layer_p.tr_atten_tpl.cls, mqa_cls):
+      lbp_multi_query_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
+      layer_p.tr_atten_tpl = lbp_multi_query_atten_tpl
+    else:
+      assert layer_p.tr_atten_tpl.cls == lbp_tr_atten_tpl.cls, (
+          'Attention layer does not support lazy prefix broadcast '
+          f'{layer_p.tr_atten_tpl.cls}.'
+      )
+  if isinstance(layer_ps, Sequence):
+    for layer_p in layer_ps:
+      _set_lpb_params_for_layer(layer_p)
+  else:  # isinstance(layer_ps, LayerTpl):
+    _set_lpb_params_for_layer(layer_ps)
 
 
 def make_servable(servable_class=ServingTemplate):

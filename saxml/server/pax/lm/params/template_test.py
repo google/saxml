@@ -30,6 +30,26 @@ class TestModelMaxSequenceLength(TestModel):
   MAX_SEQ_LEN = 128
 
 
+@template.make_servable()
+class TestLayerwiseModel(TestModel):
+
+  def task(self):
+    task_p = super().task()
+    transformer_p = (
+        task_p.model.lm_tpl.stacked_transformer_tpl.transformer_layer_params_tpl
+    )
+    transformer_p_list = []
+
+    for _ in range(self.NUM_LAYERS):
+      single_tr_p = transformer_p.clone()
+      transformer_p_list.append(single_tr_p)
+
+    task_p.model.lm_tpl.stacked_transformer_tpl.transformer_layer_params_tpl = (
+        transformer_p_list
+    )
+    return task_p
+
+
 class TemplateTest(tf.test.TestCase, test_utils.TestCase):
 
   def test_seqlen(self):
@@ -50,6 +70,16 @@ class TemplateTest(tf.test.TestCase, test_utils.TestCase):
     self.assertEqual(
         config.generate_stream().decoder.seqlen,
         TestModel.INPUT_SEQ_LEN + TestModel.MAX_DECODE_STEPS,
+    )
+
+    config = TestLayerwiseModel()
+    self.assertEqual(
+        config.generate().decoder.seqlen,
+        TestLayerwiseModel.INPUT_SEQ_LEN + TestLayerwiseModel.MAX_DECODE_STEPS,
+    )
+    self.assertEqual(
+        config.generate_stream().decoder.seqlen,
+        TestLayerwiseModel.INPUT_SEQ_LEN + TestLayerwiseModel.MAX_DECODE_STEPS,
     )
 
 
