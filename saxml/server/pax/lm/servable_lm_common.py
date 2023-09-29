@@ -96,6 +96,7 @@ def decode_tf_post_processing(
     Return mean entropy of tokens when available.
   """
   assert isinstance(compute_outputs, py_utils.NestedMap)
+  prefix_lengths = None
   if t5_model:
     # Post process for the encoder decoder model.
     # output_ids: [b, seqlen]
@@ -148,6 +149,8 @@ def decode_tf_post_processing(
     mean_entropy = None
     if hasattr(compute_outputs, 'mean_entropy'):
       mean_entropy = compute_outputs.mean_entropy
+    if hasattr(compute_outputs, 'prefix_lengths'):
+      prefix_lengths = compute_outputs.prefix_lengths
 
   ret = {
       'topk_decoded': decoded,
@@ -157,6 +160,8 @@ def decode_tf_post_processing(
   }
   if mean_entropy is not None:
     ret['mean_entropy'] = mean_entropy
+  if prefix_lengths is not None:
+    ret['prefix_lengths'] = prefix_lengths
   return ret
 
 
