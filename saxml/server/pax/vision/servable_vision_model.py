@@ -116,11 +116,14 @@ class EmbedHParams(servable_model_params.ServableMethodParams):
       an input image.  Required.
     output_embedding_name: The name of the embedding to use from the model's
       outputs.  Required.
+    fn_output_signature: The output signature of the tf image preprocessing.
+      Optional.
   """
 
   image_preprocessor: Optional[Callable[[str], tf.Tensor]] = None
   model_method_name: Optional[str] = None
   output_embedding_name: Optional[str] = None
+  fn_output_signature: Optional[NestedTfTensorSpec] = None
 
 
 @dataclasses.dataclass
@@ -608,11 +611,18 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
 
   @tf.function
   def tf_pre_processing(self, image_bytes_batch: tf.Tensor) -> NestedTfTensor:
-    return NestedMap(
-        image=tf.map_fn(
-            self._image_preprocessor, image_bytes_batch, dtype=tf.float32
-        )
-    )
+    if self._method_params.fn_output_signature is None:
+      return NestedMap(
+          image=tf.map_fn(
+              self._image_preprocessor, image_bytes_batch, dtype=tf.float32
+          )
+      )
+    else:
+      return tf.map_fn(
+          self._image_preprocessor,
+          image_bytes_batch,
+          fn_output_signature=self._method_params.fn_output_signature,
+      )
 
   def tf_post_processing(
       self, compute_outputs: NestedTfTensor
