@@ -25,6 +25,7 @@ package_group(
     includes = [
         "//saxml:internal",
     ],
+    packages = ["//research/bigpicture/llm_api_use/sax/..."],
 )
 
 proto_library(
@@ -214,6 +215,7 @@ py_grpc_library(
 go_proto_library(
     name = "custom_go_proto",
     extra_deps = [":common_go_proto"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":custom_proto"],
 )
 
@@ -271,6 +273,7 @@ py_grpc_library(
 go_proto_library(
     name = "lm_go_proto",
     extra_deps = [":common_go_proto"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":lm_proto"],
 )
 
@@ -325,6 +328,7 @@ py_grpc_library(
 go_proto_library(
     name = "audio_go_proto",
     extra_deps = [":common_go_proto"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":audio_proto"],
 )
 
@@ -379,6 +383,7 @@ py_grpc_library(
 go_proto_library(
     name = "vision_go_proto",
     extra_deps = [":common_go_proto"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":vision_proto"],
 )
 
