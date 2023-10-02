@@ -72,6 +72,7 @@ pytype_strict_library(
         "//third_party/py/praxis:schedules",
         "//third_party/py/praxis/layers",
         "//third_party/py/praxis/layers:activations",
+        "//third_party/py/praxis/layers:multi_query_attention",
     ],
 )
 

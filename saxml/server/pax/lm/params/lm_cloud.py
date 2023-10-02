@@ -26,6 +26,7 @@ from praxis import optimizers
 from praxis import pax_fiddle
 from praxis import schedules
 from praxis.layers import activations
+from praxis.layers import multi_query_attention
 from saxml.server import servable_model_registry
 from saxml.server.pax import quantization
 from saxml.server.pax.lm.layers import LLaMARotaryEmbedding
@@ -50,6 +51,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
   HIDDEN_DIMS = MODEL_DIMS * 4
   FPROP_DTYPE = jnp.bfloat16
   MODEL_DTYPE = jnp.bfloat16
+  USE_MQA = False
 
   ACTIVATION_CLS = activations.SiLU
   USE_GATED_ACTIVATION = True
@@ -121,10 +123,19 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     )
     transformer_layer_p.norm_policy = 'pre'
     transformer_layer_p.ln_tpl = ln_tpl.clone()
-    transformer_layer_p.tr_atten_tpl.internal_enable_per_dim_scale = False
+
+    if self.USE_MQA:
+      transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
+          multi_query_attention.MultiQueryDotProductAttention,
+          num_kv_heads=self.NUM_KV_HEADS,
+      )
+      transformer_layer_p.tr_atten_tpl.combine_qkv = False
+    else:
+      transformer_layer_p.tr_atten_tpl.internal_enable_per_dim_scale = False
+      transformer_layer_p.tr_atten_tpl.combine_qkv = True
+
     transformer_layer_p.tr_atten_tpl.internal_enable_query_scale = True
     transformer_layer_p.tr_atten_tpl.use_bias = False
-    transformer_layer_p.tr_atten_tpl.combine_qkv = True
     transformer_layer_p.tr_atten_tpl.rotary_position_emb_tpl = (
         pax_fiddle.Config(LLaMARotaryEmbedding)
     )
@@ -290,6 +301,42 @@ class LLaMA65B(BaseLLaMA):
   @property
   def test_mode(self) -> bool:
     return True
+
+
+# LlaMa2 70B models (use grouped query attention)
+@servable_model_registry.register
+class LLaMA70BFP16TPUv5e(BaseLLaMA):
+  """LlaMA-2 70B model on TPUv5-16."""
+
+  NUM_LAYERS = 80
+  VOCAB_SIZE = 32000
+  DIMS_PER_HEAD = 128
+  NUM_HEADS = 64
+  MODEL_DIMS = 8192
+  HIDDEN_DIMS = 28672
+  USE_MQA = True
+  NUM_KV_HEADS = 8
+
+  ICI_MESH_SHAPE = [1, 1, 16]
+  MAX_DECODE_STEPS = 128
+
+  ENABLE_GENERATE_STREAM = False
+
+  @property
+  def test_mode(self) -> bool:
+    return True
+
+
+@servable_model_registry.register
+class LLaMA70BFP16TPUv5e32(LLaMA70BFP16TPUv5e):
+  """LlaMA-2 70B model on TPUv5-32."""
+  ICI_MESH_SHAPE = [1, 1, 32]
+
+
+@servable_model_registry.register
+class LLaMA70BFP16TPUv5e64(LLaMA70BFP16TPUv5e):
+  """LlaMA-2 70B model on TPUv5-64."""
+  ICI_MESH_SHAPE = [1, 1, 64]
 
 
 # GPT-J/NeoX family
