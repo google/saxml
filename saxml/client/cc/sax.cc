@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
+#include <map>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -940,6 +941,8 @@ absl::Status List(absl::string_view id, ModelDetail* model) {
   model->ckpt = one_model.checkpoint_path();
   model->max_replicas = one_model.requested_num_replicas();
   model->active_replicas = pub_model.modelet_addresses_size();
+  model->overrides = std::map<std::string, std::string>(
+      one_model.overrides().begin(), one_model.overrides().end());
 
   return absl::OkStatus();
 }

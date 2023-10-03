@@ -119,6 +119,7 @@ func (s *stubAdminServer) List(ctx context.Context, in *apb.ListRequest) (*apb.L
 					ModelPath:            "/sax/models/xyz",
 					CheckpointPath:       "/tmp/abc",
 					RequestedNumReplicas: 1,
+					Overrides:            map[string]string{"foo": "bar"},
 				},
 				ModeletAddresses: []string{addresses[0]},
 			},

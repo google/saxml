@@ -528,6 +528,7 @@ struct ModelDetail {
   std::string ckpt;
   int max_replicas;
   int active_replicas;
+  std::map<std::string, std::string> overrides;
 };
 
 // List a model to get details such checkpoint path and model path.

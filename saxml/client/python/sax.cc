@@ -264,7 +264,8 @@ PYBIND11_MODULE(sax, m) {
       .def_readonly("ckpt", &sax::client::ModelDetail::ckpt)
       .def_readonly("max_replicas", &sax::client::ModelDetail::max_replicas)
       .def_readonly("active_replicas",
-                    &sax::client::ModelDetail::active_replicas);
+                    &sax::client::ModelDetail::active_replicas)
+      .def_readonly("overrides", &sax::client::ModelDetail::overrides);
 
   m.def("ListDetail",
         [](absl::string_view id) -> absl::StatusOr<sax::client::ModelDetail> {
