@@ -229,6 +229,7 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
           _MODELS.value, _MODEL_KEYS.value, _CHECKPOINTS.value
       ):
         _load_static_model(_PORT.value, model, key, ckpt, channel_creds)
+      runner.on_initial_models_load_completion()
     runner.wait()
   finally:
     runner.stop()

@@ -492,6 +492,7 @@ class LoadedModelManager:
     if key in self._models:
       raise ValueError(f'Model {key} is already loaded, cannot load.')
 
+    logging.info('Loading model for key: %s', key)
     self._status[key] = common_pb2.ModelStatus.LOADING
     try:
       model_class = servable_model_registry.get(model_path)
@@ -527,6 +528,7 @@ class LoadedModelManager:
         overrides=copy.deepcopy(overrides),
     )
     self._models[key] = loaded
+    logging.info('Successfully loaded model for key: %s', key)
     return loaded
 
   def update(self, key: str, acls: Dict[str, str]) -> None:
@@ -1258,6 +1260,9 @@ class ModelServicesRunner:
     self._aio_thread.start()
     if self._is_primary:
       self._keep_warm_thread.start()
+
+  def on_initial_models_load_completion(self) -> None:
+    """Callback to invoke after all models are loaded."""
 
   def _run_aio_loop(self) -> None:
     """Runs the aio grpc loop."""
