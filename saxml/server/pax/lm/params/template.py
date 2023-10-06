@@ -75,7 +75,7 @@ class CommonServingTemplate:
   EXTRA_INPUTS = {'temperature': 0.1}
   EXTRA_INPUTS_DTYPES = {}
   SCORE_EXTRA_INPUTS = {}
-  BUCKET_KEYS = None
+  BUCKET_KEYS: list[int] = None
   INCLUDE_PREFIX_IN_RESULT = False
   MAX_LIVE_BATCHES = 4
   ENABLE_GENERATE = True
