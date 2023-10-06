@@ -128,6 +128,19 @@ class LMTokenizerTest(tf.test.TestCase):
     strs = [tf.strings.substr(s, 0, 5) for s in strs]
     self.assertEqual([b'Hello', b'world'], strs)
 
+  def testIdToString(self):
+    p = _CreateParams()
+    tokenizer = instantiate(p)
+    ids = [[151, 88, 21, 0, 0], [887, 0, 0, 0, 0]]
+    strs = tokenizer.IdToString(ids)
+    self.assertAllEqual(
+        [
+            [b'\xe2\x96\x81He', b'll', b'o', b'<unk>', b'<unk>'],
+            [b'\xe2\x96\x81world', b'<unk>', b'<unk>', b'<unk>', b'<unk>'],
+        ],
+        strs,
+    )
+
   def testEmptyTokenizedStringsToIds(self):
     p = _CreateTokenizedParams()
     tokenizer = p.Instantiate()

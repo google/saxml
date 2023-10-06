@@ -238,6 +238,18 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     assert p.spm_model
     return self._vocab.tf_tokenizer.detokenize(ids)
 
+  def IdToString(self, ids: tf.Tensor) -> tf.Tensor:
+    """Converts each token ID to a token string.
+
+    Args:
+      ids: A tensor of shape [batch, seqlen] and int32 data type.
+        ids[n, i] is the token ID at decoding step i for the n-th sample.
+
+    Returns:
+      A tensor of token strings with the same shape as the input ids.
+    """
+    return self._vocab.tf_tokenizer.id_to_string(ids)
+
   def InitStream(self, batch_size: tf.Tensor) -> StreamState:
     """Create the initial state for streaming.
 
