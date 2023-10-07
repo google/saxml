@@ -488,54 +488,95 @@ MultimodalModel Model::MM() { return MultimodalModel(base_, status_); }
 void StartDebugPort(int port) { ::sax::client::StartDebugPort(port); }
 
 absl::Status Publish(absl::string_view id, absl::string_view model_path,
-                     absl::string_view checkpoint_path, int num_replicas) {
+                     absl::string_view checkpoint_path, int num_replicas,
+                     const AdminOptions* options) {
   pybind11::gil_scoped_release release;
-  return ::sax::client::Publish(id, model_path, checkpoint_path, num_replicas);
+  if (options == nullptr) {
+    return ::sax::client::Publish(id, model_path, checkpoint_path,
+                                  num_replicas);
+  } else {
+    return ::sax::client::Publish(*options, id, model_path, checkpoint_path,
+                                  num_replicas);
+  }
 }
 
-absl::Status Unpublish(absl::string_view id) {
+absl::Status Unpublish(absl::string_view id, const AdminOptions* options) {
   pybind11::gil_scoped_release release;
-  return ::sax::client::Unpublish(id);
+  if (options == nullptr) {
+    return ::sax::client::Unpublish(id);
+  } else {
+    return ::sax::client::Unpublish(*options, id);
+  }
 }
 
 absl::Status Update(absl::string_view id, absl::string_view model_path,
-                    absl::string_view checkpoint_path, int num_replicas) {
+                    absl::string_view checkpoint_path, int num_replicas,
+                    const AdminOptions* options) {
   pybind11::gil_scoped_release release;
-  return ::sax::client::Update(id, model_path, checkpoint_path, num_replicas);
+  if (options == nullptr) {
+    return ::sax::client::Update(id, model_path, checkpoint_path, num_replicas);
+  } else {
+    return ::sax::client::Update(*options, id, model_path, checkpoint_path,
+                                 num_replicas);
+  }
 }
 
-absl::StatusOr<PyListResult> List(absl::string_view id) {
+absl::StatusOr<PyListResult> List(absl::string_view id,
+                                  const AdminOptions* options) {
   pybind11::gil_scoped_release release;
   ::sax::client::ModelDetail published_model;
-  RETURN_IF_ERROR(::sax::client::List(id, &published_model));
+  if (options == nullptr) {
+    RETURN_IF_ERROR(::sax::client::List(id, &published_model));
+  } else {
+    RETURN_IF_ERROR(::sax::client::List(*options, id, &published_model));
+  }
   return std::make_tuple(published_model.model, published_model.ckpt,
                          published_model.active_replicas);
 }
 
-absl::StatusOr<::sax::client::ModelDetail> ListDetail(absl::string_view id) {
+absl::StatusOr<::sax::client::ModelDetail> ListDetail(
+    absl::string_view id, const AdminOptions* options) {
   pybind11::gil_scoped_release release;
   ::sax::client::ModelDetail published_model;
-  RETURN_IF_ERROR(::sax::client::List(id, &published_model));
+  if (options == nullptr) {
+    RETURN_IF_ERROR(::sax::client::List(id, &published_model));
+  } else {
+    RETURN_IF_ERROR(::sax::client::List(*options, id, &published_model));
+  }
   return published_model;
 }
 
-absl::StatusOr<std::vector<std::string>> ListAll(absl::string_view id) {
+absl::StatusOr<std::vector<std::string>> ListAll(absl::string_view id,
+                                                 const AdminOptions* options) {
   pybind11::gil_scoped_release release;
   std::vector<std::string> published_models;
-  RETURN_IF_ERROR(::sax::client::ListAll(id, &published_models));
+  if (options == nullptr) {
+    RETURN_IF_ERROR(::sax::client::ListAll(id, &published_models));
+  } else {
+    RETURN_IF_ERROR(::sax::client::ListAll(*options, id, &published_models));
+  }
   return published_models;
 }
 
-absl::Status WaitForReady(absl::string_view id, int num_replicas) {
+absl::Status WaitForReady(absl::string_view id, int num_replicas,
+                          const AdminOptions* options) {
   pybind11::gil_scoped_release release;
-  return ::sax::client::WaitForReady(id, num_replicas);
+  if (options == nullptr) {
+    return ::sax::client::WaitForReady(id, num_replicas);
+  } else {
+    return ::sax::client::WaitForReady(*options, id, num_replicas);
+  }
 }
 
 absl::StatusOr<std::vector<::sax::client::ModelServerTypeStat>> Stats(
-    absl::string_view id) {
+    absl::string_view id, const AdminOptions* options) {
   pybind11::gil_scoped_release release;
   std::vector<::sax::client::ModelServerTypeStat> stats;
-  RETURN_IF_ERROR(::sax::client::Stats(id, &stats));
+  if (options == nullptr) {
+    RETURN_IF_ERROR(::sax::client::Stats(id, &stats));
+  } else {
+    RETURN_IF_ERROR(::sax::client::Stats(*options, id, &stats));
+  }
   return stats;
 }
 

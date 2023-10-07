@@ -36,6 +36,7 @@ namespace client {
 
 class Options;
 class ModelOptions;
+class AdminOptions;
 
 namespace pybind {
 
@@ -244,25 +245,32 @@ class Model {
 void StartDebugPort(int port);
 
 absl::Status Publish(absl::string_view id, absl::string_view model_path,
-                     absl::string_view checkpoint_path, int num_replicas);
+                     absl::string_view checkpoint_path, int num_replicas,
+                     const AdminOptions* options = nullptr);
 
-absl::Status Unpublish(absl::string_view id);
+absl::Status Unpublish(absl::string_view id,
+                       const AdminOptions* options = nullptr);
 
 absl::Status Update(absl::string_view id, absl::string_view model_path,
-                    absl::string_view checkpoint_path, int num_replicas);
+                    absl::string_view checkpoint_path, int num_replicas,
+                    const AdminOptions* options = nullptr);
 
 typedef std::tuple<std::string, std::string, int> PyListResult;
 
-absl::StatusOr<PyListResult> List(absl::string_view id);
+absl::StatusOr<PyListResult> List(absl::string_view id,
+                                  const AdminOptions* options = nullptr);
 
-absl::StatusOr<::sax::client::ModelDetail> ListDetail(absl::string_view id);
+absl::StatusOr<::sax::client::ModelDetail> ListDetail(
+    absl::string_view id, const AdminOptions* options = nullptr);
 
-absl::StatusOr<std::vector<std::string>> ListAll(absl::string_view id);
+absl::StatusOr<std::vector<std::string>> ListAll(
+    absl::string_view id, const AdminOptions* options = nullptr);
 
-absl::Status WaitForReady(absl::string_view id, int num_replicas);
+absl::Status WaitForReady(absl::string_view id, int num_replicas,
+                          const AdminOptions* options = nullptr);
 
 absl::StatusOr<std::vector<::sax::client::ModelServerTypeStat>> Stats(
-    absl::string_view id);
+    absl::string_view id, const AdminOptions* options = nullptr);
 
 }  // namespace pybind
 }  // namespace client

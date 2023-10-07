@@ -233,31 +233,31 @@ PYBIND11_MODULE(sax, m) {
 
   m.def("StartDebugPort", &sax::client::pybind::StartDebugPort);
 
-  m.def(
-      "Publish",
-      [](absl::string_view id, absl::string_view model_path,
-         absl::string_view checkpoint_path, int num_replicas) -> absl::Status {
-        return sax::client::pybind::Publish(id, model_path, checkpoint_path,
-                                            num_replicas);
-      });
+  py::class_<sax::client::AdminOptions>(m, "AdminOptions")
+      .def(py::init<>())
+      .def("__copy__",
+           [](const sax::client::AdminOptions& self) {
+             return sax::client::AdminOptions(self);
+           })
+      .def("__deepcopy__",
+           [](sax::client::AdminOptions& self, py::dict) {
+             return sax::client::AdminOptions(self);
+           })
+      .def_readwrite("timeout", &sax::client::AdminOptions::timeout);
 
-  m.def("Unpublish", [](absl::string_view id) -> absl::Status {
-    return sax::client::pybind::Unpublish(id);
-  });
+  m.def("Publish", &sax::client::pybind::Publish, py::arg("id"),
+        py::arg("model_path"), py::arg("checkpoint_path"),
+        py::arg("num_replicas"), py::arg("options") = nullptr);
 
-  m.def(
-      "Update",
-      [](absl::string_view id, absl::string_view model_path,
-         absl::string_view checkpoint_path, int num_replicas) -> absl::Status {
-        return sax::client::pybind::Update(id, model_path, checkpoint_path,
-                                           num_replicas);
-      });
+  m.def("Unpublish", &sax::client::pybind::Unpublish, py::arg("id"),
+        py::arg("options") = nullptr);
 
-  m.def("List",
-        [](absl::string_view id)
-            -> absl::StatusOr<std::tuple<std::string, std::string, int>> {
-          return sax::client::pybind::List(id);
-        });
+  m.def("Update", &sax::client::pybind::Update, py::arg("id"),
+        py::arg("model_path"), py::arg("checkpoint_path"),
+        py::arg("num_replicas"), py::arg("options") = nullptr);
+
+  m.def("List", &sax::client::pybind::List, py::arg("id"),
+        py::arg("options") = nullptr);
 
   py::class_<sax::client::ModelDetail>(m, "ModelDetail")
       .def_readonly("model", &sax::client::ModelDetail::model)
@@ -267,15 +267,11 @@ PYBIND11_MODULE(sax, m) {
                     &sax::client::ModelDetail::active_replicas)
       .def_readonly("overrides", &sax::client::ModelDetail::overrides);
 
-  m.def("ListDetail",
-        [](absl::string_view id) -> absl::StatusOr<sax::client::ModelDetail> {
-          return sax::client::pybind::ListDetail(id);
-        });
+  m.def("ListDetail", &sax::client::pybind::ListDetail, py::arg("id"),
+        py::arg("options") = nullptr);
 
-  m.def("ListAll",
-        [](absl::string_view id) -> absl::StatusOr<std::vector<std::string>> {
-          return sax::client::pybind::ListAll(id);
-        });
+  m.def("ListAll", &sax::client::pybind::ListAll, py::arg("id"),
+        py::arg("options") = nullptr);
 
   py::class_<sax::client::ModelServerTypeStat>(m, "ModelServerTypeStat")
       .def_readonly("chip_type", &sax::client::ModelServerTypeStat::chip_type)
@@ -284,14 +280,9 @@ PYBIND11_MODULE(sax, m) {
       .def_readonly("num_replicas",
                     &sax::client::ModelServerTypeStat::num_replicas);
 
-  m.def("Stats",
-        [](absl::string_view id)
-            -> absl::StatusOr<std::vector<sax::client::ModelServerTypeStat>> {
-          return sax::client::pybind::Stats(id);
-        });
+  m.def("Stats", &sax::client::pybind::Stats, py::arg("id"),
+        py::arg("options") = nullptr);
 
-  m.def("WaitForReady",
-        [](absl::string_view id, int num_replicas) -> absl::Status {
-          return sax::client::pybind::WaitForReady(id, num_replicas);
-        });
+  m.def("WaitForReady", &sax::client::pybind::WaitForReady, py::arg("id"),
+        py::arg("num_replicas"), py::arg("options") = nullptr);
 }

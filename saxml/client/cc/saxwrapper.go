@@ -201,7 +201,7 @@ func openAdmin(id string) (string, *saxadmin.Admin, error) {
 }
 
 //export go_publish
-func go_publish(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSize C.int, checkpointPathData *C.char, checkpointPathSize C.int, numReplicas C.int, errMsg **C.char, errCode *C.int) {
+func go_publish(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSize C.int, checkpointPathData *C.char, checkpointPathSize C.int, numReplicas C.int, timeout C.float, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
 	modelID, admin, err := openAdmin(id)
 	if err != nil {
@@ -213,7 +213,11 @@ func go_publish(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSi
 	modelPath := C.GoStringN(modelPathData, modelPathSize)
 	checkpointPath := C.GoStringN(checkpointPathData, checkpointPathSize)
 	emptyOverrides := make(map[string]string)
-	err = admin.Publish(context.Background(), modelID, modelPath, checkpointPath, int(numReplicas), emptyOverrides)
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+	err = admin.Publish(ctx, modelID, modelPath, checkpointPath, int(numReplicas), emptyOverrides)
 	if err != nil {
 		*errMsg = C.CString(err.Error())
 		*errCode = C.int(int32(errors.Code(err)))
@@ -222,7 +226,7 @@ func go_publish(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSi
 }
 
 //export go_unpublish
-func go_unpublish(idData *C.char, idSize C.int, errMsg **C.char, errCode *C.int) {
+func go_unpublish(idData *C.char, idSize C.int, timeout C.float, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
 	modelID, admin, err := openAdmin(id)
 	if err != nil {
@@ -231,7 +235,11 @@ func go_unpublish(idData *C.char, idSize C.int, errMsg **C.char, errCode *C.int)
 		return
 	}
 
-	err = admin.Unpublish(context.Background(), modelID)
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+	err = admin.Unpublish(ctx, modelID)
 	if err != nil {
 		*errMsg = C.CString(err.Error())
 		*errCode = C.int(int32(errors.Code(err)))
@@ -240,7 +248,7 @@ func go_unpublish(idData *C.char, idSize C.int, errMsg **C.char, errCode *C.int)
 }
 
 //export go_update
-func go_update(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSize C.int, checkpointPathData *C.char, checkpointPathSize C.int, numReplicas C.int, errMsg **C.char, errCode *C.int) {
+func go_update(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSize C.int, checkpointPathData *C.char, checkpointPathSize C.int, numReplicas C.int, timeout C.float, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
 	modelID, admin, err := openAdmin(id)
 	if err != nil {
@@ -251,7 +259,11 @@ func go_update(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSiz
 
 	modelPath := C.GoStringN(modelPathData, modelPathSize)
 	checkpointPath := C.GoStringN(checkpointPathData, checkpointPathSize)
-	err = admin.Update(context.Background(), &apb.Model{
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+	err = admin.Update(ctx, &apb.Model{
 		ModelId:              modelID,
 		ModelPath:            modelPath,
 		CheckpointPath:       checkpointPath,
@@ -265,14 +277,18 @@ func go_update(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSiz
 }
 
 //export go_list
-func go_list(idData *C.char, idSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+func go_list(idData *C.char, idSize C.int, timeout C.float, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
 	modelID, admin, err := openAdmin(id)
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return
 	}
-	publishedModel, err := admin.List(context.Background(), modelID)
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+	publishedModel, err := admin.List(ctx, modelID)
 	if err != nil || publishedModel == nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return
@@ -286,10 +302,14 @@ func go_list(idData *C.char, idSize C.int, outData **C.char, outSize *C.int, err
 }
 
 //export go_list_all
-func go_list_all(idData *C.char, idSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+func go_list_all(idData *C.char, idSize C.int, timeout C.float, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
 	admin := saxadmin.Open(id)
-	listResp, err := admin.ListAll(context.Background())
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+	listResp, err := admin.ListAll(ctx)
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return
@@ -303,7 +323,7 @@ func go_list_all(idData *C.char, idSize C.int, outData **C.char, outSize *C.int,
 }
 
 //export go_wait_for_ready
-func go_wait_for_ready(idData *C.char, idSize C.int, numReplicas C.int, errMsg **C.char, errCode *C.int) {
+func go_wait_for_ready(idData *C.char, idSize C.int, numReplicas C.int, timeout C.float, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
 	modelID, admin, err := openAdmin(id)
 	if err != nil {
@@ -312,7 +332,11 @@ func go_wait_for_ready(idData *C.char, idSize C.int, numReplicas C.int, errMsg *
 		return
 	}
 
-	err = admin.WaitForReady(context.Background(), modelID, int(numReplicas))
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+	err = admin.WaitForReady(ctx, modelID, int(numReplicas))
 	if err != nil {
 		*errMsg = C.CString(err.Error())
 		*errCode = C.int(int32(errors.Code(err)))
@@ -321,10 +345,14 @@ func go_wait_for_ready(idData *C.char, idSize C.int, numReplicas C.int, errMsg *
 }
 
 //export go_stats
-func go_stats(idData *C.char, idSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+func go_stats(idData *C.char, idSize C.int, timeout C.float, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
 	admin := saxadmin.Open(id)
-	listResp, err := admin.Stats(context.Background(), "")
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+	listResp, err := admin.Stats(ctx, "")
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return

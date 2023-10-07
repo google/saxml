@@ -59,12 +59,11 @@ class ModelOptions {
   void SetExtraInput(absl::string_view key, float value);
   float GetExtraInput(absl::string_view key) const;
 
-  void SetExtraInputTensor(
-    absl::string_view key, const std::vector<float>& value);
+  void SetExtraInputTensor(absl::string_view key,
+                           const std::vector<float>& value);
   std::vector<float> GetExtraInputTensor(absl::string_view key) const;
 
-  void SetExtraInputString(
-    absl::string_view key, std::string value);
+  void SetExtraInputString(absl::string_view key, std::string value);
   std::string GetExtraInputString(absl::string_view key) const;
 
   void FromProto(const ::sax::ExtraInputs& proto);
@@ -443,10 +442,10 @@ class VisionModel {
   // On success, returns OK and fills in images and their scores computed by
   // the model.  Otherwise, returns an error.
   absl::Status ImageToImage(absl::string_view image_bytes,
-                           std::vector<GeneratedImage>* result) const;
+                            std::vector<GeneratedImage>* result) const;
   absl::Status ImageToImage(const ModelOptions& options,
-                           absl::string_view image_bytes,
-                           std::vector<GeneratedImage>* result) const;
+                            absl::string_view image_bytes,
+                            std::vector<GeneratedImage>* result) const;
 
   // VideoToText produces a list of captions and scores given 'image_frames'
   // and an optional prefix 'text'
@@ -506,21 +505,33 @@ class Model {
 // Starts a debugging http server at the given `port`. For debugging only.
 void StartDebugPort(int port);
 
+struct AdminOptions {
+  // Timeout in seconds. Negative values indicate no timeout.
+  float timeout = -1;
+};
+
 // Publish a model with given parameters.
 //
 // On success, returns OK; Otherwise, returns an error.
 absl::Status Publish(absl::string_view id, absl::string_view model_path,
+                     absl::string_view checkpoint_path, int num_replicas);
+absl::Status Publish(const AdminOptions& options, absl::string_view id,
+                     absl::string_view model_path,
                      absl::string_view checkpoint_path, int num_replicas);
 
 // Unpublish a model for a given id.
 //
 // On success, returns OK; Otherwise, returns an error.
 absl::Status Unpublish(absl::string_view id);
+absl::Status Unpublish(const AdminOptions& options, absl::string_view id);
 
 // Update a model with given parameters.
 //
 // On success, returns OK; Otherwise, returns an error.
 absl::Status Update(absl::string_view id, absl::string_view model_path,
+                    absl::string_view checkpoint_path, int num_replicas);
+absl::Status Update(const AdminOptions& options, absl::string_view id,
+                    absl::string_view model_path,
                     absl::string_view checkpoint_path, int num_replicas);
 
 struct ModelDetail {
@@ -535,16 +546,22 @@ struct ModelDetail {
 //
 // On success, returns OK; Otherwise, returns an error.
 absl::Status List(absl::string_view id, ModelDetail* model);
+absl::Status List(const AdminOptions& options, absl::string_view id,
+                  ModelDetail* model);
 
 // List all model ids in a sax cell.
 //
 // On success, returns OK; Otherwise, returns an error.
 absl::Status ListAll(absl::string_view id, std::vector<std::string>* models);
+absl::Status ListAll(const AdminOptions& options, absl::string_view id,
+                     std::vector<std::string>* models);
 
 // Wait until at least a certain number of replicas are ready.
 //
 // On success, returns OK; Otherwise, returns an error.
 absl::Status WaitForReady(absl::string_view id, int num_replicas);
+absl::Status WaitForReady(const AdminOptions& options, absl::string_view id,
+                          int num_replicas);
 
 struct ModelServerTypeStat {
   std::string chip_type;
@@ -556,6 +573,8 @@ struct ModelServerTypeStat {
 //
 // On success, returns OK; Otherwise, returns an error.
 absl::Status Stats(absl::string_view id,
+                   std::vector<ModelServerTypeStat>* stats);
+absl::Status Stats(const AdminOptions& options, absl::string_view id,
                    std::vector<ModelServerTypeStat>* stats);
 
 }  // namespace client

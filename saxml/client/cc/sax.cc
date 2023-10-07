@@ -880,12 +880,18 @@ void StartDebugPort(int port) { go_start_debug(port); }
 
 absl::Status Publish(absl::string_view id, absl::string_view model_path,
                      absl::string_view checkpoint_path, int num_replicas) {
+  return Publish(AdminOptions(), id, model_path, checkpoint_path, num_replicas);
+}
+
+absl::Status Publish(const AdminOptions& options, absl::string_view id,
+                     absl::string_view model_path,
+                     absl::string_view checkpoint_path, int num_replicas) {
   char* errMsgStr = nullptr;
   int errCode = 0;
   go_publish(const_cast<char*>(id.data()), id.size(),
              const_cast<char*>(model_path.data()), model_path.size(),
              const_cast<char*>(checkpoint_path.data()), checkpoint_path.size(),
-             num_replicas, &errMsgStr, &errCode);
+             num_replicas, options.timeout, &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -894,9 +900,14 @@ absl::Status Publish(absl::string_view id, absl::string_view model_path,
 }
 
 absl::Status Unpublish(absl::string_view id) {
+  return Unpublish(AdminOptions(), id);
+}
+
+absl::Status Unpublish(const AdminOptions& options, absl::string_view id) {
   char* errMsgStr = nullptr;
   int errCode = 0;
-  go_unpublish(const_cast<char*>(id.data()), id.size(), &errMsgStr, &errCode);
+  go_unpublish(const_cast<char*>(id.data()), id.size(), options.timeout,
+               &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -906,12 +917,18 @@ absl::Status Unpublish(absl::string_view id) {
 
 absl::Status Update(absl::string_view id, absl::string_view model_path,
                     absl::string_view checkpoint_path, int num_replicas) {
+  return Update(AdminOptions(), id, model_path, checkpoint_path, num_replicas);
+}
+
+absl::Status Update(const AdminOptions& options, absl::string_view id,
+                    absl::string_view model_path,
+                    absl::string_view checkpoint_path, int num_replicas) {
   char* errMsgStr = nullptr;
   int errCode = 0;
   go_update(const_cast<char*>(id.data()), id.size(),
             const_cast<char*>(model_path.data()), model_path.size(),
             const_cast<char*>(checkpoint_path.data()), checkpoint_path.size(),
-            num_replicas, &errMsgStr, &errCode);
+            num_replicas, options.timeout, &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -920,14 +937,19 @@ absl::Status Update(absl::string_view id, absl::string_view model_path,
 }
 
 absl::Status List(absl::string_view id, ModelDetail* model) {
+  return List(AdminOptions(), id, model);
+}
+
+absl::Status List(const AdminOptions& options, absl::string_view id,
+                  ModelDetail* model) {
   std::string content;
 
   char* outputStr = nullptr;
   int outputSize = 0;
   char* errMsgStr = nullptr;
   int errCode = 0;
-  go_list(const_cast<char*>(id.data()), id.size(), &outputStr, &outputSize,
-          &errMsgStr, &errCode);
+  go_list(const_cast<char*>(id.data()), id.size(), options.timeout, &outputStr,
+          &outputSize, &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -948,14 +970,19 @@ absl::Status List(absl::string_view id, ModelDetail* model) {
 }
 
 absl::Status ListAll(absl::string_view id, std::vector<std::string>* models) {
+  return ListAll(AdminOptions(), id, models);
+}
+
+absl::Status ListAll(const AdminOptions& options, absl::string_view id,
+                     std::vector<std::string>* models) {
   std::string content;
 
   char* outputStr = nullptr;
   int outputSize = 0;
   char* errMsgStr = nullptr;
   int errCode = 0;
-  go_list_all(const_cast<char*>(id.data()), id.size(), &outputStr, &outputSize,
-              &errMsgStr, &errCode);
+  go_list_all(const_cast<char*>(id.data()), id.size(), options.timeout,
+              &outputStr, &outputSize, &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -974,10 +1001,15 @@ absl::Status ListAll(absl::string_view id, std::vector<std::string>* models) {
 }
 
 absl::Status WaitForReady(absl::string_view id, int num_replicas) {
+  return WaitForReady(AdminOptions(), id, num_replicas);
+}
+
+absl::Status WaitForReady(const AdminOptions& options, absl::string_view id,
+                          int num_replicas) {
   char* errMsgStr = nullptr;
   int errCode = 0;
   go_wait_for_ready(const_cast<char*>(id.data()), id.size(), num_replicas,
-                    &errMsgStr, &errCode);
+                    options.timeout, &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -987,14 +1019,19 @@ absl::Status WaitForReady(absl::string_view id, int num_replicas) {
 
 absl::Status Stats(absl::string_view id,
                    std::vector<ModelServerTypeStat>* stats) {
+  return Stats(AdminOptions(), id, stats);
+}
+
+absl::Status Stats(const AdminOptions& options, absl::string_view id,
+                   std::vector<ModelServerTypeStat>* stats) {
   std::string content;
 
   char* outputStr = nullptr;
   int outputSize = 0;
   char* errMsgStr = nullptr;
   int errCode = 0;
-  go_stats(const_cast<char*>(id.data()), id.size(), &outputStr, &outputSize,
-           &errMsgStr, &errCode);
+  go_stats(const_cast<char*>(id.data()), id.size(), options.timeout, &outputStr,
+           &outputSize, &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
