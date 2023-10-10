@@ -1,8 +1,7 @@
 # Description:
 #   Language model servable parameters definition.
 
-load("//devtools/python/blaze:strict.bzl", "py_strict_test")
-load("//saxml:saxml.bzl", "pytype_strict_library")
+load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_library")
 
 package(
     # unused internal package attribute
