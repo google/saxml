@@ -94,7 +94,7 @@ def convert(base_model_path, pax_model_path, model_size):
                   }
               },
           'final_ln': {
-              'scale': pytorch_vars[0]['norm.weight'].numpy()
+              'scale': pytorch_vars[0]['norm.weight'].type(torch.float16).numpy()
               },
           'transformer': {}
           }
@@ -165,7 +165,7 @@ def convert(base_model_path, pax_model_path, model_size):
 
   print(f'Saving the pax model to {pax_model_path}')
   jax_states = train_states.TrainState(
-      step=np.zeros(1),
+      step=0,
       mdl_vars={'params': jax_weights},
       opt_states={})
 
