@@ -95,6 +95,7 @@ cc_library(
     hdrs = ["env.h"],
     deps = [
         # unused internal gRPC dependency,
+        # unused internal gRPC resolver dependency,
         "@com_github_grpc_grpc//:grpc++",
     ],
 )

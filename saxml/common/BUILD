@@ -123,6 +123,7 @@ cc_test(
         ":location_cc",
         ":testutil_cc",
         # unused internal gRPC dependency,
+        # unused internal gRPC resolver dependency,
         "//saxml/common/platform:env_cc",
         "//saxml/protobuf:admin_cc_grpc",
         "//saxml/protobuf:admin_cc_proto",
