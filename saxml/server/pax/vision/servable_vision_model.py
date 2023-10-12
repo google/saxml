@@ -135,10 +135,12 @@ class DetectHParams(servable_model_params.ServableMethodParams):
       passing text arguments to the Detect() API.
     model_method_name: The name of the method to call to extract embeddings from
       an input image.  Required.
+    use_box_input: Whether the model supports box regions as inputs.
   """
 
   is_open_set: bool = False
   model_method_name: Optional[str] = None
+  use_box_input: bool = False
 
 
 @dataclasses.dataclass
@@ -903,6 +905,8 @@ class VisionModel(servable_model.ServableModel):
       dummy_input = {'image_bytes': image_bytes}
       if method_params.is_open_set:
         dummy_input['text'] = ['dummy']
+      if method_params.use_box_input:
+        dummy_input['boxes'] = np.zeros(shape=(1, 4), dtype=np.float32)
       return ImageBytesToDetect(
           model,
           method_params.model_method_name,
