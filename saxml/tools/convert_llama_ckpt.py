@@ -49,6 +49,15 @@ MODEL_PARAMS_DICT = {
         'num_gpus': 1,
         'combined_qkv': False,
     },
+    '13b': {
+        'num_layers': 40,
+        'num_heads': 40,
+        'num_kv_heads': 40,
+        'dims_per_head': 128,
+        'vocab': 32000,
+        'num_gpus': 1,
+        'combined_qkv': True,
+    },
     '7b': {
         'num_layers': 32,
         'num_heads': 32,

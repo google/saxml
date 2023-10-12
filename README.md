@@ -260,7 +260,7 @@ saxutil publish \
 
 Use the same `saxutil lm.generate` command as above to query the model.
 
-## Use Sax to load LLaMA 7B model:
+## Use Sax to load LLaMA 7B/13B/70B model:
 
 First get LLaMA pytorch_vars from Meta, then run the following script to
 convert the LLaMA PyTorch checkpoint to SAX format
@@ -269,7 +269,47 @@ convert the LLaMA PyTorch checkpoint to SAX format
 python3 -m saxml/tools/convert_llama_ckpt --base llama_7b --pax pax_7b
 ```
 
-Then start the GPU server
+For the 7B model, this script roughly needs 50-60GB memory. For larger models, 
+for example, the 70B model, this script would need 500-600GB memory to run. 
+
+The script load and save weights in a single pass. To fit less memory, 
+modify convert() function to load/save weights in multiple passes.
+In each pass, load and save partial weights (subset of all weight variables).
+
+After converting the checkpoint, the checkpoint folder should have the following structure
+
+```
+checkpoint_00000000
+metadata/
+	metadata
+	state/
+		mdl_vars.params.lm*/
+		...
+		...
+		step/
+```
+Please create empty files “commit_success.txt” and put one in each folder. 
+This will let SAX know this checkpoint is ready to use when loading the model.
+So the fully ready checkpoint should be as following:
+
+```
+checkpoint_00000000
+	commit_success.txt
+metadata/
+	commit_success.txt
+	metadata
+	state/
+		commit_success.txt
+		mdl_vars.params.lm*/
+		...
+		...
+		step/
+```
+Now the checkpoint is fully ready.
+
+Then start the SAX server
+
+GPU server:
 
 ```
 SAX_ROOT=gs://${GSBUCKET}/sax-root \
@@ -282,13 +322,37 @@ bazel run saxml/server:server -- \
   --alsologtostderr
 ```
 
+TPU server:
+
+```
+SAX_ROOT=gs://${GSBUCKET}/sax-root \
+bazel run saxml/server:server -- \
+  --sax_cell=/sax/test \
+  --port=10001 \
+  --platform_chip=tpuv4 \
+  --platform_topology=2x2x1 \
+  --alsologtostderr
+```
+
 Finally move the converted ckpt to your google cloud data bucket and publish
 the model
+
+7B model
 
 ```
 saxutil publish \
   /sax/test/llama-7b \
   saxml.server.pax.lm.params.lm_cloud.LLaMA7BFP16 \
   gs://sax-data/pax-llama/7B \
+  1
+```
+
+70B model
+
+```
+saxutil publish \
+  /sax/test/llama-7b \
+  saxml.server.pax.lm.params.lm_cloud.LLaMA70BFP16TPUv5e \
+  gs://sax-data/pax-llama/70B \
   1
 ```
