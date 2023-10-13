@@ -97,6 +97,11 @@ def decode_tf_post_processing(
   """
   assert isinstance(compute_outputs, py_utils.NestedMap)
   prefix_lengths = None
+  top_candidate_ids = None
+  top_candidate_tokens = None
+  top_candidate_logprobs = None
+  sampled_tokens = None
+  sampled_logprobs = None
   if t5_model:
     # Post process for the encoder decoder model.
     # output_ids: [b, seqlen]
@@ -118,9 +123,17 @@ def decode_tf_post_processing(
     # decode_lengths: [b, num_samples]
     # output_ids: [b, num_samples, seqlen]
     # scores: [b, num_samples]
+    # logprobs: [b, num_samples, seqlen]
+    # top_candidate_ids and top_candidate_logprobs:
+    #   [b, num_samples, seqlen, sample_decode.MAX_NUM_PER_TOKEN_LOGPROBS]
     if include_prefix_in_result:
       output_ids = compute_outputs.output_ids
       decode_lengths = compute_outputs.decode_lengths
+      if 'top_candidate_ids' in compute_outputs:
+        assert('top_candidate_logprobs' in compute_outputs)
+        top_candidate_ids = compute_outputs.top_candidate_ids
+        top_candidate_logprobs = compute_outputs.top_candidate_logprobs
+        sampled_logprobs = compute_outputs.logprobs
     else:
 
       def remove_prefix(ids_and_prefix_length):
@@ -132,6 +145,26 @@ def decode_tf_post_processing(
           (compute_outputs.output_ids, compute_outputs.prefix_lengths),
           fn_output_signature=tf.int32,
       )
+      if 'top_candidate_ids' in compute_outputs:
+        assert('top_candidate_logprobs' in compute_outputs)
+        assert('logprobs' in compute_outputs)
+        top_candidate_ids = tf.map_fn(
+            remove_prefix,
+            (compute_outputs.top_candidate_ids, compute_outputs.prefix_lengths),
+            fn_output_signature=tf.int32,
+        )
+        top_candidate_logprobs = tf.map_fn(
+            remove_prefix,
+            (compute_outputs.top_candidate_logprobs,
+             compute_outputs.prefix_lengths),
+            fn_output_signature=tf.float32,
+        )
+        sampled_logprobs = tf.map_fn(
+            remove_prefix,
+            (compute_outputs.logprobs, compute_outputs.prefix_lengths),
+            fn_output_signature=tf.float32,
+        )
+
       decode_lengths = compute_outputs.decode_lengths - tf.expand_dims(
           compute_outputs.prefix_lengths, axis=-1
       )
@@ -152,6 +185,10 @@ def decode_tf_post_processing(
     if hasattr(compute_outputs, 'prefix_lengths'):
       prefix_lengths = compute_outputs.prefix_lengths
 
+    if top_candidate_ids is not None:
+      top_candidate_tokens = tokenizer.IdToString(top_candidate_ids)
+      sampled_tokens = tokenizer.IdToString(output_ids)
+
   ret = {
       'topk_decoded': decoded,
       'topk_scores': scores,
@@ -162,6 +199,14 @@ def decode_tf_post_processing(
     ret['mean_entropy'] = mean_entropy
   if prefix_lengths is not None:
     ret['prefix_lengths'] = prefix_lengths
+  if top_candidate_tokens is not None:
+    ret['top_candidate_tokens_per_step'] = top_candidate_tokens
+  if top_candidate_logprobs is not None:
+    ret['top_candidate_logprobs_per_step'] = top_candidate_logprobs
+  if sampled_tokens is not None:
+    ret['sampled_tokens_per_step'] = sampled_tokens
+  if sampled_logprobs is not None:
+    ret['sampled_logprobs_per_step'] = sampled_logprobs
   return ret
 
 

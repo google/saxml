@@ -19,6 +19,7 @@ from absl import flags
 import numpy as np
 from praxis import pax_fiddle
 from praxis import py_utils
+from praxis import sample_decode
 from praxis import test_utils
 from saxml.server.jax import np_tf_sess_wrapper
 from saxml.server.pax.lm import lm_tokenizer
@@ -53,13 +54,47 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
   def test_decode_post_processing_decoder_only(self, use_wrapper: bool):
     max_length = 8
     strs = ['Hello world', 'This is a test']
+    tokens = [
+        [
+            b'\xe2\x96\x81He',
+            b'll',
+            b'o',
+            b'\xe2\x96\x81world',
+            b'<unk>',
+            b'<unk>',
+            b'<unk>',
+        ],
+        [
+            b'\xe2\x96\x81This',
+            b'\xe2\x96\x81is',
+            b'\xe2\x96\x81a',
+            b'\xe2\x96\x81',
+            b't',
+            b'est',
+            b'<unk>',
+        ],
+    ]
     ids, _, paddings = self.tokenizer.StringsToIds(strs, max_length)
     # This SPM doesn't support padding, decoding 0 to <unk>, so trim the output.
     ids = tf.slice(ids, [0, 1], [-1, -1])
+    output_ids = tf.expand_dims(ids, 0).numpy()
+    top_candidate_ids = np.expand_dims(output_ids, -1)
+    padded_top_candidate_ids = np.pad(
+        top_candidate_ids,
+        (
+            (0, 0),
+            (0, 0),
+            (0, 0),
+            (0, sample_decode.MAX_NUM_PER_TOKEN_LOGPROBS - 1),
+        ),
+    )
+    sampled_logprobs = np.ones_like(output_ids)
+    top_candidate_logprobs = np.ones_like(top_candidate_ids)
+    padded_top_candidate_logprobs = np.ones_like(padded_top_candidate_ids)
     paddings = tf.slice(paddings, [0, 1], [-1, -1])
     computed_outputs = py_utils.NestedMap(
         # First sequence has last dim padded.
-        output_ids=tf.expand_dims(ids, 0).numpy(),
+        output_ids=output_ids,
         # Non-paddings as decoded length for each tensor.
         decode_lengths=tf.expand_dims(
             tf.math.reduce_sum(
@@ -68,6 +103,10 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
             0,
         ).numpy(),
         scores=np.asarray([[[0.1], [0.2]]]),
+        logprobs=sampled_logprobs,
+        num_per_token_logprobs=np.array([[1], [1]]),
+        top_candidate_ids=padded_top_candidate_ids,
+        top_candidate_logprobs=padded_top_candidate_logprobs,
     )
 
     def decode_tf_post_processing(*args):
@@ -91,6 +130,41 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
     self.assertArraysEqual(
         np.asarray([4, 6]), tf.squeeze(out['topk_decode_lengths']).numpy()
     )
+
+    top_candidate_tokens_per_step = out['top_candidate_tokens_per_step']
+    self.assertEqual(
+        top_candidate_tokens_per_step.shape,
+        (1, 2, 7, sample_decode.MAX_NUM_PER_TOKEN_LOGPROBS),
+    )
+    top_candidate_tokens_per_step = tf.squeeze(
+        top_candidate_tokens_per_step[:, :, :, 0]
+    ).numpy()
+    self.assertArraysEqual(
+        top_candidate_tokens_per_step, tokens, check_dtypes=False
+    )
+
+    top_candidate_logprobs_per_step = out['top_candidate_logprobs_per_step']
+    self.assertEqual(
+        top_candidate_logprobs_per_step.shape,
+        (1, 2, 7, sample_decode.MAX_NUM_PER_TOKEN_LOGPROBS),
+    )
+    top_candidate_logprobs_per_step = tf.expand_dims(
+        top_candidate_logprobs_per_step[:, :, :, 0], -1).numpy()
+    self.assertArraysEqual(
+        top_candidate_logprobs_per_step, top_candidate_logprobs)
+
+    sampled_tokens_per_step = out['sampled_tokens_per_step']
+    self.assertEqual(
+        sampled_tokens_per_step.shape,
+        (1, 2, 7)
+    )
+    sampled_tokens_per_step = tf.squeeze(
+        sampled_tokens_per_step).numpy()
+    self.assertArraysEqual(sampled_tokens_per_step, tokens,
+                           check_dtypes=False)
+
+    self.assertArraysEqual(out['sampled_logprobs_per_step'],
+                           sampled_logprobs)
 
   @test_utils.parameterized.named_parameters(
       [('None batch_size', None), ('With batch_size', 2)]

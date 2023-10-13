@@ -91,6 +91,7 @@ py_strict_test(
         "//third_party/py/numpy",
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
+        "//third_party/py/praxis:sample_decode",
         "//third_party/py/praxis:test_utils",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
