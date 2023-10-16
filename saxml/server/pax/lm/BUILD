@@ -9,11 +9,6 @@ package(
 
 licenses(["notice"])
 
-filegroup(
-    name = "test_data",
-    srcs = glob(["test_data/*"]),
-)
-
 pytype_strict_library(
     name = "all_imports",
     srcs = ["all_imports.py"],
@@ -36,8 +31,8 @@ pytype_strict_library(
         "//saxml/server:friends",
     ],
     deps = [
+        ":vocabularies",
         "//third_party/py/praxis:base_hyperparams",
-        "//third_party/py/seqio",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )
@@ -45,7 +40,9 @@ pytype_strict_library(
 py_strict_test(
     name = "lm_tokenizer_test",
     srcs = ["lm_tokenizer_test.py"],
-    data = [":test_data"],
+    data = [
+        "//saxml/server/pax/lm/test_data",
+    ],
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -80,7 +77,9 @@ pytype_strict_library(
 py_strict_test(
     name = "servable_lm_common_test",
     srcs = ["servable_lm_common_test.py"],
-    data = [":test_data"],
+    data = [
+        "//saxml/server/pax/lm/test_data",
+    ],
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -139,5 +138,28 @@ pytype_strict_library(
         "//third_party/py/praxis:pytypes",
         "//third_party/py/praxis/layers",
         "//third_party/py/praxis/layers:embedding_softmax",
+    ],
+)
+
+pytype_strict_library(
+    name = "vocabularies",
+    srcs = ["vocabularies.py"],
+    deps = [
+        "//third_party/py/seqio",
+        "//third_party/py/tensorflow:tensorflow_no_contrib",
+        "//third_party/py/transformers",
+    ],
+)
+
+py_strict_test(
+    name = "vocabularies_test",
+    srcs = ["vocabularies_test.py"],
+    data = [
+        "//saxml/server/pax/lm/test_data",
+    ],
+    deps = [
+        ":vocabularies",
+        "//third_party/py/absl-py/flags",
+        "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )

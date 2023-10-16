@@ -68,6 +68,8 @@ class CommonServingTemplate:
   TOKENIZED_OUTPUT = False  # Output tokens instead of texts.
   PREPEND_SOS = True
   EOS_PADDING_AND_NO_SOS = False
+  VOCABULARY_CLASS = None  # If None, use SentencePiece specified by SPM_MODEL.
+  VOCABULARY_PATH = None  # Path to config file(s) if to use VOCABULARY_CLASS.
   SOS_ID = 0
   EOS_ID = 1
   STOP_TOKEN_IDS = None
@@ -128,11 +130,14 @@ class ServingTemplate(
   """
 
   def serving_tokenizer(self):
-    spm_model = (
-        self.SPM_MODEL
-        if self.SPM_MODEL is not None
-        else self._dataset_train().input.tokenizer.spm_model
-    )
+    if self.VOCABULARY_CLASS is None:
+      spm_model = (
+          self.SPM_MODEL
+          if self.SPM_MODEL is not None
+          else self._dataset_train().input.tokenizer.spm_model
+      )
+    else:
+      spm_model = None
 
     return pax_fiddle.Config(
         lm_tokenizer.LMTokenizer,
@@ -144,6 +149,8 @@ class ServingTemplate(
         tokenized_output=self.TOKENIZED_OUTPUT,
         prepend_sos=self.PREPEND_SOS,
         eos_padding_and_no_sos=self.EOS_PADDING_AND_NO_SOS,
+        vocabulary_class=self.VOCABULARY_CLASS,
+        vocabulary_path=self.VOCABULARY_PATH,
     )
 
   def score(self) -> Optional[servable_lm_model.ScoreHParams]:

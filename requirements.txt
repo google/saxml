@@ -790,7 +790,9 @@ traitlets==5.9.0
     #   nbformat
     #   qtconsole
 transformers==4.32.0
-    # via t5
+    # via
+    #   -r requirements.in
+    #   t5
 typeguard==4.1.2
     # via
     #   jaxtyping

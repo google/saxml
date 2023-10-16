@@ -513,6 +513,20 @@ class LMScoreMethod(ServableLMMethod):
     for _, suffix in raw_inputs:
       assert len(suffix) <= 1, 'Only one suffix score is supported in lm.score'
     suffixes = np.array([suffix[0] for _, suffix in raw_inputs])
+
+    # HuggingFace tokenizer based custom vocabularies are enabled by applying
+    # tf.py_function. The preprocessing and postprocessing are wrapped by
+    # np_tf_sess_wrapper.wrap_tf_session function to allow export SavedModel.
+    # However, the np_tf_sess_wrapper.wrap_tf_session function does not know how
+    # to handle tf.py_function when trying to create a SavedModel-exportable
+    # GraphDef object. Thus, to use custom vocabularies, we skip applying
+    # np_tf_sess_wrapper.wrap_tf_session to preprocessing and postprocessing.
+    if (
+        isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
+        and self._tokenizer.vocabulary_class
+    ):
+      tf_pre_processed = self.tf_pre_processing(prefixes, suffixes)
+      return jax.tree_util.tree_map(np.array, tf_pre_processed)
     return self._tf_sess_pre_processing(prefixes, suffixes)
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[float]:
@@ -727,6 +741,20 @@ class LMDecodeMethod(ServableLMMethod):
 
   def pre_processing(self, raw_inputs: List[str]) -> NestedNpTensor:
     texts = np.array(raw_inputs)
+
+    # HuggingFace tokenizer based custom vocabularies are enabled by applying
+    # tf.py_function. The preprocessing and postprocessing are wrapped by
+    # np_tf_sess_wrapper.wrap_tf_session function to allow export SavedModel.
+    # However, the np_tf_sess_wrapper.wrap_tf_session function does not know how
+    # to handle tf.py_function when trying to create a SavedModel-exportable
+    # GraphDef object. Thus, to use custom vocabularies, we skip applying
+    # np_tf_sess_wrapper.wrap_tf_session to preprocessing and postprocessing.
+    if (
+        isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
+        and self._tokenizer.vocabulary_class
+    ):
+      tf_pre_processed = self.tf_pre_processing(texts)
+      return jax.tree_util.tree_map(np.array, tf_pre_processed)
     return self._tf_sess_pre_processing(texts)
 
   def get_maxlen(self) -> int:
@@ -755,8 +783,22 @@ class LMDecodeMethod(ServableLMMethod):
   ) -> List[Tuple[List[str], List[float]]]:
     # A list of results for the inputs. Each element has multiple samples from
     # the decoding algorithm, which has a list of strings and a list of scores.
-    post_processed = self._tf_sess_post_processing(compute_outputs)
-    # post_processed = self.tf_post_processing(compute_outputs)
+
+    # HuggingFace tokenizer based custom vocabularies are enabled by applying
+    # tf.py_function. The preprocessing and postprocessing are wrapped by
+    # np_tf_sess_wrapper.wrap_tf_session function to allow export SavedModel.
+    # However, the np_tf_sess_wrapper.wrap_tf_session function does not know how
+    # to handle tf.py_function when trying to create a SavedModel-exportable
+    # GraphDef object. Thus, to use custom vocabularies, we skip applying
+    # np_tf_sess_wrapper.wrap_tf_session to preprocessing and postprocessing.
+    if (
+        isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
+        and self._tokenizer.vocabulary_class
+    ):
+      tf_post_processed = self.tf_post_processing(compute_outputs)
+      post_processed = jax.tree_util.tree_map(np.array, tf_post_processed)
+    else:
+      post_processed = self._tf_sess_post_processing(compute_outputs)
     batched_decoded = post_processed['topk_decoded']
     batched_scores = post_processed['topk_scores']
 
@@ -771,6 +813,22 @@ class LMDecodeMethod(ServableLMMethod):
       batched_scores = np.exp(batched_scores / num_output_tokens)
     elif self._method_hparams.output_avg_entropy_score:
       batched_scores = post_processed['mean_entropy']
+
+    # HuggingFace tokenizer based custom vocabularies are enabled by applying
+    # tf.py_function. The preprocessing and postprocessing are wrapped by
+    # np_tf_sess_wrapper.wrap_tf_session function to allow export SavedModel.
+    # However, the np_tf_sess_wrapper.wrap_tf_session function does not know how
+    # to handle tf.py_function when trying to create a SavedModel-exportable
+    # GraphDef object. Thus, to use custom vocabularies, we skip applying
+    # np_tf_sess_wrapper.wrap_tf_session to preprocessing and postprocessing.
+    if (
+        isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
+        and self._tokenizer.vocabulary_class
+    ):
+      return [
+          (decoded, list(scores))
+          for decoded, scores in zip(batched_decoded, batched_scores)
+      ]
     return [
         ([d.decode() for d in decoded], list(scores))
         for decoded, scores in zip(batched_decoded, batched_scores)
@@ -990,6 +1048,20 @@ class TextToEmbedding(servable_model.ServableMethod):
     # Provide an empty suffix per prefix so we can use the common tokenizer and
     # get the EOS token appended appropriately.
     suffixes = np.array(['' for _ in range(len(raw_inputs))])
+
+    # HuggingFace tokenizer based custom vocabularies are enabled by applying
+    # tf.py_function. The preprocessing and postprocessing are wrapped by
+    # np_tf_sess_wrapper.wrap_tf_session function to allow export SavedModel.
+    # However, the np_tf_sess_wrapper.wrap_tf_session function does not know how
+    # to handle tf.py_function when trying to create a SavedModel-exportable
+    # GraphDef object. Thus, to use custom vocabularies, we skip applying
+    # np_tf_sess_wrapper.wrap_tf_session to preprocessing and postprocessing.
+    if (
+        isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
+        and self._tokenizer.vocabulary_class
+    ):
+      tf_pre_processed = self.tf_pre_processing(prefixes, suffixes)
+      return jax.tree_util.tree_map(np.array, tf_pre_processed)
     return self._tf_sess_pre_processing(prefixes, suffixes)
 
   def tf_pre_processing(
@@ -1180,6 +1252,20 @@ class LMGradientMethod(ServableLMMethod):
   def pre_processing(self, raw_inputs: List[Tuple[str, str]]) -> NestedNpTensor:
     prefixes = np.array([prefix for prefix, _ in raw_inputs])
     suffixes = np.array([suffix for _, suffix in raw_inputs])
+
+    # HuggingFace tokenizer based custom vocabularies are enabled by applying
+    # tf.py_function. The preprocessing and postprocessing are wrapped by
+    # np_tf_sess_wrapper.wrap_tf_session function to allow export SavedModel.
+    # However, the np_tf_sess_wrapper.wrap_tf_session function does not know how
+    # to handle tf.py_function when trying to create a SavedModel-exportable
+    # GraphDef object. Thus, to use custom vocabularies, we skip applying
+    # np_tf_sess_wrapper.wrap_tf_session to preprocessing and postprocessing.
+    if (
+        isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
+        and self._tokenizer.vocabulary_class
+    ):
+      tf_pre_processed = self.tf_pre_processing(prefixes, suffixes)
+      return jax.tree_util.tree_map(np.array, tf_pre_processed)
     return self._tf_sess_pre_processing(prefixes, suffixes)
 
   def post_processing(

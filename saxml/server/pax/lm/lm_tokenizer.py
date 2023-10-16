@@ -15,10 +15,11 @@
 from __future__ import annotations
 
 import dataclasses
+import os
 from typing import Any, List, Tuple
 
 from praxis import base_hyperparams
-import seqio
+from saxml.server.pax.lm import vocabularies
 import tensorflow as tf
 
 StreamState = Tuple[tf.Tensor, tf.Tensor, tf.Tensor]
@@ -32,7 +33,8 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       label, always set to True.
     prepend_sos: Whether to prepend sos at the beginning and treat it as a
       non-padded label, default is set to True.
-    spm_model: File name for a sentencepiece model.
+    spm_model: File name for a sentencepiece model. This is used to construct a
+      vocabularies.SentencePieceVocabulary object when vocabulary_class is None.
     target_sos_id: Start of sentence id.
     target_eos_id: End of sentence id.
     slice_left: If true, keep the left part of the sequence if it is too long.
@@ -41,12 +43,17 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       streaming decoding step to prevent the leading whitespace from being
       removed by sentencepiece; after decoding the step, it will be removed from
       the string result. It must be a regular token in the vocabulary.
-    tokenized_input: Whether to skip the input tokenization. This is useful
-      when the input are in tokens instead of texts
+    tokenized_input: Whether to skip the input tokenization. This is useful when
+      the input are in tokens instead of texts
     tokenized_output: Output tokens instead of texts.
     eos_padding_and_no_sos: Do not use EOS or SOS for id or label, and use EOS
       for padding. This is a special tokenization specific to GPTJ MLPerf
       inference implementation. Only used when tokenized=True.
+    vocabulary_class: The name of the vocabulary class. If None, a
+      vocabularies.SentencePieceVocabulary object is constructed from spm_model;
+      otherwise, vocabulary_path also needs to be specified.
+    vocabulary_path: The path to the directory or file, if a vocabulary_class is
+      specified.
   """
 
   prepend_sos: bool = True
@@ -59,14 +66,42 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
   tokenized_input: bool = False
   tokenized_output: bool = False
   eos_padding_and_no_sos: bool = False
+  vocabulary_class: str = None
+  vocabulary_path: str = None
 
-  _vocab: seqio.SentencePieceVocabulary = dataclasses.field(
-      init=False, repr=False
-  )
+  _vocab: vocabularies.Vocabulary = dataclasses.field(init=False, repr=False)
 
   def __post_init__(self):
     assert self.append_eos
-    self._vocab = seqio.SentencePieceVocabulary(self.hparams.spm_model, 0)
+    if self.vocabulary_class is None:
+      assert self.spm_model is not None
+      self._vocab = vocabularies.SentencePieceVocabulary(
+          self.hparams.spm_model, 0
+      )
+    else:
+      assert self.vocabulary_path is not None
+      assert self.spm_model is None
+      vocab_cls = getattr(vocabularies, self.vocabulary_class)
+      vocabulary_path = self.vocabulary_path
+      if vocabulary_path.startswith('gs://'):
+        # Need to copy the vocabulary_path if in GCS to local, since HuggingFace
+        # does not support loading tokenizer from GCS.
+        local_vocabulary_path = os.path.join(
+            '/tmp/vocabulary/' + vocabulary_path.split('/')[-1]
+        )
+
+        if not os.path.exists(local_vocabulary_path):
+          os.makedirs(local_vocabulary_path)
+
+        for filename in tf.io.gfile.listdir(vocabulary_path):
+          src = os.path.join(vocabulary_path, filename)
+          dst = os.path.join(local_vocabulary_path, filename)
+          if not os.path.exists(dst):
+            tf.io.gfile.copy(src, dst, overwrite=False)
+
+        vocabulary_path = local_vocabulary_path
+
+      self._vocab = vocab_cls(vocabulary_path)
 
   def StringsToIdsTokenized(
       self, strs: tf.Tensor, max_length: int
@@ -133,7 +168,6 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       - paddings[i, j] is 1 iff i-th sample's j-th step is padded.
     """
     p = self.hparams
-    assert p.spm_model
     assert max_length is not None
 
     if p.tokenized_input and p.eos_padding_and_no_sos:
@@ -156,7 +190,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       )
       labels = tf.strings.to_number(labels_in_str, out_type=tf.int32)
     else:
-      labels = self._vocab.tf_tokenizer.tokenize(strs)
+      labels = self._vocab.encode_tf(strs)
     if p.slice_left:
       labels = labels[:, : max_length - 1]
     else:
@@ -235,8 +269,8 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
           ids_as_string, separator=',', axis=-1
       )
       return reduced_ids_as_string
-    assert p.spm_model
-    return self._vocab.tf_tokenizer.detokenize(ids)
+
+    return self._vocab.decode_tf(ids)
 
   def IdToString(self, ids: tf.Tensor) -> tf.Tensor:
     """Converts each token ID to a token string.
@@ -248,7 +282,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     Returns:
       A tensor of token strings with the same shape as the input ids.
     """
-    return self._vocab.tf_tokenizer.id_to_string(ids)
+    return self._vocab.id_to_string_tf(ids)
 
   def InitStream(self, batch_size: tf.Tensor) -> StreamState:
     """Create the initial state for streaming.
@@ -289,6 +323,11 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       A tuple of (newly decoded strings, updated stream state).
     """
     p = self.hparams
+    if p.tokenized_input or self.vocabulary_class is not None:
+      raise NotImplementedError(
+          'DecodeOnStream does not support when TOKENIZE_INPUT=True, nor when'
+          'VOCABULARY_CLASS is specified other than SentencePieceVocabulary.'
+      )
     assert p.spm_model
 
     # Merge all leading N - 1 dimensions of new_ids and started to match the
@@ -309,7 +348,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     # Find the byte-encoded IDs.
     new_ids_shape = tf.shape(new_ids)
     b, new_seqlen = new_ids_shape[0], new_ids_shape[1]
-    new_pieces = self._vocab.tf_tokenizer.id_to_string(new_ids)
+    new_pieces = self._vocab.id_to_string_tf(new_ids)
     is_byte = tf.strings.regex_full_match(new_pieces, '<0x[0-9,A-F][0-9,A-F]>$')
     # Remove trailing bytes.
     trailing_byte_count = tf.reduce_sum(
@@ -330,9 +369,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     # Add a fake prefix to preserve leading whitespace if earlier prefix was
     # generated.
     fake_prefix_str = p.streaming_whitespace_preserving_prefix
-    fake_prefix = self._vocab.tf_tokenizer.tokenize(
-        [fake_prefix_str]
-    ).to_tensor()
+    fake_prefix = self._vocab.encode_tf([fake_prefix_str]).to_tensor()
     fake_prefix = tf.repeat(fake_prefix, b, axis=0)
     fake_prefix_len = tf.fill([b], tf.shape(fake_prefix)[1])
     fake_prefix_str_len = tf.fill(
@@ -350,7 +387,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
         [fake_prefix, unprocessed_prefix_ids_ragged, without_trailing_bytes],
         axis=1,
     )
-    new_strs = self._vocab.tf_tokenizer.detokenize(to_process)
+    new_strs = self._vocab.decode_tf(to_process)
     # Remove fake prefix.
     new_strs = tf.strings.substr(
         new_strs, fake_prefix_str_len, tf.fill([b], -1)

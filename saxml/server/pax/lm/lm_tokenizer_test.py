@@ -72,6 +72,22 @@ def _CreateTokenizedParams():
   return p
 
 
+def _CreateGPT2BPEParams():
+  vocabulary_path = os.path.join(
+      FLAGS.test_srcdir,
+      '__main__/saxml/server/pax/lm/test_data',
+      'gpt2bpe',
+  )
+  p = pax_fiddle.Config(
+      lm_tokenizer.LMTokenizer,
+      target_sos_id=50256,
+      target_eos_id=50256,
+      vocabulary_class='GPT2BPEVocabulary',
+      vocabulary_path=vocabulary_path,
+  )
+  return p
+
+
 class LMTokenizerTest(tf.test.TestCase):
 
   def testEmptyStringsToIds(self):
@@ -208,6 +224,26 @@ class LMTokenizerTest(tf.test.TestCase):
     ids = [[151, 88, 21, 0, 0], [887, 0, 0, 0, 0]]
     strs = tokenizer.IdsToStrings(ids)
     self.assertAllEqual([b'151,88,21,0,0', b'887,0,0,0,0'], strs.numpy())
+
+
+class GPT2BPELMTokenizerTest(tf.test.TestCase):
+
+  def testEmptyStringsToIds(self):
+    p = _CreateGPT2BPEParams()
+    tokenizer = p.Instantiate()
+    max_length = 5
+    strs = ['', '']
+    strs_tf = tf.constant(strs, dtype=tf.string)
+    ids, labels, paddings = tokenizer.StringsToIds(strs_tf, max_length)
+    self.assertAllEqual(
+        [[p.target_sos_id, 0, 0, 0, 0], [p.target_sos_id, 0, 0, 0, 0]], ids
+    )
+    self.assertAllEqual(
+        [[p.target_eos_id, 0, 0, 0, 0], [p.target_eos_id, 0, 0, 0, 0]], labels
+    )
+    self.assertAllEqual(
+        [[0.0, 1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0, 1.0]], paddings
+    )
 
 
 if __name__ == '__main__':

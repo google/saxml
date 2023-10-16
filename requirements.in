@@ -11,3 +11,4 @@ paxml @ git+https://github.com/google/paxml
 praxis @ git+https://github.com/google/praxis
 seqio
 orbax-export
+transformers

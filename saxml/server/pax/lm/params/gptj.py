@@ -35,9 +35,8 @@ from saxml.server.pax.lm.params import template
 class GPTJ(base_experiment.BaseExperiment):
   """GPTJ Transformer LM configuration."""
 
-  # MLPerf sends the tokenized IDs and this is not used with TOKENIZED=True
-  # below. This is a dummy tokenizer to avoid assertion failure in SAX.
-  SPM_MODEL = 'gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model'
+  VOCABULARY_CLASS = 'GPT2BPEVocabulary'
+  VOCABULARY_PATH = 'gs://saxml-e2e-tests/mlperf-gptj-bpe-vocabulary'
 
   # Match the HF model tokenizer configs.
   SOS_ID = 50256
@@ -176,11 +175,9 @@ class GPTJ(base_experiment.BaseExperiment):
 
 
 @servable_model_registry.register
-class GPTJ4TokenizedBF16BS32(GPTJ):
+class GPTJ4BF16BS32(GPTJ):
   """GPTJ Transformer LM tokenized configuration."""
 
-  TOKENIZED_INPUT = True
-  TOKENIZED_OUTPUT = True
   ICI_MESH_SHAPE = [1, 1, 4]
   BATCH_SIZE = 32
   FPROP_DTYPE = jnp.bfloat16
@@ -200,4 +197,11 @@ class GPTJ4TokenizedBF16BS32(GPTJ):
   def serving_mesh_shape(cls) -> list[int]:
     # replica, data_mdl2, mdl, fprop_data, fprop_mdl
     return [1, 1, 1, 1, 4]
-  BEAM_SEARCH_EARLY_EXIT = True
+
+
+@servable_model_registry.register
+class GPTJ4TokenizedBF16BS32(GPTJ4BF16BS32):
+  """GPTJ Transformer LM tokenized configuration."""
+
+  TOKENIZED_INPUT = True
+  TOKENIZED_OUTPUT = True
