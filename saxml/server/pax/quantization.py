@@ -62,6 +62,8 @@ def for_transformer(
     quantize_self_attention: bool = True,
     quantize_cross_attention: bool = True,
     softmax_only: bool = True,
+    num_bits_act: int | None = None,
+    use_symmetric_act: bool | None = None,
 ):
   """Find and quantize transformer.
 
@@ -109,9 +111,14 @@ def for_transformer(
     quantize_cross_attention: Quantize the cross attention layer inside the
       transformer layer. Must set linear_only to false to take effect.
     softmax_only: Only quantize softmax layers and leave embedding layers
-      untouched. This option only works if softmax and embedding layers are
-      not sharing the same weights. This argument does not impact whether
-      layers other than softmax and embedding are quantized or not.
+      untouched. This option only works if softmax and embedding layers are not
+      sharing the same weights. This argument does not impact whether layers
+      other than softmax and embedding are quantized or not.
+    num_bits_act: The number of bits used for activation quantization. Only
+      valid when weight_quant_only is false.
+    use_symmetric_act: Use symmetric activation quantization. Only valid when
+      weight_quant_only is false.
+
   Returns:
     a modifier that quantizes transformers when applied to a config.
   """
@@ -156,6 +163,8 @@ def for_transformer(
             quantize_self_attention=quantize_self_attention,
             quantize_cross_attention=quantize_cross_attention,
             softmax_only=softmax_only,
+            num_bits_act=num_bits_act,
+            use_symmetric_act=use_symmetric_act,
         )
         return task_p
 
