@@ -247,8 +247,8 @@ saxutil lm.generate /sax/test/lm2b "Q: Who is Harry Porter's mother? A: "
 The result will be printed in the terminal.
 
 To use a real checkpoint with the model, follow the
-[Paxml tutorial](saxml.server.pax.lm.params.lm_cloud.LmCloudSpmd2B) to generate
-a checkpoint. The model can then be published in Sax like this:
+[Paxml tutorial](https://github.com/google/paxml) to generate a checkpoint. The
+model can then be published in Sax like this:
 
 ```
 saxutil publish \
