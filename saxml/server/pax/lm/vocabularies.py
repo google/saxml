@@ -21,6 +21,10 @@ import tensorflow as tf
 class Vocabulary(seqio.Vocabulary):
   """Abstract class for all vocabularies."""
 
+  def decode_tf(self, ids: tf.Tensor) -> tf.Tensor:
+    """Detokenizes int32 batched Tensor."""
+    return self._decode_tf(ids)
+
   def id_to_string_tf(self, ids: tf.Tensor) -> tf.Tensor:
     raise NotImplementedError
 
