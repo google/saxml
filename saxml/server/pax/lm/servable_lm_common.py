@@ -259,6 +259,36 @@ def decode_get_mean_entropy(result: NestedMap,
   return np_op.sum(result.entropy, axis=-1) / output_length
 
 
+def fetch_per_token_logprobs_related_outputs(
+    device_input: NestedJTensor,
+    device_output: NestedJTensor,
+    result: NestedMap,
+):
+  """Fetches per_token_logprobs related tensors from device inputs and outputs.
+
+  This function will be run on device. Its returned tensors will be passed to
+  host for post processing.
+
+  Args:
+    device_input: input tensors to the device computation.
+    device_output: output tensors from the device computation.
+    result: the fetched tensors are inserted into this result.
+  """
+  assert hasattr(device_input, 'num_per_token_logprobs')
+  assert hasattr(device_output, 'top_candidate_ids')
+  assert hasattr(device_output, 'top_candidate_logprobs')
+  assert hasattr(device_output, 'logprobs')
+  num_per_token_logprobs = device_input.num_per_token_logprobs
+  if num_per_token_logprobs.ndim == 1:
+    num_per_token_logprobs = num_per_token_logprobs[0]
+  else:
+    assert num_per_token_logprobs.ndim == 0
+  result.num_per_token_logprobs = num_per_token_logprobs
+  result.top_candidate_ids = device_output.top_candidate_ids
+  result.top_candidate_logprobs = device_output.top_candidate_logprobs
+  result.logprobs = device_output.logprobs
+
+
 def decode_fetch_output(
     model_fn_outputs: NestedJTensor,
     model_fn_inputs: NestedJTensor,
@@ -294,6 +324,8 @@ def decode_fetch_output(
   if hasattr(result, 'entropy'):
     ret.mean_entropy = decode_get_mean_entropy(
         result, decode_lengths, prefix_lengths)
+  if hasattr(model_fn_inputs, 'num_per_token_logprobs'):
+    fetch_per_token_logprobs_related_outputs(model_fn_inputs, result, ret)
   return ret
 
 
