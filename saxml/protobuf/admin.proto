@@ -108,6 +108,7 @@ message ModelServer {
     CHIP_TYPE_TPU_V4I = 5;
     reserved 7;
     reserved 8;
+    CHIP_TYPE_TPU_V5E = 15;
     CHIP_TYPE_GPU_P100 = 9;
     CHIP_TYPE_GPU_V100 = 10;
     CHIP_TYPE_GPU_T4 = 13;
