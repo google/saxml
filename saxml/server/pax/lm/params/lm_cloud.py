@@ -216,6 +216,23 @@ class LLaMA7BFP16TPUv4(LLaMA7BFP16):
 
 
 @servable_model_registry.register
+class LLaMA7BFP16TPUv5e(LLaMA7BFP16):
+  """7B model on TPU v5e-4.
+
+  """
+
+  BATCH_SIZE = [1]
+  BUCKET_KEYS = [128]
+  MAX_DECODE_STEPS = [32]
+
+  ICI_MESH_SHAPE = [1, 1, 4]
+
+  @property
+  def test_mode(self) -> bool:
+    return False
+
+
+@servable_model_registry.register
 @quantization.for_transformer(quantize_on_the_fly=False)
 class LLaMA7B(BaseLLaMA):
   """7B model on a A100-40GB.
