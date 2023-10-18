@@ -15,7 +15,7 @@
 
 import dataclasses
 import json
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import jax
 from jax import numpy as jnp
@@ -36,6 +36,7 @@ NestedNpOrTfTensor = Union[NestedNpTensor, NestedTfTensor]
 HostTensors = servable_model.HostTensors
 ShapesAndDtypes = servable_model.ShapesAndDtypes
 TensorSpec = Union[tf.TensorSpec, oex.TensorSpecWithDefault]
+NpOrTfTensor = Union[pytypes.NpTensor, tf.Tensor]
 
 
 @dataclasses.dataclass(eq=True, frozen=True)
@@ -74,6 +75,143 @@ def decode_tf_tokenize_inputs(
   return ids, paddings, prefix_lengths, weights
 
 
+def tf_post_processing_per_token_logprobs(
+    outputs: NestedNpOrTfTensor,
+    include_prefix_in_result: bool,
+    output_ids: NpOrTfTensor,
+    decode_lengths: NpOrTfTensor,
+    remove_prefix: Callable[[Tuple[NpOrTfTensor, NpOrTfTensor]], tf.Tensor],
+    tokenizer: Any,
+) -> Dict[str, tf.Tensor]:
+  """Post-process the per_token_logprobs related outputs using TF ops.
+
+  Because JAX JIT AOT compilation requires the inputs and outputs to be of
+  static shapes, the per_token_logprobs related outputs have fixed shapes with
+  unnecessary paddings. This function removes those unnecessary paddings, thus
+  reducing the output size, and consequently may reduce the network bandwidth
+  and RPC latency between upper-level application systems and the model servers.
+
+  Apart from removing paddings, this function also uses TF tokenizer to convert
+  token IDs to UTF-8 bytes.
+
+  Args:
+    outputs: the output tensors returned by `decode_fetch_output`.
+    include_prefix_in_result: whether to include prefixes in results. It's used
+      to determine where does the sampling actually begins.
+    output_ids: if include_prefix_in_result is False, this is the original
+      output_ids without prefixes, otherwise, it's the same as the original one.
+    decode_lengths: the output_ids' decoding lengths.
+    remove_prefix: a function that takes (sequence, prefix_length), removes
+      prefixes from each sequence, and adds zero right paddings to the sequence.
+    tokenizer: a TF tokenizer for converting token IDs to UTF-8 bytes.
+
+  Returns:
+    A mapping from tensor names to TF tensors, the keys are:
+      - sampled_tokens_per_step
+      - sampled_logprobs_per_step
+      - top_candidate_tokens_per_step
+      - top_candidate_logprobs_per_step
+    - If `num_per_token_logprobs` < 0, the tensors' shapes are:
+      - sampled_tokens_per_step and sampled_logprobs_per_step:
+        [batch, 0, 0]
+      - top_candidate_tokens_per_step and top_candidate_logprobs_per_step:
+        [batch, 0, 0, 0]
+    - If `num_per_token_logprobs` == 0, the tensors' shapes are:
+      - sampled_tokens_per_step and sampled_logprobs_per_step:
+        [batch, num_samples, max_decode_length]
+      - top_candidate_tokens_per_step and top_candidate_logprobs_per_step:
+        [batch, 0, 0, 0]
+    - If `num_per_token_logprobs` > 0, the tensors' shapes are:
+      - sampled_tokens_per_step and sampled_logprobs_per_step:
+        [batch, num_samples, max_decode_length]
+      - top_candidate_tokens_per_step and top_candidate_logprobs_per_step:
+        [batch, num_samples, max_decode_length, num_per_token_logprobs]
+  """
+  assert hasattr(outputs, 'top_candidate_ids')
+  assert hasattr(outputs, 'top_candidate_logprobs')
+  assert hasattr(outputs, 'logprobs')
+  assert hasattr(outputs, 'num_per_token_logprobs')
+
+  num_per_token_logprobs = outputs.num_per_token_logprobs
+  if num_per_token_logprobs.ndim == 1:
+    # When using `np_tf_session_wrapper`, `num_per_token_logprobs` could be a
+    # TensorFlow placeholder tensor with shape (None,) during tracing. It means
+    # a one-dimensional with a variable or unknown size.
+    num_per_token_logprobs = num_per_token_logprobs[0]
+  else:
+    assert num_per_token_logprobs.ndim == 0
+
+  top_candidate_ids = outputs.top_candidate_ids
+  top_candidate_logprobs = outputs.top_candidate_logprobs
+
+  # Make output_logprobs's shape be consistent with output_ids'.
+  if include_prefix_in_result:
+    output_logprobs = outputs.logprobs
+  else:
+    output_logprobs = tf.map_fn(
+        remove_prefix,
+        (outputs.logprobs, outputs.prefix_lengths),
+        fn_output_signature=tf.float32,
+    )
+
+  max_decode_length = tf.reduce_max(decode_lengths)
+
+  def _top_candidate_tokens_and_logprobs():
+    return (
+        tokenizer.IdToString(
+            top_candidate_ids[:, :, :max_decode_length, :num_per_token_logprobs]
+        ),
+        top_candidate_logprobs[
+            :, :, :max_decode_length, :num_per_token_logprobs
+        ],
+    )
+
+  def _sampled_tokens_and_logprobs():
+    return (
+        tokenizer.IdToString(output_ids[:, :, :max_decode_length]),
+        output_logprobs[:, :, :max_decode_length],
+    )
+
+  # Some serving system requires that the output tensors' 0th dimension must be
+  # equal to the input tensors' batch size.
+  # The input's batch size can be dynamic, we cannot create a static tensor
+  # with a dimension of dynamic size.
+  # So, instead of representing empty tensors as tf.constant([]), we represent
+  # them as tensors with the same number of dimensions as ids or logprobs, but
+  # all non-0th dimensions have size 0.
+
+  def _empty_top_candidate_tokens_and_logprobs():
+    return (
+        tokenizer.IdToString(top_candidate_ids[:, :0, :0, :0]),
+        top_candidate_logprobs[:, :0, :0, :0],
+    )
+
+  def _empty_sampled_tokens_and_logprobs():
+    return (
+        tokenizer.IdToString(output_ids[:, :0, :0]),
+        output_logprobs[:, :0, :0],
+    )
+
+  top_candidate_tokens, top_candidate_logprobs = tf.cond(
+      tf.reduce_all(num_per_token_logprobs > 0),
+      _top_candidate_tokens_and_logprobs,
+      _empty_top_candidate_tokens_and_logprobs,
+  )
+
+  sampled_tokens, sampled_logprobs = tf.cond(
+      tf.reduce_all(num_per_token_logprobs >= 0),
+      _sampled_tokens_and_logprobs,
+      _empty_sampled_tokens_and_logprobs,
+  )
+
+  return {
+      'sampled_tokens_per_step': sampled_tokens,
+      'sampled_logprobs_per_step': sampled_logprobs,
+      'top_candidate_tokens_per_step': top_candidate_tokens,
+      'top_candidate_logprobs_per_step': top_candidate_logprobs,
+  }
+
+
 def decode_tf_post_processing(
     compute_outputs: NestedNpOrTfTensor,
     tokenizer: Any,
@@ -94,14 +232,11 @@ def decode_tf_post_processing(
     A mapping that contains the decoded tensors, scores and ids of the topk
     results.
     Return mean entropy of tokens when available.
+    Return per token logprobs when `num_per_token_logprobs` is specified.
   """
   assert isinstance(compute_outputs, py_utils.NestedMap)
   prefix_lengths = None
-  top_candidate_ids = None
-  top_candidate_tokens = None
-  top_candidate_logprobs = None
-  sampled_tokens = None
-  sampled_logprobs = None
+  per_token_logprobs_results = None
   if t5_model:
     # Post process for the encoder decoder model.
     # output_ids: [b, seqlen]
@@ -126,45 +261,20 @@ def decode_tf_post_processing(
     # logprobs: [b, num_samples, seqlen]
     # top_candidate_ids and top_candidate_logprobs:
     #   [b, num_samples, seqlen, sample_decode.MAX_NUM_PER_TOKEN_LOGPROBS]
+
+    def remove_prefix(ids_and_prefix_length):
+      ids, prefix_length = ids_and_prefix_length
+      return tf.pad(ids[:, prefix_length:], [[0, 0], [0, prefix_length]])
+
     if include_prefix_in_result:
       output_ids = compute_outputs.output_ids
       decode_lengths = compute_outputs.decode_lengths
-      if 'top_candidate_ids' in compute_outputs:
-        assert('top_candidate_logprobs' in compute_outputs)
-        top_candidate_ids = compute_outputs.top_candidate_ids
-        top_candidate_logprobs = compute_outputs.top_candidate_logprobs
-        sampled_logprobs = compute_outputs.logprobs
     else:
-
-      def remove_prefix(ids_and_prefix_length):
-        ids, prefix_length = ids_and_prefix_length
-        return tf.pad(ids[:, prefix_length:], [[0, 0], [0, prefix_length]])
-
       output_ids = tf.map_fn(
           remove_prefix,
           (compute_outputs.output_ids, compute_outputs.prefix_lengths),
           fn_output_signature=tf.int32,
       )
-      if 'top_candidate_ids' in compute_outputs:
-        assert('top_candidate_logprobs' in compute_outputs)
-        assert('logprobs' in compute_outputs)
-        top_candidate_ids = tf.map_fn(
-            remove_prefix,
-            (compute_outputs.top_candidate_ids, compute_outputs.prefix_lengths),
-            fn_output_signature=tf.int32,
-        )
-        top_candidate_logprobs = tf.map_fn(
-            remove_prefix,
-            (compute_outputs.top_candidate_logprobs,
-             compute_outputs.prefix_lengths),
-            fn_output_signature=tf.float32,
-        )
-        sampled_logprobs = tf.map_fn(
-            remove_prefix,
-            (compute_outputs.logprobs, compute_outputs.prefix_lengths),
-            fn_output_signature=tf.float32,
-        )
-
       decode_lengths = compute_outputs.decode_lengths - tf.expand_dims(
           compute_outputs.prefix_lengths, axis=-1
       )
@@ -185,9 +295,15 @@ def decode_tf_post_processing(
     if hasattr(compute_outputs, 'prefix_lengths'):
       prefix_lengths = compute_outputs.prefix_lengths
 
-    if top_candidate_ids is not None:
-      top_candidate_tokens = tokenizer.IdToString(top_candidate_ids)
-      sampled_tokens = tokenizer.IdToString(output_ids)
+    if hasattr(compute_outputs, 'num_per_token_logprobs'):
+      per_token_logprobs_results = tf_post_processing_per_token_logprobs(
+          compute_outputs,
+          include_prefix_in_result,
+          output_ids,
+          decode_lengths,
+          remove_prefix,
+          tokenizer,
+      )
 
   ret = {
       'topk_decoded': decoded,
@@ -199,14 +315,8 @@ def decode_tf_post_processing(
     ret['mean_entropy'] = mean_entropy
   if prefix_lengths is not None:
     ret['prefix_lengths'] = prefix_lengths
-  if top_candidate_tokens is not None:
-    ret['top_candidate_tokens_per_step'] = top_candidate_tokens
-  if top_candidate_logprobs is not None:
-    ret['top_candidate_logprobs_per_step'] = top_candidate_logprobs
-  if sampled_tokens is not None:
-    ret['sampled_tokens_per_step'] = sampled_tokens
-  if sampled_logprobs is not None:
-    ret['sampled_logprobs_per_step'] = sampled_logprobs
+  if per_token_logprobs_results is not None:
+    ret.update(per_token_logprobs_results)
   return ret
 
 
@@ -324,7 +434,7 @@ def decode_fetch_output(
   if hasattr(result, 'entropy'):
     ret.mean_entropy = decode_get_mean_entropy(
         result, decode_lengths, prefix_lengths)
-  if hasattr(model_fn_inputs, 'num_per_token_logprobs'):
+  if (not t5_model) and hasattr(model_fn_inputs, 'num_per_token_logprobs'):
     fetch_per_token_logprobs_related_outputs(model_fn_inputs, result, ret)
   return ret
 

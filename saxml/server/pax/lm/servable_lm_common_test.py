@@ -53,6 +53,8 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
   @test_utils.parameterized.parameters((True,), (False,))
   def test_decode_post_processing_decoder_only(self, use_wrapper: bool):
     max_length = 8
+    max_decode_length = 6
+    num_per_token_logprobs = 1
     strs = ['Hello world', 'This is a test']
     tokens = [
         [
@@ -60,7 +62,6 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
             b'll',
             b'o',
             b'\xe2\x96\x81world',
-            b'<unk>',
             b'<unk>',
             b'<unk>',
         ],
@@ -71,7 +72,6 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
             b'\xe2\x96\x81',
             b't',
             b'est',
-            b'<unk>',
         ],
     ]
     ids, _, paddings = self.tokenizer.StringsToIds(strs, max_length)
@@ -104,7 +104,9 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
         ).numpy(),
         scores=np.asarray([[[0.1], [0.2]]]),
         logprobs=sampled_logprobs,
-        num_per_token_logprobs=np.array([[1], [1]]),
+        num_per_token_logprobs=np.array(
+            [num_per_token_logprobs], dtype=np.int32
+        ),
         top_candidate_ids=padded_top_candidate_ids,
         top_candidate_logprobs=padded_top_candidate_logprobs,
     )
@@ -128,13 +130,14 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
         [s.numpy().decode() for s in tf.squeeze(out['topk_decoded'])], strs
     )
     self.assertArraysEqual(
-        np.asarray([4, 6]), tf.squeeze(out['topk_decode_lengths']).numpy()
+        np.asarray([4, max_decode_length]),
+        tf.squeeze(out['topk_decode_lengths']).numpy(),
     )
 
     top_candidate_tokens_per_step = out['top_candidate_tokens_per_step']
     self.assertEqual(
         top_candidate_tokens_per_step.shape,
-        (1, 2, 7, sample_decode.MAX_NUM_PER_TOKEN_LOGPROBS),
+        (1, 2, max_decode_length, num_per_token_logprobs),
     )
     top_candidate_tokens_per_step = tf.squeeze(
         top_candidate_tokens_per_step[:, :, :, 0]
@@ -146,25 +149,28 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
     top_candidate_logprobs_per_step = out['top_candidate_logprobs_per_step']
     self.assertEqual(
         top_candidate_logprobs_per_step.shape,
-        (1, 2, 7, sample_decode.MAX_NUM_PER_TOKEN_LOGPROBS),
+        (1, 2, max_decode_length, num_per_token_logprobs),
     )
     top_candidate_logprobs_per_step = tf.expand_dims(
         top_candidate_logprobs_per_step[:, :, :, 0], -1).numpy()
     self.assertArraysEqual(
-        top_candidate_logprobs_per_step, top_candidate_logprobs)
+        top_candidate_logprobs_per_step,
+        top_candidate_logprobs[
+            :, :, :max_decode_length, :num_per_token_logprobs
+        ],
+    )
 
     sampled_tokens_per_step = out['sampled_tokens_per_step']
-    self.assertEqual(
-        sampled_tokens_per_step.shape,
-        (1, 2, 7)
-    )
+    self.assertEqual(sampled_tokens_per_step.shape, (1, 2, max_decode_length))
     sampled_tokens_per_step = tf.squeeze(
         sampled_tokens_per_step).numpy()
     self.assertArraysEqual(sampled_tokens_per_step, tokens,
                            check_dtypes=False)
 
-    self.assertArraysEqual(out['sampled_logprobs_per_step'],
-                           sampled_logprobs)
+    self.assertArraysEqual(
+        out['sampled_logprobs_per_step'],
+        sampled_logprobs[:, :, :max_decode_length],
+    )
 
   @test_utils.parameterized.named_parameters(
       [('None batch_size', None), ('With batch_size', 2)]
