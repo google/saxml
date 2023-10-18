@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"sort"
@@ -102,8 +103,53 @@ func randomSelectAddress(address []string) string {
 	return address[idx]
 }
 
+// ResultRenderer implements the needed API to output results as table or CSV.
+type ResultRenderer struct {
+	out   io.Writer
+	csv   bool
+	table *tablewriter.Table
+}
+
+// NewResultRenderer creates a renderer that can produce tables or CSV outputs.
+func NewResultRenderer(writer io.Writer, csv bool) *ResultRenderer {
+	r := &ResultRenderer{
+		out: writer,
+		csv: csv,
+	}
+	if !csv {
+		r.table = tablewriter.NewWriter(writer)
+	}
+	return r
+}
+
+// SetHeader sets the header of the table, or the column row in CSV.
+func (c *ResultRenderer) SetHeader(keys []string) {
+	if c.csv {
+		fmt.Fprintf(c.out, "# %s\n", strings.Join(keys, ","))
+	} else {
+		c.table.SetHeader(keys)
+	}
+}
+
+// Append adds the values as a row in the results.
+func (c *ResultRenderer) Append(values []string) {
+	if c.csv {
+		fmt.Fprintf(c.out, "%s\n", strings.Join(values, ","))
+	} else {
+		c.table.Append(values)
+	}
+}
+
+// Render formats and prints the results.
+func (c *ResultRenderer) Render() {
+	if !c.csv {
+		c.table.Render()
+	}
+}
+
 // ListCmd is the command for List.
 type ListCmd struct {
+	outputCsv    bool
 	modelDetails bool
 	methodAcls   bool
 }
@@ -128,6 +174,7 @@ const (
 
 // SetFlags sets flags for ListCmd.
 func (c *ListCmd) SetFlags(f *flag.FlagSet) {
+	f.BoolVar(&c.outputCsv, "csv", false, "Output the results as CSV.")
 	f.BoolVar(&c.modelDetails, detailsFlag, true, "Show details about the model.")
 	f.BoolVar(&c.methodAcls, aclsFlag, true, "Show method ACLs of the model.")
 }
@@ -139,7 +186,7 @@ func (c *ListCmd) handleSax(ctx context.Context) subcommands.ExitStatus {
 		return subcommands.ExitFailure
 	}
 	sort.Strings(cells)
-	table := tablewriter.NewWriter(os.Stdout)
+	table := NewResultRenderer(os.Stdout, c.outputCsv)
 	table.SetHeader([]string{"#", "Cell"})
 	for idx, cell := range cells {
 		table.Append([]string{strconv.Itoa(idx), cell})
@@ -157,7 +204,7 @@ func (c *ListCmd) handleSaxCell(ctx context.Context, cellFullName naming.CellFul
 		return subcommands.ExitFailure
 	}
 	models := listResp.GetPublishedModels()
-	table := tablewriter.NewWriter(os.Stdout)
+	table := NewResultRenderer(os.Stdout, c.outputCsv)
 	table.SetHeader([]string{"#", "Model ID"})
 	sort.Slice(models, func(i, j int) bool { return models[i].GetModel().GetModelId() < models[j].GetModel().GetModelId() })
 	for idx, model := range models {
@@ -186,14 +233,14 @@ func (c *ListCmd) handleSaxModel(ctx context.Context, modelFullName naming.Model
 	if c.modelDetails {
 		// Extra logic: display one random address if there are multiple.
 		randomSelectedAddress := randomSelectAddress(publishedModel.GetModeletAddresses())
-		table := tablewriter.NewWriter(os.Stdout)
+		table := NewResultRenderer(os.Stdout, c.outputCsv)
 		table.SetHeader([]string{"Model", "Model Path", "Checkpoint Path", "# of Replicas", "(Selected) ReplicaAddress"})
 		table.Append([]string{modelFullName.ModelName(), model.GetModelPath(), model.GetCheckpointPath(), strconv.Itoa(len(publishedModel.GetModeletAddresses())), randomSelectedAddress})
 		table.Render()
 	}
 
 	if c.methodAcls {
-		table := tablewriter.NewWriter(os.Stdout)
+		table := NewResultRenderer(os.Stdout, c.outputCsv)
 		table.SetHeader([]string{"Method", "ACL"})
 		aclItems := model.GetAcls().GetItems()
 		methods := make([]string, 0, len(aclItems))
