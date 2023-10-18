@@ -309,6 +309,7 @@ class PerMethodBatcher:
             # Catch arbitrary exception and propagate the error to the client
             # without crashing the server.
             error_msg = f'Preprocessing error: {e}\n{traceback.format_exc()}'
+            logging.error(error_msg)
             for rpc_task in rpc_tasks:
               rpc_task.done(utils.internal_error(error_msg))
             # Set input_tensors to None to indicate failed preprocess.
@@ -651,6 +652,7 @@ class ModelService(metaclass=abc.ABCMeta):
     if streaming:
       if not method_obj.streamable:
         done(utils.invalid_arg(f'Method {method} does not support streaming'))
+        logging.error('Method %s does not support streaming', method)
         return
 
     batcher_item_key = MethodKey(method, self._service_id, model_key)
@@ -1434,7 +1436,7 @@ class ModelServicesRunner:
             # No more result for streaming.
             if streaming_done is not None:
               for task in batch.rpc_tasks:
-                task.done(utils.ok(), query_cost=tpu_ms)
+                task.done(utils.ok(), resp=None, query_cost=tpu_ms)
               return
             # TODO(zhifengc): Might make more sense to split this phase into
             # two. One calls output_to_host and the other calls post_processing.
@@ -1501,7 +1503,7 @@ class ModelServicesRunner:
               self._model_services[batch.method.service_id].FillRPCResponse(
                   batch.method.name, out, resp
               )
-              task.done(utils.ok(), resp, query_cost=query_cost)
+              task.done(utils.ok(), resp=resp, query_cost=query_cost)
               done_rpcs += 1
           except Exception as e:  # pylint: disable=broad-except
             self._log_exception(
