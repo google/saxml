@@ -38,7 +38,7 @@ from saxml.server.pax.lm.params import template
 class BaseLLaMA(base_experiment.BaseExperiment):
   """Base LLaMA Transformer LM configuration."""
 
-  SPM_MODEL = '/cns/mf-d/home/huangyp/ulm/pax-llama/tokenizer.model'
+  SPM_MODEL = 'gs://cloud-tpu-inference-public/sax-tokenizers/llama/llama-tokenizer.model'
   SOS_ID = 1
   EOS_ID = 2
 
