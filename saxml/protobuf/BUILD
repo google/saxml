@@ -1,5 +1,6 @@
 # Protobuf definitions for Sax.
 
+# unused internal Kotlin Protobuf load
 load(
     "//saxml:saxml.bzl",
     "cc_grpc_library",
@@ -12,9 +13,8 @@ load(
     "py_proto_library",
     "rpc_endpoint_interface",
 )
-# unused internal Kotlin Protobuf load
-# unused internal Kotlin gRPC load
 # unused internal JS Protobuf load
+# unused internal Kotlin gRPC load
 
 package(
     default_visibility = ["//saxml:internal"],
@@ -356,6 +356,7 @@ rpc_endpoint_interface(
 
 cc_proto_library(
     name = "vision_cc_proto",
+    visibility = ["//visibility:public"],
     deps = [":vision_proto"],
 )
 
