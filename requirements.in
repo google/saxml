@@ -7,8 +7,8 @@ grpcio-reflection==1.48.2  # lower protobuf version requirement for paxml
 portpicker
 numpy
 jax[tpu]
-paxml
-praxis
+paxml==1.2.0
+praxis==1.2.0
 seqio
 orbax-export
 transformers
