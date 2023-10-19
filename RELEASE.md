@@ -1,3 +1,10 @@
+# Release 1.1.0
+
+## Major Features and Improvements
+
+*   Open-source model: LLaMA 2.
+*   Open-source improvement: GPT-J tokenizer.
+
 # Release 1.0.0
 
 ## Major Features and Improvements
