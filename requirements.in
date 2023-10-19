@@ -6,9 +6,9 @@ grpcio
 grpcio-reflection==1.48.2  # lower protobuf version requirement for paxml
 portpicker
 numpy
-jax[tpu] @ git+https://github.com/google/jax
-paxml @ git+https://github.com/google/paxml
-praxis @ git+https://github.com/google/praxis
+jax[tpu]
+paxml
+praxis
 seqio
 orbax-export
 transformers
