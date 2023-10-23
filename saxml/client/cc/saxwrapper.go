@@ -715,6 +715,47 @@ func go_mm_generate(ptr C.long, timeout C.float, requestData *C.char, requestSiz
 	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
 }
 
+//export go_mm_score
+func go_mm_score(ptr C.long, timeout C.float, requestData *C.char, requestSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+	mm := rcgo.Handle(ptr).Value().(*sax.MultimodalModel)
+	if mm == nil {
+		// This is not expected.
+		log.Fatalf("score() called on nil multimodal model.")
+	}
+
+	optionsByte := C.GoBytes(unsafe.Pointer(optionsData), optionsSize)
+	options := &cpb.ExtraInputs{}
+	if err := proto.Unmarshal(optionsByte, options); err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+
+	requestByte := C.GoBytes(unsafe.Pointer(requestData), requestSize)
+	request := &mmpb.ScoreRequest{}
+	if err := proto.Unmarshal(requestByte, request); err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	resp, err := mm.Score(ctx, request, protoOptionToSetter(options)...)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+
+	content, err := proto.Marshal(resp)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Vision model methods
 //////////////////////////////////////////////////////////////////////////

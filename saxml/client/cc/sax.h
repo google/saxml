@@ -321,6 +321,19 @@ class MultimodalModel {
       const ::sax::server::multimodal::GenerateRequest& request,
       ::sax::server::multimodal::GenerateResponse* response) const;
 
+  // Scores the given 'ScoreRequest.prefix_items' and
+  // 'ScoreRequest.suffix_items' using the multimodal model.
+  //
+  // On success, returns OK and fills in their scores computed by the model.
+  // Otherwise, returns an error.
+  absl::Status Score(
+      const ::sax::server::multimodal::ScoreRequest& request,
+      ::sax::server::multimodal::ScoreResponse* response) const;
+  absl::Status Score(
+      const ModelOptions& options,
+      const ::sax::server::multimodal::ScoreRequest& request,
+      ::sax::server::multimodal::ScoreResponse* response) const;
+
  private:
   explicit MultimodalModel(int64_t model_handle)
       : model_handle_(model_handle) {}

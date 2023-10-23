@@ -49,3 +49,24 @@ func (m *MultimodalModel) Generate(ctx context.Context, req *mmpb.GenerateReques
 	}
 	return rpcResp.GetResponse(), nil
 }
+
+// Score performs scoring for `prefixItems` and `suffixItems` on a multimodal model.
+func (m *MultimodalModel) Score(ctx context.Context, req *mmpb.ScoreRequest, options ...ModelOptionSetter) (*mmpb.ScoreResponse, error) {
+	opts := NewModelOptions(options...)
+	rpcReq := &mmpb.ScoreRpcRequest{
+		ModelKey:    m.model.modelID,
+		Request:     req,
+		ExtraInputs: opts.ExtraInputs(),
+	}
+
+	var rpcResp *mmpb.ScoreRpcResponse
+	err := m.model.run(ctx, "Score", func(conn *grpc.ClientConn) error {
+		var scoreErr error
+		rpcResp, scoreErr = pbgrpc.NewMultimodalServiceClient(conn).Score(ctx, rpcReq)
+		return scoreErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return rpcResp.GetResponse(), nil
+}

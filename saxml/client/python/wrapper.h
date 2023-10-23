@@ -141,6 +141,12 @@ class MultimodalModel {
       const ::sax::server::multimodal::GenerateRequest& request,
       const ModelOptions* options = nullptr) const;
 
+  // Invokes the model to score given 'ScoreRequest.prefix_items' and
+  // 'ScoreRequest.suffix_items'.
+  absl::StatusOr<::sax::server::multimodal::ScoreResponse> Score(
+      const ::sax::server::multimodal::ScoreRequest& request,
+      const ModelOptions* options = nullptr) const;
+
  private:
   explicit MultimodalModel(::sax::client::Model* base,
                            const absl::Status& status);

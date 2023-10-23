@@ -265,6 +265,21 @@ MultimodalModel::Generate(
   return response;
 }
 
+absl::StatusOr<::sax::server::multimodal::ScoreResponse> MultimodalModel::Score(
+    const ::sax::server::multimodal::ScoreRequest& request,
+    const ModelOptions* options) const {
+  if (!status_.ok()) return status_;
+
+  pybind11::gil_scoped_release release;
+  ::sax::server::multimodal::ScoreResponse response;
+  if (options == nullptr) {
+    RETURN_IF_ERROR(model_->Score(request, &response));
+  } else {
+    RETURN_IF_ERROR(model_->Score(*options, request, &response));
+  }
+  return response;
+}
+
 // Construct VisionModel with sax::client::Model. VisionModel does not take
 // ownership of Model.
 VisionModel::VisionModel(::sax::client::Model* base,

@@ -492,6 +492,43 @@ absl::Status MultimodalModel::Generate(
   return absl::OkStatus();
 }
 
+absl::Status MultimodalModel::Score(
+    const ::sax::server::multimodal::ScoreRequest& request,
+    ::sax::server::multimodal::ScoreResponse* response) const {
+  return MultimodalModel::Score(ModelOptions(), request, response);
+}
+
+absl::Status MultimodalModel::Score(
+    const ModelOptions& options,
+    const ::sax::server::multimodal::ScoreRequest& request,
+    ::sax::server::multimodal::ScoreResponse* response) const {
+  ExtraInputs extra;
+  options.ToProto(&extra);
+  std::string extraStr = "";
+  extra.SerializeToString(&extraStr);
+
+  std::string reqStr = "";
+  request.SerializeToString(&reqStr);
+
+  char* outputStr = nullptr;
+  int outputSize = 0;
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  go_mm_score(model_handle_, options.GetTimeout(),
+                 const_cast<char*>(reqStr.data()), reqStr.size(),
+                 const_cast<char*>(extraStr.data()), extraStr.size(),
+                 &outputStr, &outputSize, &errMsgStr, &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+
+  if (outputStr != nullptr) {
+    response->ParseFromArray(outputStr, outputSize);
+    free(outputStr);
+  }
+  return absl::OkStatus();
+}
+
 MultimodalModel::~MultimodalModel() { go_release_model(model_handle_); }
 
 absl::Status VisionModel::Classify(absl::string_view text,

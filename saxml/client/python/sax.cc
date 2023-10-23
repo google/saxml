@@ -140,6 +140,8 @@ PYBIND11_MODULE(sax, m) {
 
   py::class_<sax::client::pybind::MultimodalModel>(m, "MultimodalModel")
       .def("Generate", &sax::client::pybind::MultimodalModel::Generate,
+           py::arg("request"), py::arg("options") = nullptr)
+      .def("Score", &sax::client::pybind::MultimodalModel::Score,
            py::arg("request"), py::arg("options") = nullptr);
 
   py::class_<sax::client::pybind::VisionModel>(m, "VisionModel")
