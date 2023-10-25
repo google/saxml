@@ -23,6 +23,7 @@ from praxis import base_layer
 from praxis import decoder_hparams
 from praxis import pax_fiddle
 from praxis import py_utils
+from praxis import token_samplers
 from praxis.layers import attentions
 from praxis.layers import multi_query_attention
 from praxis.layers import transformer_models
@@ -97,6 +98,9 @@ class CommonServingTemplate:
   GENERATION_USE_GEOMEAN_PROB_SCORE = False
   SCORING_USE_GEOMEAN_PROB_SCORE = False
   SCORING_INCLUDE_EOS_SCORE = False
+  NEXT_TOKEN_SAMPLER_TPL = pax_fiddle.Config(
+      token_samplers.DefaultNextTokenSampler
+  )
 
   def input_for_model_init(self) -> py_utils.NestedMap:
     batch_size = self.BATCH_SIZE
@@ -240,6 +244,7 @@ class ServingTemplate(
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
           emb_lookup_style=self.EMB_LOOKUP_STYLE,
           sort_samples=self.SORT_SAMPLES,
+          next_token_sampler_tpl=self.NEXT_TOKEN_SAMPLER_TPL,
       )
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
@@ -294,6 +299,7 @@ class ServingTemplate(
         k=self.TOP_K,
         emb_lookup_style=self.EMB_LOOKUP_STYLE,
         sort_samples=self.SORT_SAMPLES,
+        next_token_sampler_tpl=self.NEXT_TOKEN_SAMPLER_TPL,
     )
 
     return servable_lm_model.DecodeHParams(
