@@ -113,7 +113,9 @@ class ServableModelParams(metaclass=abc.ABCMeta):
             "Can't override %s because it's not set on %s" % (k, self)
         )
       cur_v = getattr(self, k)
-      if v is not None and type(v) != type(cur_v):  # pylint: disable=unidiomatic-typecheck
+      if (v is not None
+          and cur_v is not None
+          and type(v) != type(cur_v)):  # pylint: disable=unidiomatic-typecheck
         raise ValueError(
             'Mismatched type of override: original: %s; override: %s'
             % (cur_v, v)
