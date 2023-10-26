@@ -133,14 +133,6 @@ def tf_post_processing_per_token_logprobs(
   assert hasattr(outputs, 'num_per_token_logprobs')
 
   num_per_token_logprobs = outputs.num_per_token_logprobs
-  if num_per_token_logprobs.ndim == 1:
-    # When using `np_tf_session_wrapper`, `num_per_token_logprobs` could be a
-    # TensorFlow placeholder tensor with shape (None,) during tracing. It means
-    # a one-dimensional with a variable or unknown size.
-    num_per_token_logprobs = num_per_token_logprobs[0]
-  else:
-    assert num_per_token_logprobs.ndim == 0
-
   top_candidate_ids = outputs.top_candidate_ids
   top_candidate_logprobs = outputs.top_candidate_logprobs
 
@@ -154,16 +146,20 @@ def tf_post_processing_per_token_logprobs(
         fn_output_signature=tf.float32,
     )
 
+  # To save network bandwidth and reduce RPC latency, we want to return as few
+  # data as possible, thus, we don't want to directly return the output tensors
+  # from device, which has a fixed shape with unnecessary paddings.
+  # But TF serving cannot return tf.RaggedTensor, so we compute the maximum
+  # required size for the dimensions to be truncated.
   max_decode_length = tf.reduce_max(decode_lengths)
+  max_num_candidates = tf.reduce_max(num_per_token_logprobs)
 
   def _top_candidate_tokens_and_logprobs():
     return (
         tokenizer.IdToString(
-            top_candidate_ids[:, :, :max_decode_length, :num_per_token_logprobs]
+            top_candidate_ids[:, :, :max_decode_length, :max_num_candidates]
         ),
-        top_candidate_logprobs[
-            :, :, :max_decode_length, :num_per_token_logprobs
-        ],
+        top_candidate_logprobs[:, :, :max_decode_length, :max_num_candidates]
     )
 
   def _sampled_tokens_and_logprobs():
@@ -388,12 +384,7 @@ def fetch_per_token_logprobs_related_outputs(
   assert hasattr(device_output, 'top_candidate_ids')
   assert hasattr(device_output, 'top_candidate_logprobs')
   assert hasattr(device_output, 'logprobs')
-  num_per_token_logprobs = device_input.num_per_token_logprobs
-  if num_per_token_logprobs.ndim == 1:
-    num_per_token_logprobs = num_per_token_logprobs[0]
-  else:
-    assert num_per_token_logprobs.ndim == 0
-  result.num_per_token_logprobs = num_per_token_logprobs
+  result.num_per_token_logprobs = device_input.num_per_token_logprobs
   result.top_candidate_ids = device_output.top_candidate_ids
   result.top_candidate_logprobs = device_output.top_candidate_logprobs
   result.logprobs = device_output.logprobs
