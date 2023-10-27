@@ -1213,11 +1213,19 @@ class LMGradientMethod(ServableLMMethod):
       outputs = call_fn(inputs_no_grad, mdl_vars_no_grad, prng_key)
       return outputs[0][0]['total_loss'][0], outputs
 
-    compute_gradient_fn = jax.value_and_grad(forward_fn, has_aux=True)
+    compute_gradient_fn = jax.value_and_grad(
+        forward_fn, has_aux=True, allow_int=True
+    )
     (_, outputs), grads = compute_gradient_fn(
         tensors_to_take_gradients, inputs, mdl_vars
     )
     outputs = (outputs[0], outputs[1])  # 1 is for mutable.
+    for key, value in grads['inputs'].items():
+      if value.dtype is jax.dtypes.float0:
+        # Gradient of an int-valued input cannot be consumed by jnp operation.
+        # Zeros dtype should be int8 same as the original input that produced
+        # float0.
+        grads['inputs'][key] = jnp.zeros((), dtype=jnp.int8)
     outputs[0][0]['gradients'] = grads
     return outputs
 
