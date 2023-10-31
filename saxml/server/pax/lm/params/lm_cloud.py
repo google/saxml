@@ -16,6 +16,7 @@
 import os
 from typing import List, cast
 
+import jax
 from jax import numpy as jnp
 from paxml import base_experiment
 from paxml import tasks_lib
@@ -170,6 +171,44 @@ class BaseLLaMA(base_experiment.BaseExperiment):
         lr_schedule=pax_fiddle.Config(schedules.Constant)
     )
     return task_p
+
+
+@quantization.for_transformer(quantize_on_the_fly=False)
+class BaseLLaMATest(BaseLLaMA):
+  """Small BaseLLaMA model for unit tests.
+
+  Profile with:
+  perftools/gputools/profiler/jfprof.sh :lm_cloud_test
+  """
+
+  NUM_LAYERS = 1
+  DIMS_PER_HEAD = 128
+  NUM_HEADS = 40
+  MODEL_DIMS = 5120
+  HIDDEN_DIMS = 13824
+
+  ICI_MESH_SHAPE = [1, 1, 8]
+
+  SPM_MODEL = os.path.join(os.path.dirname(__file__), 'test_model.model')
+  INPUT_SEQ_LEN = 2048
+  MAX_DECODE_STEPS = 256
+  ENABLE_GENERATE_STREAM = False
+  BATCH_SIZE = [4]
+  TOP_K = 1
+  NUM_SAMPLES = 1
+  BUCKET_KEYS = [2048]
+
+  def compiler_options(self) -> jax.stages.CompilerOptions:
+    return {
+        'xla_jf_auto_cross_replica_sharding': 'False',
+        'xla_tpu_nd_short_transfer_max_chunks': '2048',
+        'xla_tpu_perform_spmd_cse_prevention': 'True',
+        'xla_tpu_rwb_fusion': 'False',
+    }
+
+  @property
+  def test_mode(self) -> bool:
+    return True
 
 
 @servable_model_registry.register
