@@ -1444,6 +1444,11 @@ class ModelServicesRunner:
             utils.traceprint_all(
                 batch.rpc_tasks, f'After post_processing: {batch.method}'
             )
+            if len(outputs) != len(batch.rpc_tasks):
+              raise ValueError(
+                  f'post_processing returned {outputs=}, expected'
+                  f' {len(batch.rpc_tasks)} items.'
+              )
             for out, task in zip(outputs, batch.rpc_tasks):
               self._model_services[batch.method.service_id].FillRPCResponse(
                   batch.method.name, out, task.response
@@ -1497,6 +1502,13 @@ class ModelServicesRunner:
                 host_tensors, stream_state
             )
             query_cost = (time.time() - start_ts) / len(batch.rpc_tasks)
+            if host_tensors is not None and len(outputs) != len(
+                batch.rpc_tasks
+            ):
+              raise ValueError(
+                  f'post_processing_stream returned {outputs=}, expected'
+                  f' {len(batch.rpc_tasks)} items.'
+              )
             for out, task in zip(outputs, batch.rpc_tasks):
               # Use a new response each time.
               resp = copy.deepcopy(task.response)
