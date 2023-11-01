@@ -213,10 +213,13 @@ class Notification:
       self._notified = True
       self._cv.notify_all()
 
-  def wait(self):
+  def wait(self, timeout: float | None = None):
     with self._cv:
       while not self._notified:
-        self._cv.wait()
+        if self._cv.wait(timeout):
+          assert self._notified
+        else:
+          raise TimeoutError()
 
 
 class Admissioner:
