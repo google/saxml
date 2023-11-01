@@ -103,5 +103,5 @@ func SetAddr(ctx context.Context, port int, saxCell string) (chan<- struct{}, er
 	}
 
 	log.Infof("SetAddr %s %q", fname, addr)
-	return closer, env.Get().WriteFile(ctx, fname, content)
+	return closer, env.Get().WriteFile(ctx, fname, "", content)
 }

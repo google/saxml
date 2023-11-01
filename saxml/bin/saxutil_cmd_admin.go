@@ -48,7 +48,7 @@ var (
 	cmdTimeout = flag.Duration("sax_timeout", 60*time.Second, "How many seconds to wait for command completion.")
 )
 
-// CreateCmd is the command for Create.
+// CreateCmd creates a new Sax cell.
 type CreateCmd struct{}
 
 // Name returns the name of CreateCmd.
@@ -496,15 +496,16 @@ func (c *SetACLCmd) handleSaxCell(ctx context.Context, cellFullName naming.CellF
 	}
 	log.Infof("Current config definition:\n%v", cfg)
 
+	adminACL := args[1]
 	change := proto.Clone(cfg).(*apb.Config)
-	change.AdminAcl = args[1]
+	change.AdminAcl = adminACL
 	log.Infof("Updated config definition:\n%v", change)
 
 	if err := validator.ValidateConfigUpdate(cfg, change); err != nil {
 		log.Errorf("Invalid config update: %v", err)
 		return subcommands.ExitFailure
 	}
-	if err := config.Save(ctx, change, saxCell); err != nil {
+	if err := config.Save(ctx, change, saxCell, adminACL); err != nil {
 		log.Errorf("Failed to save config: %v", err)
 		return subcommands.ExitFailure
 	}

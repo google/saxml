@@ -31,7 +31,7 @@ func TestFileOps(t *testing.T) {
 	fname := "foo"
 	path := filepath.Join(dir, fname)
 
-	if err := env.Get().WriteFile(ctx, path, nil); err != nil {
+	if err := env.Get().WriteFile(ctx, path, "", nil); err != nil {
 		t.Fatalf("WriteFile got error %v, expect no error", err)
 	}
 	if exist, err := env.Get().FileExists(ctx, path); err != nil {
@@ -57,7 +57,7 @@ func TestWatch(t *testing.T) {
 
 	// Write an empty file.
 	has := []byte("")
-	if err := env.Get().WriteFile(ctx, path, has); err != nil {
+	if err := env.Get().WriteFile(ctx, path, "", has); err != nil {
 		t.Fatalf("WriteFile got error %v, expect no error", err)
 	}
 
@@ -73,7 +73,7 @@ func TestWatch(t *testing.T) {
 
 	// Modify the file.
 	has = []byte("bar")
-	if err := env.Get().WriteFile(ctx, path, has); err != nil {
+	if err := env.Get().WriteFile(ctx, path, "", has); err != nil {
 		t.Fatalf("WriteFile got error %v, expect no error", err)
 	}
 

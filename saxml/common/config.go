@@ -87,17 +87,22 @@ func Watch(ctx context.Context, saxCell string) (<-chan *pb.Config, error) {
 }
 
 // Save saves the server config.
-func Save(ctx context.Context, config *pb.Config, saxCell string) error {
+func Save(ctx context.Context, config *pb.Config, saxCell string, adminACL string) error {
 	fname, err := configFileName(ctx, saxCell)
 	if err != nil {
 		return err
 	}
-
+	// If adminACL is not set, we should at least make the Sax dev group the write ACL on config.proto
+	// in prod environment to prevent regular users from accidentally deleting others' Sax cells.
+	writeACL := adminACL
+	if writeACL == "" {
+		writeACL = env.Get().DefaultWriteACL(ctx)
+	}
 	in, err := proto.Marshal(config)
 	if err != nil {
 		return err
 	}
-	return env.Get().WriteFile(ctx, fname, in)
+	return env.Get().WriteFile(ctx, fname, writeACL, in)
 }
 
 // Create creates a server config.
@@ -109,7 +114,7 @@ func Create(ctx context.Context, saxCell, fsRoot, adminACL string) error {
 	config.FsRoot = fsRoot
 	config.AdminAcl = adminACL
 	log.Infof("Creating config %v", prototext.Format(config))
-	if err := Save(ctx, config, saxCell); err != nil {
+	if err := Save(ctx, config, saxCell, adminACL); err != nil {
 		return err
 	}
 	log.Infof("Created config %v", prototext.Format(config))

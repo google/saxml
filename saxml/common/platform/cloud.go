@@ -218,7 +218,10 @@ func (e *Env) ReadCachedFile(ctx context.Context, path string) ([]byte, error) {
 }
 
 // WriteFile writes the content of a file.
-func (e *Env) WriteFile(ctx context.Context, path string, data []byte) error {
+func (e *Env) WriteFile(ctx context.Context, path, writeACL string, data []byte) error {
+	if writeACL != "" {
+		return fmt.Errorf("WriteFile with ACL is not supported: %w", errors.ErrUnimplemented)
+	}
 	if strings.HasPrefix(path, gcsPathPrefix) {
 		_, object, err := gcsBucketAndObject(ctx, path)
 		if err != nil {
@@ -238,7 +241,7 @@ func (e *Env) WriteFile(ctx context.Context, path string, data []byte) error {
 // WriteFileAtomically writes the content of a file safety to file systems without versioning.
 func (e *Env) WriteFileAtomically(ctx context.Context, path string, data []byte) error {
 	if strings.HasPrefix(path, gcsPathPrefix) {
-		return e.WriteFile(ctx, path, data)
+		return e.WriteFile(ctx, path, "", data)
 	}
 
 	// Write to a temp file first and then rename, to reduce the risk of corrupted files.
@@ -403,6 +406,11 @@ func (e *Env) DirExists(ctx context.Context, path string) (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+// DefaultWriteACL returns the default write ACL.
+func (e *Env) DefaultWriteACL(ctx context.Context) string {
+	return ""
 }
 
 // CheckACLs returns nil iff the given principal passes an ACL check.

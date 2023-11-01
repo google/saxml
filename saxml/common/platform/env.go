@@ -72,8 +72,8 @@ type Env interface {
 	ReadFile(ctx context.Context, path string) ([]byte, error)
 	// ReadFile reads the content of a file, caching the result on repeated reads if possible.
 	ReadCachedFile(ctx context.Context, path string) ([]byte, error)
-	// WriteFile writes the content of a file.
-	WriteFile(ctx context.Context, path string, data []byte) error
+	// WriteFile writes the content of a file. If writeACL is empty, no write ACL is added.
+	WriteFile(ctx context.Context, path, writeACL string, data []byte) error
 	// WriteFileAtomically writes the content of a file to file systems without versioning support.
 	WriteFileAtomically(ctx context.Context, path string, data []byte) error
 	// FileExists checks the existence of a file.
@@ -90,6 +90,8 @@ type Env interface {
 	// DirExists checks the existence of a directory.
 	DirExists(ctx context.Context, path string) (bool, error)
 
+	// DefaultWriteACL returns the default write ACL.
+	DefaultWriteACL(ctx context.Context) string
 	// CheckACLs returns nil iff the given principal passes an ACL check.
 	CheckACLs(principal string, acls []string) error
 	// ValidateACLName returns nil iff the given aclname is valid and exists.
