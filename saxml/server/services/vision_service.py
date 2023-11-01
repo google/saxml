@@ -50,9 +50,12 @@ class VisionService(model_service_base.ModelService):
     if method_name == VisionMethodName.EMBED:
       return {'image_bytes': np.array(request.image_bytes, dtype=object)}
     if method_name == VisionMethodName.DETECT:
-      return {
+      boxes = [
+          (box.cx, box.cy, box.w, box.h) for box in request.boxes_of_interest]
+      return  {
           'image_bytes': np.array(request.image_bytes, dtype=object),
           'text': np.array(request.text),
+          'boxes': np.array(boxes),
       }
     if method_name == VisionMethodName.IMAGE_TO_TEXT:
       return {

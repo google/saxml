@@ -402,6 +402,7 @@ absl::StatusOr<std::vector<double>> VisionModel::Embed(
 
 absl::StatusOr<std::vector<VisionModel::PyDetectResult>> VisionModel::Detect(
     absl::string_view image, std::vector<std::string> text,
+    std::vector<std::tuple<double, double, double, double>> boxes,
     const ModelOptions* options) const {
   if (!status_.ok()) return status_;
   std::vector<PyDetectResult> ret;
@@ -409,10 +410,17 @@ absl::StatusOr<std::vector<VisionModel::PyDetectResult>> VisionModel::Detect(
   std::vector<::sax::client::VisionModel::DetectResult> result;
   {
     pybind11::gil_scoped_release release;
+    std::vector<::sax::client::VisionModel::BoundingBox> bounding_boxes;
+    bounding_boxes.reserve(boxes.size());
+    for (const auto& box : boxes) {
+      bounding_boxes.push_back({std::get<0>(box), std::get<1>(box),
+                                std::get<2>(box), std::get<3>(box)});
+    }
     if (options == nullptr) {
-      RETURN_IF_ERROR(model_->Detect(image, text, &result));
+      RETURN_IF_ERROR(model_->Detect(image, text, bounding_boxes, &result));
     } else {
-      RETURN_IF_ERROR(model_->Detect(*options, image, text, &result));
+      RETURN_IF_ERROR(
+          model_->Detect(*options, image, text, bounding_boxes, &result));
     }
   }
 

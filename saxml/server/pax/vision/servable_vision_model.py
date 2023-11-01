@@ -136,11 +136,16 @@ class DetectHParams(servable_model_params.ServableMethodParams):
     model_method_name: The name of the method to call to extract embeddings from
       an input image.  Required.
     use_box_input: Whether the model supports box regions as inputs.
+    num_input_boxes: Number of boxes to use for use_box_input by default. If
+      use_box_input is True, num_input_boxes specifies the maximum number of
+      boxes the detector can accept. This is not the number of boxes the client
+      has to provide. When use_box_input is False, this hparam has no effect.
   """
 
   is_open_set: bool = False
   model_method_name: Optional[str] = None
   use_box_input: bool = False
+  num_input_boxes: int = 100
 
 
 @dataclasses.dataclass
@@ -906,7 +911,8 @@ class VisionModel(servable_model.ServableModel):
       if method_params.is_open_set:
         dummy_input['text'] = ['dummy']
       if method_params.use_box_input:
-        dummy_input['boxes'] = np.zeros(shape=(1, 4), dtype=np.float32)
+        dummy_input['boxes'] = (
+            [(0.3, 0.3, 0.2, 0.2)] * method_params.num_input_boxes)
       return ImageBytesToDetect(
           model,
           method_params.model_method_name,

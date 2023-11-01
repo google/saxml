@@ -933,7 +933,7 @@ func go_vm_embed(ptr C.long, timeout C.float, imageData *C.char, imageSize C.int
 }
 
 //export go_vm_detect
-func go_vm_detect(ptr C.long, timeout C.float, imageData *C.char, imageSize C.int, textData *C.char, textSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+func go_vm_detect(ptr C.long, timeout C.float, imageData *C.char, imageSize C.int, reqData *C.char, reqSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
 	vm := rcgo.Handle(ptr).Value().(*sax.VisionModel)
 	if vm == nil {
 		// This is not expected.
@@ -947,20 +947,30 @@ func go_vm_detect(ptr C.long, timeout C.float, imageData *C.char, imageSize C.in
 		return
 	}
 
-	text := C.GoStringN(textData, textSize)
+	image := C.GoBytes(unsafe.Pointer(imageData), imageSize)
+
+	requestBytes := C.GoStringN(reqData, reqSize)
 	request := &vmpb.DetectRequest{}
-	if err := proto.Unmarshal([]byte(text), request); err != nil {
+	if err := proto.Unmarshal([]byte(requestBytes), request); err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return
+	}
+
+	var boxes []sax.BoundingBox
+	for _, box := range request.GetBoxesOfInterest() {
+		boxes = append(boxes, sax.BoundingBox{
+			CenterX: box.GetCx(),
+			CenterY: box.GetCy(),
+			Width:   box.GetW(),
+			Height:  box.GetH(),
+		})
 	}
 
 	ctx, cancel := createContextWithTimeout(timeout)
 	if cancel != nil {
 		defer cancel()
 	}
-
-	image := C.GoBytes(unsafe.Pointer(imageData), imageSize)
-	res, err := vm.Detect(ctx, []byte(image), request.GetText(), protoOptionToSetter(options)...)
+	res, err := vm.Detect(ctx, []byte(image), request.GetText(), boxes, protoOptionToSetter(options)...)
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return

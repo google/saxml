@@ -414,6 +414,13 @@ class VisionModel {
   absl::Status Embed(const ModelOptions& options, absl::string_view image_bytes,
                      std::vector<double>* embedding) const;
 
+  struct BoundingBox {
+    double cx;  // Center of the box in x-axis.
+    double cy;  // Center of the box in y-axis.
+    double w;  // Width of the box.
+    double h;  // Height of the box.
+  };
+
   struct DetectResult {
     double cx;
     double cy;
@@ -422,6 +429,7 @@ class VisionModel {
     std::string text;
     double score;
   };
+
   // Detect produces a list of bounding boxes given 'image_bytes'.
   //
   // For open-set detection models, one can pass text lists as the second
@@ -436,7 +444,15 @@ class VisionModel {
                       absl::string_view image_bytes,
                       const std::vector<std::string>& text,
                       std::vector<DetectResult>* result) const;
-
+  absl::Status Detect(absl::string_view image_bytes,
+                      const std::vector<std::string>& text,
+                      const std::vector<BoundingBox>& boxes,
+                      std::vector<DetectResult>* result) const;
+  absl::Status Detect(const ModelOptions& options,
+                      absl::string_view image_bytes,
+                      const std::vector<std::string>& text,
+                      const std::vector<BoundingBox>& boxes,
+                      std::vector<DetectResult>* result) const;
   // ImageToText produces a list of captions and scores given 'image_bytes'
   // and an optional prefix 'text'
   //

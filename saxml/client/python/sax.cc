@@ -194,12 +194,15 @@ PYBIND11_MODULE(sax, m) {
           "Detect",
           [](sax::client::pybind::VisionModel& vm,
              absl::string_view image_bytes, std::vector<std::string> text,
+             std::vector<std::tuple<double, double, double, double>> boxes,
              const sax::client::ModelOptions* options)
               -> absl::StatusOr<std::vector<std::tuple<
                   double, double, double, double, pybind11::bytes, double>>> {
-            return vm.Detect(image_bytes, text, options);
+            return vm.Detect(image_bytes, text, boxes, options);
           },
           py::arg("image_bytes"), py::arg("text") = std::vector<std::string>{},
+          py::arg("boxes") =
+              std::vector<std::tuple<double, double, double, double>>{},
           py::arg("options") = nullptr)
       .def(
           "ImageToText",

@@ -682,9 +682,25 @@ absl::Status VisionModel::Detect(absl::string_view image_bytes,
   return VisionModel::Detect(ModelOptions(), image_bytes, text, result);
 }
 
+absl::Status VisionModel::Detect(absl::string_view image_bytes,
+                                 const std::vector<std::string>& text,
+                                 const std::vector<BoundingBox>& boxes,
+                                 std::vector<DetectResult>* result) const {
+  return VisionModel::Detect(ModelOptions(), image_bytes, text, boxes, result);
+}
+
 absl::Status VisionModel::Detect(const ModelOptions& options,
                                  absl::string_view image_bytes,
                                  const std::vector<std::string>& text,
+                                 std::vector<DetectResult>* result) const {
+  return VisionModel::Detect(options, image_bytes, text,
+                             std::vector<BoundingBox>(), result);
+}
+
+absl::Status VisionModel::Detect(const ModelOptions& options,
+                                 absl::string_view image_bytes,
+                                 const std::vector<std::string>& text,
+                                 const std::vector<BoundingBox>& boxes,
                                  std::vector<DetectResult>* result) const {
   ExtraInputs extra;
   options.ToProto(&extra);
@@ -695,6 +711,15 @@ absl::Status VisionModel::Detect(const ModelOptions& options,
   detect_request.mutable_text()->Reserve(text.size());
   for (const auto& one_text : text) {
     detect_request.add_text(one_text);
+  }
+  detect_request.mutable_boxes_of_interest()->Reserve(boxes.size());
+  for (const auto& box : boxes) {
+    ::sax::server::vision::BoundingBox box_of_interest;
+    box_of_interest.set_cx(box.cx);
+    box_of_interest.set_cy(box.cy);
+    box_of_interest.set_w(box.w);
+    box_of_interest.set_h(box.h);
+    detect_request.mutable_boxes_of_interest()->Add(std::move(box_of_interest));
   }
   std::string detectReqStr = "";
   detect_request.SerializeToString(&detectReqStr);
@@ -713,7 +738,7 @@ absl::Status VisionModel::Detect(const ModelOptions& options,
     return CreateErrorAndFree(errCode, errMsgStr);
   }
 
-  // Proto of repeated boundingboxes
+  // Proto of repeated bounding boxes.
   DetectResponse output;
   if (outputStr != nullptr) {
     output.ParseFromArray(outputStr, outputSize);

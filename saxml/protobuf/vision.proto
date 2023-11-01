@@ -107,6 +107,11 @@ message DetectRequest {
   // given text elements.
   repeated string text = 4;
 
+  // Optionally accept box inputs to predict region class labels.
+  // The boxes are N regions of interest in the image.
+  // The .text and .score fields should be unset.
+  repeated BoundingBox boxes_of_interest = 5;
+
   .sax.ExtraInputs extra_inputs = 3;
 }
 

@@ -43,7 +43,7 @@ func (*ClassifyCmd) Usage() string {
 	Classifies the image specified by image_filename. image_filename can be a jpg, gif, png file. If image_filename is '-', reads the image content from the stdin.
 
 	For example:
-	# Classify an jpeg image.
+	# Classify a jpeg image.
 	$ saxutil vm.classify /sax/bar/resnet50 /tmp/lenna.jpg
 
 	# Flop the image and then ask the model to classify it.
@@ -204,7 +204,7 @@ func (*EmbedImageCmd) Usage() string {
 	Embedding the image (as byte array) specified by image_filename. image_filename can be a jpg, gif, png file. If image_filename is '-', reads the image content from the stdin.
 
 	For example:
-	# Embed an jpeg image.
+	# Embed a jpeg image.
 	$ saxutil vm.embed /sax/bar/coca /tmp/lenna.jpg
 
 	# Flop the image and then ask the model to embed it.
@@ -276,7 +276,7 @@ func (*DetectCmd) Usage() string {
 	Detect objects in the image (as byte array) specified by image_filename. image_filename can be a jpg, gif, png file. If image_filename is '-', reads the image content from the stdin.
 
 	For example:
-	# Detect objects in an jpeg image.
+	# Detect objects in a jpeg image.
 	$ saxutil vm.detect /sax/bar/vitmaskrcnn /tmp/lenna.jpg
 
 	# Flop the image and then ask the model to detect objects in it.
@@ -313,7 +313,9 @@ func (c *DetectCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	}
 
 	text := f.Args()[2:]
-	results, err := vm.Detect(ctx, contents, text, ExtraInputs(c.extra)...)
+	// Placeholder boxes for command line API. Boxes input not supported at the moment.
+	var boxes = []sax.BoundingBox{}
+	results, err := vm.Detect(ctx, contents, text, boxes, ExtraInputs(c.extra)...)
 	if err != nil {
 		log.Errorf("Failed to detect objects in image (%s) due to %v", imagePath, err)
 		return subcommands.ExitFailure

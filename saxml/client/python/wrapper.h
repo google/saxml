@@ -204,6 +204,7 @@ class VisionModel {
   // Returns a vector of bounding boxes as a tuple <cx, cy, w, h, text, score>.
   absl::StatusOr<std::vector<PyDetectResult>> Detect(
       absl::string_view image_bytes, std::vector<std::string> text = {},
+      std::vector<std::tuple<double, double, double, double>> boxes = {},
       const ModelOptions* options = nullptr) const;
 
   // ImageToText produces captions given the image bytes and prefix text.

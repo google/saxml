@@ -157,6 +157,14 @@ func (v *VisionModel) Embed(ctx context.Context, imageBytes []byte, options ...M
 	return resp.GetEmbedding(), nil
 }
 
+// BoundingBox represents a single bounding box.
+type BoundingBox struct {
+	CenterX float64 // Center of the box in x-axis.
+	CenterY float64 // Center of the box in y-axis.
+	Width   float64 // Width of the box.
+	Height  float64 // Height of the box.
+}
+
 // DetectResult contains a representation for a single bounding box.
 type DetectResult struct {
 	CenterX float64
@@ -167,7 +175,20 @@ type DetectResult struct {
 	Score   float64
 }
 
-func extractBoundingBox(res *pb.DetectResponse) []DetectResult {
+func insertBoundingBoxes(boxes []BoundingBox, req *pb.DetectRequest) {
+	var boxesOfInterest []*pb.BoundingBox
+	for _, box := range boxes {
+		boxesOfInterest = append(boxesOfInterest, &pb.BoundingBox{
+			Cx: box.CenterX,
+			Cy: box.CenterY,
+			W:  box.Width,
+			H:  box.Height,
+		})
+	}
+	req.BoxesOfInterest = boxesOfInterest
+}
+
+func extractBoundingBoxes(res *pb.DetectResponse) []DetectResult {
 	var result []DetectResult
 	for _, one := range res.GetBoundingBoxes() {
 		candidate := DetectResult{
@@ -182,7 +203,8 @@ func extractBoundingBox(res *pb.DetectResponse) []DetectResult {
 	return result
 }
 
-func (v *VisionModel) Detect(ctx context.Context, imageBytes []byte, text []string, options ...ModelOptionSetter) ([]DetectResult, error) {
+// Detect performs detection for a serialized image (`imageBytes`) against a vision model.
+func (v *VisionModel) Detect(ctx context.Context, imageBytes []byte, text []string, boxes []BoundingBox, options ...ModelOptionSetter) ([]DetectResult, error) {
 	opts := NewModelOptions(options...)
 	req := &pb.DetectRequest{
 		ModelKey:    v.model.modelID,
@@ -190,6 +212,7 @@ func (v *VisionModel) Detect(ctx context.Context, imageBytes []byte, text []stri
 		Text:        text,
 		ExtraInputs: opts.ExtraInputs(),
 	}
+	insertBoundingBoxes(boxes, req)
 
 	var resp *pb.DetectResponse
 	err := v.model.run(ctx, "Detect", func(conn *grpc.ClientConn) error {
@@ -200,7 +223,7 @@ func (v *VisionModel) Detect(ctx context.Context, imageBytes []byte, text []stri
 	if err != nil {
 		return nil, err
 	}
-	res := extractBoundingBox(resp)
+	res := extractBoundingBoxes(resp)
 	return res, nil
 }
 
