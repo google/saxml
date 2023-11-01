@@ -107,7 +107,7 @@ class ServableMethod(servable_model.ServableMethod):
     return input_batch
 
   @property
-  def streamable(self) -> bool:
+  def streamable_output(self) -> bool:
     return False
 
   def device_compute_with_dummy_data(

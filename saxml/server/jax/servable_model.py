@@ -326,7 +326,7 @@ class ServableMethod(servable_model.ServableMethod):
       # Transfer dummy to host to block until dummy computation is done.
       if self.model_state.precompile:
         # Retrieve streamed outputs until streaming is done
-        if self.streamable:
+        if self.streamable_output:
           stream_state = None
           while True:
             stream_outs = self.dequeue_stream_output()
@@ -336,7 +336,7 @@ class ServableMethod(servable_model.ServableMethod):
             if stream_outs is None:
               break
         outs = self.output_to_host(init_dummy_outputs, self.batch_size)
-        if not self.streamable:
+        if not self.streamable_output:
           # Warm up post processor.
           self.post_processing(outs)
 
@@ -614,7 +614,7 @@ class ServableMethod(servable_model.ServableMethod):
       )
       # This assumes that outputs are generated after previous host calls, and
       # it is guaranteed by data dependency.
-      if self.streamable:
+      if self.streamable_output:
 
         def _mark_done(dummy, _):
           del dummy

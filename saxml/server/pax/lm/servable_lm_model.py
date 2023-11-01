@@ -623,7 +623,7 @@ class LMDecodeMethod(ServableLMMethod):
       method_hparams: DecodeHParams,
       tokenizer_p: Any,
       exportable: bool = False,
-      streamable: bool = False,
+      streamable_output: bool = False,
       load: bool = True,
       enable_auto_sharding: bool = False,
       compiler_options: jax.stages.CompilerOptions | None = None,
@@ -652,8 +652,9 @@ class LMDecodeMethod(ServableLMMethod):
         self.tf_post_processing,
         False,
     )
-    self._streamable = streamable
-    logging.info('Initialize LMDecodeMethod to be streamable=%s.', streamable)
+    self._streamable_output = streamable_output
+    logging.info('Initialize LMDecodeMethod to be streamable_output=%s.',
+                 streamable_output)
 
     def _init_stream_and_decode(new_ids):
       batch_size = tf.shape(new_ids)[:-1]
@@ -688,7 +689,7 @@ class LMDecodeMethod(ServableLMMethod):
     k1, k2 = prng_key
 
     kwargs = {}
-    if self.streamable:
+    if self.streamable_output:
 
       def callback_fn(x, _):
         assert self.model_state.is_primary_host
@@ -726,8 +727,8 @@ class LMDecodeMethod(ServableLMMethod):
     return outputs
 
   @property
-  def streamable(self) -> bool:
-    return self._streamable
+  def streamable_output(self) -> bool:
+    return self._streamable_output
 
   def fetch_output(
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
@@ -1416,7 +1417,7 @@ class ServableLMModel(servable_model.ServableModel):
           method_params,
           tokenizer_p,
           exportable=False,
-          streamable=True,
+          streamable_output=True,
           enable_auto_sharding=self._enable_auto_sharding,
           compiler_options=self._compiler_options,
       )

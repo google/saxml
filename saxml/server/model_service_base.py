@@ -629,7 +629,7 @@ class ModelService(metaclass=abc.ABCMeta):
       req: message.Message,
       resp: message.Message,
       done: StatusCallback,
-      streaming: bool,
+      streaming_output: bool,
   ):
     """Enqueues a request to the processing loop."""
     # Request may arrive before the corresponding _load_model() finishes or
@@ -649,11 +649,14 @@ class ModelService(metaclass=abc.ABCMeta):
       return
 
     # The method may not support streaming.
-    if streaming:
-      if not method_obj.streamable:
-        done(utils.invalid_arg(f'Method {method} does not support streaming'))
-        logging.error('Method %s does not support streaming', method)
-        return
+    if streaming_output and not method_obj.streamable_output:
+      done(
+          utils.invalid_arg(
+              f'Method {method} does not support streaming output.'
+          )
+      )
+      logging.error('Method %s does not support streaming output.', method)
+      return
 
     batcher_item_key = MethodKey(method, self._service_id, model_key)
     self._batcher.add_item(batcher_item_key, rpc_context, req, resp, done)
@@ -697,7 +700,7 @@ class ModelServiceGRPC(ModelService):
         req,
         resp,
         _done,
-        streaming=False,
+        streaming_output=False,
     )
     return fut
 
@@ -732,7 +735,7 @@ class ModelServiceGRPC(ModelService):
         req,
         empty_resp,
         _done,
-        streaming=True,
+        streaming_output=True,
     )
 
     return q
@@ -1709,7 +1712,7 @@ class ModelServicesRunner:
               # _postprocess_stream_async must start before device_compute,
               # otherwise device_compute may block the consumption of streaming
               # queue until it finishes.
-              if method_obj.streamable:
+              if method_obj.streamable_output:
                 streaming_done = utils.Notification()
                 self._postprocess_stream_async(model, batch, streaming_done)
               result = method_obj.device_compute_with_dummy_data(
@@ -1718,7 +1721,7 @@ class ModelServicesRunner:
             else:
               result = None
           else:
-            if method_obj.streamable:
+            if method_obj.streamable_output:
               streaming_done = utils.Notification()
               self._postprocess_stream_async(model, batch, streaming_done)
             result = method_obj.device_compute(

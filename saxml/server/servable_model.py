@@ -54,7 +54,7 @@ class ServableMethod(abc.ABC):
     self._extra_inputs = method_params.get_default_extra_inputs()
     self._extra_inputs_dtypes = method_params.get_extra_inputs_dtypes()
     # If an element is None, it marks the end of the stream.
-    self._stream_queue: queue.SimpleQueue[Optional[HostTensors]] = (
+    self._stream_output_queue: queue.SimpleQueue[Optional[HostTensors]] = (
         queue.SimpleQueue()
     )
 
@@ -210,20 +210,20 @@ class ServableMethod(abc.ABC):
 
   @property
   @abc.abstractmethod
-  def streamable(self) -> bool:
-    """Whether this method supports streaming."""
+  def streamable_output(self) -> bool:
+    """Whether this method supports output streaming."""
 
   def dequeue_stream_output(self) -> Optional[HostTensors]:
-    """Dequeues streamed tensors, or None if done. Blocking if empty."""
-    return self._stream_queue.get()
+    """Dequeues streamed output tensors, or None if done. Blocking if empty."""
+    return self._stream_output_queue.get()
 
   def enqueue_stream_output(self, stream_outputs: HostTensors) -> None:
-    """Enqueues streamed tensors."""
-    self._stream_queue.put(stream_outputs)
+    """Enqueues streamed output tensors."""
+    self._stream_output_queue.put(stream_outputs)
 
   def mark_stream_output_done(self) -> None:
-    """Marks the streaming as done."""
-    self._stream_queue.put(None)
+    """Marks the streamed output as done."""
+    self._stream_output_queue.put(None)
 
   def deserialize_input_shape(self, unpadded_shape_str: str) -> InputShapeInfo:
     """Deserialize input shape from a str."""
@@ -265,7 +265,7 @@ class ServableMethod(abc.ABC):
       extra_inputs: Optional[List[ExtraInput]] = None,
   ) -> List[Any]:
     """Executes pre_processing, device_compute, and post_processing."""
-    assert not self.streamable
+    assert not self.streamable_output
     unpadded_batch_size = len(raw_inputs)
     if unpadded_batch_size > self.batch_size:
       raise ValueError(

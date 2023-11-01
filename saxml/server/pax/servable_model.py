@@ -143,7 +143,7 @@ class ServableMethod(servable_model.ServableMethod):
     return self._method_params
 
   @property
-  def streamable(self) -> bool:
+  def streamable_output(self) -> bool:
     return False
 
   def get_unpadded_branch_key(self, inputs: NestedNpTensor) -> int:
