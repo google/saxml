@@ -162,25 +162,36 @@ class ServableMethod(abc.ABC):
 
   @abc.abstractmethod
   def post_processing(self, compute_outputs: HostTensors) -> List[Any]:
-    """Postprocesses the output host arrays to final host output."""
+    """Postprocesses the output host arrays to final host output.
+
+    Args:
+      compute_outputs: Output host tensors from ServableMethod.device_compute.
+
+    Returns:
+      A list of service-specific outputs per RPC. Each entry in the list is
+      passed to ModelService.FillRPCResponse to populate the response for the
+      RPC request.
+    """
 
   def post_processing_stream(
       self,
       compute_outputs: Optional[HostTensors] = None,
       stream_state: Optional[Any] = None,
-  ) -> Tuple[List[Tuple[List[str], List[float]]], Optional[Any]]:
+  ) -> Tuple[List[Any], Optional[Any]]:
     """Postprocesses one streaming output.
 
     Args:
-      compute_outputs: Tensors streamed out of the device. If missing, finalize
+      compute_outputs: Tensors streamed out of the device. If None, finalize
         streaming using stream_state.
       stream_state: The stream_state returned by the previous call. If missing,
         initialize streaming using compute_outputs as the first input.
 
     Returns:
-      Final host output and state to pass to the next call. The output contains
-      a list of batch tuples. Each tuple contains two lists of num_samples
-      elements: decoded strings and scores, respectively.
+      host_outputs: A list of service-specific outputs per RPC. Each entry in
+        the list is passed to ModelService.FillRPCResponse to populate the
+        response for the RPC request.
+      stream_state: Host-side post-processing state to pass to the next call to
+        post_processing_stream for this batch of streaming responses.
     """
     raise NotImplementedError('post_processing_stream not implemented')
 
