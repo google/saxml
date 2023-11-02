@@ -14,6 +14,7 @@
 """Customize layers for sax."""
 from typing import Optional, Tuple
 
+import jax
 from jax import numpy as jnp
 from praxis import base_layer
 from praxis import layers
@@ -60,8 +61,23 @@ class LLaMARotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
           'The embedding dims of the rotary position embedding'
           'must match the hidden dimension of the inputs.'
       )
+    inputs_shifted_left = jnp.concatenate(
+        [inputs[..., 1:], inputs[..., :1]], axis=-1
+    )
+    inputs_shifted_right = jnp.concatenate(
+        [inputs[..., -1:], inputs[..., :-1]], axis=-1
+    )
+    inputs_shifted = jax.lax.select(
+        jnp.tile(
+            jnp.mod(jnp.arange(self.embedding_dims, dtype=jnp.int32), 2),
+            inputs.shape[:-1] + (1,),
+        ),  # [[[[0, 1, 0, 1, ...], ...]
+        inputs_shifted_right,
+        inputs_shifted_left,
+    )
     half_embedding_dim = self.embedding_dims // 2
     fraction = 2 * jnp.arange(0, half_embedding_dim) / self.embedding_dims
+    fraction = jnp.repeat(fraction, 2)
     timescale = (
         self.min_timescale
         * (self.max_timescale / self.min_timescale) ** fraction
@@ -74,24 +90,13 @@ class LLaMARotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
     sinusoid_inp = position / timescale
     sin = jnp.sin(sinusoid_inp)
     cos = jnp.cos(sinusoid_inp)
-    # pax implementation:
-    # first_half, second_half = jnp.split(inputs, 2, axis=-1)
-    reshape_tensor = inputs.astype(jnp.float32).reshape(
-        *inputs.shape[:-1], -1, 2
-    )
-    first_half = reshape_tensor[..., 0]
-    second_half = reshape_tensor[..., 1]
-    first_part = first_half * cos - second_half * sin
-    second_part = second_half * cos + first_half * sin
+    sign = jnp.sign(
+        jnp.mod(jnp.arange(self.embedding_dims, dtype=jnp.int32), 2) - 0.5
+    )  # [-1, 1, -1, 1, ...]
+    outputs = inputs * cos + inputs_shifted * sin * sign
     if self.cast_as_fprop_dtype:
-      first_part = first_part.astype(self.fprop_dtype)
-      second_part = second_part.astype(self.fprop_dtype)
-    # pax implementation:
-    # return jnp.concatenate([first_part, second_part], axis=-1)
-    x_out = jnp.stack((first_part, second_part), axis=-1).reshape(
-        *first_part.shape[:-1], -1
-    )
-    return x_out
+      outputs = outputs.astype(self.fprop_dtype)
+    return outputs
 
 
 class FakeLayerNorm(layers.LayerNorm):

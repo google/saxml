@@ -30,9 +30,11 @@ from praxis.layers import activations
 from praxis.layers import multi_query_attention
 from saxml.server import servable_model_registry
 from saxml.server.pax import quantization
-from saxml.server.pax.lm.layers import LLaMARotaryEmbedding
-from saxml.server.pax.lm.layers import ParallelTransformer
+from saxml.server.pax.lm import layers as sax_layers
 from saxml.server.pax.lm.params import template
+
+LLaMARotaryEmbedding = sax_layers.LLaMARotaryEmbedding
+ParallelTransformer = sax_layers.ParallelTransformer
 
 
 @template.make_servable()
