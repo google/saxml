@@ -42,8 +42,7 @@ message LoadRequest {
   map<string, string> overrides = 5;
 }
 
-message LoadResponse {
-}
+message LoadResponse {}
 
 message UpdateLoadedRequest {
   // Key identifying the model to load.
@@ -53,8 +52,7 @@ message UpdateLoadedRequest {
   AccessControlLists acls = 2;
 }
 
-message UpdateLoadedResponse {
-}
+message UpdateLoadedResponse {}
 
 message UnloadRequest {
   string model_key = 1;
@@ -126,6 +124,7 @@ message SaveResponse {}
 
 message GetStatusRequest {
   bool include_failure_reasons = 1;
+  bool include_method_stats = 2;
 }
 
 // TODO(jiawenhao): Add MemoryStats and LoadStats.
@@ -136,6 +135,36 @@ message GetStatusResponse {
     string model_key = 1;
     ModelStatus model_status = 2;
     string failure_reason = 3;  // only filled in if requested
+
+    // Only filled if request.include_method_stats=true.
+    repeated MethodStats method_stats = 4;
+  }
+
+  // Method stats shown on modelet home pages.
+  message MethodStats {
+    // The method name.
+    string method = 1;
+
+    // The QPS of failed requests in the past minute.
+    float errors_per_second = 2;
+
+    // The QPS of succeeded requests in the past minute.
+    float successes_per_second = 3;
+
+    // The mean latency of succeeded requests in the past minute.
+    optional float mean_latency_on_success_per_second = 4;
+
+    // The 50 percentile latency of succeeded requests in the past minute.
+    optional float p50_latency_on_success_per_second = 5;
+
+    // The 95 percentile latency of succeeded requests in the past minute.
+    optional float p95_latency_on_success_per_second = 6;
+
+    // The 99 percentile latency of succeeded requests in the past minute.
+    optional float p99_latency_on_success_per_second = 7;
+
+    // The recent 10 batch sizes.
+    repeated int32 recent_batch_sizes = 8 [packed = true];
   }
 
   repeated ModelWithStatus models = 1;

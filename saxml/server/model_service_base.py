@@ -31,6 +31,7 @@ import uuid
 from absl import logging
 import grpc
 from grpc_reflection.v1alpha import reflection
+import numpy as np
 from saxml.common.python import location
 from saxml.protobuf import admin_pb2
 from saxml.protobuf import common_pb2
@@ -966,15 +967,43 @@ class ModeletService:
       resp: modelet_pb2.GetStatusResponse,
   ) -> None:
     """Retrieves the server status."""
+    model_by_key: dict[str, modelet_pb2.GetStatusResponse.ModelWithStatus] = {}
     for key, status in self._loader.get_status().items():
       model = modelet_pb2.GetStatusResponse.ModelWithStatus(
           model_key=key, model_status=status
       )
+      model_by_key[key] = model
       if (
           status == common_pb2.ModelStatus.FAILED
           and req.include_failure_reasons
       ):
         model.failure_reason = self._loader.get_error(key)
+
+    if req.include_method_stats:
+      for (
+          key,
+          ok_stats,
+          err_stats,
+          recent_batch_sizes,
+      ) in self._batcher.get_method_stats():
+        if (
+            key.service_id
+            and (model := model_by_key.get(key.model_key)) is not None
+        ):
+          stats = model.method_stats.add(
+              method=key.name,
+              errors_per_second=err_stats.rate(),
+              successes_per_second=ok_stats.rate(),
+              recent_batch_sizes=recent_batch_sizes,
+          )
+          if ok_stats.samples:
+            stats.mean_latency_on_success_per_second = ok_stats.mean()
+            percentiles = np.percentile(ok_stats.samples, [50, 95, 99])
+            stats.p50_latency_on_success_per_second = percentiles[0]
+            stats.p95_latency_on_success_per_second = percentiles[1]
+            stats.p99_latency_on_success_per_second = percentiles[2]
+
+    for model in model_by_key.values():
       resp.models.append(model)
 
 
