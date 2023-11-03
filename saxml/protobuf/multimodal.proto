@@ -37,6 +37,9 @@ message DataItem {
     bytes image_bytes = 2;
     IdList image_tokens = 3;
     AudioFloatSamples audio_float_samples = 4;
+    // 'video' is up to the specific model to interpret. E.g., it can be the
+    // content of a mpeg4 file.
+    bytes video = 5;
   }
 }
 
