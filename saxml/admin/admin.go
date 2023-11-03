@@ -216,10 +216,14 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsRequest) (*pb.StatsRespo
 		chipTopo pb.ModelServer_ChipTopology
 	}
 	replicasPerServerType := make(map[ServerType]int32)
+	replicasPerServableModelPath := make(map[string]int32)
 
 	for _, server := range servers {
 		serverType := ServerType{server.GetModelServer().GetChipType(), server.GetModelServer().GetChipTopology()}
 		replicasPerServerType[serverType] = replicasPerServerType[serverType] + 1
+		for _, servableModelPath := range server.GetModelServer().GetServableModelPaths() {
+			replicasPerServableModelPath[servableModelPath] = replicasPerServableModelPath[servableModelPath] + 1
+		}
 	}
 
 	modelServerTypeStats := []*pb.ModelServerTypeStat{}
@@ -230,7 +234,7 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsRequest) (*pb.StatsRespo
 			NumReplicas:  replicas,
 		})
 	}
-	return &pb.StatsResponse{ModelServerTypeStats: modelServerTypeStats}, nil
+	return &pb.StatsResponse{ModelServerTypeStats: modelServerTypeStats, NumServersByServableModelPath: replicasPerServableModelPath}, nil
 }
 
 // WatchLoc handles WatchLoc RPC requests.

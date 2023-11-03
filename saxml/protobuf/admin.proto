@@ -204,6 +204,11 @@ message StatsRequest {
 
 message StatsResponse {
   repeated ModelServerTypeStat model_server_type_stats = 1;
+
+  // This counts the maximum number of servers that can be used to serve a
+  // servable model path. Clients can use this field to calculate their expected
+  // serving capacity.
+  map<string, int32> num_servers_by_servable_model_path = 2;
 }
 
 message WatchLocRequest {
