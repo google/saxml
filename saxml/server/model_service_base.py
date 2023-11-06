@@ -996,7 +996,7 @@ class ModeletService:
               successes_per_second=ok_stats.rate(),
               recent_batch_sizes=recent_batch_sizes,
           )
-          if ok_stats.samples:
+          if np.size(ok_stats.samples) > 0:
             stats.mean_latency_on_success_per_second = ok_stats.mean()
             percentiles = np.percentile(ok_stats.samples, [50, 95, 99])
             stats.p50_latency_on_success_per_second = percentiles[0]

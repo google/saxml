@@ -16,6 +16,7 @@
 from unittest import mock
 
 from absl.testing import absltest
+import numpy as np
 import portpicker
 from saxml.protobuf import common_pb2
 from saxml.protobuf import modelet_pb2
@@ -54,10 +55,10 @@ class GetStatusTest(absltest.TestCase):
                 total=100,
                 summ=4950,
                 summ2=328350,
-                samples=list(range(100)),
+                samples=np.array(list(range(100))),
             ),
             utils.RequestStats.Stats(
-                timespan_sec=8, total=1, summ=1, summ2=1, samples=[1]
+                timespan_sec=8, total=1, summ=1, summ2=1, samples=np.array([1])
             ),
             [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
         ),

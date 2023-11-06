@@ -249,6 +249,7 @@ py_strict_test(
         "//saxml/protobuf:modelet_py_pb2",
         "//testing/pybase",
         "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/numpy",
         "//third_party/py/portpicker",
     ],
 )
