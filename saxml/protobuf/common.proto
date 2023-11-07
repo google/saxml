@@ -18,6 +18,8 @@ syntax = "proto3";
 
 package sax;
 
+option java_package = "com.google.saxml";
+
 enum ModelStatus {
   NONE = 0;       // Unused: unloaded models are removed from responses.
   LOADING = 1;    // This model is being loaded and can't serve yet.

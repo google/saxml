@@ -53,6 +53,12 @@ py_proto_library(
     deps = [":common_proto"],
 )
 
+java_proto_library(
+    name = "common_java_proto",
+    visibility = ["//visibility:public"],
+    deps = [":common_proto"],
+)
+
 proto_library(
     name = "test_proto",
     srcs = ["test.proto"],
