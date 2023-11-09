@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// A generic skiplist.
-//
+// Package skiplist is a generic skiplist-based container.
+package skiplist
+
 // Usage, for a skiplist of "int".
 //
 // Define a comparison routine:
@@ -77,43 +78,41 @@
 // The client may not use the pointer returned by Value() to change
 // the ordering of the value within the list.
 
-package skiplist
-
 import "math/rand"
 
-const max_level = 32 // Maximum number of levels in the skip list.
+const maxLevel = 32 // Maximum number of levels in the skip list.
 
-// Each node in the list has a value of type V, and up to max_level
+// Each node in the list has a value of type V, and up to maxLevel
 // pointers to subsequent nodes.  next[0] is the next node in the
 // list, or nil.
-type node[V interface{}] struct {
+type node[V any] struct {
 	value V
 	next  []*node[V]
 }
 
-// A skiplist.T[V] is a skiplist containing elements of type V.
-type T[V interface{}] struct {
-	max_node_size int                  // number of levels in use; [1..max_level]
-	cmp           func(a *V, b *V) int // client's comparison routine
-	count         int                  // number of element in the list
-	head          node[V]              // the "head" of the list; length is always max_level
+// T is a skiplist containing elements of type V.
+type T[V any] struct {
+	maxNodeSize int                  // number of levels in use; [1..maxLevel]
+	cmp         func(a *V, b *V) int // client's comparison routine
+	count       int                  // number of element in the list
+	head        node[V]              // the "head" of the list; length is always maxLevel
 }
 
-// Create a pointer to a new skiplist.
-func New[V interface{}](cmp func(a *V, b *V) int) (sl *T[V]) {
+// New creates a pointer to a new skiplist.
+func New[V any](cmp func(a *V, b *V) int) (sl *T[V]) {
 	return &T[V]{
-		max_node_size: 1,
-		cmp:           cmp,
-		count:         0,
-		head:          node[V]{next: make([]*node[V], max_level)},
+		maxNodeSize: 1,
+		cmp:         cmp,
+		count:       0,
+		head:        node[V]{next: make([]*node[V], maxLevel)},
 	}
 }
 
 // Find the first element in *sl that is at least *pval, and if parents!=nil,
-// set the first sl.max_node_size elements of parents[] to point to the
+// set the first sl.maxNodeSize elements of parents[] to point to the
 // elements that precede that point at the corresponding level in *sl.
 func (sl *T[V]) search(pval *V, parents *[32]*node[V]) *node[V] {
-	var n int = sl.max_node_size
+	var n int = sl.maxNodeSize
 	var p *node[V] = &sl.head
 	for i := n - 1; i != -1; i-- {
 		for pnext := p.next[i]; pnext != nil && sl.cmp(pval, &pnext.value) > 0; pnext = p.next[i] {
@@ -126,32 +125,32 @@ func (sl *T[V]) search(pval *V, parents *[32]*node[V]) *node[V] {
 	return p.next[0]
 }
 
-// Return an integer in [1, max_level], biased so that the probability of
+// Return an integer in [1, maxLevel], biased so that the probability of
 // returning n is 1/(2**n).
-func new_size() (size int) {
-	for size = 1; size != max_level && rand.Intn(2) == 0; size++ {
+func newSize() (size int) {
+	for size = 1; size != maxLevel && rand.Intn(2) == 0; size++ {
 	}
 	return size
 }
 
-// If allow_dup, insert an element containing a copy of *pval into
-// *sl, and return true.  If !allow_dup, determine whether an element
-// containing *pval already exists in *sl, and if it does not, insert
-// one; return whether an insertion was performed.
-func (sl *T[V]) Insert(pval *V, allow_dup bool) (inserted bool) {
-	var parents [max_level]*node[V]
+// Insert, if allowDup, insert an element containing a copy of *pval
+// into *sl, and return true.  If !allowDup, determine whether an
+// element containing *pval already exists in *sl, and if it does not,
+// insert one; return whether an insertion was performed.
+func (sl *T[V]) Insert(pval *V, allowDup bool) (inserted bool) {
+	var parents [maxLevel]*node[V]
 	var p *node[V] = sl.search(pval, &parents)
 
-	if allow_dup || p == nil || sl.cmp(pval, &p.value) != 0 {
-		var new_node_size int = new_size()
-		var new_node *node[V] = &node[V]{value: *pval, next: make([]*node[V], new_node_size)}
-		for sl.max_node_size < new_node_size {
-			parents[sl.max_node_size] = &sl.head
-			sl.max_node_size++
+	if allowDup || p == nil || sl.cmp(pval, &p.value) != 0 {
+		var newNodeSize int = newSize()
+		var newNode *node[V] = &node[V]{value: *pval, next: make([]*node[V], newNodeSize)}
+		for sl.maxNodeSize < newNodeSize {
+			parents[sl.maxNodeSize] = &sl.head
+			sl.maxNodeSize++
 		}
-		for i := 0; i != new_node_size; i++ {
-			new_node.next[i] = parents[i].next[i]
-			parents[i].next[i] = new_node
+		for i := 0; i != newNodeSize; i++ {
+			newNode.next[i] = parents[i].next[i]
+			parents[i].next[i] = newNode
 		}
 		sl.count++
 		inserted = true
@@ -162,7 +161,7 @@ func (sl *T[V]) Insert(pval *V, allow_dup bool) (inserted bool) {
 // Remove from *sl the first element found that conatins *pval, if any; return
 // whether an element was removed.
 func (sl *T[V]) Remove(pval *V) (removed bool) {
-	var parents [max_level]*node[V]
+	var parents [maxLevel]*node[V]
 	var p *node[V] = sl.search(pval, &parents)
 	if p != nil && sl.cmp(pval, &p.value) == 0 {
 		for i := 0; i != len(p.next); i++ {
@@ -171,8 +170,8 @@ func (sl *T[V]) Remove(pval *V) (removed bool) {
 			}
 			p.next[i] = nil
 		}
-		for sl.max_node_size != 1 && sl.head.next[sl.max_node_size-1] == nil {
-			sl.max_node_size--
+		for sl.maxNodeSize != 1 && sl.head.next[sl.maxNodeSize-1] == nil {
+			sl.maxNodeSize--
 		}
 		sl.count--
 		removed = true
@@ -180,17 +179,17 @@ func (sl *T[V]) Remove(pval *V) (removed bool) {
 	return removed
 }
 
-// Return the number of elements in *sl.
+// Count returns the number of elements in *sl.
 func (sl *T[V]) Count() int {
 	return sl.count
 }
 
-// An iterator is conceptually just a pointer to a list eleemnt.
-type Iterator[V interface{}] struct {
+// An Iterator is conceptually just a pointer to a list eleemnt.
+type Iterator[V any] struct {
 	ptr *node[V]
 }
 
-// Return an iterator pointing to the first element in *sl that is
+// Lookup returns an iterator pointing to the first element in *sl that is
 // equal to *pval, or a nil iterator if no such element exists.
 func (sl *T[V]) Lookup(pval *V) (it Iterator[V]) {
 	it = sl.LowerBound(pval)
@@ -200,22 +199,23 @@ func (sl *T[V]) Lookup(pval *V) (it Iterator[V]) {
 	return it
 }
 
-// Return an iterator pointing to the first element in *sl that is at least
-// *pval, or a nil iterator if no such element exists.
+// LowerBound returns an iterator pointing to the first element in *sl
+// that is at least *pval, or a nil iterator if no such element
+// exists.
 func (sl *T[V]) LowerBound(pval *V) (it Iterator[V]) {
 	it.ptr = sl.search(pval, nil)
 	return it
 }
 
-// Return an iterator pointing to the first element in *sl,
-// or a nil iterator if no such element exists.
+// First returns an iterator pointing to the first element in *sl, or
+// a nil iterator if no such element exists.
 func (sl *T[V]) First() (it Iterator[V]) {
 	it.ptr = sl.head.next[0]
 	return it
 }
 
-// Return an iterator pointing to the element after "it", or nil if there is no
-// such element.
+// Next returns an iterator pointing to the element after "it", or nil
+// if there is no such element.
 func (it Iterator[V]) Next() Iterator[V] {
 	if it.ptr != nil {
 		it.ptr = it.ptr.next[0]
@@ -223,9 +223,10 @@ func (it Iterator[V]) Next() Iterator[V] {
 	return it
 }
 
-// Return a pointer to the value contained in the element indicated by "it", or
-// nil if there is no such element.  The client may not use the returned
-// pointer to change the order of the element within the list.
+// Value returns a pointer to the value contained in the element
+// indicated by "it", or nil if there is no such element.  The client
+// may not use the returned pointer to change the order of the element
+// within the list.
 func (it Iterator[V]) Value() (result *V) {
 	if it.ptr != nil {
 		result = &it.ptr.value
@@ -233,7 +234,8 @@ func (it Iterator[V]) Value() (result *V) {
 	return result
 }
 
-// Return whether the iternator "it" is nil, which indicates "end of list".
+// IsNil returns whether the iternator "it" is nil, which indicates
+// "end of list".
 func (it Iterator[V]) IsNil() bool {
 	return it.ptr == nil
 }

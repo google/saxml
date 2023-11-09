@@ -89,9 +89,9 @@ func TestBasic(t *testing.T) {
 
 		}
 		it := sl.First()
-		var total_count int
+		var totalCount int
 		for j := 0; j != len(a); j++ {
-			total_count += a[j]
+			totalCount += a[j]
 			if !it.IsNil() && *it.Value() < j {
 				t.Fatalf("extra elements")
 			}
@@ -105,7 +105,7 @@ func TestBasic(t *testing.T) {
 				t.Fatalf("too many elements")
 			}
 		}
-		if total_count != sl.Count() {
+		if totalCount != sl.Count() {
 			t.Fatalf("bad count")
 		}
 	}
