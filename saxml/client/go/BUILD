@@ -100,3 +100,14 @@ go_library(
         "@org_golang_google_grpc//:go_default_library",
     ],
 )
+
+go_library(
+    name = "skiplist",
+    srcs = ["skiplist.go"],
+)
+
+go_test(
+    name = "skiplist_test",
+    srcs = ["skiplist_test.go"],
+    library = ":skiplist",
+)
