@@ -123,8 +123,7 @@ var globalConnTable *connTable = newConnTable()
 
 // Factory manages connections to a given model.
 type Factory interface {
-	GetOrCreate(ctx context.Context) (*grpc.ClientConn, string, error)
-	Poison(address string)
+	GetOrCreate(ctx context.Context) (*grpc.ClientConn, error)
 }
 
 // SaxConnectionFactory resolves backends via SAX admin server and connects to them in a round-robin fashion.
@@ -132,20 +131,13 @@ type SaxConnectionFactory struct {
 	Location *location.Table // Keeps track a list of addresses for this model.
 }
 
-// GetOrCreate selects a server and returns a connection and address to it.
-func (f SaxConnectionFactory) GetOrCreate(ctx context.Context) (*grpc.ClientConn, string, error) {
-	address, err := f.Location.Pick(ctx)
-	if err != nil {
-		return nil, address, err
+// GetOrCreate selects a server and returns a connection to it.
+func (f SaxConnectionFactory) GetOrCreate(ctx context.Context) (conn *grpc.ClientConn, err error) {
+	addr, err := f.Location.Pick(ctx)
+	if err == nil {
+		conn, err = globalConnTable.getOrCreate(ctx, addr)
 	}
-	connection, err := globalConnTable.getOrCreate(ctx, address)
-	return connection, address, err
-
-}
-
-// Poison marks a model address invalid.
-func (f SaxConnectionFactory) Poison(address string) {
-	f.Location.Poison(address)
+	return conn, err
 }
 
 // DirectConnectionFactory connects to the given address directly.
@@ -156,19 +148,15 @@ type DirectConnectionFactory struct {
 }
 
 // GetOrCreate returns a connection and address of the model server.
-func (f *DirectConnectionFactory) GetOrCreate(ctx context.Context) (*grpc.ClientConn, string, error) {
+func (f *DirectConnectionFactory) GetOrCreate(ctx context.Context) (conn *grpc.ClientConn, err error) {
 	// WithDefaultServiceConfig is required for MBNS. It will be ignored if the server is backed by GRPC.
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.connection != nil {
-		return f.connection, f.Address, nil
+	conn = f.connection
+	if conn == nil {
+		conn, err = env.Get().DialContext(ctx, f.Address,
+			grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
+		f.connection = conn
 	}
-	connection, err := env.Get().DialContext(ctx, f.Address, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
-	f.connection = connection
-	return f.connection, f.Address, err
-}
-
-// Poison marks a model address invalid.
-func (f *DirectConnectionFactory) Poison(address string) {
-	// No-op.
+	return conn, err
 }

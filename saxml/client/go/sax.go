@@ -24,6 +24,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
+	"github.com/cenkalti/backoff"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"saxml/client/go/connection"
@@ -65,16 +66,15 @@ type QueryCost struct {
 // `callMethod` is the callback function that performs model logic (e.g. score, sample).
 func (m *Model) run(ctx context.Context, methodName string, callMethod func(conn *grpc.ClientConn) error) error {
 	makeQuery := func() error {
-		modelServerConn, address, err := m.connectionFactory.GetOrCreate(ctx)
+		modelServerConn, err := m.connectionFactory.GetOrCreate(ctx)
 		if err == nil {
 			err = callMethod(modelServerConn)
-		}
-		if errors.ServerShouldPoison(err) {
-			m.connectionFactory.Poison(address)
+		} else if errors.IsNotFound(err) {
+			// If the model does not exist anymore, no point to retry.
+			err = backoff.Permanent(err)
 		}
 		return err
 	}
-
 	err := retrier.Do(ctx, makeQuery, m.retryingBehavior)
 	if err != nil {
 		log.V(1).Infof("%s() failed: %s", methodName, err)

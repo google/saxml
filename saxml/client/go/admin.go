@@ -17,13 +17,15 @@ package saxadmin
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
-	"math/rand"
+	"hash/maphash"
 	"sync"
 	"time"
 
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
+	"saxml/client/go/skiplist"
 	"saxml/common/addr"
 	"saxml/common/errors"
 	"saxml/common/platform/env"
@@ -34,8 +36,17 @@ import (
 	pbgrpc "saxml/protobuf/admin_go_proto_grpc"
 )
 
-// RPC timeout, only intended for admin methods. Data methods have no timeout in general.
-const timeout = 10 * time.Second
+const (
+	// RPC timeout, only intended for admin methods. Data methods have
+	// no timeout in general.
+	timeout = 10 * time.Second
+	// Remember the fact a model is unpublished for this much time
+	// before asking the admin server again.
+	delayForgetModel = 10 * time.Minute
+	// Inserts these many points into the consistent hash ring for
+	// each server address.
+	numVirtualReplicas = 3
+)
 
 // Create Admin server connection.
 func establishAdminConn(address string) (*grpc.ClientConn, error) {
@@ -228,11 +239,100 @@ func (a *Admin) Stats(ctx context.Context, modelID string) (*pb.StatsResponse, e
 
 // addrReplica maintains a set of server addresses for a model.
 type addrReplica struct {
-	modelID string
-	mu      sync.Mutex
-	// addr and index maintain the invariant: addr[index[x]] == x.
-	addr  []string
-	index map[string]int
+	modelID  string
+	hashSeed maphash.Seed
+
+	mu  sync.Mutex
+	err error
+
+	// All replica addresses (strings) are hashed uniformly into [0,
+	// uint64max]. These hashes are kept in order in 'hash'.  For each
+	// hash value h in 'hash', addr[h] maps it back to the address.
+	addr map[uint64]string
+	hash *skiplist.T[uint64]
+}
+
+func intcmp(a *uint64, b *uint64) (cmp int) {
+	if *a > *b {
+		cmp = 1
+	} else if *a < *b {
+		cmp = -1
+	}
+	return cmp
+}
+
+func newAddrReplica(model string) *addrReplica {
+	a := &addrReplica{
+		modelID:  model,
+		hashSeed: maphash.MakeSeed(),
+	}
+	a.reset(nil)
+	return a
+}
+
+func (a *addrReplica) reset(addrs []string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.err = nil
+	a.addr = make(map[uint64]string)
+	a.hash = skiplist.New[uint64](intcmp)
+	if addrs != nil {
+		for _, addr := range addrs {
+			for i := uint64(0); i < numVirtualReplicas; i++ {
+				h := a.hashAddr(addr, i)
+				if a.hash.Insert(&h, false /* dup not ok*/) {
+					a.addr[h] = addr
+				}
+			}
+		}
+	}
+}
+
+func (a *addrReplica) hashAddr(addr string, index uint64) uint64 {
+	var h maphash.Hash
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, index)
+	h.Write(b)
+	h.SetSeed(a.hashSeed)
+	h.WriteString(addr)
+	return h.Sum64()
+}
+
+func (a *addrReplica) hashUint64(value uint64) uint64 {
+	var h maphash.Hash
+	h.SetSeed(a.hashSeed)
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, value)
+	h.Write(b)
+	return h.Sum64()
+}
+
+func (a *addrReplica) setError(err error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.err = err
+}
+
+func (a *addrReplica) add(addr string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for i := uint64(0); i < numVirtualReplicas; i++ {
+		h := a.hashAddr(addr, i)
+		if a.hash.Insert(&h, false /* dup not ok*/) {
+			a.addr[h] = addr
+		}
+	}
+}
+
+func (a *addrReplica) del(addr string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for i := uint64(0); i < numVirtualReplicas; i++ {
+		h := a.hashAddr(addr, i)
+		if a.hash.Remove(&h) {
+			delete(a.addr, h)
+		}
+	}
 }
 
 // Update updates the set of server addresses according to the
@@ -242,93 +342,84 @@ func (a *addrReplica) Update(chanWatchResult chan *WatchResult) error {
 	for wr := range chanWatchResult {
 		log.Infof("addrReplica.Update(%s) %v", a.modelID, wr)
 		if wr.Err != nil {
+			a.setError(wr.Err)
 			return wr.Err
 		}
-		a.mu.Lock()
 		if wr.Result.Data != nil {
 			// After a long network partition or the first time using
 			// the model, the client may get a full set from the admin
 			// server. It should happen rarely.
 			log.Infof("Receive a full set for %s: %v", a.modelID, wr)
-			a.addr = wr.Result.Data.ToList()
-			a.index = make(map[string]int)
-			for i, addr := range a.addr {
-				a.index[addr] = i
-			}
+			a.reset(wr.Result.Data.ToList())
 		}
 		for _, m := range wr.Result.Log {
 			switch m.Kind {
 			case watchable.Add:
-				a.index[m.Val] = len(a.addr)
-				a.addr = append(a.addr, m.Val)
+				a.add(m.Val)
 			case watchable.Del:
-				if i, ok := a.index[m.Val]; ok {
-					n := len(a.addr)
-					a.addr[i] = a.addr[n-1]
-					a.index[a.addr[i]] = i
-					a.addr = a.addr[:n-1]
-					delete(a.index, m.Val)
-				}
+				a.del(m.Val)
 			default:
 				log.Warningf("Unexpected Kind: %v", m.Kind)
 			}
 		}
-		a.mu.Unlock()
 	}
 	return nil
 }
 
-// Pick randomly picks up to `ask` addresses with replacements.
-func (a *addrReplica) Pick(ask int) []string {
+// Pick picks one address using the basic consistent hashing
+// algorithm.
+func (a *addrReplica) Pick(seed uint64) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	n := len(a.addr)
-	if n == 0 {
-		return nil
+	addr, err := "", a.err
+	if err == nil && a.hash.Count() == 0 {
+		err = errors.ErrUnavailable
 	}
-	if ask >= n {
-		ret := make([]string, n)
-		copy(ret, a.addr)
-		return ret
+	if err == nil {
+		h := a.hashUint64(seed)
+		it := a.hash.LowerBound(&h)
+		if it.IsNil() {
+			addr = a.addr[*a.hash.First().Value()]
+		} else {
+			addr = a.addr[*it.Value()]
+		}
 	}
-	// NOTE: It's ok to return duplicated entries because the caller
-	// of FindAddresses() in location.go deduplicates them.
-	ret := make([]string, ask)
-	for i := 0; i < ask; i++ {
-		ret[i] = a.addr[rand.Intn(n)]
-	}
-	return ret
+	return addr, err
 }
 
-// FindAddresses queries the local replica of the server address set to
-// get up to `ask` modelet servers addresses.
-func (a *Admin) FindAddresses(ctx context.Context, model string, ask int) ([]string, error) {
+// FindAddress queries the local replica of the server address set to
+// get one server address randomly. Seed specifies the random seed.
+func (a *Admin) FindAddress(ctx context.Context, model string, seed uint64) (string, error) {
 	a.mu.Lock()
 	ar, ok := a.addrs[model]
 	if !ok {
 		// First time to access the model, setup the addrReplica and
 		// arrange a background go routine to keep it updated.
-		ar = &addrReplica{modelID: model, index: make(map[string]int)}
+		ar = newAddrReplica(model)
+		a.addrs[model] = ar
 		chanWatchResult := make(chan *WatchResult)
 		go a.WatchAddresses(context.Background(), model, chanWatchResult)
 		go func() {
 			err := ar.Update(chanWatchResult)
 			if err == nil {
-				log.Infof("addrReplica.Update for %s exit", model)
-				return
+				log.Fatalf("addrReplica.Update for %s exited ok unexpectedly.", model)
+			} else {
+				// There is an error (e.g., the model is unpublished).
+				log.Infof("addrReplica.Update for %s got error %v", model, err)
 			}
-			// If there is an error (e.g., the model is unpublished),
-			// we should remove its local s.addrs.
-			log.Errorf("addrReplica.Update for %s got error %v", model, err)
-			a.mu.Lock()
-			defer a.mu.Unlock()
-			delete(a.addrs, model)
+			time.AfterFunc(delayForgetModel, func() {
+				a.mu.Lock()
+				defer a.mu.Unlock()
+				if newAr, ok := a.addrs[model]; ok && ar != newAr {
+					log.Infof("remove addrReplica unexpectedly: %s ", model)
+				}
+				delete(a.addrs, model)
+			})
 		}()
-		a.addrs[model] = ar
 	}
 	a.mu.Unlock()
 
-	return ar.Pick(ask), nil
+	return ar.Pick(seed)
 }
 
 // WatchResult encapsulates the changes to the server addresses for a
