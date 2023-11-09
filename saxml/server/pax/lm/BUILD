@@ -48,6 +48,7 @@ py_strict_test(
     deps = [
         ":lm_tokenizer",
         "//third_party/py/absl-py/flags",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
         "//third_party/py/praxis:base_layer",
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
@@ -87,6 +88,7 @@ py_strict_test(
         ":servable_lm_common",
         "//saxml/server/jax:np_tf_sess_wrapper",
         "//third_party/py/absl-py/flags",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
         "//third_party/py/numpy",
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
@@ -160,6 +162,7 @@ py_strict_test(
     deps = [
         ":vocabularies",
         "//third_party/py/absl-py/flags",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )

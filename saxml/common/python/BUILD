@@ -31,6 +31,7 @@ py_strict_test(
         "//saxml/protobuf:admin_py_pb2",
         "//saxml/protobuf:admin_py_pb2_grpc",
         "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
         "//third_party/py/grpcio",
         "//third_party/py/portpicker",
     ],

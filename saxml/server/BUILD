@@ -74,6 +74,7 @@ py_strict_test(
     deps = [
         ":multi_host_sync",
         "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
     ],
 )
 
@@ -94,6 +95,7 @@ py_strict_test(
     deps = [
         ":servable_model_params",
         "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
     ],
 )
 
@@ -116,6 +118,7 @@ py_strict_test(
         ":all_imports",
         ":servable_model_registry",
         "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
     ],
 )
 
@@ -158,6 +161,7 @@ py_strict_test(
     deps = [
         ":utils",
         "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
         "//third_party/py/numpy",
     ],
 )
@@ -181,6 +185,7 @@ py_strict_test(
         ":validate",
         "//saxml/protobuf:test_py_pb2",
         "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
         "//third_party/py/grpcio",
     ],
 )
@@ -202,6 +207,7 @@ py_strict_test(
         "//saxml/protobuf:admin_py_pb2",
         "//third_party/py/absl-py/testing:absltest",
         "//third_party/py/absl-py/testing:parameterized",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
     ],
 )
 
