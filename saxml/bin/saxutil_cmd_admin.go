@@ -55,7 +55,7 @@ type CreateCmd struct{}
 func (*CreateCmd) Name() string { return "create" }
 
 // Synopsis returns the synopsis of CreateCmd.
-func (*CreateCmd) Synopsis() string { return "create a SAX cell." }
+func (*CreateCmd) Synopsis() string { return "create a SAX cell" }
 
 // Usage returns the full usage of CreateCmd.
 func (*CreateCmd) Usage() string {
@@ -80,14 +80,65 @@ func (c *CreateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		adminACL = f.Args()[2]
 	}
 
-	// adminACL, if non-empty, is set as the write ACL on the created cell subdirectory.
-	// All files created within will inherit this ACL as writer.
+	// If adminACL is not empty, it is set as the write ACL on the created cell subdirectory.
+	// All files created within, including config.proto and location.proto will inherit this ACL
+	// as writer.
 	if err := cell.Create(ctx, saxCell, adminACL); err != nil {
 		log.Errorf("Failed to create SAX cell %s: %v", saxCell, err)
 		return subcommands.ExitFailure
 	}
+	// If adminACL is empty, the config.proto created here will have the Sax dev group as the
+	// write ACL, to prevent regular users from accidentally deleting others' Sax cells.
 	if err := config.Create(ctx, saxCell, fsRoot, adminACL); err != nil {
 		log.Errorf("Failed to create config %s: %v", saxCell, err)
+		return subcommands.ExitFailure
+	}
+
+	return subcommands.ExitSuccess
+}
+
+// DeleteCmd deletes an existing Sax cell.
+type DeleteCmd struct{}
+
+// Name returns the name of DeleteCmd.
+func (*DeleteCmd) Name() string { return "delete" }
+
+// Synopsis returns the synopsis of DeleteCmd.
+func (*DeleteCmd) Synopsis() string { return "delete a SAX cell" }
+
+// Usage returns the full usage of DeleteCmd.
+func (*DeleteCmd) Usage() string {
+	return `delete <cell name>:
+	Delete a SAX cell.
+`
+}
+
+// SetFlags sets flags for DeleteCmd.
+func (c *DeleteCmd) SetFlags(f *flag.FlagSet) {}
+
+// Execute executes DeleteCmd.
+func (c *DeleteCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
+	if len(f.Args()) != 1 {
+		log.Errorf("Provide a SAX cell name (e.g. /sax/bar).")
+		return subcommands.ExitUsageError
+	}
+	saxCell := f.Args()[0]
+
+	fmt.Printf("Are you sure you want to delete %s? [y|n]: ", saxCell)
+	var input string
+	_, err := fmt.Scanln(&input)
+	if err != nil {
+		log.Errorf("Failed to read input: %v", err)
+		return subcommands.ExitFailure
+	}
+	input = strings.ToLower(input)
+	if input != "y" && input != "yes" {
+		log.Error("Deletion canceled")
+		return subcommands.ExitFailure
+	}
+
+	if err := cell.Delete(ctx, saxCell); err != nil {
+		log.Errorf("Failed to delete SAX cell %s: %v", saxCell, err)
 		return subcommands.ExitFailure
 	}
 

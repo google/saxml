@@ -347,6 +347,11 @@ func (e *Env) CreateDir(ctx context.Context, path, acl string) error {
 	return os.MkdirAll(path, 0777)
 }
 
+// DeleteDir deletes a directory.
+func (e *Env) DeleteDir(ctx context.Context, path string) error {
+	return fmt.Errorf("DeleteDir on %s is not supported: %w", path, errors.ErrUnimplemented)
+}
+
 // ListSubdirs lists subdirectories in a directory.
 func (e *Env) ListSubdirs(ctx context.Context, path string) ([]string, error) {
 	if strings.HasPrefix(path, gcsPathPrefix) {

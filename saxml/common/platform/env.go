@@ -88,6 +88,8 @@ type Env interface {
 	FsRootDir(fsRoot string) string
 	// CreateDir creates a directory.
 	CreateDir(ctx context.Context, path, acl string) error
+	// DeleteDir deletes a directory.
+	DeleteDir(ctx context.Context, path string) error
 	// ListSubdirs lists subdirectories in a directory.
 	ListSubdirs(ctx context.Context, path string) ([]string, error)
 	// DirExists checks the existence of a directory.

@@ -38,6 +38,7 @@ func main() {
 
 	// admin commands.
 	subcommands.Register(&saxcommand.CreateCmd{}, "")
+	subcommands.Register(&saxcommand.DeleteCmd{}, "")
 	subcommands.Register(&saxcommand.ListCmd{}, "")
 	subcommands.Register(&saxcommand.PublishCmd{}, "")
 	subcommands.Register(&saxcommand.UpdateCmd{}, "")

@@ -94,3 +94,25 @@ func Create(ctx context.Context, saxCell, adminACL string) error {
 
 	return nil
 }
+
+// Delete deletes a Sax cell.
+func Delete(ctx context.Context, saxCell string) error {
+	path, err := Path(ctx, saxCell)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("Deleting directory %q", path)
+	if err := env.Get().DeleteDir(ctx, path); err != nil {
+		return err
+	}
+
+	// Double-check the invariant.
+	time.Sleep(time.Second)
+	if err := Exists(ctx, saxCell); err == nil {
+		return fmt.Errorf("Failed to delete %q: %w", path, errors.ErrInternal)
+	}
+	log.Infof("Deleted directory %q", path)
+
+	return nil
+}
