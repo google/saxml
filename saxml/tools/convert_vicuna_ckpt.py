@@ -18,7 +18,7 @@ Usage:
 # Install the latest main branch of huggingface/transformers
 pip3 install git+https://github.com/huggingface/transformers
 
-# Get LLaMA ckpts from Meta, or follow the steps 
+# Get LLaMA ckpts from Meta, or follow the steps
 # in https://github.com/lm-sys/FastChat to get vicuna weights.
 
 # Example cmd:
@@ -117,7 +117,7 @@ def convert(base_model_path, pax_model_path):
 
   print(f'Saving the pax model to {pax_model_path}')
   jax_states = train_states.TrainState(
-      step=np.zeros(1),
+      step=0,
       mdl_vars={'params': jax_weights},
       opt_states={})
 
