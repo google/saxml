@@ -225,7 +225,7 @@ func (e *Env) ReadCachedFile(ctx context.Context, path string) ([]byte, error) {
 // WriteFile writes the content of a file.
 func (e *Env) WriteFile(ctx context.Context, path, writeACL string, data []byte) error {
 	if writeACL != "" {
-		return fmt.Errorf("WriteFile with ACL is not supported: %w", errors.ErrUnimplemented)
+		log.Warningf("Ignoring file write ACL: %s", writeACL)
 	}
 	if strings.HasPrefix(path, gcsPathPrefix) {
 		_, object, err := gcsBucketAndObject(ctx, path)
@@ -330,9 +330,9 @@ func (e *Env) FsRootDir(fsRoot string) string {
 }
 
 // CreateDir creates a directory.
-func (e *Env) CreateDir(ctx context.Context, path, acl string) error {
-	if acl != "" {
-		return fmt.Errorf("CreateDir with ACL is not supported: %w", errors.ErrUnimplemented)
+func (e *Env) CreateDir(ctx context.Context, path, writeACL string) error {
+	if writeACL != "" {
+		log.Warningf("Ignoring directory write ACL: %s", writeACL)
 	}
 	if strings.HasPrefix(path, gcsPathPrefix) {
 		_, object, err := gcsBucketAndObject(ctx, filepath.Join(path, metadataFile))
@@ -418,16 +418,11 @@ func (e *Env) DirExists(ctx context.Context, path string) (bool, error) {
 	return false, err
 }
 
-// DefaultWriteACL returns the default write ACL.
-func (e *Env) DefaultWriteACL(ctx context.Context) string {
-	return ""
-}
-
 // CheckACLs returns nil iff the given principal passes an ACL check.
 func (e *Env) CheckACLs(principal string, acls []string) error {
 	for _, acl := range acls {
 		if acl != "" {
-			return fmt.Errorf("ACL check is not supported: %w", errors.ErrUnimplemented)
+			log.Warningf("Ignoring ACL: %s", acl)
 		}
 	}
 	return nil
