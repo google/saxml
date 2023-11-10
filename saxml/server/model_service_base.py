@@ -1336,11 +1336,11 @@ class ModelServicesRunner:
   def _encode_message(self, *msgs: str) -> str:
     assert msgs
     for m in msgs:
-      assert '|' not in m
-    return '|'.join(msgs)
+      assert '\u2581' not in m
+    return '\u2581'.join(msgs)
 
   def _decode_message(self, encoded: str) -> List[str]:
-    return encoded.split('|')
+    return encoded.split('\u2581')
 
   def _load_model(
       self,
