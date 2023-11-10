@@ -646,7 +646,10 @@ class ServableModel(servable_model.ServableModel):
           mdl_vars=mdl_vars,
           mdl_var_pspecs=mdl_var_pspecs,
           mdl_var_unpadded_shapes=mdl_var_unpadded_shapes,
-          input_prefetch=self._ckpt_type == CheckpointType.GDA,
+          input_prefetch=(
+              self._ckpt_type
+              in (CheckpointType.GDA, CheckpointType.PERSISTENCE)
+          ),
           precompile=precompile,
           step=step,
       )
