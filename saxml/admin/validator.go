@@ -36,7 +36,7 @@ const (
 	modelPathPattern = "^[a-zA-Z]+[a-zA-Z0-9_.-]*$"
 
 	// Valid checkpoint pattern.
-	checkpointPattern = `^(/|\d|\w|_|\.|-|%|:|=|\|)+$`
+	checkpointPattern = `^(/|\d|\w|_|\.|-|%|:|=|\||\+)+$`
 )
 
 var (

@@ -175,7 +175,7 @@ func validModel() *testModel {
 		model: &apb.Model{
 			ModelId:              "/sax/bar/foo",
 			ModelPath:            "google3.learning.multipod.sax.lm.params.ulm.Base",
-			CheckpointPath:       "/cns/od-d/home/blah/blah/blah/darn-0000",
+			CheckpointPath:       "/cns/od-d/home/blah/blah/blah/darn-00+00",
 			RequestedNumReplicas: 10,
 			Acls: &cpb.AccessControlLists{
 				Items: map[string]string{
