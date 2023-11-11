@@ -38,6 +38,23 @@ func TestErr(t *testing.T) {
 	}
 }
 
+func TestHash(t *testing.T) {
+	ar0 := newAddrReplica("/sax/foo/bar")
+	ar1 := newAddrReplica("/sax/foo/bar")
+
+	h0 := ar0.hashUint64(0)
+
+	// Hash should be deterministic.
+	if h1 := ar0.hashUint64(0); h0 != h1 {
+		t.Errorf("Expect %x == %x", h0, h1)
+	}
+
+	// Hash should be randomly different among clients.
+	if h1 := ar1.hashUint64(0); h0 == h1 {
+		t.Errorf("Expect %x != %x", h0, h1)
+	}
+}
+
 func TestLoadBalancing(t *testing.T) {
 	// Assume there are n servers and m clients.
 	// Each client has affinity of l.

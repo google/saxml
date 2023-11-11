@@ -251,7 +251,7 @@ func StartDebugPort(port int) {
 func Open(id string, options ...OptionSetter) (*Model, error) {
 	// Default options.
 	opts := &Options{
-		numConn: 3,
+		numConn: 37,
 	}
 	for _, s := range options {
 		s(opts)

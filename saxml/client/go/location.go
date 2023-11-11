@@ -48,6 +48,6 @@ func NewLocationTable(admin *saxadmin.Admin, name string, numConn int) *Table {
 		model:             name,
 		preferredNumConns: uint64(numConn),
 		admin:             admin,
-		nextSeed:          rand.Uint64(),
+		nextSeed:          rand.Uint64() % uint64(numConn),
 	}
 }
