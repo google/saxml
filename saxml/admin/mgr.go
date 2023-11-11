@@ -197,16 +197,12 @@ func (m *Mgr) Unpublish(fullName modelFullName) error {
 }
 
 func (m *Mgr) makePublishedModelLocked(fullName modelFullName, model *apb.Model) *apb.PublishedModel {
-	addrs := []string{}
-	for _, addr := range m.assignment[fullName] {
-		addrs = append(addrs, string(addr))
-	}
 	cloned := proto.Clone(model).(*apb.Model)
 	// Clean Uuid field to not expose it to users.
 	cloned.Uuid = nil
 	return &apb.PublishedModel{
-		Model:            cloned,
-		ModeletAddresses: addrs,
+		Model:             cloned,
+		NumActiveReplicas: int32(len(m.assignment[fullName])),
 	}
 }
 
@@ -290,6 +286,22 @@ func (m *Mgr) FindModel(fullName modelFullName) *apb.Model {
 		return model.specs
 	}
 	return nil
+}
+
+// FindAddresses returns the list of servers assigned to a model.
+func (m *Mgr) FindAddresses(fullName modelFullName) ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if _, ok := m.models[fullName]; !ok {
+		return nil, fmt.Errorf("model %s not found: %w", fullName, errors.ErrNotFound)
+	}
+
+	addrs := []string{}
+	for _, addr := range m.assignment[fullName] {
+		addrs = append(addrs, string(addr))
+	}
+	return addrs, nil
 }
 
 // Join lets one model server join from an address.

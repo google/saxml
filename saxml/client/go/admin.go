@@ -74,14 +74,14 @@ type Admin struct {
 	client pbgrpc.AdminClient
 
 	// addrs maintains an addrReplica for every model seen by this
-	// admin through FindAdddress(). Each addrReplica is the set of
+	// admin through FindAddresses(). Each addrReplica is the set of
 	// model server addresses for the model. The set is lazily
 	// replicated from the admin server through WatchAddresses().
 	addrs map[string]*addrReplica
 }
 
-// TODO(zhifengc): consider abstracting out module providing a
-// resettable sync.Once interface, which can be tested separatedly.
+// TODO(zhifengc): Consider abstracting out module providing a
+// resettable sync.Once interface, which can be tested separately.
 func (a *Admin) getAdminClient(ctx context.Context) (pbgrpc.AdminClient, error) {
 	a.mu.Lock()
 	// A quick check if a.client is established already.

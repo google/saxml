@@ -63,7 +63,11 @@ func (s *Server) handleModel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to list model %q: %v", modelFullName.ModelFullName(), err), http.StatusInternalServerError)
 		return
 	}
-	addrs := model.GetModeletAddresses()
+	addrs, err := s.Mgr.FindAddresses(modelFullName)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to find model %q: %v", modelFullName.ModelFullName(), err), http.StatusInternalServerError)
+		return
+	}
 	servers, err := s.Mgr.LocateSome(addrs)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to locate servers %v: %v", addrs, err), http.StatusInternalServerError)

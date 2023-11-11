@@ -1024,7 +1024,12 @@ absl::Status List(const AdminOptions& options, absl::string_view id,
   model->model = one_model.model_path();
   model->ckpt = one_model.checkpoint_path();
   model->max_replicas = one_model.requested_num_replicas();
-  model->active_replicas = pub_model.modelet_addresses_size();
+  model->active_replicas = pub_model.num_active_replicas();
+  if (model->active_replicas == 0) {
+    // Maintain compatibility with old admin server binaries.
+    // TODO(jiawenhao): Remove when most/all admin servers are new.
+    model->active_replicas = pub_model.modelet_addresses_size();
+  }
   model->overrides = std::map<std::string, std::string>(
       one_model.overrides().begin(), one_model.overrides().end());
 

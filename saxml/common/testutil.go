@@ -121,7 +121,7 @@ func (s *stubAdminServer) List(ctx context.Context, in *apb.ListRequest) (*apb.L
 					RequestedNumReplicas: 1,
 					Overrides:            map[string]string{"foo": "bar"},
 				},
-				ModeletAddresses: []string{addresses[0]},
+				NumActiveReplicas: int32(len(addresses)),
 			},
 		},
 	}
