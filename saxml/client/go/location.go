@@ -17,6 +17,7 @@ package location
 
 import (
 	"context"
+	"math/rand"
 	"sync"
 
 	"saxml/client/go/saxadmin"
@@ -47,6 +48,6 @@ func NewLocationTable(admin *saxadmin.Admin, name string, numConn int) *Table {
 		model:             name,
 		preferredNumConns: uint64(numConn),
 		admin:             admin,
-		nextSeed:          0,
+		nextSeed:          rand.Uint64(),
 	}
 }
