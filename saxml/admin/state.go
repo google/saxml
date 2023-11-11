@@ -127,6 +127,8 @@ func (k actionKind) String() string {
 		return "load"
 	case unload:
 		return "unload"
+	case update:
+		return "update"
 	default:
 		return "invalid"
 	}
