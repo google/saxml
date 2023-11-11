@@ -216,6 +216,7 @@ func (s *State) Load(ctx context.Context, fullName naming.ModelFullName, spec *a
 	log.V(2).Infof("Loading model %v with %v", fullName, spec)
 	model := newModel(spec)
 	s.wanted[fullName] = model
+	log.Infof("Enqueuing action %v of model %v on state %p, queue size %d", load, fullName, s, len(s.queue))
 	s.queue <- &action{load, ctx, fullName, model.clone(), waiter}
 	return nil
 }
@@ -230,6 +231,7 @@ func (s *State) Update(fullName naming.ModelFullName, spec *apb.Model) error {
 	}
 	model := newModel(spec)
 	s.wanted[fullName] = model
+	log.Infof("Enqueuing action %v of model %v on state %p, queue size %d", update, fullName, s, len(s.queue))
 	s.queue <- &action{update, context.Background(), fullName, model.clone(), nil}
 	return nil
 }
@@ -243,6 +245,7 @@ func (s *State) Unload(ctx context.Context, fullName naming.ModelFullName, waite
 		if existing == fullName {
 			log.V(2).Infof("Unloading model %v", fullName)
 			delete(s.wanted, fullName)
+			log.Infof("Enqueuing action %v of model %v on state %p, queue size %d", unload, fullName, s, len(s.queue))
 			s.queue <- &action{unload, ctx, fullName, model, waiter}
 			return nil
 		}
@@ -460,7 +463,8 @@ func (s *State) Start(ctx context.Context, modelFinder ModelFinder) error {
 
 	// Start a goroutine that drains the action queue, stopping when s.Close is called.
 	log.Info("Starting a queue that drains pending model server actions")
-	s.queue = make(chan *action, 10)
+	// Golang channels need to allocate memory upfront, so use a large but reasonable capacity.
+	s.queue = make(chan *action, 1<<20)
 	s.queueStop = make(chan bool)
 	go func() {
 		for {
@@ -469,7 +473,7 @@ func (s *State) Start(ctx context.Context, modelFinder ModelFinder) error {
 				close(s.queueStop)
 				return
 			case a := <-s.queue:
-				log.V(2).Infof("Taking action %v on model %v", a.kind, a.model)
+				log.Infof("Taking action %v of model %v on state %p, queue size %d", a.kind, a.fullName, s, len(s.queue))
 				s.act(a)
 			}
 		}
