@@ -311,22 +311,12 @@ func (c *ListCmd) handleSaxModel(ctx context.Context, modelFullName naming.Model
 	model := publishedModel.GetModel()
 
 	// Print out list results in tables.
-	numActiveReplicas := int(publishedModel.GetNumActiveReplicas())
-	if numActiveReplicas == 0 {
-		// Maintain compatibility with old admin server binaries.
-		// TODO(jiawenhao): Remove when most/all admin servers are new.
-		numActiveReplicas = len(publishedModel.GetModeletAddresses())
-	}
 	if c.modelDetails {
+		// Extra logic: display one random address if there are multiple.
+		randomSelectedAddress := randomSelectAddress(publishedModel.GetModeletAddresses())
 		table := NewResultRenderer(os.Stdout, c.outputCsv)
-		table.SetHeader([]string{"Model", "Model Path", "Checkpoint Path", "Max Replicas", "Active Replicas"})
-		table.Append([]string{
-			modelFullName.ModelName(),
-			model.GetModelPath(),
-			model.GetCheckpointPath(),
-			strconv.Itoa(int(model.GetRequestedNumReplicas())),
-			strconv.Itoa(numActiveReplicas),
-		})
+		table.SetHeader([]string{"Model", "Model Path", "Checkpoint Path", "# of Replicas", "(Selected) ReplicaAddress"})
+		table.Append([]string{modelFullName.ModelName(), model.GetModelPath(), model.GetCheckpointPath(), strconv.Itoa(len(publishedModel.GetModeletAddresses())), randomSelectedAddress})
 		table.Render()
 	}
 

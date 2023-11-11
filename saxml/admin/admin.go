@@ -180,32 +180,33 @@ func (s *Server) List(ctx context.Context, in *pb.ListRequest) (*pb.ListResponse
 	return &pb.ListResponse{PublishedModels: s.Mgr.ListAll()}, nil
 }
 
-func (s *Server) findAddresses(ctx context.Context, modelFullName string) ([]*pb.JoinedModelServer, error) {
-	if err := validator.ValidateModelFullName(modelFullName, s.saxCell); err != nil {
-		return nil, err
-	}
-	fullName, err := naming.NewModelFullName(modelFullName)
-	if err != nil {
-		return nil, err
+func (s *Server) locate(ctx context.Context, modelFullName string) ([]*pb.JoinedModelServer, error) {
+	// Locate joined model servers for one model specifically asked about.
+	if modelFullName != "" {
+		if err := validator.ValidateModelFullName(modelFullName, s.saxCell); err != nil {
+			return nil, err
+		}
+		fullName, err := naming.NewModelFullName(modelFullName)
+		if err != nil {
+			return nil, err
+		}
+
+		pubModel, err := s.Mgr.List(fullName)
+		if err != nil {
+			return nil, err
+		}
+		addrs := pubModel.GetModeletAddresses()
+		return s.Mgr.LocateSome(addrs)
 	}
 
-	addrs, err := s.Mgr.FindAddresses(fullName)
-	if err != nil {
-		return nil, err
-	}
-	return s.Mgr.LocateSome(addrs)
+	// List all joined model servers if no model is specifically asked about.
+	return s.Mgr.LocateAll()
 }
 
 func (s *Server) Stats(ctx context.Context, in *pb.StatsRequest) (*pb.StatsResponse, error) {
 	modelFullName := in.GetModelId()
 
-	var servers []*pb.JoinedModelServer
-	var err error
-	if modelFullName == "" {
-		servers, err = s.Mgr.LocateAll()
-	} else {
-		servers, err = s.findAddresses(ctx, modelFullName)
-	}
+	servers, err := s.locate(ctx, modelFullName)
 	if err != nil {
 		return nil, err
 	}

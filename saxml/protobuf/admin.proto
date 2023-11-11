@@ -95,8 +95,7 @@ message Model {
 // The state of a published model.
 message PublishedModel {
   Model model = 1;
-  repeated string modelet_addresses = 2 [deprecated = true];
-  int32 num_active_replicas = 3;
+  repeated string modelet_addresses = 2;
 }
 
 // The capabilities of a model server.
