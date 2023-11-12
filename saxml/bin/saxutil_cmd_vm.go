@@ -34,7 +34,7 @@ type ClassifyCmd struct{ extra string }
 func (*ClassifyCmd) Name() string { return "vm.classify" }
 
 // Synopsis returns the synopsis of ClassifyCmd.
-func (*ClassifyCmd) Synopsis() string { return "classify an image against a given model" }
+func (*ClassifyCmd) Synopsis() string { return "Classify an image against a given model." }
 
 // Usage returns the full usage of ClassifyCmd.
 func (*ClassifyCmd) Usage() string {
@@ -53,7 +53,7 @@ func (*ClassifyCmd) Usage() string {
 
 // SetFlags sets flags for ClassifyCmd.
 func (c *ClassifyCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "extra arguments for Classify().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for Classify().")
 }
 
 // Execute executes ClassifyCmd.
@@ -102,7 +102,7 @@ func (*TextToImageCmd) Name() string { return "vm.generate" }
 
 // Synopsis returns the synopsis for TextToImageCmd.
 func (*TextToImageCmd) Synopsis() string {
-	return "generate list of images and scores for the input text"
+	return "Generate list of images and scores for the input text."
 }
 
 // Usage returns the full usage of TextToImageCmd.
@@ -131,13 +131,13 @@ func (*TextToImageCmd) Usage() string {
 
 // SetFlags sets flags for TextToImageCmd.
 func (c *TextToImageCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "extra arguments for TextToImage().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for TextToImage().")
 }
 
 // Execute executes TextToImageCmd.
 func (c *TextToImageCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) != 3 {
-		log.Errorf("Provide model ID, text and output directory for text_to_image")
+		log.Errorf("Provide model ID, text and output directory for text_to_image.")
 		return subcommands.ExitUsageError
 	}
 
@@ -153,7 +153,7 @@ func (c *TextToImageCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...a
 
 	results, err := vm.TextToImage(ctx, text, ExtraInputs(c.extra)...)
 	if err != nil {
-		log.Errorf("Failed to generate images for (%s) due to [%v]", text, err)
+		log.Errorf("Failed to generate images for (%s) due to [%v].", text, err)
 		return subcommands.ExitFailure
 	}
 
@@ -178,7 +178,7 @@ func (c *TextToImageCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...a
 		table.Render()
 
 		if err := writesImagesToDir(results, outputDir, fileNames); err != nil {
-			log.Errorf("Failed to save generated images for (%s) to (%s) due to [%v]", text, outputDir, err)
+			log.Errorf("Failed to save generated images for (%s) to (%s) due to [%v].", text, outputDir, err)
 			return subcommands.ExitFailure
 		}
 	}
@@ -194,7 +194,7 @@ func (*EmbedImageCmd) Name() string { return "vm.embed" }
 
 // Synopsis returns the synopsis of EmbedImageCmd.
 func (*EmbedImageCmd) Synopsis() string {
-	return "embed an image (as byte array) against a given model"
+	return "Embed an image (as byte array) against a given model."
 }
 
 // Usage returns the full usage of EmbedImageCmd.
@@ -214,7 +214,7 @@ func (*EmbedImageCmd) Usage() string {
 
 // SetFlags sets flags for EmbedImageCmd.
 func (c *EmbedImageCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "extra arguments for Embed().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for Embed().")
 }
 
 // Execute executes EmbedImageCmd.
@@ -266,7 +266,7 @@ func (*DetectCmd) Name() string { return "vm.detect" }
 
 // Synopsis returns the synopsis of DetectCmd.
 func (*DetectCmd) Synopsis() string {
-	return "Detects objects in an image (as byte array) using a given model"
+	return "Detects objects in an image (as byte array) using a given model."
 }
 
 // Usage returns the full usage of DetectCmd.
@@ -286,7 +286,7 @@ func (*DetectCmd) Usage() string {
 
 // SetFlags sets flags for DetectCmd.
 func (c *DetectCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "extra arguments for Detect().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for Detect().")
 }
 
 // Execute executes DetectCmd.

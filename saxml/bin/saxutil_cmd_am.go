@@ -33,7 +33,7 @@ type RecognizeCmd struct{ extra string }
 func (*RecognizeCmd) Name() string { return "am.recognize" }
 
 // Synopsis returns the synopsis of AudioToTextCmd.
-func (*RecognizeCmd) Synopsis() string { return "transcribe an audio" }
+func (*RecognizeCmd) Synopsis() string { return "Transcribe an audio." }
 
 // Usage returns the full usage of AudioToTextCmd.
 func (*RecognizeCmd) Usage() string {
@@ -48,7 +48,7 @@ func (*RecognizeCmd) Usage() string {
 
 // SetFlags sets flags for AudioToTextCmd.
 func (c *RecognizeCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "extra arguments for Recognize().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for Recognize().")
 }
 
 // Execute executes AudioToTextCmd.

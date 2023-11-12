@@ -59,7 +59,7 @@ type CreateCmd struct{}
 func (*CreateCmd) Name() string { return "create" }
 
 // Synopsis returns the synopsis of CreateCmd.
-func (*CreateCmd) Synopsis() string { return "create a Sax cell" }
+func (*CreateCmd) Synopsis() string { return "Create a Sax cell." }
 
 // Usage returns the full usage of CreateCmd.
 func (*CreateCmd) Usage() string {
@@ -129,7 +129,7 @@ type DeleteCmd struct{}
 func (*DeleteCmd) Name() string { return "delete" }
 
 // Synopsis returns the synopsis of DeleteCmd.
-func (*DeleteCmd) Synopsis() string { return "delete a Sax cell" }
+func (*DeleteCmd) Synopsis() string { return "Delete a Sax cell." }
 
 // Usage returns the full usage of DeleteCmd.
 func (*DeleteCmd) Usage() string {
@@ -239,7 +239,7 @@ type ListCmd struct {
 func (*ListCmd) Name() string { return "ls" }
 
 // Synopsis returns the synopsis of ListCmd.
-func (*ListCmd) Synopsis() string { return "list published models" }
+func (*ListCmd) Synopsis() string { return "List published models." }
 
 // Usage returns the full usage of ListCmd.
 func (*ListCmd) Usage() string {
@@ -373,7 +373,7 @@ type PublishCmd struct {
 func (*PublishCmd) Name() string { return "publish" }
 
 // Synopsis returns the synopsis of PublishCmd.
-func (*PublishCmd) Synopsis() string { return "publish a model" }
+func (*PublishCmd) Synopsis() string { return "Publish a model." }
 
 // Usage returns the full usage of PublishCmd.
 func (*PublishCmd) Usage() string {
@@ -445,7 +445,7 @@ type UnpublishCmd struct{}
 func (*UnpublishCmd) Name() string { return "unpublish" }
 
 // Synopsis returns the synopsis of UnpublishCmd.
-func (*UnpublishCmd) Synopsis() string { return "unpublish a model" }
+func (*UnpublishCmd) Synopsis() string { return "Unpublish a model." }
 
 // Usage returns the full usage of UnpublishCmd.
 func (*UnpublishCmd) Usage() string {
@@ -490,7 +490,7 @@ type UpdateCmd struct {
 func (*UpdateCmd) Name() string { return "update" }
 
 // Synopsis returns the synopsis of UpdateCmd.
-func (*UpdateCmd) Synopsis() string { return "update a model" }
+func (*UpdateCmd) Synopsis() string { return "Update a model." }
 
 // Usage returns the full usage of UpdateCmd.
 func (*UpdateCmd) Usage() string {
@@ -551,7 +551,7 @@ type SetACLCmd struct{}
 func (*SetACLCmd) Name() string { return "setacl" }
 
 // Synopsis returns the synopsis of SetACLCmd.
-func (*SetACLCmd) Synopsis() string { return "set ACLs for a cell or model" }
+func (*SetACLCmd) Synopsis() string { return "Set ACLs for a cell or model." }
 
 // Usage returns the full usage of SetACLCmd.
 func (*SetACLCmd) Usage() string {
@@ -673,7 +673,7 @@ type GetACLCmd struct{}
 func (*GetACLCmd) Name() string { return "getacl" }
 
 // Synopsis returns the synopsis of GetACLCmd.
-func (*GetACLCmd) Synopsis() string { return "get ACLs for a cell or model" }
+func (*GetACLCmd) Synopsis() string { return "Get ACLs for a cell or model." }
 
 // Usage returns the full usage of GetACLCmd.
 func (*GetACLCmd) Usage() string {
@@ -786,7 +786,7 @@ type WatchCmd struct{}
 func (*WatchCmd) Name() string { return "watch" }
 
 // Synopsis returns the synopsis of WatchCmd.
-func (*WatchCmd) Synopsis() string { return "watch addresses of a model" }
+func (*WatchCmd) Synopsis() string { return "Watch addresses of a model." }
 
 // Usage returns the full usage of WatchCmd.
 func (*WatchCmd) Usage() string {

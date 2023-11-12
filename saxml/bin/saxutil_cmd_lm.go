@@ -50,7 +50,7 @@ type GenerateCmd struct {
 func (*GenerateCmd) Name() string { return "lm.generate" }
 
 // Synopsis returns the synopsis of GenerateCmd.
-func (*GenerateCmd) Synopsis() string { return "generate a text against a given model" }
+func (*GenerateCmd) Synopsis() string { return "Generate a text against a given model." }
 
 // Usage returns the full usage of GenerateCmd.
 func (*GenerateCmd) Usage() string {
@@ -229,7 +229,7 @@ type ScoreCmd struct {
 func (*ScoreCmd) Name() string { return "lm.score" }
 
 // Synopsis returns the synopsis of ScoreCmd.
-func (*ScoreCmd) Synopsis() string { return "score a prefix and suffix against a given model" }
+func (*ScoreCmd) Synopsis() string { return "Score a prefix and suffix against a given model." }
 
 // Usage returns the full usage of ScoreCmd.
 func (*ScoreCmd) Usage() string {
@@ -296,7 +296,7 @@ type EmbedTextCmd struct {
 func (*EmbedTextCmd) Name() string { return "lm.embed" }
 
 // Synopsis returns the synopsis of EmbedTextCmd.
-func (*EmbedTextCmd) Synopsis() string { return "embed a text against a given model" }
+func (*EmbedTextCmd) Synopsis() string { return "Embed a text against a given model." }
 
 // Usage returns the full usage of EmbedTextCmd.
 func (*EmbedTextCmd) Usage() string {
@@ -306,8 +306,8 @@ func (*EmbedTextCmd) Usage() string {
 
 // SetFlags sets flags for EmbedTextCmd.
 func (c *EmbedTextCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "extra arguments for Embed().")
-	f.StringVar(&c.proxy, "proxy", "", "SAX Proxy address, e.g., sax.server.lm.lmservice-prod.blade.gslb.googleprod.com")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for Embed().")
+	f.StringVar(&c.proxy, "proxy", "", "Sax Proxy address, e.g., sax.server.lm.lmservice-prod.blade.gslb.googleprod.com")
 }
 
 // Execute executes EmbedTextCmd.
@@ -352,13 +352,13 @@ func (*GradientCmd) Name() string { return "lm.gradient" }
 
 // Synopsis returns the synopsis of ScoreCmd.
 func (*GradientCmd) Synopsis() string {
-	return "gradient of a a prefix and suffix against a given model"
+	return "Generate gradient of a pair of prefix and suffix against a given model."
 }
 
 // Usage returns the full usage of ScoreCmd.
 func (*GradientCmd) Usage() string {
 	return `gradient ModelID prefix suffix:
-	Gradient of a prefix and suffix using a published language model.
+	Gradient of a pair of prefix and suffix using a published language model.
 `
 }
 
