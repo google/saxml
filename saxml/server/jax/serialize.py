@@ -132,6 +132,8 @@ def deserialize_pjitted_function(
         backend=backend,
         device_assignment=devices,
         committed=True,
+        in_layouts=(None,) * len(serialized.flat_global_in_avals),
+        out_layouts=(None,) * len(serialized.flat_global_out_avals),
     )
 
     compiled = mc.compile()
