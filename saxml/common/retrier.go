@@ -62,6 +62,9 @@ func (q queryRetrier) Do(ctx context.Context, query Closure, retriable IsRetriab
 	// Because the retry loop still respects ctx's deadline, we want
 	// the loop retries as many times as necessary.
 	opts.MaxElapsedTime = 0
+	// The default 1.5 is too large when there are many servers in loading state, where the client
+	// has a high chance of not being able to find a server in loaded state within the deadline.
+	opts.Multiplier = 1.1
 	err := backoff.Retry(withRetryCheck, backoff.WithContext(opts, ctx))
 
 	// Check if canceled or deadline exceeded.

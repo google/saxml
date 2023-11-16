@@ -67,14 +67,14 @@ func TestRetrySuccess(t *testing.T) {
 	}
 }
 
-// Retry fails when query times outs after a few retriable errors.
+// Retry fails when query times outs after a few retryable errors.
 func TestRetryTimeout(t *testing.T) {
 	retriableError := fmt.Errorf("%w", errors.ErrResourceExhausted)
-	// Initial interval is 0.1s, 1.5 is the multiplier, hence 12
-	// retries take 0.1s * (1 - 1.5^12)(/1-1.5) ~= 2.57s.  Considering
-	// randomness in the interval time, 15 retries are sufficient.
+	// Initial interval is 0.01s, 1.1 is the multiplier, hence 40
+	// retries take 0.01s * (1 - 1.1^40)/(1-1.1) ~= 4.43s. Considering
+	// randomness in the interval time, 40 retries are sufficient.
 	errs := []error{}
-	for i := 0; i < 15; i++ {
+	for i := 0; i < 40; i++ {
 		errs = append(errs, retriableError)
 	}
 	errs = append(errs, nil)
