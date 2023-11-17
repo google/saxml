@@ -71,17 +71,14 @@ func ListAll(ctx context.Context) ([]string, error) {
 }
 
 // Create creates a Sax cell.
-func Create(ctx context.Context, saxCell, writeACL string) error {
+func Create(ctx context.Context, saxCell, adminACL string) error {
 	path, err := Path(ctx, saxCell)
 	if err != nil {
 		return err
 	}
-	if !env.Get().InTest(ctx) && writeACL == "" {
-		return fmt.Errorf("cell must be created with a non-empty write ACL: %w", errors.ErrInvalidArgument)
-	}
 
 	log.Infof("Creating directory %q", path)
-	if err := env.Get().CreateDir(ctx, path, writeACL); err != nil {
+	if err := env.Get().CreateDir(ctx, path, adminACL); err != nil {
 		return err
 	}
 

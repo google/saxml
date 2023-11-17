@@ -87,7 +87,7 @@ type Env interface {
 	// FsRootDir reformats the directory path where the admin server periodically dumps its state.
 	FsRootDir(fsRoot string) string
 	// CreateDir creates a directory.
-	CreateDir(ctx context.Context, path, writeACL string) error
+	CreateDir(ctx context.Context, path, acl string) error
 	// DeleteDir deletes a directory.
 	DeleteDir(ctx context.Context, path string) error
 	// ListSubdirs lists subdirectories in a directory.
@@ -95,6 +95,8 @@ type Env interface {
 	// DirExists checks the existence of a directory.
 	DirExists(ctx context.Context, path string) (bool, error)
 
+	// DefaultWriteACL returns the default write ACL.
+	DefaultWriteACL(ctx context.Context) string
 	// CheckACLs returns nil iff the given principal passes an ACL check.
 	CheckACLs(principal string, acls []string) error
 	// ValidateACLName returns nil iff the given aclname is valid and exists.

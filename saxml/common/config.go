@@ -17,14 +17,12 @@ package config
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"saxml/common/cell"
-	"saxml/common/errors"
 	"saxml/common/platform/env"
 	pb "saxml/protobuf/admin_go_proto_grpc"
 )
@@ -89,13 +87,16 @@ func Watch(ctx context.Context, saxCell string) (<-chan *pb.Config, error) {
 }
 
 // Save saves the server config.
-func Save(ctx context.Context, config *pb.Config, saxCell string, writeACL string) error {
+func Save(ctx context.Context, config *pb.Config, saxCell string, adminACL string) error {
 	fname, err := configFileName(ctx, saxCell)
 	if err != nil {
 		return err
 	}
-	if !env.Get().InTest(ctx) && writeACL == "" {
-		return fmt.Errorf("config must be saved with a non-empty write ACL: %w", errors.ErrInvalidArgument)
+	// If adminACL is not set, we should at least make the Sax dev group the write ACL on config.proto
+	// in prod environment to prevent regular users from accidentally deleting others' Sax cells.
+	writeACL := adminACL
+	if writeACL == "" {
+		writeACL = env.Get().DefaultWriteACL(ctx)
 	}
 	in, err := proto.Marshal(config)
 	if err != nil {

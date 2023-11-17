@@ -139,7 +139,6 @@ go_library(
     srcs = ["config.go"],
     deps = [
         ":cell",
-        ":errors",
         "//saxml/common/platform:env",
         "//saxml/protobuf:admin_go_proto_grpc",
         "@com_github_golang_glog//:go_default_library",
