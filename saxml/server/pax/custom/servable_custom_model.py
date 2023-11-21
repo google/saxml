@@ -154,7 +154,7 @@ class CustomCallHParams(servable_model_params.ServableMethodParams):
 class ServableCustomModelParams(
     servable_model_params.ServableModelParams, metaclass=abc.ABCMeta
 ):
-  """A base class that each Custom model config needs to implement for serving."""
+  """A base class that each custom model config needs to implement for serving."""
 
   def methods(self) -> Dict[str, CustomCallHParams]:
     return {}
