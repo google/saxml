@@ -326,13 +326,11 @@ class MultimodalModel {
   //
   // On success, returns OK and fills in their scores computed by the model.
   // Otherwise, returns an error.
-  absl::Status Score(
-      const ::sax::server::multimodal::ScoreRequest& request,
-      ::sax::server::multimodal::ScoreResponse* response) const;
-  absl::Status Score(
-      const ModelOptions& options,
-      const ::sax::server::multimodal::ScoreRequest& request,
-      ::sax::server::multimodal::ScoreResponse* response) const;
+  absl::Status Score(const ::sax::server::multimodal::ScoreRequest& request,
+                     ::sax::server::multimodal::ScoreResponse* response) const;
+  absl::Status Score(const ModelOptions& options,
+                     const ::sax::server::multimodal::ScoreRequest& request,
+                     ::sax::server::multimodal::ScoreResponse* response) const;
 
  private:
   explicit MultimodalModel(int64_t model_handle)
@@ -417,8 +415,8 @@ class VisionModel {
   struct BoundingBox {
     double cx;  // Center of the box in x-axis.
     double cy;  // Center of the box in y-axis.
-    double w;  // Width of the box.
-    double h;  // Height of the box.
+    double w;   // Width of the box.
+    double h;   // Height of the box.
   };
 
   struct DetectResult {
@@ -546,7 +544,8 @@ absl::Status Publish(absl::string_view id, absl::string_view model_path,
                      absl::string_view checkpoint_path, int num_replicas);
 absl::Status Publish(const AdminOptions& options, absl::string_view id,
                      absl::string_view model_path,
-                     absl::string_view checkpoint_path, int num_replicas);
+                     absl::string_view checkpoint_path, int num_replicas,
+                     const std::map<std::string, std::string>& overrides);
 
 // Unpublish a model for a given id.
 //

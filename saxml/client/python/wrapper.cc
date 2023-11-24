@@ -14,6 +14,8 @@
 
 #include "saxml/client/python/wrapper.h"
 
+#include <map>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -510,17 +512,21 @@ MultimodalModel Model::MM() { return MultimodalModel(base_, status_); }
 
 void StartDebugPort(int port) { ::sax::client::StartDebugPort(port); }
 
-absl::Status Publish(absl::string_view id, absl::string_view model_path,
-                     absl::string_view checkpoint_path, int num_replicas,
-                     const AdminOptions* options) {
+absl::Status Publish(
+    absl::string_view id, absl::string_view model_path,
+    absl::string_view checkpoint_path, int num_replicas,
+    std::optional<std::map<std::string, std::string>> overrides,
+    const AdminOptions* options) {
   pybind11::gil_scoped_release release;
+  AdminOptions default_options;
   if (options == nullptr) {
-    return ::sax::client::Publish(id, model_path, checkpoint_path,
-                                  num_replicas);
-  } else {
-    return ::sax::client::Publish(*options, id, model_path, checkpoint_path,
-                                  num_replicas);
+    options = &default_options;
   }
+  if (!overrides) {
+    overrides.emplace();
+  }
+  return ::sax::client::Publish(*options, id, model_path, checkpoint_path,
+                                num_replicas, *overrides);
 }
 
 absl::Status Unpublish(absl::string_view id, const AdminOptions* options) {

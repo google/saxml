@@ -515,9 +515,9 @@ absl::Status MultimodalModel::Score(
   char* errMsgStr = nullptr;
   int errCode = 0;
   go_mm_score(model_handle_, options.GetTimeout(),
-                 const_cast<char*>(reqStr.data()), reqStr.size(),
-                 const_cast<char*>(extraStr.data()), extraStr.size(),
-                 &outputStr, &outputSize, &errMsgStr, &errCode);
+              const_cast<char*>(reqStr.data()), reqStr.size(),
+              const_cast<char*>(extraStr.data()), extraStr.size(), &outputStr,
+              &outputSize, &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }
@@ -942,18 +942,36 @@ void StartDebugPort(int port) { go_start_debug(port); }
 
 absl::Status Publish(absl::string_view id, absl::string_view model_path,
                      absl::string_view checkpoint_path, int num_replicas) {
-  return Publish(AdminOptions(), id, model_path, checkpoint_path, num_replicas);
+  return Publish(AdminOptions(), id, model_path, checkpoint_path, num_replicas,
+                 {});
 }
 
 absl::Status Publish(const AdminOptions& options, absl::string_view id,
                      absl::string_view model_path,
-                     absl::string_view checkpoint_path, int num_replicas) {
+                     absl::string_view checkpoint_path, int num_replicas,
+                     const std::map<std::string, std::string>& overrides) {
   char* errMsgStr = nullptr;
   int errCode = 0;
+
+  std::vector<char*> override_keys;
+  std::vector<int> override_key_sizes;
+  std::vector<char*> override_values;
+  std::vector<int> override_value_sizes;
+
+  const int num_overrides = overrides.size();
+  for (const auto& [key, value] : overrides) {
+    override_keys.push_back(const_cast<char*>(key.data()));
+    override_key_sizes.push_back(key.size());
+    override_values.push_back(const_cast<char*>(value.data()));
+    override_value_sizes.push_back(value.size());
+  }
+
   go_publish(const_cast<char*>(id.data()), id.size(),
              const_cast<char*>(model_path.data()), model_path.size(),
              const_cast<char*>(checkpoint_path.data()), checkpoint_path.size(),
-             num_replicas, options.timeout, &errMsgStr, &errCode);
+             num_replicas, options.timeout, num_overrides, override_keys.data(),
+             override_key_sizes.data(), override_values.data(),
+             override_value_sizes.data(), &errMsgStr, &errCode);
   if (errCode != 0) {
     return CreateErrorAndFree(errCode, errMsgStr);
   }

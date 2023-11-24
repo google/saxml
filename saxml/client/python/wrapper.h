@@ -19,6 +19,8 @@
 #ifndef SAXML_CLIENT_PYTHON_WRAPPER_H_
 #define SAXML_CLIENT_PYTHON_WRAPPER_H_
 
+#include <map>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -251,9 +253,11 @@ class Model {
 
 void StartDebugPort(int port);
 
-absl::Status Publish(absl::string_view id, absl::string_view model_path,
-                     absl::string_view checkpoint_path, int num_replicas,
-                     const AdminOptions* options = nullptr);
+absl::Status Publish(
+    absl::string_view id, absl::string_view model_path,
+    absl::string_view checkpoint_path, int num_replicas,
+    std::optional<std::map<std::string, std::string>> overrides,
+    const AdminOptions* options = nullptr);
 
 absl::Status Unpublish(absl::string_view id,
                        const AdminOptions* options = nullptr);

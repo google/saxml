@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <optional>
 #include <vector>
 
 #include "saxml/client/python/wrapper.h"
@@ -252,7 +253,8 @@ PYBIND11_MODULE(sax, m) {
 
   m.def("Publish", &sax::client::pybind::Publish, py::arg("id"),
         py::arg("model_path"), py::arg("checkpoint_path"),
-        py::arg("num_replicas"), py::arg("options") = nullptr);
+        py::arg("num_replicas"), py::arg("overrides") = std::nullopt,
+        py::arg("options") = nullptr);
 
   m.def("Unpublish", &sax::client::pybind::Unpublish, py::arg("id"),
         py::arg("options") = nullptr);

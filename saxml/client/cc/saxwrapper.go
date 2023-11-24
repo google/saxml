@@ -201,7 +201,10 @@ func openAdmin(id string) (string, *saxadmin.Admin, error) {
 }
 
 //export go_publish
-func go_publish(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSize C.int, checkpointPathData *C.char, checkpointPathSize C.int, numReplicas C.int, timeout C.float, errMsg **C.char, errCode *C.int) {
+func go_publish(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSize C.int,
+	checkpointPathData *C.char, checkpointPathSize C.int, numReplicas C.int, timeout C.float,
+	numOverrides C.int, overrideKeys **C.char, overrideKeySizes *C.int, overrideValues **C.char,
+	overrideValueSizes *C.int, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
 	modelID, admin, err := openAdmin(id)
 	if err != nil {
@@ -212,12 +215,21 @@ func go_publish(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSi
 
 	modelPath := C.GoStringN(modelPathData, modelPathSize)
 	checkpointPath := C.GoStringN(checkpointPathData, checkpointPathSize)
-	emptyOverrides := make(map[string]string)
+	overrides := make(map[string]string)
+	goOverrideKeys := unsafe.Slice(overrideKeys, numOverrides)
+	goOverrideKeySizes := unsafe.Slice(overrideKeySizes, numOverrides)
+	goOverrideValues := unsafe.Slice(overrideValues, numOverrides)
+	goOverrideValueSizes := unsafe.Slice(overrideValueSizes, numOverrides)
+	for i := 0; i < int(numOverrides); i++ {
+		key := C.GoStringN(goOverrideKeys[i], goOverrideKeySizes[i])
+		value := C.GoStringN(goOverrideValues[i], goOverrideValueSizes[i])
+		overrides[key] = value
+	}
 	ctx, cancel := createContextWithTimeout(timeout)
 	if cancel != nil {
 		defer cancel()
 	}
-	err = admin.Publish(ctx, modelID, modelPath, checkpointPath, int(numReplicas), emptyOverrides)
+	err = admin.Publish(ctx, modelID, modelPath, checkpointPath, int(numReplicas), overrides)
 	if err != nil {
 		*errMsg = C.CString(err.Error())
 		*errCode = C.int(int32(errors.Code(err)))
