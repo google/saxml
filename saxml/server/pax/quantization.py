@@ -64,6 +64,7 @@ def for_transformer(
     softmax_only: bool = True,
     num_bits_act: int | None = None,
     use_symmetric_act: bool | None = None,
+    skip_transformers: list[str] | None = None,
 ):
   """Find and quantize transformer.
 
@@ -118,6 +119,8 @@ def for_transformer(
       valid when weight_quant_only is false.
     use_symmetric_act: Use symmetric activation quantization. Only valid when
       weight_quant_only is false.
+    skip_transformers: If not None, will skip quantizing transformers with the
+      name in this list.
 
   Returns:
     a modifier that quantizes transformers when applied to a config.
@@ -165,6 +168,7 @@ def for_transformer(
             softmax_only=softmax_only,
             num_bits_act=num_bits_act,
             use_symmetric_act=use_symmetric_act,
+            skip_transformers=skip_transformers,
         )
         return task_p
 
