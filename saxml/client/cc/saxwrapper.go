@@ -1199,7 +1199,7 @@ func go_custom(ptr C.long, requestData unsafe.Pointer, requestSize C.int, method
 
 //export go_start_debug
 func go_start_debug(port C.int) {
-	sax.StartDebugPort(int(port))
+	sax.StartDebugPort(context.Background(), int(port))
 }
 
 func main() {}

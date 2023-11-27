@@ -617,7 +617,7 @@ func (s *Server) WriteStatusPage(w http.ResponseWriter, data *env.StatusPageData
 }
 
 // NewServer creates a gRPC server.
-func (e *Env) NewServer() (env.Server, error) {
+func (e *Env) NewServer(ctx context.Context) (env.Server, error) {
 	s := &Server{grpc.NewServer()}
 	reflection.Register(s.GRPCServer())
 	return s, nil

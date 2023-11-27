@@ -231,12 +231,12 @@ func NewModelOptions(setters ...ModelOptionSetter) *ModelOptions {
 }
 
 // StartDebugPort starts a http server at `port` to get debug information.
-func StartDebugPort(port int) {
+func StartDebugPort(ctx context.Context, port int) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("Debug port %d failed", port)
 	}
-	gRPCServer, err := env.Get().NewServer()
+	gRPCServer, err := env.Get().NewServer(ctx)
 	if err != nil {
 		log.Fatalf("Debug grpc server at port %d failed", port)
 	}

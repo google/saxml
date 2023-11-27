@@ -300,7 +300,7 @@ func (s *Server) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("net.Listen on port %v error: %w", s.port, err)
 	}
-	gRPCServer, err := env.Get().NewServer()
+	gRPCServer, err := env.Get().NewServer(ctx)
 	if err != nil {
 		return fmt.Errorf("NewServer error: %w", err)
 	}

@@ -179,12 +179,13 @@ func (s *stubAdminServer) Stats(ctx context.Context, in *apb.StatsRequest) (*apb
 // StartStubAdminServer starts a new admin server with stub implementations.
 // Close the returned channel to close the server.
 func StartStubAdminServer(adminPort int, modelPorts []int, saxCell string) (chan struct{}, error) {
+	ctx := context.Background()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", adminPort))
 	if err != nil {
 		return nil, err
 	}
 
-	gRPCServer, err := env.Get().NewServer()
+	gRPCServer, err := env.Get().NewServer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +200,7 @@ func StartStubAdminServer(adminPort int, modelPorts []int, saxCell string) (chan
 	}
 	agrpc.RegisterAdminServer(gRPCServer.GRPCServer(), adminServer)
 
-	c, err := addr.SetAddr(context.Background(), adminPort, saxCell)
+	c, err := addr.SetAddr(ctx, adminPort, saxCell)
 	if err != nil {
 		return nil, err
 	}
@@ -636,12 +637,13 @@ func (m *stubMultimodalModelServer) Score(ctx context.Context, in *mmpb.ScoreRpc
 // also runs a modelet service.
 // Close the returned channel to close the server.
 func StartStubModelServer(modelType ModelType, modelPort int, scoreDelay time.Duration, unavailableModel string, loadDelay time.Duration) (chan struct{}, error) {
+	ctx := context.Background()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", modelPort))
 	if err != nil {
 		return nil, err
 	}
 
-	gRPCServer, err := env.Get().NewServer()
+	gRPCServer, err := env.Get().NewServer(ctx)
 	if err != nil {
 		return nil, err
 	}

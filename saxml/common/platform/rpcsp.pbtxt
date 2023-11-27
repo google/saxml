@@ -1,0 +1,23 @@
+# proto-file: google3/security/context/proto/policy/rpc_security_policy.proto
+# proto-message: security.context.RpcSecurityPolicy
+mapping {
+  rpc_method: "/sax.Admin/*"
+  authentication_policy {
+    creds_policy {
+      rules {
+        permissions: "auth.creds.useLOAS"
+        action: ALLOW
+        in: "allUsers"
+      }
+    }
+  }
+  authorization_mode: AUTOMATIC_IAM
+  permission_to_check: "admin.call"
+}
+system_authorization_policy {
+  rules {
+    permissions: "admin.call"
+    action: ALLOW
+    in: "allUsers"
+  }
+}

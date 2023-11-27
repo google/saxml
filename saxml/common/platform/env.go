@@ -117,7 +117,7 @@ type Env interface {
 	// RequiredACLNamePrefixList returns a list of possible strings required to prefix all ACL names.
 	RequiredACLNamePrefixList() []string
 	// NewServer creates a server.
-	NewServer() (Server, error)
+	NewServer(ctx context.Context) (Server, error)
 
 	// NewEventLogger creates new client for logging lineage events.
 	NewEventLogger() eventlog.Logger
