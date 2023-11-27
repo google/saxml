@@ -16,6 +16,7 @@
 import abc
 import dataclasses
 import functools
+import os
 import pprint
 import threading
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
@@ -275,6 +276,13 @@ class ServableMethod(servable_model.ServableMethod):
         'SAX servable_model JAX AOT compiler_options:\n%s',
         pprint.pformat(self._compiler_options),
     )
+    if xla_flags := os.getenv('XLA_FLAGS'):
+      logging.info(
+          'Environment XLA_FLAGS that may be superseded by'
+          ' compiler_options:\n%s',
+          '\n'.join(xla_flags.split()),
+      )
+
     if self._enable_auto_sharding or self._compiler_options:
       device_fn = self.jax_aot_compile(
           step_fn=device_fn,
