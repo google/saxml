@@ -382,7 +382,6 @@ def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
   xformer = lm_tpl.stacked_transformer_tpl  # pytype: disable=attribute-error  # enable-nested-classes
   if xformer.cls == transformers.StackedTransformerRepeated:
     xformer = xformer.block
-  assert xformer.cls == transformers.StackedTransformer
   layer_ps = xformer.transformer_layer_params_tpl
   lbp_tr_atten_tpl = pax_fiddle.Config(
       attentions.DotProductAttentionWithLPB,
