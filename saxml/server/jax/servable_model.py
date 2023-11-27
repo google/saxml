@@ -545,6 +545,7 @@ class ServableMethod(servable_model.ServableMethod):
           # Map string to int.
           # Downstream usage will look up the string with the repository.
           value = paxml_hcb.repository(input_key).add(value)
+          extra_input_dyptes[input_key] = np.int32
         input_value.append(value)
 
       # Some extra inputs such as per_example_max_decode_steps are ints
