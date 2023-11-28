@@ -22,6 +22,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,9 +36,11 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"saxml/admin/validator"
 	"saxml/client/go/saxadmin"
+	"saxml/common/addr"
 	"saxml/common/cell"
 	"saxml/common/config"
 	"saxml/common/naming"
+	"saxml/common/platform/env"
 	"saxml/common/watchable"
 
 	apb "saxml/protobuf/admin_go_proto_grpc"
@@ -45,7 +48,8 @@ import (
 )
 
 var (
-	cmdTimeout = flag.Duration("sax_timeout", 60*time.Second, "How many seconds to wait for command completion.")
+	cmdTimeout    = flag.Duration("sax_timeout", 60*time.Second, "How many seconds to wait for command completion.")
+	dummyLocation = "No admin server has been started for this Sax cell."
 )
 
 // CreateCmd creates a new Sax cell.
@@ -60,7 +64,7 @@ func (*CreateCmd) Synopsis() string { return "Create a Sax cell." }
 // Usage returns the full usage of CreateCmd.
 func (*CreateCmd) Usage() string {
 	return `create <cell name> <file system path> [admin ACL string]:
-	Create a SAX cell and initialize its state.
+	Create a Sax cell and initialize its state.
 `
 }
 
@@ -69,28 +73,49 @@ func (c *CreateCmd) SetFlags(f *flag.FlagSet) {}
 
 // Execute executes CreateCmd.
 func (c *CreateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
-	if len(f.Args()) != 2 && len(f.Args()) != 3 {
-		log.Errorf("Provide a SAX cell name (e.g. /sax/bar), a file system path for persistence (e.g. gs://bucket/path), and an optional admin ACL string.")
+	if len(f.Args()) != 3 {
+		log.Errorf("Provide a Sax cell name (e.g. /sax/bar), a file system path for persistence (e.g. gs://bucket/path), and an admin ACL string.")
 		return subcommands.ExitUsageError
 	}
 	saxCell := f.Args()[0]
 	fsRoot := f.Args()[1]
-	var adminACL string
-	if len(f.Args()) == 3 {
-		adminACL = f.Args()[2]
-	}
-
-	// If adminACL is not empty, it is set as the write ACL on the created cell subdirectory.
-	// All files created within, including config.proto and location.proto will inherit this ACL
-	// as writer.
-	if err := cell.Create(ctx, saxCell, adminACL); err != nil {
-		log.Errorf("Failed to create SAX cell %s: %v", saxCell, err)
+	adminACL := f.Args()[2]
+	if adminACL == "" {
+		log.Errorf("Provide a non-empty admin ACL string.")
 		return subcommands.ExitFailure
 	}
-	// If adminACL is empty, the config.proto created here will have the Sax dev group as the
-	// write ACL, to prevent regular users from accidentally deleting others' Sax cells.
+
+	if err := cell.Exists(ctx, saxCell); err == nil {
+		log.Errorf("Sax cell %s already exists.", saxCell)
+		return subcommands.ExitFailure
+	}
+
+	// adminACL is set as the write ACL on the created cell subdirectory.
+	if err := cell.Create(ctx, saxCell, adminACL); err != nil {
+		log.Errorf("Failed to create Sax cell %s: %v", saxCell, err)
+		return subcommands.ExitFailure
+	}
+	// adminACL is set as the write ACL and the AdminAcl field content of config.proto.
 	if err := config.Create(ctx, saxCell, fsRoot, adminACL); err != nil {
 		log.Errorf("Failed to create config %s: %v", saxCell, err)
+		return subcommands.ExitFailure
+	}
+	// Write a dummy message to location.proto for users who never ran an admin cell in a newly
+	// created cell. adminACL is set as the write ACL on location.proto.
+	path, err := cell.Path(ctx, saxCell)
+	if err != nil {
+		log.Errorf("Failed to get path for Sax cell %s: %v", saxCell, err)
+		return subcommands.ExitFailure
+	}
+	fname := filepath.Join(path, addr.LocationFile)
+	location := &apb.Location{Location: dummyLocation}
+	content, err := proto.Marshal(location)
+	if err != nil {
+		log.Errorf("Failed to marshal location: %v", err)
+		return subcommands.ExitFailure
+	}
+	if err := env.Get().WriteFile(ctx, fname, adminACL, content); err != nil {
+		log.Errorf("Failed to write location file: %v", err)
 		return subcommands.ExitFailure
 	}
 
@@ -109,7 +134,7 @@ func (*DeleteCmd) Synopsis() string { return "Delete a Sax cell." }
 // Usage returns the full usage of DeleteCmd.
 func (*DeleteCmd) Usage() string {
 	return `delete <cell name>:
-	Delete a SAX cell.
+	Delete a Sax cell.
 `
 }
 
@@ -119,7 +144,7 @@ func (c *DeleteCmd) SetFlags(f *flag.FlagSet) {}
 // Execute executes DeleteCmd.
 func (c *DeleteCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) != 1 {
-		log.Errorf("Provide a SAX cell name (e.g. /sax/bar).")
+		log.Errorf("Provide a Sax cell name (e.g. /sax/bar).")
 		return subcommands.ExitUsageError
 	}
 	saxCell := f.Args()[0]
@@ -137,8 +162,13 @@ func (c *DeleteCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		return subcommands.ExitFailure
 	}
 
+	if err := cell.Exists(ctx, saxCell); err != nil {
+		log.Errorf("Sax cell %s does not exist: %v.", saxCell, err)
+		return subcommands.ExitFailure
+	}
+
 	if err := cell.Delete(ctx, saxCell); err != nil {
-		log.Errorf("Failed to delete SAX cell %s: %v", saxCell, err)
+		log.Errorf("Failed to delete Sax cell %s: %v", saxCell, err)
 		return subcommands.ExitFailure
 	}
 
@@ -214,7 +244,7 @@ func (*ListCmd) Synopsis() string { return "List published models." }
 // Usage returns the full usage of ListCmd.
 func (*ListCmd) Usage() string {
 	return `ls /sax[/cell[/model]]:
-	List all sax cells, models in a cell, or information of a model.
+	List all Sax cells, models in a cell, or information of a model.
 `
 }
 
