@@ -87,12 +87,12 @@ class UnionModel(servable_model.ServableModel):
     super().__init__(model_config, primary_process_id, ckpt_type, test_mode)
     self._models: List[servable_model.ServableModel] = []
 
-  def load(
+  def load_state(
       self,
       checkpoint_path: Optional[str],
       prng_key: PRNGKey,
       precompile: bool = True,
-  ) -> None:
+  ) -> Tuple[base_model.BaseModel, servable_model.ServableModelState]:
     union_config = self.model_config
     assert isinstance(union_config, UnionModelParams)
     children = union_config.children()
@@ -103,30 +103,7 @@ class UnionModel(servable_model.ServableModel):
       child_inst = child()
       child_inst.apply_model_overrides(union_config.overrides)
       self._models.append(child_inst.create_model(self.primary_process_id))
-    prng_key, init_key = jax.random.split(prng_key)
-    pax_model, model_state = self._models[0].load_state(
-        checkpoint_path, init_key, precompile
-    )
-    for model in self._models:
-      prng_key, my_key = jax.random.split(prng_key)
-      model.load_methods(pax_model, model_state, my_key)
-      for k, m in model.methods.items():
-        logging.info(
-            'Initialized method %s from %s',
-            k,
-            model.model_config.__class__.__name__,
-        )
-        if k in self.methods:
-          raise ValueError(f'Duplicate method name: {k}')
-        self.methods[k] = m
-
-  def load_state(
-      self,
-      checkpoint_path: Optional[str],
-      prng_key: PRNGKey,
-      precompile: bool = True,
-  ) -> Tuple[base_model.BaseModel, servable_model.ServableModelState]:
-    raise NotImplementedError('should not be called')
+    return self._models[0].load_state(checkpoint_path, prng_key, precompile)
 
   def load_methods(
       self,
@@ -134,7 +111,18 @@ class UnionModel(servable_model.ServableModel):
       model_state: servable_model.ServableModelState,
       prng_key: PRNGKey,
   ) -> None:
-    raise NotImplementedError('should not be called')
+    for child_model in self._models:
+      prng_key, my_key = jax.random.split(prng_key)
+      child_model.load_methods(model, model_state, my_key)
+      for k, m in child_model.methods.items():
+        logging.info(
+            'Initialized method %s from %s',
+            k,
+            child_model.model_config.__class__.__name__,
+        )
+        if k in self.methods:
+          raise ValueError(f'Duplicate method name: {k}')
+        self.methods[k] = m
 
   def unload(self) -> None:
     self.methods.clear()
