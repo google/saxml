@@ -57,6 +57,7 @@ PYBIND11_MODULE(sax, m) {
            &sax::client::ModelOptions::SetExtraInputTensor)
       .def("SetExtraInputString",
            &sax::client::ModelOptions::SetExtraInputString)
+      .def("GetExtraInput", &sax::client::ModelOptions::GetExtraInput)
       .def("GetTimeout", &sax::client::ModelOptions::GetTimeout)
       .def("SetTimeout", &sax::client::ModelOptions::SetTimeout)
       .def("ToDebugString", [](sax::client::ModelOptions& mo) {
