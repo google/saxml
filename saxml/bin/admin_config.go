@@ -28,8 +28,9 @@ import (
 )
 
 var (
-	saxCell = flag.String("sax_cell", "", "Sax cell, e.g., /sax/test")
-	fsRoot  = flag.String("fs_root", "", "FS root, e.g., /tmp/sax-fs-root")
+	saxCell  = flag.String("sax_cell", "", "Sax cell, e.g., /sax/test")
+	fsRoot   = flag.String("fs_root", "", "FS root, e.g., /tmp/sax-fs-root")
+	adminACL = flag.String("admin_acl", "acl/all", "Admin ACL, e.g., acl/all")
 )
 
 func main() {
@@ -57,7 +58,9 @@ func main() {
 	}
 
 	// Write a Sax config.proto file into the Sax cell subdirectory in the Sax root directory.
-	if err := config.Create(ctx, *saxCell, *fsRoot, ""); err != nil {
+	// The Cloud platform ignores all admin ACLs but requires a non-empty value. The value itself
+	// doesn't matter, so just pass in the default value.
+	if err := config.Create(ctx, *saxCell, *fsRoot, *adminACL); err != nil {
 		log.Fatalf("Failed to create config: %v", err)
 	}
 }
