@@ -194,6 +194,7 @@ rpc_endpoint_interface(
 
 cc_proto_library(
     name = "custom_cc_proto",
+    visibility = ["//visibility:public"],
     deps = [":custom_proto"],
 )
 
