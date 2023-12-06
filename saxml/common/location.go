@@ -51,7 +51,7 @@ const (
 )
 
 // join makes a Join RPC call to an admin server address.
-func join(ctx context.Context, addr string, ipPort string, debugAddr string, specs *pb.ModelServer) error {
+func join(ctx context.Context, addr string, ipPort string, debugAddr string, dataAddr string, specs *pb.ModelServer) error {
 	dialCtx, dialCancel := context.WithTimeout(ctx, dialTimeout)
 	defer dialCancel()
 	conn, err := env.Get().DialContext(dialCtx, addr)
@@ -64,6 +64,7 @@ func join(ctx context.Context, addr string, ipPort string, debugAddr string, spe
 	req := &pb.JoinRequest{
 		Address:      ipPort,
 		DebugAddress: debugAddr,
+		DataAddress:  dataAddr,
 		ModelServer:  proto.Clone(specs).(*pb.ModelServer),
 	}
 	joinCtx, joinCancel := context.WithTimeout(ctx, joinTimeout)
@@ -79,7 +80,7 @@ func join(ctx context.Context, addr string, ipPort string, debugAddr string, spe
 // watcher will attempt to rejoin periodically.
 //
 // If admin_port is not 0, start an admin server for sax_cell at the given port in the background.
-func Join(ctx context.Context, saxCell string, ipPort string, debugAddr string, specs *pb.ModelServer, adminPort int) error {
+func Join(ctx context.Context, saxCell string, ipPort string, debugAddr string, dataAddr string, specs *pb.ModelServer, adminPort int) error {
 	if err := cell.Exists(ctx, saxCell); err != nil {
 		return err
 	}
@@ -116,7 +117,7 @@ func Join(ctx context.Context, saxCell string, ipPort string, debugAddr string, 
 		defer cancel()
 		return retrier.Do(
 			ctx, func() error {
-				err := join(ctx, addr, ipPort, debugAddr, specs)
+				err := join(ctx, addr, ipPort, debugAddr, dataAddr, specs)
 				return err
 			}, errors.JoinShouldRetry,
 		)

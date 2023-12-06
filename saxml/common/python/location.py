@@ -22,6 +22,7 @@ def Join(
     sax_cell: str,
     ip_port: str,
     debug_addr: str,
+    data_addr: str,
     specs: bytes,
     admin_port: Optional[int] = None,
 ) -> None:
@@ -36,6 +37,8 @@ def Join(
     sax_cell: The Sax cell to join, e.g. /sax/test.
     ip_port: The IP:port of the joining model server.
     debug_addr: The address where an HTTP page is exported for debugging.
+    data_addr: Client connects to server at this address if non-empty.
+      Otherwise, client connects to address specified by `ip_port`.
     specs: Serialized ModelServer proto.
     admin_port: If set, this process will start an admin server on the given
       port for sax_cell in the background.
@@ -47,6 +50,7 @@ def Join(
       sax_cell,
       ip_port,
       debug_addr,
+      data_addr,
       specs,
       admin_port if admin_port is not None else 0,
   )

@@ -44,7 +44,7 @@ TEST(LocationTest, Join) {
   const int server_port = PickUnusedPortOrDie();
   std::string model_addr = absl::StrCat("localhost:", server_port);
   ModelServer specs;
-  ASSERT_EQ(Join(sax_cell, model_addr, "", specs.SerializeAsString()), "");
+  ASSERT_EQ(Join(sax_cell, model_addr, "", "", specs.SerializeAsString()), "");
 
   absl::SleepFor(absl::Seconds(3));  // wait for the initial Join to happen
   std::string admin_addr = absl::StrCat("localhost:", admin_port);

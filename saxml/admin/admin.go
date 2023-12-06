@@ -283,7 +283,7 @@ func (s *Server) Join(ctx context.Context, in *pb.JoinRequest) (*pb.JoinResponse
 		return nil, err
 	}
 
-	if err := s.Mgr.Join(ctx, in.GetAddress(), in.GetDebugAddress(), in.GetModelServer()); err != nil {
+	if err := s.Mgr.Join(ctx, in.GetAddress(), in.GetDebugAddress(), in.GetDataAddress(), in.GetModelServer()); err != nil {
 		return nil, err
 	}
 

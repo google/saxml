@@ -165,6 +165,7 @@ message JoinedModelServer {
   ModelServer model_server = 1;
   string address = 2;
   string debug_address = 6;
+  string data_address = 7;
   int64 last_join_ms = 3;                      // milliseconds since Unix epoch
   map<string, ModelStatus> loaded_models = 4;  // model ID: status
   map<string, string> failure_reasons = 5;     // model ID: error message
@@ -261,8 +262,15 @@ message WaitForReadyResponse {}
 message JoinRequest {
   // The network address and port identifying a model server, e.g.,
   //   [1::2]:8888
+  // An RPC server listens at this address for ModeletService.{Load, Unload,
+  // Status}, etc.
   string address = 1;
+  // If non-empty, the server has a status http server at this address for
+  // diagnosis purpose. Otherwise, uses 'address'.
   string debug_address = 3;
+  // Client connects to server at this address if non-empty. Otherwise, uses
+  // 'address'.
+  string data_address = 4;
   ModelServer model_server = 2;
 }
 

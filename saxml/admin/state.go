@@ -150,6 +150,7 @@ type State struct {
 	// Immutable server attributes.
 	Addr      string
 	DebugAddr string
+	DataAddr  string
 	Specs     *protobuf.ModelServer
 
 	// Connection to the server.
@@ -524,13 +525,18 @@ func (s *State) Close() {
 }
 
 // New creates a new State instance from a running model server.
-func New(addr, debugAddr string, specs *protobuf.ModelServer, eventLogger eventlog.Logger) *State {
+func New(addr, debugAddr, dataAddr string, specs *protobuf.ModelServer, eventLogger eventlog.Logger) *State {
 	if specs == nil {
 		specs = &protobuf.ModelServer{}
+	}
+	// If dataAddr is empty, set it to be same as addr
+	if dataAddr == "" {
+		dataAddr = addr
 	}
 	return &State{
 		Addr:        addr,
 		DebugAddr:   debugAddr,
+		DataAddr:    dataAddr,
 		Specs:       specs,
 		seen:        make(map[naming.ModelFullName]*ModelWithStatus),
 		wanted:      make(map[naming.ModelFullName]*Model),

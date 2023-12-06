@@ -74,7 +74,7 @@ func TestJoin(t *testing.T) {
 		ChipType:     pb.ModelServer_CHIP_TYPE_TPU_V4,
 		ChipTopology: pb.ModelServer_CHIP_TOPOLOGY_2X2,
 	}
-	if err := location.Join(ctx, saxCell, modelAddr, "", specs, 0); err != nil {
+	if err := location.Join(ctx, saxCell, modelAddr, "", "", specs, 0); err != nil {
 		t.Fatalf("Join(%s) error %v, want no error", saxCell, err)
 	}
 
@@ -112,7 +112,7 @@ func TestJoinEmptyCell(t *testing.T) {
 	// Join returns an error only for serious problems such as the Sax cell isn't created.
 	// Even if the admin server momentarily disappears or has never existed, the Join call doesn't
 	// return any error but the best-effort background watcher will print log warnings.
-	if err := location.Join(ctx, saxCell, modelAddr, "", specs, 0); err != nil {
+	if err := location.Join(ctx, saxCell, modelAddr, "", "", specs, 0); err != nil {
 		t.Errorf("Join(%s) error %v, want no error", err, saxCell)
 	}
 }

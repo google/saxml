@@ -23,12 +23,13 @@
 namespace sax {
 
 std::string Join(const std::string& sax_cell, const std::string& ip_port,
-                 const std::string& debug_addr,
+                 const std::string& debug_addr, const std::string& data_addr,
                  const std::string& serialized_specs, int admin_port) {
   const char* result =
       sax_join(const_cast<char*>(sax_cell.data()), sax_cell.size(),
                const_cast<char*>(ip_port.data()), ip_port.size(),
                const_cast<char*>(debug_addr.data()), debug_addr.size(),
+               const_cast<char*>(data_addr.data()), data_addr.size(),
                const_cast<char*>(serialized_specs.data()),
                serialized_specs.size(), admin_port);
   auto ret = std::string(result, strlen(result));

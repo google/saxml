@@ -862,6 +862,7 @@ class ModeletService:
             self._sax_cell,
             self._ipport,
             self._debug_addr,
+            '',  # data_addr
             specs.SerializeToString(),
             admin_port=self._admin_port,
         )
