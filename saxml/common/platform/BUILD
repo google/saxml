@@ -74,6 +74,9 @@ go_test(
     deps = [
         ":cloud",
         ":env",
+        "//saxml/admin",
+        "//saxml/common:testutil",
+        "//saxml/protobuf:admin_go_proto_grpc",
     ],
 )
 

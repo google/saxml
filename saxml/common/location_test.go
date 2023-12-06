@@ -37,7 +37,7 @@ import (
 func TestSetFetchAddr(t *testing.T) {
 	ctx := context.Background()
 	saxCell := "/sax/test-addr"
-	testutil.SetUp(ctx, t, saxCell)
+	testutil.SetUp(ctx, t, saxCell, "")
 
 	port := 10000
 	c, err := addr.SetAddr(ctx, port, saxCell)
@@ -59,7 +59,7 @@ func TestSetFetchAddr(t *testing.T) {
 func TestJoin(t *testing.T) {
 	ctx := context.Background()
 	saxCell := "/sax/test-join"
-	testutil.SetUp(ctx, t, saxCell)
+	testutil.SetUp(ctx, t, saxCell, "")
 
 	// Start an admin server.
 	port, err := env.Get().PickUnusedPort()
@@ -100,7 +100,7 @@ func TestJoin(t *testing.T) {
 func TestJoinEmptyCell(t *testing.T) {
 	ctx := context.Background()
 	saxCell := "/sax/test-join-empty"
-	testutil.SetUp(ctx, t, saxCell)
+	testutil.SetUp(ctx, t, saxCell, "")
 
 	// Start the address watcher.
 	modelAddr := "localhost:10000"
@@ -121,7 +121,7 @@ func TestJoinEmptyCell(t *testing.T) {
 func TestLeaderElection(t *testing.T) {
 	ctx := context.Background()
 	saxCell := "/sax/test-election"
-	testutil.SetUp(ctx, t, saxCell)
+	testutil.SetUp(ctx, t, saxCell, "")
 
 	numParticipants := 5
 	var wg sync.WaitGroup

@@ -541,7 +541,7 @@ func (s *Server) GRPCServer() *grpc.Server {
 func (s *Server) CheckACLs(ctx context.Context, acls []string) error {
 	for _, acl := range acls {
 		if acl != "" {
-			return fmt.Errorf("ACL check is not supported: %w", errors.ErrUnimplemented)
+			log.Warningf("Ignoring ACL: %s", acl)
 		}
 	}
 	return nil

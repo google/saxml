@@ -17,12 +17,17 @@ package cloud_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"saxml/admin/admin"
 	"saxml/common/platform/cloud" // registers a platform
 	"saxml/common/platform/env"
+	"saxml/common/testutil"
+
+	apb "saxml/protobuf/admin_go_proto_grpc"
 )
 
 func TestFileOps(t *testing.T) {
@@ -81,5 +86,42 @@ func TestWatch(t *testing.T) {
 	got = <-ch
 	if !bytes.Equal(got, has) {
 		t.Errorf("Watch got %v, expect %v", got, has)
+	}
+}
+
+func TestJoin(t *testing.T) {
+	ctx := context.Background()
+	saxCell := "/sax/test-join"
+	testutil.SetUp(ctx, t, saxCell, "acl/all")
+
+	adminPort, err := env.Get().PickUnusedPort()
+	if err != nil {
+		t.Fatalf("PickUnusedPort() failed: %v", err)
+	}
+	adminServer := admin.NewServer(saxCell, adminPort)
+	if err := adminServer.Start(ctx); err != nil {
+		t.Fatalf("StartAdminServer failed: Start() error %v", err)
+	}
+	defer adminServer.Close()
+	time.Sleep(time.Second)
+
+	modelPort, err := env.Get().PickUnusedPort()
+	if err != nil {
+		t.Fatalf("PickUnusedPort() failed: %v", err)
+	}
+	testutil.StartStubModelServerT(t, modelPort)
+	time.Sleep(5 * time.Second)
+
+	addr := fmt.Sprintf("localhost:%d", modelPort)
+	joinReq := &apb.JoinRequest{
+		Address: addr,
+		ModelServer: &apb.ModelServer{
+			ChipType:           apb.ModelServer_CHIP_TYPE_TPU_V2,
+			ChipTopology:       apb.ModelServer_CHIP_TOPOLOGY_1X1,
+			ServableModelPaths: nil,
+		},
+	}
+	if _, err := adminServer.Join(ctx, joinReq); err != nil {
+		t.Errorf("Join(%v) error %v, want no error", joinReq, err)
 	}
 }

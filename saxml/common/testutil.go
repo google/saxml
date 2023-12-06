@@ -52,30 +52,34 @@ import (
 	vmgrpc "saxml/protobuf/vision_go_proto_grpc"
 )
 
-// SetUpInternal is exported for the C wrapper.
-func SetUpInternal(ctx context.Context, saxCell string, fsRoot string) error {
+func setUpInternal(ctx context.Context, saxCell string, fsRoot string, adminACL string) error {
 	if err := env.Get().CreateDir(ctx, cell.Sax(ctx), ""); err != nil {
 		return err
 	}
 	if _, err := naming.SaxCellToCell(saxCell); err != nil {
 		return err
 	}
-	if err := cell.Create(ctx, saxCell, ""); err != nil {
+	if err := cell.Create(ctx, saxCell, adminACL); err != nil {
 		return err
 	}
-	if err := config.Create(ctx, saxCell, fsRoot, ""); err != nil {
+	if err := config.Create(ctx, saxCell, fsRoot, adminACL); err != nil {
 		return err
 	}
 	return nil
 }
 
+// SetUpInternal is exported for the C wrapper.
+func SetUpInternal(ctx context.Context, saxCell string, fsRoot string) error {
+	return setUpInternal(ctx, saxCell, fsRoot, "")
+}
+
 // SetUp creates the necessary environment for a given Sax cell name.
 //
 // Tests in the same process should use different Sax cells.
-func SetUp(ctx context.Context, t *testing.T, saxCell string) {
+func SetUp(ctx context.Context, t *testing.T, saxCell string, adminACL string) {
 	t.Helper()
 	fsRoot := t.TempDir()
-	if err := SetUpInternal(ctx, saxCell, fsRoot); err != nil {
+	if err := setUpInternal(ctx, saxCell, fsRoot, adminACL); err != nil {
 		t.Fatalf("SetUp(%v, %v) failed: %v", saxCell, fsRoot, err)
 	}
 }
