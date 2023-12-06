@@ -35,6 +35,9 @@ const (
 	// LocationFile is the name of the file storing the admin server location in the
 	// <root>/sax/<cell> directory.
 	LocationFile = "location.proto"
+	// LocationFileInitialContent is the initial content of the location file before any admin server
+	// has run in this cell.
+	LocationFileInitialContent = "No admin server has been started for this Sax cell."
 )
 
 // ParseAddr reads the admin server address from bytes.
@@ -44,8 +47,13 @@ func ParseAddr(bytes []byte) (string, error) {
 		return "", err
 	}
 	addr := location.GetLocation()
+	// Return failed precondition errors below for unrecoverable errors. Because ErrFailedPrecondition
+	// is not in adminRetryCodes, the client will return the error to the user instead of retrying.
 	if addr == "" {
 		return "", fmt.Errorf("got an empty location: %w", errors.ErrFailedPrecondition)
+	}
+	if addr == LocationFileInitialContent {
+		return "", fmt.Errorf("no admin server has ever run: %w", errors.ErrFailedPrecondition)
 	}
 	return addr, nil
 }

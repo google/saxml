@@ -47,10 +47,7 @@ import (
 	cpb "saxml/protobuf/common_go_proto"
 )
 
-var (
-	cmdTimeout    = flag.Duration("sax_timeout", 60*time.Second, "How many seconds to wait for command completion.")
-	dummyLocation = "No admin server has been started for this Sax cell."
-)
+var cmdTimeout = flag.Duration("sax_timeout", 60*time.Second, "How many seconds to wait for command completion.")
 
 // CreateCmd creates a new Sax cell.
 type CreateCmd struct{}
@@ -108,7 +105,7 @@ func (c *CreateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		return subcommands.ExitFailure
 	}
 	fname := filepath.Join(path, addr.LocationFile)
-	location := &apb.Location{Location: dummyLocation}
+	location := &apb.Location{Location: addr.LocationFileInitialContent}
 	content, err := proto.Marshal(location)
 	if err != nil {
 		log.Errorf("Failed to marshal location: %v", err)
