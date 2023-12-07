@@ -2,10 +2,6 @@
 
 load("//saxml:saxml.bzl", "go_binary")
 
-package(
-    default_visibility = ["//saxml:internal"],
-)
-
 cc_library(
     name = "sax",
     srcs = ["sax.cc"],
