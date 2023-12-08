@@ -58,7 +58,7 @@ class CommonServingTemplate:
   USE_TOP_K_FOR_LOGPROBS = False
   BEAM_SIZE = 4
   TOKENS_PER_BEAM = None
-  FPROP_FOR_PREFIX = False
+  FPROP_FOR_PREFIX = True
   GLOBAL_NORMALIZE = False
   VOCAB_SIZE = 32000
   LENGTH_NORM_ALPHA = 0.8
