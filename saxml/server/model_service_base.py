@@ -1335,13 +1335,12 @@ class ModelServicesRunner:
     return uuid.uuid4().int & ((1 << 63) - 1)
 
   def _encode_message(self, *msgs: str) -> str:
-    assert msgs
-    for m in msgs:
-      assert '|' not in m
-    return '|'.join(msgs)
+    return json.dumps(msgs)  # tuples are serialized as lists in JSON.
 
   def _decode_message(self, encoded: str) -> List[str]:
-    return encoded.split('|')
+    msgs = json.loads(encoded)
+    assert isinstance(msgs, list)
+    return msgs
 
   def _load_model(
       self,
