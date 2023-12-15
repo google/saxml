@@ -39,6 +39,7 @@ pytype_strict_library(
         "//third_party/py/praxis/layers:multi_query_attention",
         "//third_party/py/praxis/layers:transformer_models",
         "//third_party/py/praxis/layers:transformers",
+        "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )
 

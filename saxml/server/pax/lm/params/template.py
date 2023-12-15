@@ -14,7 +14,7 @@
 """Serving template params."""
 
 import functools
-from typing import Dict, Optional, Sequence, Type, cast
+from typing import Dict, Optional, Sequence, Tuple, Type, cast
 
 import numpy as np
 from paxml import base_task
@@ -31,6 +31,7 @@ from praxis.layers import transformers
 from saxml.server import servable_model_registry
 from saxml.server.pax.lm import lm_tokenizer
 from saxml.server.pax.lm import servable_lm_model
+import tensorflow as tf
 
 
 LayerTpl = pax_fiddle.Config[base_layer.BaseLayer]
@@ -343,6 +344,78 @@ class ServingTemplate(
   def lpb_params_setter(self, lm_tpl: LayerTpl) -> None:
     """Set lazy prefix broadcast params. Allow subclasses to override."""
     set_lazy_prefix_broadcast_params(lm_tpl)
+
+
+class EmbeddingServingTemplate(
+    CommonServingTemplate, servable_lm_model.ServableLMModelParams
+):
+  """Lightweight template servable config for embeddings from gemini."""
+
+  def serving_tokenizer(self):
+    if self.VOCABULARY_CLASS is None:
+      spm_model = (
+          self.SPM_MODEL
+          if self.SPM_MODEL is not None
+          else self._dataset_train().input.tokenizer.spm_model
+      )
+    else:
+      spm_model = None
+
+    return pax_fiddle.Config(
+        lm_tokenizer.LMTokenizer,
+        spm_model=spm_model,
+        target_sos_id=self.SOS_ID,
+        target_eos_id=self.EOS_ID,
+        slice_left=self.SLICE_LEFT,
+        tokenized_input=self.TOKENIZED_INPUT,
+        tokenized_output=self.TOKENIZED_OUTPUT,
+        prepend_sos=self.PREPEND_SOS,
+        eos_padding_and_no_sos=self.EOS_PADDING_AND_NO_SOS,
+        vocabulary_class=self.VOCABULARY_CLASS,
+        vocabulary_path=self.VOCABULARY_PATH,
+    )
+
+  def init_for_serving(self):
+    self._tokenizer = self.serving_tokenizer().Instantiate()
+
+  @tf.function
+  def _tf_tokenize_inputs(
+      self, texts: tf.Tensor, max_length: int
+  ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+    ids, labels, paddings = self._tokenizer.StringsToIds(
+        texts, max_length=max_length
+    )
+    weights = 1.0 - paddings
+    return ids, labels, weights, paddings
+
+  def tokenize(
+      self, texts: tf.Tensor, max_length: int
+  ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+    return self._tf_tokenize_inputs(texts, max_length)
+
+  def text_to_embedding(
+      self,
+  ) -> Optional[servable_lm_model.TextToEmbeddingHParams]:
+    if (
+        self.GENERATE_ONLY
+        or self.TEXT_TO_EMBEDDING_MODEL_METHOD_NAME is None
+        or self.TEXT_TO_EMBEDDING_OUTPUT_EMBEDDING_NAME is None
+    ):
+      return None
+
+    assert (
+        self.POLYMORPHIC_SEQ_LEN_EXCLUSION is None
+    ), 'This needs to be understood and supported if needed.'
+
+    input_seq_len = self.INPUT_SEQ_LEN - 1
+    return servable_lm_model.TextToEmbeddingHParams(
+        batch_size=self.TEXT_TO_EMBEDDING_SERVING_BATCH_SIZE,
+        max_input_seq_len=input_seq_len,
+        max_live_batches=self.TEXT_TO_EMBEDDING_MAX_LIVE_BATCHES,
+        output_embedding_name=self.TEXT_TO_EMBEDDING_OUTPUT_EMBEDDING_NAME,
+        model_method_name=self.TEXT_TO_EMBEDDING_MODEL_METHOD_NAME,
+        extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
+    )
 
 
 class ServingWithGradientTemplate(ServingTemplate):
