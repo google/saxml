@@ -18,6 +18,7 @@ import asyncio
 import collections
 import copy
 import dataclasses
+import enum
 import functools
 import json
 import queue
@@ -44,10 +45,9 @@ from saxml.server import proto_util
 from saxml.server import servable_model
 from saxml.server import servable_model_params
 from saxml.server import servable_model_registry
+from saxml.server import spmd_backend
 from saxml.server import utils
 from saxml.server import validate
-from saxml.server.spmd_backend import SingleHostBackend
-from saxml.server.spmd_backend import SPMDBackend
 
 from google.protobuf import message
 
@@ -56,13 +56,6 @@ InputShapeInfo = servable_model.InputShapeInfo
 Closure = Callable[[], None]
 StatusCallback = utils.StatusCallback
 
-# TODO(zhifengc): Convert these an enum to enforce stronger typing.
-_LOAD_METHOD_KEY = '_internal_load'
-_UNLOAD_METHOD_KEY = '_internal_unload'
-_EXPORT_METHOD_KEY = '_internal_export'
-_TERMINATE_METHOD_KEY = '_internal_terminate'
-_KEEP_DEVICES_WARM_METHOD_KEY = '_internal_keep_devices_warm'
-_SAVE_MODEL_KEY = '_internal_save'
 
 # Global variable for the service registry: mapping {key: list_of_services}.
 # The value is a list because we allow both gRPC and Stubby services registered.
@@ -70,6 +63,9 @@ _SERVICE_REGISTRY = {}
 
 # All SAX names must be prefixed with this.
 _SAX_PREFIX = '/sax/'
+
+# Keep warm for every 2 minutes
+_KEEP_WARM_SECONDS = 120
 
 # pylint: disable=invalid-name
 
@@ -100,17 +96,40 @@ def _maybe_all_cancelled(
   return False
 
 
+@enum.unique
+class MethodName(enum.StrEnum):
+  """Sax method types."""
+
+  # Sax internal methods
+  LOAD = enum.auto()
+  UNLOAD = enum.auto()
+  EXPORT = enum.auto()
+  TERMINATE = enum.auto()
+  KEEP_DEVICES_WARM = enum.auto()
+  SAVE = enum.auto()
+
+  # Model method
+  MODEL = enum.auto()
+
+
 @dataclasses.dataclass(frozen=True)
 class MethodKey:
   """Method key.
 
   Methods here can be from different models, and their keys are represented as a
-  tuple of (method_name, service_id, model_key) in this module.
+  tuple of (method_name, model_method, service_id, model_key) in this
+  module.
   """
 
-  name: str
+  name: MethodName
+  model_method: Optional[str] = None
   service_id: Optional[str] = None
   model_key: Optional[str] = None
+
+  def method_name(self) -> str:
+    if self.name == MethodName.MODEL:
+      return self.model_method
+    return str(self.name)
 
 
 class Method:
@@ -304,6 +323,9 @@ class PerMethodBatcher:
         if preprocess_fn is None:
           batch.mark_as_ready()
         else:
+          # Initialize input_tensors to None to indicate failed preprocess.
+          input_tensors = None
+          unpadded_shape = InputShapeInfo(batch_size=len(rpc_tasks))
           try:
             input_tensors, unpadded_shape = preprocess_fn(rpc_tasks)
           except Exception as e:  # pylint: disable=broad-except
@@ -313,9 +335,6 @@ class PerMethodBatcher:
             logging.error(error_msg)
             for rpc_task in rpc_tasks:
               rpc_task.done(utils.internal_error(error_msg))
-            # Set input_tensors to None to indicate failed preprocess.
-            input_tensors = None
-            unpadded_shape = InputShapeInfo(batch_size=len(rpc_tasks))
             if not presync:
               _finish_batch()
             continue
@@ -383,8 +402,8 @@ class PerMethodBatcher:
     """Adds an item to the method's queue."""
     start_ts = time.time()
     method = self._per_method_queues.get(key)
-    tc = utils.get_current_trace_printer()
-    tc(f'Add item {key}')
+    trace_callback = utils.get_current_trace_printer()
+    trace_callback(f'Add item {key}')
 
     def done(status, *args, **kwargs):
       """Helper to run the done callback if it's not None."""
@@ -401,20 +420,26 @@ class PerMethodBatcher:
 
     # Check ACLs.
     model: servable_model.ServableModel = method.model
+
     if model is not None:
-      aclname: Optional[str] = model.get_acl(key.name)
+      model_method_name: str = key.model_method
+      assert key.name == MethodName.MODEL and model_method_name is not None
+
+      aclname: Optional[str] = model.get_acl(model_method_name)
       username: Optional[str] = rpc.username() if rpc is not None else None
       acl_ok = acl.Check(aclname, username)
-      tc(f'Username {username} ACL {aclname} check result {acl_ok}')
+      trace_callback(f'Username {username} ACL {aclname} check result {acl_ok}')
       if not acl_ok:
         return done(
             utils.permission_denied(
-                f'Model {key.model_key} method {key.name} acl {aclname}'
-                f' disallows {username}'
+                f'Model {key.model_key} method {model_method_name} acl'
+                f' {aclname} disallows {username}'
             )
         )
       # Check if extra_input keys are in servable_method.default_extra_inputs.
-      servable_method: servable_model.ServableMethod = model.method(key.name)
+      servable_method: servable_model.ServableMethod = model.method(
+          model_method_name
+      )
       validate_status = validate.ValidateRequestForExtraInputs(
           req, servable_method.default_extra_inputs
       )
@@ -434,7 +459,7 @@ class PerMethodBatcher:
       done(status, *args, **kwargs)
       method.admissioner.release()
 
-    method.queue.send(rpc, req, resp, _done, tc)
+    method.queue.send(rpc, req, resp, _done, trace_callback)
 
   def get_batch(self) -> Batch:
     """Dequeues an available batch."""
@@ -659,7 +684,9 @@ class ModelService(metaclass=abc.ABCMeta):
       logging.error('Method %s does not support streaming output.', method)
       return
 
-    batcher_item_key = MethodKey(method, self._service_id, model_key)
+    batcher_item_key = MethodKey(
+        MethodName.MODEL, method, self._service_id, model_key
+    )
     self._batcher.add_item(batcher_item_key, rpc_context, req, resp, done)
 
 
@@ -781,16 +808,16 @@ class ModeletService:
 
     super().__init__(*args, **kwargs)
     self._batcher.register_method(
-        None, MethodKey(_LOAD_METHOD_KEY), batch_size=1, max_live_batches=4
+        None, MethodKey(MethodName.LOAD), batch_size=1, max_live_batches=4
     )
     self._batcher.register_method(
-        None, MethodKey(_UNLOAD_METHOD_KEY), batch_size=1, max_live_batches=4
+        None, MethodKey(MethodName.UNLOAD), batch_size=1, max_live_batches=4
     )
     self._batcher.register_method(
-        None, MethodKey(_EXPORT_METHOD_KEY), batch_size=1, max_live_batches=1
+        None, MethodKey(MethodName.EXPORT), batch_size=1, max_live_batches=1
     )
     self._batcher.register_method(
-        None, MethodKey(_SAVE_MODEL_KEY), batch_size=1, max_live_batches=1
+        None, MethodKey(MethodName.SAVE), batch_size=1, max_live_batches=1
     )
 
     self._platform_chip = proto_util.to_chip_type(platform_chip)
@@ -880,7 +907,7 @@ class ModeletService:
   ) -> None:
     """Loads a model."""
     self._batcher.add_item(
-        MethodKey(_LOAD_METHOD_KEY), rpc_context, req, resp, done_with_status
+        MethodKey(MethodName.LOAD), rpc_context, req, resp, done_with_status
     )
 
   def update(
@@ -926,6 +953,7 @@ class ModeletService:
       for method_name in model.methods:
         self._batcher.unregister_method(
             MethodKey(
+                MethodName.MODEL,
                 method_name,
                 model.method(method_name).service_id(),
                 req.model_key,
@@ -933,7 +961,7 @@ class ModeletService:
         )
 
     self._batcher.add_item(
-        MethodKey(_UNLOAD_METHOD_KEY), rpc_context, req, resp, done_with_status
+        MethodKey(MethodName.UNLOAD), rpc_context, req, resp, done_with_status
     )
     with self._unload_lock:
       self._models_being_unloaded.remove(req.model_key)
@@ -947,7 +975,7 @@ class ModeletService:
   ) -> None:
     """Exports a model to a serialized format."""
     self._batcher.add_item(
-        MethodKey(_EXPORT_METHOD_KEY), rpc_context, req, resp, done_with_status
+        MethodKey(MethodName.EXPORT), rpc_context, req, resp, done_with_status
     )
 
   def save(
@@ -959,7 +987,7 @@ class ModeletService:
   ) -> None:
     """Save a model."""
     self._batcher.add_item(
-        MethodKey(_SAVE_MODEL_KEY), rpc_context, req, resp, done_with_status
+        MethodKey(MethodName.SAVE), rpc_context, req, resp, done_with_status
     )
 
   def get_status(
@@ -992,7 +1020,7 @@ class ModeletService:
             and (model := model_by_key.get(key.model_key)) is not None
         ):
           stats = model.method_stats.add(
-              method=key.name,
+              method=key.method_name(),
               errors_per_second=err_stats.rate(),
               successes_per_second=ok_stats.rate(),
               recent_batch_sizes=recent_batch_sizes,
@@ -1122,7 +1150,7 @@ class ModelServicesRunner:
       admin_port: Optional[int] = None,
       platform_chip: Optional[str] = None,
       platform_topology: Optional[str] = None,
-      spmd_backend: Optional[SPMDBackend] = None,
+      backend: Optional[spmd_backend.SPMDBackend] = None,
       fail_on_error: bool = False,
   ):
     self._is_primary = is_primary_process
@@ -1132,7 +1160,7 @@ class ModelServicesRunner:
     self._batcher = PerMethodBatcher()
     self._batcher.register_method(
         None,
-        MethodKey(_KEEP_DEVICES_WARM_METHOD_KEY, '_no_service_id', '_no_model'),
+        MethodKey(MethodName.KEEP_DEVICES_WARM),
         batch_size=1,
         max_live_batches=1,
     )
@@ -1140,12 +1168,12 @@ class ModelServicesRunner:
         logging.fatal if fail_on_error else logging.error, exc_info=True
     )
 
-    if spmd_backend is None:
+    if backend is None:
       if not self._is_primary:
         raise NotImplementedError('No spmd_backend provided for multi-host.')
-      self._spmd_backend = SingleHostBackend()
+      self._spmd_backend = spmd_backend.SingleHostBackend()
     else:
-      self._spmd_backend = spmd_backend
+      self._spmd_backend = backend
     if self._is_primary:
       self._pool = utils.ThreadPool(
           num_threads=16, thread_name_prefix='model_service_runner'
@@ -1185,7 +1213,7 @@ class ModelServicesRunner:
       )
     self._loaded_models = LoadedModelManager(primary_host)
     self._batcher.register_method(
-        None, MethodKey(_TERMINATE_METHOD_KEY), batch_size=1, max_live_batches=1
+        None, MethodKey(MethodName.TERMINATE), batch_size=1, max_live_batches=1
     )
     self._modelet_service = ModeletServiceGRPC(
         port,
@@ -1270,15 +1298,11 @@ class ModelServicesRunner:
 
   def _run_keep_warm_loop(self):
     while True:
-      self._batcher.add_item(
-          MethodKey(
-              _KEEP_DEVICES_WARM_METHOD_KEY, '_no_service_id', '_no_model'
-          )
-      )
-      time.sleep(120)  # 2 minutes
+      self._batcher.add_item(MethodKey(MethodName.KEEP_DEVICES_WARM))
+      time.sleep(_KEEP_WARM_SECONDS)
 
   @property
-  def spmd_backend(self) -> SPMDBackend:
+  def spmd_backend(self) -> spmd_backend.SPMDBackend:
     return self._spmd_backend
 
   @property
@@ -1365,12 +1389,10 @@ class ModelServicesRunner:
             rpc_tasks, method=method, method_name=method_name, service=service
         ):
           utils.traceprint_all(rpc_tasks, 'Before pre_processing')
-          inputs = method.pre_processing(
-              [
-                  service.ParseMethodRPCRequest(method_name, t.request)
-                  for t in rpc_tasks
-              ]
-          )
+          inputs = method.pre_processing([
+              service.ParseMethodRPCRequest(method_name, t.request)
+              for t in rpc_tasks
+          ])
           unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
 
           extra_inputs = []
@@ -1390,7 +1412,7 @@ class ModelServicesRunner:
 
         self._batcher.register_method(
             model,
-            MethodKey(method_name, service_id, model_key),
+            MethodKey(MethodName.MODEL, method_name, service_id, model_key),
             method.batch_size,
             preprocess_fn=_pre_process_inputs,
             max_live_batches=method.max_live_batches,
@@ -1415,7 +1437,7 @@ class ModelServicesRunner:
     self._loaded_models.get_model(model_key).save(checkpoint_path)
 
   def _enqueue_terminate(self):
-    self._batcher.add_item(key=MethodKey(_TERMINATE_METHOD_KEY))
+    self._batcher.add_item(key=MethodKey(MethodName.TERMINATE))
 
   def _inform_secondary_hosts(self, *msgs: str, skip_host_sync=True) -> None:
     self._multihost_sync.send(self._encode_message(*msgs), skip_host_sync)
@@ -1446,7 +1468,7 @@ class ModelServicesRunner:
         if not pre_process_failure:
           logging.info('Processing final results.')
         try:
-          method_obj = model.method(batch.method.name)
+          method_obj = model.method(batch.method.model_method)
           utils.traceprint_all(
               batch.rpc_tasks, f'in _postprocess_async: {batch.method}'
           )
@@ -1483,7 +1505,7 @@ class ModelServicesRunner:
               )
             for out, task in zip(outputs, batch.rpc_tasks):
               self._model_services[batch.method.service_id].FillRPCResponse(
-                  batch.method.name, out, task.response
+                  batch.method.model_method, out, task.response
               )
               task.done(utils.ok(), query_cost=tpu_ms)
               done_rpcs += 1
@@ -1492,7 +1514,7 @@ class ModelServicesRunner:
             self._log_exception(
                 'Postprocessing error. model_key: %s, method: %s, error: %s',
                 batch.method.model_key,
-                batch.method.name,
+                batch.method.model_method,
                 e,
             )
             error_msg = f'Postprocessing error: {e}\n{traceback.format_exc()}'
@@ -1515,7 +1537,7 @@ class ModelServicesRunner:
       stream_state = None
       while not done:
         b = len(batch.rpc_tasks)
-        method_obj = model.method(batch.method.name)
+        method_obj = model.method(batch.method.model_method)
         host_tensors = method_obj.dequeue_stream_output()
         if host_tensors is None:
           # Done with streaming.
@@ -1545,7 +1567,7 @@ class ModelServicesRunner:
               # Use a new response each time.
               resp = copy.deepcopy(task.response)
               self._model_services[batch.method.service_id].FillRPCResponse(
-                  batch.method.name, out, resp
+                  batch.method.model_method, out, resp
               )
               task.done(utils.ok(), resp=resp, query_cost=query_cost)
               done_rpcs += 1
@@ -1553,7 +1575,7 @@ class ModelServicesRunner:
             self._log_exception(
                 'Postprocessing error. model_key: %s, method: %s, error: %s',
                 batch.method.model_key,
-                batch.method.name,
+                batch.method.model_method,
                 e,
             )
             error_msg = f'Postprocessing error: {e}\n{traceback.format_exc()}'
@@ -1569,207 +1591,214 @@ class ModelServicesRunner:
     """Main loop for processing batches."""
     while True:
       batch = self._batcher.get_batch()
-      if batch.method.name == _LOAD_METHOD_KEY:
-        with batch:
-          assert len(batch.rpc_tasks) == 1
-          task = batch.rpc_tasks[0]
-          request = typing.cast(modelet_pb2.LoadRequest, task.request)
-          assert batch.method.model_key is None
-          model_key = request.model_key
-          assert model_key
+      match batch.method.name:
+        case MethodName.LOAD:
+          with batch:
+            assert len(batch.rpc_tasks) == 1
+            task = batch.rpc_tasks[0]
+            request = typing.cast(modelet_pb2.LoadRequest, task.request)
+            assert batch.method.model_key is None
+            model_key = request.model_key
+            assert model_key
+            try:
+              # Generate a seed for the model and pass to secondary hosts.
+              prng_seed = self._generate_rng_seed()
+              self._inform_secondary_hosts(
+                  batch.method.name,
+                  model_key,
+                  request.model_path,
+                  request.checkpoint_path,
+                  json.dumps({k: v for k, v in request.overrides.items()}),
+                  str(prng_seed),
+              )
+              self._load_model(
+                  model_key,
+                  request.model_path,
+                  request.checkpoint_path,
+                  dict(request.acls.items),
+                  dict(request.overrides),
+                  prng_seed,
+              )
+              task.done(utils.ok())
+            except ValueError as e:
+              self._log_exception(
+                  (
+                      'Invalid load request. model_key: %s, model_path: %s,'
+                      ' error: %s'
+                  ),
+                  model_key,
+                  request.model_path,
+                  e,
+              )
+              task.done(utils.invalid_arg(f'{e}'))
+            except Exception as e:  # pylint: disable=broad-except
+              self._log_exception(
+                  (
+                      'Internal error during loading. model_key: %s,'
+                      ' model_path: %s, error: %s'
+                  ),
+                  model_key,
+                  request.model_path,
+                  e,
+              )
+              task.done(utils.internal_error(f'Loading error: {e}'))
+        case MethodName.UNLOAD:
+          with batch:
+            assert len(batch.rpc_tasks) == 1
+            task = batch.rpc_tasks[0]
+            request = typing.cast(modelet_pb2.UnloadRequest, task.request)
+            assert batch.method.model_key is None
+            model_key = request.model_key
+            try:
+              if not model_key:
+                raise ValueError('model_key is not specified.')
+              self._inform_secondary_hosts(batch.method.name, model_key)
+              self._loaded_models.unload(model_key)
+              task.done(utils.ok())
+            except ValueError as e:
+              logging.exception(
+                  'Invalid unload request. model_key %s, error: %s',
+                  model_key,
+                  e,
+              )
+              task.done(utils.invalid_arg(f'Unloading error: {e}'))
+            except Exception as e:  # pylint: disable=broad-except
+              self._log_exception(
+                  'Internal error during unloading. model_key: %s, error: %s',
+                  model_key,
+                  e,
+              )
+              task.done(utils.internal_error(f'Unloading error: {e}'))
+        case MethodName.EXPORT:
+          with batch:
+            assert len(batch.rpc_tasks) == 1
+            task = batch.rpc_tasks[0]
+            request = typing.cast(modelet_pb2.ExportRequest, task.request)
+            exporter = Exporter(self)
+            try:
+              export_args = exporter.parse_export_request(request)
+              # Starts a multi-host export job. Any exception must be from
+              # low-level software/hardware stack and or secondary workers not
+              # being informed. Thus we crash the server to avoid hanging if
+              # there is any exception.
+              try:
+                self._inform_secondary_hosts(batch.method.name, *export_args)
+                exporter.export_model(*export_args)
+              except Exception as e:  # pylint: disable=broad-except
+                self._worker_thread_exception = e
+                break
+              exporter.finalize_export(*export_args)
+              task.done(utils.ok())
+            except Exception as e:  # pylint: disable=broad-except
+              self._log_exception(
+                  (
+                      '%s during Exporting. model_key: %s, method_names %s,'
+                      ' export_path: %s, error: %s'
+                  ),
+                  type(e),
+                  request.model_key,
+                  request.method_names,
+                  request.export_path,
+                  e,
+              )
+              task.done(exporter.export_error_to_status(e))
+        case MethodName.SAVE:
+          with batch:
+            assert len(batch.rpc_tasks) == 1
+            task = batch.rpc_tasks[0]
+            request = typing.cast(modelet_pb2.SaveRequest, task.request)
+            try:
+              self._inform_secondary_hosts(
+                  batch.method.name, request.model_key, request.checkpoint_path
+              )
+              self._save_model(request.model_key, request.checkpoint_path)
+              task.done(utils.ok())
+            except ValueError as e:
+              self._log_exception(
+                  'Invalid save request. model_key %s, error: %s, ',
+                  request.model_key,
+                  e,
+              )
+              task.done(utils.invalid_arg(f'Save checkpoint error: {e}'))
+            except Exception as e:  # pylint: disable=broad-except
+              self._log_exception(
+                  (
+                      'Internal error during Saving checkpoint. model_key: %s, '
+                      'error: %s'
+                  ),
+                  request.model_key,
+                  e,
+              )
+              task.done(utils.internal_error(f'Saving checkpoint error: {e}'))
+        case MethodName.TERMINATE:
+          with batch:
+            assert batch.method.model_key is None
+            self._inform_secondary_hosts(batch.method.name)
+            break
+        case MethodName.KEEP_DEVICES_WARM:
+          with batch:
+            self._inform_secondary_hosts(batch.method.name)
+        case MethodName.MODEL:
+          # Model methods hosts are simply invoking a device program with
+          # pre-processed inputs, so we do not expect any known exception here.
+          # An exception must be from low-level software/hardware stack and we
+          # crash the job.
           try:
-            # Generate a seed for the model and pass to secondary hosts.
-            prng_seed = self._generate_rng_seed()
             self._inform_secondary_hosts(
                 batch.method.name,
-                model_key,
-                request.model_path,
-                request.checkpoint_path,
-                json.dumps({k: v for k, v in request.overrides.items()}),
-                str(prng_seed),
+                batch.method.model_key,
+                batch.method.model_method,
+                str(batch.unpadded_shape),
+                skip_host_sync=batch.skip_host_sync,
             )
-            self._load_model(
-                model_key,
-                request.model_path,
-                request.checkpoint_path,
-                dict(request.acls.items),
-                dict(request.overrides),
-                prng_seed,
+            model = self._loaded_models.get_model(batch.method.model_key)
+            batch.wait_for_ready()
+            utils.traceprint_all(
+                batch.rpc_tasks, f'Before device compute {batch.method}'
             )
-            task.done(utils.ok())
-          except ValueError as e:
-            self._log_exception(
-                (
-                    'Invalid load request. model_key: %s, model_path: %s,'
-                    ' error: %s'
-                ),
-                model_key,
-                request.model_path,
-                e,
-            )
-            task.done(utils.invalid_arg(f'{e}'))
-          except Exception as e:  # pylint: disable=broad-except
-            self._log_exception(
-                (
-                    'Internal error during loading. model_key: %s, model_path:'
-                    ' %s, error: %s'
-                ),
-                model_key,
-                request.model_path,
-                e,
-            )
-            task.done(utils.internal_error(f'Loading error: {e}'))
-      elif batch.method.name == _UNLOAD_METHOD_KEY:
-        with batch:
-          assert len(batch.rpc_tasks) == 1
-          task = batch.rpc_tasks[0]
-          request = typing.cast(modelet_pb2.UnloadRequest, task.request)
-          assert batch.method.model_key is None
-          model_key = request.model_key
-          try:
-            if not model_key:
-              raise ValueError('model_key is not specified.')
-            self._inform_secondary_hosts(batch.method.name, model_key)
-            self._loaded_models.unload(model_key)
-            task.done(utils.ok())
-          except ValueError as e:
-            logging.exception(
-                'Invalid unload request. model_key %s, error: %s', model_key, e
-            )
-            task.done(utils.invalid_arg(f'Unloading error: {e}'))
-          except Exception as e:  # pylint: disable=broad-except
-            self._log_exception(
-                'Internal error during unloading. model_key: %s, error: %s',
-                model_key,
-                e,
-            )
-            task.done(utils.internal_error(f'Unloading error: {e}'))
-      elif batch.method.name == _EXPORT_METHOD_KEY:
-        with batch:
-          assert len(batch.rpc_tasks) == 1
-          task = batch.rpc_tasks[0]
-          request = typing.cast(modelet_pb2.ExportRequest, task.request)
-          exporter = Exporter(self)
-          try:
-            export_args = exporter.parse_export_request(request)
-            # Starts a multi-host export job. Any exception must be from
-            # low-level software/hardware stack and or secondary workers not
-            # being informed. Thus we crash the server to avoid hanging if
-            # there is any exception.
-            try:
-              self._inform_secondary_hosts(batch.method.name, *export_args)
-              exporter.export_model(*export_args)
-            except Exception as e:  # pylint: disable=broad-except
-              self._worker_thread_exception = e
-              break
-            exporter.finalize_export(*export_args)
-            task.done(utils.ok())
-          except Exception as e:  # pylint: disable=broad-except
-            self._log_exception(
-                (
-                    '%s during Exporting. model_key: %s, method_names %s,'
-                    ' export_path: %s, error: %s'
-                ),
-                type(e),
-                request.model_key,
-                request.method_names,
-                request.export_path,
-                e,
-            )
-            task.done(exporter.export_error_to_status(e))
-      elif batch.method.name == _SAVE_MODEL_KEY:
-        with batch:
-          assert len(batch.rpc_tasks) == 1
-          task = batch.rpc_tasks[0]
-          request = typing.cast(modelet_pb2.SaveRequest, task.request)
-          try:
-            self._inform_secondary_hosts(
-                batch.method.name, request.model_key, request.checkpoint_path
-            )
-            self._save_model(request.model_key, request.checkpoint_path)
-            task.done(utils.ok())
-          except ValueError as e:
-            self._log_exception(
-                'Invalid save request. model_key %s, error: %s, ',
-                request.model_key,
-                e,
-            )
-            task.done(utils.invalid_arg(f'Save checkpoint error: {e}'))
-          except Exception as e:  # pylint: disable=broad-except
-            self._log_exception(
-                (
-                    'Internal error during Saving checkpoint. model_key: %s, '
-                    'error: %s'
-                ),
-                request.model_key,
-                e,
-            )
-            task.done(utils.internal_error(f'Saving checkpoint error: {e}'))
-      elif batch.method.name == _TERMINATE_METHOD_KEY:
-        with batch:
-          assert batch.method.model_key is None
-          self._inform_secondary_hosts(batch.method.name)
-          break
-      elif batch.method.name == _KEEP_DEVICES_WARM_METHOD_KEY:
-        with batch:
-          self._inform_secondary_hosts(batch.method.name)
-      else:
-        # Model methods hosts are simply invoking a device program with
-        # pre-processed inputs, so we do not expect any known exception here.
-        # An exception must be from low-level software/hardware stack and we
-        # crash the job.
-        try:
-          self._inform_secondary_hosts(
-              batch.method.name,
-              batch.method.model_key,
-              str(batch.unpadded_shape),
-              skip_host_sync=batch.skip_host_sync,
-          )
-          model = self._loaded_models.get_model(batch.method.model_key)
-          batch.wait_for_ready()
-          utils.traceprint_all(
-              batch.rpc_tasks, f'Before device compute {batch.method}'
-          )
-          method_obj = model.method(batch.method.name)
+            method_obj = model.method(batch.method.model_method)
 
-          streaming_done = None
-          if batch.input_tensors is None:
-            # Failed preprosessing. Since we have already informed secondary
-            # hosts, we need to compute on tensors.
-            if self._spmd_backend.spmd_host_count() > 1:
-              # JAX dispatches device_compute synchronously to XLA:GPU. Hence
-              # _postprocess_stream_async must start before device_compute,
-              # otherwise device_compute may block the consumption of streaming
-              # queue until it finishes.
+            streaming_done = None
+            if batch.input_tensors is None:
+              # Failed preprosessing. Since we have already informed secondary
+              # hosts, we need to compute on tensors.
+              if self._spmd_backend.spmd_host_count() > 1:
+                # JAX dispatches device_compute synchronously to XLA:GPU. Hence
+                # _postprocess_stream_async must start before device_compute,
+                # otherwise device_compute may block the consumption of
+                # streaming queue until it finishes.
+                if method_obj.streamable_output:
+                  streaming_done = utils.Notification()
+                  self._postprocess_stream_async(model, batch, streaming_done)
+                result = method_obj.device_compute_with_dummy_data(
+                    batch.unpadded_shape
+                )
+              else:
+                result = None
+            else:
               if method_obj.streamable_output:
                 streaming_done = utils.Notification()
                 self._postprocess_stream_async(model, batch, streaming_done)
-              result = method_obj.device_compute_with_dummy_data(
-                  batch.unpadded_shape
+              result = method_obj.device_compute(
+                  input_batch=batch.input_tensors,
+                  unpadded_shape=batch.unpadded_shape,
               )
-            else:
-              result = None
-          else:
-            if method_obj.streamable_output:
-              streaming_done = utils.Notification()
-              self._postprocess_stream_async(model, batch, streaming_done)
-            result = method_obj.device_compute(
-                input_batch=batch.input_tensors,
-                unpadded_shape=batch.unpadded_shape,
+            utils.traceprint_all(
+                batch.rpc_tasks, f'After device compute {batch.method}'
             )
-          utils.traceprint_all(
-              batch.rpc_tasks, f'After device compute {batch.method}'
-          )
 
-          if result is None:
+            if result is None:
+              batch.finish()
+            else:
+              self._postprocess_async(model, batch, result, streaming_done)
+              del result
+          except Exception as e:  # pylint: disable=broad-except
+            self._worker_thread_exception = e
             batch.finish()
-          else:
-            self._postprocess_async(model, batch, result, streaming_done)
-            del result
-        except Exception as e:  # pylint: disable=broad-except
-          self._worker_thread_exception = e
+            break
+        case _:
           batch.finish()
-          break
+          self._log_exception('Unknown method: %s', batch.method.name)
 
   def _run_secondary_worker_loop(self):
     """Runs the processing loop in secondary hosts in a multi-host setup."""
@@ -1777,77 +1806,82 @@ class ModelServicesRunner:
       sync_output = self._multihost_sync.receive()
       msgs = self._decode_message(sync_output)
       method = msgs.pop(0)
-      if method == _LOAD_METHOD_KEY:
-        model_key, model_path, ckpt_path, overrides_json, prng_seed = msgs
-        overrides = json.loads(overrides_json)
-        logging.info('Received load: %s', model_key)
-        try:
-          prng_seed = int(prng_seed)
-          if not self._loaded_models.contains(model_key):
-            self._loaded_models.load(
-                model_key,
-                model_path,
-                ckpt_path,
-                {},  # Empty ACLs because only the primary worker needs it.
-                overrides,
-                prng_seed,
+      match method:
+        case MethodName.LOAD:
+          model_key, model_path, ckpt_path, overrides_json, prng_seed = msgs
+          overrides = json.loads(overrides_json)
+          logging.info('Received load: %s', model_key)
+          try:
+            prng_seed = int(prng_seed)
+            if not self._loaded_models.contains(model_key):
+              self._loaded_models.load(
+                  model_key,
+                  model_path,
+                  ckpt_path,
+                  {},  # Empty ACLs because only the primary worker needs it.
+                  overrides,
+                  prng_seed,
+              )
+          except Exception as e:  # pylint: disable=broad-except
+            self._log_exception(
+                'Error occurred during loading: %s, error: %s', model_key, e
             )
-        except Exception as e:  # pylint: disable=broad-except
-          self._log_exception(
-              'Error occurred during loading: %s, error: %s', model_key, e
-          )
-      elif method == _UNLOAD_METHOD_KEY:
-        model_key = msgs[0]
-        logging.info('Received unload: %s', model_key)
-        try:
-          self._loaded_models.unload(model_key)
-        except Exception as e:  # pylint: disable=broad-except
-          self._log_exception(
-              'Error occurred during unloading: %s, error: %s', model_key, e
-          )
-      elif method == _TERMINATE_METHOD_KEY:
-        logging.info('Received terminate')
-        break
-      elif method == _KEEP_DEVICES_WARM_METHOD_KEY:
-        continue
-      elif method == _SAVE_MODEL_KEY:
-        model_key, ckpt_path = msgs
-        logging.info('Received save: %s', model_key)
-        try:
-          self._save_model(model_key, ckpt_path)
-        except Exception as e:  # pylint: disable=broad-except
-          self._log_exception(
-              'Error occurred during save: %s, error: %s', model_key, e
-          )
-      elif method == _EXPORT_METHOD_KEY:
-        # Starts a multi-host export job. Any exception must be from low-level
-        # software/hardware stack. Thus we crash the server to avoid hanging if
-        # there is any exception.
-        exporter = Exporter(self)
-        try:
-          exporter.export_model(*msgs)
-        except Exception as e:  # pylint: disable=broad-except
-          self._worker_thread_exception = e
+        case MethodName.UNLOAD:
+          model_key = msgs[0]
+          logging.info('Received unload: %s', model_key)
+          try:
+            self._loaded_models.unload(model_key)
+          except Exception as e:  # pylint: disable=broad-except
+            self._log_exception(
+                'Error occurred during unloading: %s, error: %s', model_key, e
+            )
+        case MethodName.TERMINATE:
+          logging.info('Received terminate')
           break
-      else:
-        # Model methods at secondary hosts are simply invoking a device program
-        # with pre-defined dummy inputs, so we do not expect any known exception
-        # here. An exception must be from low-level software/hardware stack and
-        # we crash the job.
-        try:
-          model_key = msgs.pop(0)
-          unpadded_shape_str = msgs.pop(0)
-          logging.info(
-              'Received model_key %s method %s, unpadded_shape %s',
-              model_key,
-              method,
-              unpadded_shape_str,
-          )
-          method_obj = self._loaded_models.get_model(model_key).method(method)
-          unpadded_shape = method_obj.deserialize_input_shape(
-              unpadded_shape_str
-          )
-          method_obj.device_compute_with_dummy_data(unpadded_shape)
-        except Exception as e:  # pylint: disable=broad-except
-          self._worker_thread_exception = e
-          break
+        case MethodName.KEEP_DEVICES_WARM:
+          logging.info('Received keep devices warm')
+          continue
+        case MethodName.SAVE:
+          model_key, ckpt_path = msgs
+          logging.info('Received save: %s', model_key)
+          try:
+            self._save_model(model_key, ckpt_path)
+          except Exception as e:  # pylint: disable=broad-except
+            self._log_exception(
+                'Error occurred during save: %s, error: %s', model_key, e
+            )
+        case MethodName.EXPORT:
+          # Starts a multi-host export job. Any exception must be from low-level
+          # software/hardware stack. Thus we crash the server to avoid hanging
+          # if there is any exception.
+          exporter = Exporter(self)
+          try:
+            exporter.export_model(*msgs)
+          except Exception as e:  # pylint: disable=broad-except
+            self._worker_thread_exception = e
+            break
+        case MethodName.MODEL:
+          # Model methods at secondary hosts are simply invoking a device
+          # program with pre-defined dummy inputs, so we do not expect any known
+          # exception here. An exception must be from low-level
+          # software/hardware stack and we crash the job.
+          try:
+            model_key, model_method, unpadded_shape_str = msgs
+            logging.info(
+                'Received model_key %s method %s, unpadded_shape %s',
+                model_key,
+                model_method,
+                unpadded_shape_str,
+            )
+            method_obj = self._loaded_models.get_model(model_key).method(
+                model_method
+            )
+            unpadded_shape = method_obj.deserialize_input_shape(
+                unpadded_shape_str
+            )
+            method_obj.device_compute_with_dummy_data(unpadded_shape)
+          except Exception as e:  # pylint: disable=broad-except
+            self._worker_thread_exception = e
+            break
+        case _:
+          self._log_exception('Unknown method: %s, msgs: %s', method, msgs)

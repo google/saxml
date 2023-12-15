@@ -24,6 +24,19 @@ from saxml.server import model_service_base
 from saxml.server import utils
 
 
+class MethodKeyTest(absltest.TestCase):
+
+  def test_method_key_name(self):
+    key = model_service_base.MethodKey(model_service_base.MethodName.LOAD)
+    self.assertEqual(key.method_name(), 'load')
+
+    key = model_service_base.MethodKey(
+        model_service_base.MethodName.MODEL,
+        'method',
+    )
+    self.assertEqual(key.method_name(), 'method')
+
+
 class GetStatusTest(absltest.TestCase):
 
   def setUp(self):
@@ -49,7 +62,12 @@ class GetStatusTest(absltest.TestCase):
     )
     mock_batcher.get_method_stats.return_value = [
         (
-            model_service_base.MethodKey('method', 'service', '/sax/foo/bar'),
+            model_service_base.MethodKey(
+                model_service_base.MethodName.MODEL,
+                'method',
+                'service',
+                '/sax/foo/bar',
+            ),
             utils.RequestStats.Stats(
                 timespan_sec=8,
                 total=100,

@@ -216,7 +216,7 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
       admin_port=_ADMIN_PORT.value,
       platform_chip=_PLATFORM_CHIP.value,
       platform_topology=_PLATFORM_TOPOLOGY.value,
-      spmd_backend=spmd_bknd,
+      backend=spmd_bknd,
   )
   # Start jax.profiler for TensorBoard and profiling in open source.
   if _JAX_PROFILER_PORT.value:
