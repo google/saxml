@@ -270,6 +270,12 @@ py_proto_library(
     deps = [":lm_proto"],
 )
 
+cc_grpc_library(
+    name = "lm_cc_grpc",
+    srcs = [":lm_proto"],
+    deps = [":lm_cc_proto"],
+)
+
 py_grpc_library(
     name = "lm_py_pb2_grpc",
     srcs = [":lm_proto"],
