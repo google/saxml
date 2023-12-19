@@ -60,7 +60,7 @@ func (*CreateCmd) Synopsis() string { return "Create a Sax cell." }
 
 // Usage returns the full usage of CreateCmd.
 func (*CreateCmd) Usage() string {
-	return `create <cell name> <file system path> [admin ACL string]:
+	return `create <cell name> <file system path> <admin ACL string>:
 	Create a Sax cell and initialize its state.
 `
 }
