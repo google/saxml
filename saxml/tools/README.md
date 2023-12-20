@@ -44,7 +44,7 @@ pip install --upgrade --force-reinstall protobuf tensorflow lingvo
 Then run the quantization tool
 
 ```
-python saxml/saxml/tools/offline_quantize.py --input_dir path/to/input/checkpoint/checkpoint_00000000/state --output_dir path/to/output/checkpoint/checkpoint_00000000/state --quantization_configs "mha"
+python saxml/saxml/tools/offline_quantize.py --input_dir path/to/input/checkpoint/checkpoint_00000000/state --output_dir path/to/output/checkpoint/checkpoint_00000000/state --quantization_configs "gptj"
 ```
 
 This only generates files in `path/to/output/checkpoint/checkpoint_00000000/state`.
