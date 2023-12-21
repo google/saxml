@@ -1162,7 +1162,7 @@ func go_vm_video_to_text(ptr C.long, timeout C.float, imageFramesData **C.char,
 }
 
 //export go_custom
-func go_custom(ptr C.long, requestData unsafe.Pointer, requestSize C.int, methodNameData *C.char, methodNameSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+func go_custom(ptr C.long, timeout C.float, requestData unsafe.Pointer, requestSize C.int, methodNameData *C.char, methodNameSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
 	custom := rcgo.Handle(ptr).Value().(*sax.CustomModel)
 	if custom == nil {
 		// This is not expected.
@@ -1176,9 +1176,14 @@ func go_custom(ptr C.long, requestData unsafe.Pointer, requestSize C.int, method
 		return
 	}
 
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
 	request := C.GoBytes(requestData, requestSize)
 	methodName := C.GoStringN(methodNameData, methodNameSize)
-	res, err := custom.Custom(context.Background(), request, methodName, protoOptionToSetter(options)...)
+	res, err := custom.Custom(ctx, request, methodName, protoOptionToSetter(options)...)
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return

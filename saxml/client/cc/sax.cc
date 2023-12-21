@@ -195,7 +195,8 @@ absl::Status CustomModel::Custom(const ModelOptions& options,
   int outputSize = 0;
   char* errMsgStr = nullptr;
   int errCode = 0;
-  go_custom(model_handle_, const_cast<char*>(request.data()), request.size(),
+  go_custom(model_handle_, options.GetTimeout(),
+            const_cast<char*>(request.data()), request.size(),
             const_cast<char*>(method_name.data()), method_name.size(),
             const_cast<char*>(extraStr.data()), extraStr.size(), &outputStr,
             &outputSize, &errMsgStr, &errCode);
