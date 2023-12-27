@@ -716,6 +716,7 @@ class LMDecodeMethod(ServableLMMethod):
             base_layer.NON_TRAINABLE,
             base_layer.DECODE_CACHE,
             base_layer.PREFIX_DECODE_CACHE,
+            base_layer.INTERMEDIATES,
         ],
         rngs={
             base_layer.PARAMS: k1,
