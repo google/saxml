@@ -59,6 +59,7 @@ func (*GenerateCmd) Usage() string {
 	* Support streaming through -stream.
 	* Set maximum number of outputs with -n (not compatible with -stream).
 	* Output only generated text(s) with -terse (non-tabular).
+    * If <Query> is '-', reads the query from the stdin.
 
 Usage: saxutil lm.generate [-n=<N>] [-stream] [-terse] [-extra=<extra>] <ModelID> <Query>
 `
@@ -171,6 +172,11 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		return subcommands.ExitFailure
 	}
 
+	query := f.Args()[1]
+	if query == "-" {
+		query = string(readStdin())
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
@@ -184,11 +190,11 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 			log.Error("Max outputs (-n) incompatible with streaming (-stream).")
 			return subcommands.ExitFailure
 		}
-		return c.streamingGenerate(ctx, f.Args()[1], lm)
+		return c.streamingGenerate(ctx, query, lm)
 	}
 
 	// Non-streaming generate.
-	generates, err := lm.Generate(ctx, f.Args()[1], ExtraInputs(c.extra)...)
+	generates, err := lm.Generate(ctx, query, ExtraInputs(c.extra)...)
 	if err != nil {
 		log.Errorf("Failed to generate query: %v", err)
 		return subcommands.ExitFailure

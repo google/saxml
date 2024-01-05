@@ -17,6 +17,7 @@ package saxcommand
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -40,10 +41,12 @@ func writesImagesToDir(images []sax.GeneratedImage, outputDir string, imagePath 
 }
 
 func readStdin() []byte {
-	// No need to use bufio.
-	var content string
-	fmt.Scanf("%s", &content)
-	return []byte(content)
+	stdin, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		log.Errorf("Failed to read stdin %v", err)
+		return nil
+	}
+	return stdin
 }
 
 func readFile(path string) []byte {
