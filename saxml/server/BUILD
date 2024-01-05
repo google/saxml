@@ -19,7 +19,12 @@ licenses(["notice"])
 # listing your team. Your model params and implementation should be in
 # that directory. If the above suggestion is not actionable for you,
 # please schedule a meeting talking to zhifengc@.
-package_group(name = "friends")
+package_group(
+    name = "friends",
+    packages = [
+        "//waymo/research/...",  # //waymo/... is siloed.
+    ],
+)
 
 bzl_library(
     name = "build_defs_bzl",
