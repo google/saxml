@@ -410,17 +410,17 @@ func (c *PublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) 
 
 	overrides := make(map[string]string)
 	for _, item := range f.Args()[4:] {
-		parts := strings.Split(item, "=")
-		if len(parts) != 2 {
+		key, val, found := strings.Cut(item, "=")
+		if !found {
 			log.Errorf("Overrides should be of the form key=val")
 			return subcommands.ExitUsageError
 		}
 		var parsedValue any
-		if err := json.Unmarshal([]byte(parts[1]), &parsedValue); err != nil {
+		if err := json.Unmarshal([]byte(val), &parsedValue); err != nil {
 			log.Errorf("Override value is not a valid JSON: %v", err)
 			return subcommands.ExitUsageError
 		}
-		overrides[parts[0]] = parts[1]
+		overrides[key] = val
 	}
 
 	admin := saxadmin.Open(modelID.CellFullName())
