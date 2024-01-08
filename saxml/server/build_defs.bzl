@@ -22,7 +22,8 @@ def create_binary(
         extra_deps = None,
         name = "",
         main = "",
-        tags = []):
+        tags = [],
+        **kwargs):
     """Macro to define a binary with selected imports.
 
     Args:
@@ -56,6 +57,7 @@ def create_binary(
         # Unused internal paropts
         # Unused internal exec_properties
         tags = tags,
+        **kwargs
     )
 
 def create_server_binary(
