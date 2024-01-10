@@ -28,7 +28,7 @@ pytype_strict_library(
     name = "branch_selection",
     srcs = ["branch_selection.py"],
     srcs_version = "PY3",
-    visibility = ["//saxml:internal"],
+    visibility = ["//visibility:public"],
     deps = [
         "//third_party/py/numpy",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
