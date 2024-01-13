@@ -147,7 +147,7 @@ def setup_jax(
 
   # Initializing cache
   if _JAX_CACHE_DIR.value is not None:
-    compilation_cache.initialize_cache(_JAX_CACHE_DIR.value)
+    compilation_cache.set_cache_dir(_JAX_CACHE_DIR.value)
 
   # Log tracing and compilation time.
   jax.config.update('jax_log_compiles', True)
