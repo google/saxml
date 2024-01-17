@@ -64,6 +64,10 @@ PYBIND11_MODULE(sax, m) {
         ::sax::ExtraInputs extra_inputs;
         mo.ToProto(&extra_inputs);
         return extra_inputs.DebugString();
+      }).def("ToProto", [](sax::client::ModelOptions& mo) {
+        ::sax::ExtraInputs extra_inputs;
+        mo.ToProto(&extra_inputs);
+        return extra_inputs;
       });
 
   py::class_<sax::client::pybind::AudioModel>(m, "AudioModel")
