@@ -29,7 +29,6 @@ pytype_strict_library(
     visibility = [
         "//saxml:internal",
         "//saxml/server:friends",
-        "//wireless/android/apps/pixel/agent/colab:colab_group",
     ],
     deps = [
         ":vocabularies",

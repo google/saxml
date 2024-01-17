@@ -1,6 +1,6 @@
 # Protobuf definitions for Sax.
 
-# unused internal Kotlin Protobuf load
+load("//third_party/protobuf/build_defs:kt_jvm_proto_library.bzl", "kt_jvm_proto_library")
 load(
     "//saxml:saxml.bzl",
     "cc_grpc_library",
@@ -13,8 +13,8 @@ load(
     "py_proto_library",
     "rpc_endpoint_interface",
 )
-# unused internal JS Protobuf load
-# unused internal Kotlin gRPC load
+load("//tools/build_defs/js/jspb_proto_library:rules.bzl", "jspb_proto_library")
+load("//tools/build_defs/kotlin:rules.bzl", "kt_jvm_grpc_library")
 
 package(
     default_visibility = ["//saxml:internal"],
@@ -25,7 +25,10 @@ package_group(
     includes = [
         "//saxml:internal",
     ],
-    packages = ["//research/bigpicture/llm_api_use/sax/..."],
+    packages = [
+        "//research/bigpicture/llm_api_use/sax/...",
+        "//vr/multimodal/...",
+    ],
 )
 
 proto_library(
@@ -251,7 +254,9 @@ rpc_endpoint_interface(
 
 cc_proto_library(
     name = "lm_cc_proto",
-    visibility = ["//saxml:internal"],
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [":lm_proto"],
 )
 
@@ -295,6 +300,19 @@ go_grpc_library(
     srcs = [":lm_proto"],
     extra_deps = [":common_go_proto"],
     deps = [":lm_go_proto"],
+)
+
+kt_jvm_proto_library(
+    name = "lm_kt_proto",
+    visibility = ["//java/com/google/wireless/android/devtools/studio/ml/eval/auto:__subpackages__"],
+    deps = [":lm_proto"],
+)
+
+kt_jvm_grpc_library(
+    name = "lm_kt_proto_grpc",
+    srcs = [":lm_proto"],
+    visibility = ["//java/com/google/wireless/android/devtools/studio/ml/eval/auto:__subpackages__"],
+    deps = [":lm_kt_proto"],
 )
 
 proto_library(
@@ -463,6 +481,18 @@ go_grpc_library(
     srcs = [":multimodal_proto"],
     extra_deps = [":common_go_proto"],
     deps = [":multimodal_go_proto"],
+)
+
+kt_jvm_proto_library(
+    name = "multimodal_kt_proto",
+    visibility = ["//visibility:public"],
+    deps = [":multimodal_proto"],
+)
+
+jspb_proto_library(
+    name = "multimodal_jspb_proto",
+    visibility = ["//visibility:public"],
+    deps = [":multimodal_proto"],
 )
 
 proto_library(
