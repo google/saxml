@@ -140,7 +140,7 @@ filelock==3.12.2
     #   transformers
 flatbuffers==1.12
     # via tensorflow
-flax==0.7.2
+flax @ git+https://github.com/google/flax
     # via
     #   clu
     #   paxml
@@ -223,6 +223,7 @@ jax[cuda,tpu] @ git+https://github.com/google/jax
     #   chex
     #   clu
     #   flax
+    #   jax
     #   optax
     #   orbax-checkpoint
     #   orbax-export
@@ -232,7 +233,7 @@ jax[cuda,tpu] @ git+https://github.com/google/jax
     #   seqio-nightly
 jax-bitempered-loss==0.0.2
     # via praxis
-jaxlib==0.4.14+cuda11.cudnn86
+jaxlib==0.4.23+cuda11.cudnn86
     # via
     #   chex
     #   clu
@@ -324,7 +325,7 @@ libclang==16.0.6
     # via tensorflow
 libcst==1.0.1
     # via fiddle
-libtpu-nightly==0.1.dev20230727
+libtpu-nightly==0.1.dev20231213
     # via jax
 lingvo==0.12.7
     # via
@@ -352,7 +353,9 @@ matplotlib-inline==0.1.6
 mdurl==0.1.2
     # via markdown-it-py
 mesh-tensorflow[transformer]==0.1.21
-    # via t5
+    # via
+    #   mesh-tensorflow
+    #   t5
 mistune==3.0.1
     # via nbconvert
 ml-collections==0.1.1
@@ -390,7 +393,7 @@ nltk==3.8.1
     # via
     #   rouge-score
     #   t5
-notebook==7.0.2
+notebook==7.0.7
     # via
     #   jupyter
     #   jupyter-http-over-ws
@@ -439,6 +442,7 @@ oauthlib==3.2.2
 opt-einsum==3.3.0
     # via
     #   jax
+    #   praxis
     #   tensorflow
 optax==0.1.7
     # via
@@ -508,7 +512,7 @@ prompt-toolkit==3.0.39
     # via
     #   ipython
     #   jupyter-console
-protobuf==3.20.3
+protobuf==3.19.6
     # via
     #   googleapis-common-protos
     #   grpcio-reflection
@@ -792,7 +796,9 @@ traitlets==5.9.0
     #   nbformat
     #   qtconsole
 transformers==4.32.0
-    # via t5
+    # via
+    #   -r requirements.in
+    #   t5
 typeguard==4.1.2
     # via
     #   jaxtyping
