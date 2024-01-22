@@ -1244,7 +1244,12 @@ class LMGradientMethod(ServableLMMethod):
         # for fetch_output to mask out paddings.
         scores=LMScoreMethod.fetch_output(
             self, [per_example_output], model_fn_inputs
-        )
+        ),
+        # Pad total_loss with 0s to the shape (batch_size,)
+        total_loss=jnp.array(
+            [metrics['total_loss'][0]]
+            + [0.0] * (model_fn_inputs['ids'].shape[0] - 1)
+        ),
     )
 
     for grads_type, grads_dict in metrics['gradients'].items():
