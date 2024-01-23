@@ -1,0 +1,139 @@
+# Copyright 2023 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Defines target platform, tpu or cuda.
+ARG JAX_PLATFORMS=tpu
+
+# Use the latest Ubuntu 22.04 version in Docker Hub for TPU.
+ARG BASE_CONTAINER_TPU=ubuntu:22.04
+
+# Use CUDA 11 Ubuntu container for GPU/CUDA.
+ARG BASE_CONTAINER_CUDA=nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+ARG SAX_BUILD_IMAGE=sax-dev
+
+FROM ${SAX_BUILD_IMAGE} as build_image
+
+# Add build target to build self-contained model server binary.
+RUN echo 'filegroup(\n\
+    name = "server_zip",\n\
+    srcs = [":server"],\n\
+    output_group = "python_zip_file",\n\
+)\n' >> /saxml/saxml/server/BUILD && \
+    bazel build saxml/server:server_zip
+
+# Package the model server binary.
+RUN mkdir /model-server-bin && \
+    unzip /saxml/bazel-bin/saxml/server/server.zip && \
+    mv runfiles /model-server-bin/server.runfiles && \
+    mv /saxml/bazel-bin/saxml/server/server /model-server-bin && \
+    mv /saxml/bazel-bin/saxml/server/server.runfiles_manifest /model-server-bin
+
+# To make sure load the pip installed package first during runtime.
+# Without this, the local jax lib (saxml/server/jax) will be loaded as JAX.
+RUN sed -i '1s/^/sys.path.append(sys.path.pop(0))\n/' \
+    /model-server-bin/server.runfiles/__main__/saxml/server/server.py && \
+    sed -i '1s/^/import sys\n/' \
+    /model-server-bin/server.runfiles/__main__/saxml/server/server.py
+
+#RUN echo '\n\nfilegroup(\n\
+#    name = "launcher_zip",\n\
+#    srcs = [":launcher"],\n\
+#    output_group = "python_zip_file",\n\
+#)\n' >> /saxml/saxml/vertex/BUILD  && cat /saxml/saxml/vertex/BUILD && bazel build saxml/vertex:launcher_zip
+
+# Package the vertex launcher binary.
+RUN bazel build saxml/vertex:launcher_zip
+
+RUN mkdir /vertex-launcher-bin
+RUN unzip /saxml/bazel-bin/saxml/vertex/launcher.zip -d /vertex-launcher-bin
+RUN mv /vertex-launcher-bin/runfiles /vertex-launcher-bin/launcher.runfiles
+RUN mv /saxml/bazel-bin/saxml/vertex/launcher /vertex-launcher-bin
+RUN mv /saxml/bazel-bin/saxml/vertex/launcher.runfiles_manifest /vertex-launcher-bin
+RUN ls /vertex-launcher-bin
+
+#RUN mv runfiles /vertex-launcher-bin/launcher.runfiles
+#RUN mv /saxml/bazel-bin/saxml/vertex/launcher /vertex-launcher-bin
+#RUN mv /saxml/bazel-bin/saxml/vertex/launcher.runfiles_manifest /vertex-launcher-bin
+
+
+#RUN mkdir /vertex-launcher-bin && \
+#    unzip /saxml/bazel-bin/saxml/vertex/launcher.zip && \
+#    mv runfiles /vertex-launcher-bin/launcher.runfiles && \
+#    mv /saxml/bazel-bin/saxml/vertex/launcher /vertex-launcher-bin && \
+#    mv /saxml/bazel-bin/saxml/vertex/launcher.runfiles_manifest /vertex-launcher-bin
+
+# To make sure load the pip installed package first during runtime.
+# Without this, the local jax lib (saxml/server/jax) will be loaded as JAX.
+RUN sed -i '1s/^/sys.path.append(sys.path.pop(0))\n/' \
+    /vertex-launcher-bin/launcher.runfiles/__main__/saxml/vertex/launcher.py && \
+    sed -i '1s/^/import sys\n/' \
+    /vertex-launcher-bin/launcher.runfiles/__main__/saxml/vertex/launcher.py
+
+# Build Vertex GPU/CUDA image.
+FROM ${BASE_CONTAINER_CUDA} as base_image_cuda
+
+ENV JAX_PLATFORMS=cuda
+
+# Update CUDA signing key
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
+
+RUN set -e
+
+RUN apt -y update && apt install -y --no-install-recommends \
+    cuda-toolkit-11-8
+
+
+# Build Vertex TPU image.
+FROM ${BASE_CONTAINER_TPU} as base_image_tpu
+
+ENV JAX_PLATFORMS=tpu
+
+RUN set -e
+
+RUN apt -y update
+
+
+FROM base_image_${JAX_PLATFORMS}
+
+RUN apt install -y --no-install-recommends \
+    ca-certificates \
+    python3.10
+
+RUN update-alternatives --install \
+    /usr/bin/python3 python3 /usr/bin/python3.10 1
+
+COPY --from=build_image \
+    /model-server-bin/ \
+    /usr/bin
+
+COPY --from=build_image \
+    /vertex-launcher-bin/ \
+    /usr/bin
+
+COPY --from=build_image \
+    /saxml/bazel-bin/saxml/bin/admin_server_/admin_server \
+    /usr/bin/admin_server
+
+COPY --from=build_image \
+    /saxml/bazel-bin/saxml/bin/admin_config_/admin_config \
+    /usr/bin/admin_config
+
+ENV SAX_ROOT=/tmp/sax-test-root/
+
+ENTRYPOINT ["launcher", \
+  "--alsologtostderr", \
+  "--sax_serving_binary_path=/usr/bin/server", \
+  "--sax_admin_config_binary_path=/usr/bin/admin_config"]

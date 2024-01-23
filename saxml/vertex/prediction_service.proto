@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package sax.server.vertex;
+
+import "saxml/protobuf/common.proto";
+import "third_party/py/saxml/protobuf/lm.proto";
+
+message PredictRequest {
+  string text = 1;
+  optional .sax.ExtraInputs extra_inputs = 2;
+}
+
+service PredictionService {
+  // Returns a stream of generated texts using the predict
+  rpc PredictStreamed(PredictRequest)
+      returns (stream.sax.server.lm.GenerateStreamResponse);
+}
