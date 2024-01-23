@@ -114,6 +114,7 @@ message ModelServer {
     CHIP_TYPE_GPU_T4 = 13;
     CHIP_TYPE_GPU_A100 = 11;
     CHIP_TYPE_GPU_H100 = 14;
+    CHIP_TYPE_GPU_L4 = 16;
     CHIP_TYPE_CPU = 12;
   }
   ChipType chip_type = 1;

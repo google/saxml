@@ -33,6 +33,7 @@ def to_chip_type(chip: Optional[str]) -> admin_pb2.ModelServer.ChipType:
       'p100': admin_pb2.ModelServer.ChipType.CHIP_TYPE_GPU_P100,
       'v100': admin_pb2.ModelServer.ChipType.CHIP_TYPE_GPU_V100,
       't4': admin_pb2.ModelServer.ChipType.CHIP_TYPE_GPU_T4,
+      'l4': admin_pb2.ModelServer.ChipType.CHIP_TYPE_GPU_L4,
       'a100': admin_pb2.ModelServer.ChipType.CHIP_TYPE_GPU_A100,
       'cpu': admin_pb2.ModelServer.ChipType.CHIP_TYPE_CPU,
       'h100': admin_pb2.ModelServer.ChipType.CHIP_TYPE_GPU_H100,
