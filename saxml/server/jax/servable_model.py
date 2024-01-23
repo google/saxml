@@ -183,7 +183,7 @@ class ServableMethod(servable_model.ServableMethod):
         [self._dummy_input_sample] * input_shape.batch_size
     )
 
-  def jax_aot_compile(
+  def _jax_aot_compile(
       self,
       step_fn: Any,
       train_state: ServableModelState,
@@ -284,7 +284,7 @@ class ServableMethod(servable_model.ServableMethod):
       )
 
     if self._enable_auto_sharding or self._compiler_options:
-      device_fn = self.jax_aot_compile(
+      device_fn = self._jax_aot_compile(
           step_fn=device_fn,
           train_state=self.model_state,
           inputs_shape_dtype=global_inputs_shaped_arrays,
@@ -328,25 +328,27 @@ class ServableMethod(servable_model.ServableMethod):
 
     # Compute with dummy to trigger compilation.
     if self.model_state.precompile:
+      # Transfer dummy to host to block until dummy computation is done.
       init_dummy_outputs = self.device_compute(info.dummy_inputs, input_shape)
 
-    if self.model_state.is_primary_host:
-      # Transfer dummy to host to block until dummy computation is done.
-      if self.model_state.precompile:
-        # Retrieve streamed outputs until streaming is done
-        if self.streamable_output:
-          stream_state = None
-          while True:
-            stream_outs = self.dequeue_stream_output()
-            _, stream_state = self.post_processing_stream(
-                stream_outs, stream_state
-            )
-            if stream_outs is None:
-              break
+      # Only warm up post processing on primary host.
+      if not self.model_state.is_primary_host:
+        return
+
+      if self.streamable_output:
+        # Retrieve streamed outputs until streaming is done.
+        stream_state = None
+        while True:
+          stream_outs = self.dequeue_stream_output()
+          _, stream_state = self.post_processing_stream(
+              stream_outs, stream_state
+          )
+          if stream_outs is None:
+            break
+      else:
         outs = self.output_to_host(init_dummy_outputs, self.batch_size)
-        if not self.streamable_output:
-          # Warm up post processor.
-          self.post_processing(outs)
+        # Warm up post processor.
+        self.post_processing(outs)
 
   @property
   def model_state(self) -> ServableModelState:
@@ -423,37 +425,38 @@ class ServableMethod(servable_model.ServableMethod):
 
     if not self.model_state.input_prefetch:
       if is_dummy:
-        return jax.tree_util.tree_map(
-            lambda x: np.zeros((len(self._local_devices),) + x.shape, x.dtype),
-            host_inputs,
+        pad_fn = lambda x: np.zeros(
+            (len(self._local_devices),) + x.shape, x.dtype
         )
-      return jax.tree_util.tree_map(_pad_for_devices, host_inputs)
+      else:
+        pad_fn = _pad_for_devices
+      return jax.tree_util.tree_map(pad_fn, host_inputs)
+    else:
+      if is_dummy:
 
-    if is_dummy:
+        def _to_buffers(x):
+          if self.model_state.is_primary_host:
+            return [
+                jax.device_put(x, d)
+                for x, d in zip(_pad_for_devices(x), self._local_devices)
+            ]
+          else:
+            x = np.zeros((1,) + x.shape, x.dtype)
+            return [jax.device_put(x, d) for d in self._local_devices]
 
-      def _to_buffers(x):
-        if self.model_state.is_primary_host:
-          return [
-              jax.device_put(x, d)
-              for x, d in zip(_pad_for_devices(x), self._local_devices)
-          ]
-        else:
-          x = np.zeros((1,) + x.shape, x.dtype)
-          return [jax.device_put(x, d) for d in self._local_devices]
+        return jax.tree_util.tree_map(_to_buffers, host_inputs)
+      else:
+        assert info.dummy_inputs_per_device_buffers is not None
 
-      return jax.tree_util.tree_map(_to_buffers, host_inputs)
+        def _update_buffers(x, buffers):
+          x = np.expand_dims(x, axis=0)
+          # Dummy buffers already created before. We only need to update the
+          # first device.
+          return [jax.device_put(x, self._local_devices[0])] + buffers[1:]
 
-    assert info.dummy_inputs_per_device_buffers is not None
-
-    def _update_buffers(x, existing_buffers):
-      x = np.expand_dims(x, axis=0)
-      # Dummy buffers already created before. We only need to update the first
-      # device.
-      return [jax.device_put(x, self._local_devices[0])] + existing_buffers[1:]
-
-    return jax.tree_util.tree_map(
-        _update_buffers, host_inputs, info.dummy_inputs_per_device_buffers
-    )
+        return jax.tree_util.tree_map(
+            _update_buffers, host_inputs, info.dummy_inputs_per_device_buffers
+        )
 
   def _device_buffers_to_jax_arrays(
       self, buffers: Any, input_shape: InputShapeInfo
