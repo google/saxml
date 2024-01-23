@@ -97,7 +97,7 @@ def _maybe_all_cancelled(
 
 
 @enum.unique
-class MethodName(enum.StrEnum):
+class MethodName(str, enum.Enum):
   """Sax method types."""
 
   # Sax internal methods
@@ -110,6 +110,9 @@ class MethodName(enum.StrEnum):
 
   # Model method
   MODEL = enum.auto()
+
+  def __str__(self):
+    return self.name.lower()
 
 
 @dataclasses.dataclass(frozen=True)
