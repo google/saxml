@@ -547,7 +547,33 @@ func (m *Mgr) ComputeAssignment() RefreshResult {
 			}
 		}
 	}
+
+	// Sort the assignments so that loaded models come first in the list.
+	// Since we unload starting at the end of the list, this encourages us to keep loaded models
+	// and unload models from tasks that are loading/failed/unloading.
+	modelIsLoaded := func(modelName naming.ModelFullName, addr modeletAddr) bool {
+		for seenModelName, modelWithStatus := range m.modelets[addr].SeenModels() {
+			if seenModelName == modelName {
+				return modelWithStatus.Status == protobuf.Loaded
+			}
+		}
+		return false
+	}
 	log.V(1).Infof("Current assignment: %v", currentAssignment)
+	for modelName, addresses := range currentAssignment {
+		sort.Slice(addresses, func(i int, j int) bool {
+			iLoaded := modelIsLoaded(modelName, addresses[i])
+			jLoaded := modelIsLoaded(modelName, addresses[j])
+
+			// i < j iff i is loaded and j is not.
+			if iLoaded && !jLoaded {
+				return true
+			}
+
+			return false
+		})
+	}
+	log.V(1).Infof("Current assignment sorted: %v", currentAssignment)
 
 	// Find and index idle model servers by servable model paths.
 	idle := map[string]map[modeletAddr]bool{} // model path -> set of model servers able to serve it
