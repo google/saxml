@@ -1194,6 +1194,12 @@ class LMGradientMethod(ServableLMMethod):
       tree[keys[-1]] = x
       return x
 
+    # preprocessed weights are incorrect for total loss computation in as it
+    # sets all non-padding positions to 1. Score mask correctly sets only the
+    # target positions to 1. Substitute weights with score mask for gradient.
+    assert isinstance(inputs, dict)
+    inputs['weights'] = inputs['score_masks']
+
     for k, v in split_inputs_tensor_names.items():
       try:
         tensors_to_take_gradients['inputs'][k] = fetch(inputs, v)
