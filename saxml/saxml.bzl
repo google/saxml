@@ -14,14 +14,14 @@
 
 """Build macros for Saxml."""
 
-load("@rules_proto//proto:defs.bzl", _proto_library = "proto_library")
-load("@rules_cc//cc:defs.bzl", _cc_proto_library = "cc_proto_library")
 load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", _cc_grpc_library = "cc_grpc_library")
-load("@com_google_protobuf//:protobuf.bzl", _py_proto_library = "py_proto_library")
 load("@com_github_grpc_grpc//bazel:python_rules.bzl", _py_grpc_library = "py_grpc_library")
+load("@com_google_protobuf//:protobuf.bzl", _py_proto_library = "py_proto_library")
+load("@io_bazel_rules_go//go:def.bzl", _go_binary = "go_binary", _go_library = "go_library", _go_test = "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", _go_grpc_library = "go_grpc_library", _go_proto_library = "go_proto_library")
 load("@pybind11_bazel//:build_defs.bzl", _pybind_extension = "pybind_extension", _pybind_library = "pybind_library")
-load("@io_bazel_rules_go//go:def.bzl", _go_binary = "go_binary", _go_library = "go_library", _go_test = "go_test")
+load("@rules_cc//cc:defs.bzl", _cc_proto_library = "cc_proto_library")
+load("@rules_proto//proto:defs.bzl", _proto_library = "proto_library")
 load("@third_party//:requirements.bzl", "requirement")
 
 def proto_library(
@@ -200,6 +200,22 @@ def go_test(name, srcs = [], library = None, deps = [], **kwargs):
         deps = deps,
         **kwargs
     )
+
+def jspb_proto_library(
+        **kwargs):  # @unused
+    pass
+
+def kt_jvm_proto_library(
+        **kwargs):  # @unused
+    pass
+
+def kt_jvm_grpc_library(
+        **kwargs):  # @unused
+    pass
+
+def kt_jvm_stubby_library(
+        **kwargs):  # @unused
+    pass
 
 def rpc_endpoint_interface(
         name,

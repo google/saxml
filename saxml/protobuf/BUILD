@@ -1,6 +1,5 @@
 # Protobuf definitions for Sax.
 
-load("//third_party/protobuf/build_defs:kt_jvm_proto_library.bzl", "kt_jvm_proto_library")
 load(
     "//saxml:saxml.bzl",
     "cc_grpc_library",
@@ -8,13 +7,15 @@ load(
     "cc_stubby_library",
     "go_grpc_library",
     "go_proto_library",
+    "jspb_proto_library",
+    "kt_jvm_grpc_library",
+    "kt_jvm_proto_library",
+    "kt_jvm_stubby_library",
     "proto_library",
     "py_grpc_library",
     "py_proto_library",
     "rpc_endpoint_interface",
 )
-load("//tools/build_defs/js/jspb_proto_library:rules.bzl", "jspb_proto_library")
-load("//tools/build_defs/kotlin:rules.bzl", "kt_jvm_grpc_library", "kt_jvm_stubby_library")
 
 package(
     default_visibility = ["//saxml:internal"],

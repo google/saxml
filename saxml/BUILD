@@ -17,4 +17,9 @@ package_group(
 bzl_library(
     name = "saxml_bzl",
     srcs = ["saxml.bzl"],
+    deps = [
+        "//third_party/protobuf/build_defs:kt_jvm_proto_library",
+        "//tools/build_defs/js/jspb_proto_library:rules",
+        "//tools/build_defs/kotlin:rules_bzl",
+    ],
 )
