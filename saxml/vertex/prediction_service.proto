@@ -3,7 +3,7 @@ syntax = "proto3";
 package sax.server.vertex;
 
 import "saxml/protobuf/common.proto";
-import "third_party/py/saxml/protobuf/lm.proto";
+import "saxml/protobuf/lm.proto";
 
 message PredictRequest {
   string text = 1;
