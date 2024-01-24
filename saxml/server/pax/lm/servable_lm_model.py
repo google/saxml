@@ -21,8 +21,8 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from absl import logging
 import jax
+from jax import experimental as jax_exp
 from jax import numpy as jnp
-from jax.experimental import host_callback as hcb
 import numpy as np
 import orbax.export as oex
 from praxis import base_layer
@@ -691,14 +691,19 @@ class LMDecodeMethod(ServableLMMethod):
     kwargs = {}
     if self.streamable_output:
 
-      def callback_fn(x, _):
+      def callback_fn(x):
         assert self.model_state.is_primary_host
         self.enqueue_stream_output(x)
 
+      host_callback = functools.partial(
+          jax_exp.io_callback,
+          callback_fn,
+          None,
+          ordered=True,
+          sharding=jax.sharding.SingleDeviceSharding(self.callback_device),
+      )
       kwargs['result_callback'] = decoder_utils.StreamingResultCallback(
-          functools.partial(
-              hcb.id_tap, callback_fn, device_index=self.callback_device_index
-          ),
+          host_callback,
           interval_steps=self._method_hparams.stream_interval_steps,
       )
 
@@ -707,6 +712,11 @@ class LMDecodeMethod(ServableLMMethod):
         in inspect.signature(self._model.decode_with_params).parameters
     ):
       kwargs['callback_device_index'] = self.callback_device_index
+    if (
+        'callback_device'
+        in inspect.signature(self._model.decode_with_params).parameters
+    ):
+      kwargs['callback_device'] = self.callback_device
 
     outputs = self._model.apply(
         mdl_vars,

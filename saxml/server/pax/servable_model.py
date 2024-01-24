@@ -204,14 +204,16 @@ class ServableMethod(servable_model.ServableMethod):
       self, inputs: NestedJTensor, mdl_vars: NestedJTensor, prng_key: PRNGKey
   ) -> NestedJTensor:
     k1, k2 = prng_key
-    # `callback_device_index` is determined at server start time so we pass it
-    # to methods asking for it. Methods with host callbacks can use this
-    # argument to run on same host as preprocessing.
+    # `callback_device` is determined at server start time so we pass it to
+    # methods asking for it. Methods with host callbacks can use this argument
+    # to run on same host as preprocessing.
     def method_fn(model, *args, **kwargs):
       method = getattr(model, self._model_fn_name)
       if 'callback_device_index' in inspect.signature(method).parameters:
         return method(*args, **kwargs,
                       callback_device_index=self.callback_device_index)
+      elif 'callback_device' in inspect.signature(method).parameters:
+        return method(*args, **kwargs, callback_device=self.callback_device)
       else:
         return method(*args, **kwargs)
     outputs = self._model.apply(

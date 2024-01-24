@@ -133,6 +133,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     deps = [
         ":servable_model_params",
+        "//third_party/py/absl-py/logging",
         "//third_party/py/numpy",
     ],
 )

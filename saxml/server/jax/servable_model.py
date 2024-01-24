@@ -24,8 +24,8 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 from absl import logging
 from flax import struct as flax_struct
 import jax
+from jax import experimental as jax_exp
 from jax import numpy as jnp
-from jax.experimental import host_callback as hcb
 from jax.experimental import pjit
 import numpy as np
 from paxml import host_callback as paxml_hcb
@@ -144,7 +144,6 @@ class ServableMethod(servable_model.ServableMethod):
     self._prng_key = prng_key
     self._step = StepCounter()
     self._local_devices = list(model_state.global_mesh.local_devices)
-    self._callback_device_index = 0
     self._enable_auto_sharding = enable_auto_sharding
     self._compiler_options = compiler_options
     logging.info(
@@ -157,12 +156,21 @@ class ServableMethod(servable_model.ServableMethod):
     for i, d in enumerate(devices):
       if d.process_index == model_state.primary_process_id:
         logging.info('Setting callback device index %d: %s', i, d)
+        self._callback_device = d
         self._callback_device_index = i
         break
+    else:
+      self._callback_device = devices[0]
+      self._callback_device_index = 0
 
+  # TODO(b/322190730): Clean up `callback_device_index`.
   @property
   def callback_device_index(self) -> int:
     return self._callback_device_index
+
+  @property
+  def callback_device(self) -> jax.Device:
+    return self._callback_device
 
   def get_sorted_input_shapes(self) -> List[InputShapeInfo]:
     result = []
@@ -494,6 +502,11 @@ class ServableMethod(servable_model.ServableMethod):
       self, output_tensors: DeviceTensors, unpadded_batch_size: int
   ) -> HostTensors:
     """Fetches device outputs to host. Removes batch padding."""
+
+    if self.streamable_output:
+      # Wait for all host callbacks to finish.
+      jax.effects_barrier()
+
     return jax.tree_util.tree_map(
         lambda x: np.array(x.addressable_data(0))[:unpadded_batch_size],
         output_tensors,
@@ -624,15 +637,15 @@ class ServableMethod(servable_model.ServableMethod):
       outputs = self.jax_func(
           mdl_vars, prng_key, batched_inputs, non_batched_inputs
       )
-      # This assumes that outputs are generated after previous host calls, and
-      # it is guaranteed by data dependency.
       if self.streamable_output:
-
-        def _mark_done(dummy, _):
-          del dummy
-          self.mark_stream_output_done()
-
-        hcb.id_tap(_mark_done, outputs, device_index=self.callback_device_index)
+        # This is guaranteed to be called after all previous host callbacks as
+        # all host callbacks are marked as ordered.
+        jax_exp.io_callback(
+            self.mark_stream_output_done,
+            None,
+            ordered=True,
+            sharding=jax.sharding.SingleDeviceSharding(self.callback_device),
+        )
         # Unused final outputs. Return something to make output_to_host
         # blocking.
         return jnp.zeros((batch_size,), dtype=jnp.int32)
