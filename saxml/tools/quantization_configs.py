@@ -79,6 +79,25 @@ class QuantizationConfigsGPTJStacked(QuantizationConfigs):
   }
 
 
+class QuantizationConfigsGamma2B(QuantizationConfigs):
+  """Quantization config for Gamma 2B."""
+
+  factor = 1.0
+  configs = {
+      'ff_layer.ffn_layer1.linear.w': ([0], factor, 0, -1),
+      'ff_layer.ffn_layer1_gate.linear.w': ([0], factor, 0, -1),
+      'ff_layer.ffn_layer2.linear.w': ([0], factor, 0, -1),
+      'self_attention.post.w': ([1, 2], factor, 0, -1),
+      'self_attention.key.w': ([0], factor, 0, -1),
+      'self_attention.query.w': ([0], factor, 0, -1),
+      'self_attention.value.w': ([0], factor, 0, -1),
+  }
+
+
+class QuantizationConfigsGamma7B(QuantizationConfigsGPTJ):
+  """Quantization config for Gamma 7B."""
+
+
 def quantize_tensor(
     var: np.ndarray,
     axis: list[int],

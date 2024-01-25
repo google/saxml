@@ -18,6 +18,8 @@ import quantization_configs
 
 NAME_TO_CONFIG = {
     'gptj': quantization_configs.QuantizationConfigsGPTJ(),
+    'gamma2b': quantization_configs.QuantizationConfigsGamma2B(),
+    'gamma7b': quantization_configs.QuantizationConfigsGamma7B(),
 }
 
 NAME_TO_CONFIG_STACKED = {
