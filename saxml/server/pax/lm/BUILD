@@ -17,6 +17,7 @@ pytype_strict_library(
     deps = [
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax/lm/params:c4",
+        "//saxml/server/pax/lm/params:gamma",
         "//saxml/server/pax/lm/params:gptj",
         "//saxml/server/pax/lm/params:lm_cloud",
     ],
@@ -164,5 +165,15 @@ py_strict_test(
         "//third_party/py/absl-py/flags",
         "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
         "//third_party/py/tensorflow:tensorflow_no_contrib",
+    ],
+)
+
+pytype_strict_library(
+    name = "transformer_models",
+    srcs = ["transformer_models.py"],
+    deps = [
+        "//third_party/py/praxis:pax_fiddle",
+        "//third_party/py/praxis/layers",
+        "//third_party/py/praxis/layers:multi_query_attention",
     ],
 )

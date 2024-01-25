@@ -106,3 +106,23 @@ pytype_strict_library(
         "//third_party/py/praxis/layers:activations",
     ],
 )
+
+pytype_strict_library(
+    name = "gamma",
+    srcs = ["gamma.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//saxml/server:servable_model_registry",
+        "//saxml/server/pax:quantization",
+        "//saxml/server/pax/lm:transformer_models",
+        "//saxml/server/pax/lm/params:template",
+        "//third_party/py/jax",
+        "//third_party/py/paxml:base_experiment",
+        "//third_party/py/paxml:tasks_lib",
+        "//third_party/py/praxis:base_input",
+        "//third_party/py/praxis:optimizers",
+        "//third_party/py/praxis:pax_fiddle",
+        "//third_party/py/praxis:schedules",
+        "//third_party/py/praxis/layers",
+    ],
+)
