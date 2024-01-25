@@ -397,6 +397,20 @@ class LLaMA70BFP16TPUv5e64(LLaMA70BFP16TPUv5e):
   ICI_MESH_SHAPE = [1, 1, 64]
 
 
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
+class LLaMA70BINT8LinearOnlyx8(LLaMA70BFP16TPUv5e):
+  """LlaMA-2 70B model with pre-quantized int8 checkpoint on 8 devices."""
+
+  USE_REPEATED_LAYER = False
+  REPEATED_LAYERS = False
+  ICI_MESH_SHAPE = [1, 1, 8]
+
+  @property
+  def test_mode(self) -> bool:
+    return False
+
+
 # GPT-J/NeoX family
 @template.make_servable()
 class BaseNeoX(base_experiment.BaseExperiment):
