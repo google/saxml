@@ -298,6 +298,7 @@ class ServingTemplate(
         temperature=None,
         eos_id=stop_token_ids,
         k=self.TOP_K,
+        decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
         emb_lookup_style=self.EMB_LOOKUP_STYLE,
         sort_samples=self.SORT_SAMPLES,
         next_token_sampler_tpl=self.NEXT_TOKEN_SAMPLER_TPL,
