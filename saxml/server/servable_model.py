@@ -298,23 +298,27 @@ class ServableMethod(abc.ABC):
 
   def prefill(
       self, inputs: DeviceTensors
-  ) -> tuple[DeviceTensors, DeviceTensors]:
+  ) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
     """Prefills the KV cache with the input sequence.
 
     Args:
-      inputs: A single sequence of tokens (`prompt`) to run prefill on.
+      inputs: A single sequence of tokens (`prompt`) [B, T] to run prefill on.
 
     Returns:
-      token: Next token of the prompt, sampled by model's sampler.
+      scores: Log probability [B] of sampled next tokens.
+      token: Next token [B] of the prompt, sampled by model's sampler.
       cache: Prefilled KV state.
     """
     raise NotImplementedError('prefill not implemented')
 
-  def prefill_with_dummy(self) -> tuple[DeviceTensors, DeviceTensors]:
+  def prefill_with_dummy(
+      self,
+  ) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
     """Prefills the KV cache with a dummy sequence. Used by secondary hosts.
 
     Returns:
-      token: Next token of the prompt, sampled by model's default sampler.
+      scores: Log probability [B] of sampled next tokens.
+      token: Next token [B] of the prompt, sampled by model's default sampler.
       cache: Prefilled KV cache.
     """
     raise NotImplementedError('prefill_with_dummy not implemented')
@@ -332,24 +336,28 @@ class ServableMethod(abc.ABC):
 
   def generate(
       self, tokens: DeviceTensors
-  ) -> tuple[DeviceTensors, DeviceTensors]:
+  ) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
     """Given a batch of tokens and the KV state (managed internally), generate the next batch of tokens.
 
     Args:
-      tokens: a batch of tokens.
+      tokens: a batch of tokens [B].
 
     Returns:
-      new_tokens: a batch of new tokens sampled by model's sampler.
-      done: a batch of booleans indicating whether the sampled token is EOS.
+      scores: Log probability [B] of sampled next tokens.
+      new_tokens: a batch of new tokens [B] sampled by model's sampler.
+      done: a batch of booleans [B] indicating whether the sampled token is EOS.
     """
     raise NotImplementedError('generate not implemented')
 
-  def generate_with_dummy(self) -> tuple[DeviceTensors, DeviceTensors]:
+  def generate_with_dummy(
+      self,
+  ) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
     """Given a batch of dummy tokens and the KV state (managed internally), generate the next batch of tokens.
 
     Returns:
-      new_tokens: a batch of new tokens sampled by model's sampler.
-      done: a batch of booleans indicating whether the sampled token is EOS.
+      scores: Log probability [B] of sampled next tokens.
+      new_tokens: a batch of new tokens [B] sampled by model's sampler.
+      done: a batch of booleans [B] indicating whether the sampled token is EOS.
     """
     raise NotImplementedError('generate_with_dummy not implemented')
 

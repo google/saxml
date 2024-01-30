@@ -273,6 +273,7 @@ class BatchingState:
   token_buffer: Int[Array, 'B T']
   steps: Int[Array, 'B']
   slots_in_use: Int[Array, 'B']
+  scores: Float[Array, 'B']
 
   # Stats
   prefill_wait_time: utils.RequestStats
@@ -304,6 +305,7 @@ class BatchingState:
     self.token_buffer = np.zeros((cache_size, max_decode_step), dtype=np.int32)
     self.steps = np.zeros((cache_size,), dtype=np.int32)
     self.slots_in_use = np.zeros((cache_size,), dtype=np.int32)
+    self.scores = np.zeros((cache_size,))
 
     self.prefill_wait_time = utils.RequestStats(timespan_sec=np.float64(60.0))
     self.generate_step_time = utils.RequestStats(timespan_sec=np.float64(60.0))
@@ -1994,14 +1996,15 @@ class ModelServicesRunner:
 
           assert request.data is not None
           assert request.rpc is not None
-          token, prefix_cache = method_obj.prefill(
+          scores, tokens, prefix_cache = method_obj.prefill(
               inputs=request.data.input_batch.prompts,
           )
           state.update_stats(time.time() - request.ts)
           method_obj.insert(prefix_cache, slot)
-          state.token_buffer[slot][0] = np.array(token.addressable_data(0))
+          state.token_buffer[slot][0] = np.array(tokens.addressable_data(0))
           state.rpc_tasks[slot] = request.rpc
           state.steps[slot] = 1
+          state.scores[slot] = np.array(scores.addressable_data(0))
 
         # Skip generation if none of the cache slots are in use.
         if not state.slots_in_use.any():
@@ -2024,7 +2027,7 @@ class ModelServicesRunner:
             InputShapeInfo(batch_size=state.cache_size),
         )
         res = method_obj.generate(token_batch)
-        tokens, done = method_obj.output_to_host(
+        scores, tokens, done = method_obj.output_to_host(
             res, unpadded_batch_size=state.cache_size
         )
 
@@ -2032,6 +2035,7 @@ class ModelServicesRunner:
 
         state.token_buffer[np.arange(state.cache_size), state.steps] = tokens
         state.steps += state.slots_in_use
+        state.scores += scores * state.slots_in_use
 
         done = np.logical_or(done, state.steps >= state.max_decode_steps)
 
@@ -2041,17 +2045,18 @@ class ModelServicesRunner:
           output_strings = method_obj.detokenize(sequences)
           done_slots = np.flatnonzero(done)
 
-          state.token_buffer[done] = 0
-          state.steps[done] = 0
-          state.slots_in_use[done] = 0
-
           for idx, slot in enumerate(done_slots):
-            outputs = [output_strings[idx]], [0.0]
+            outputs = [output_strings[idx]], [state.scores[slot]]
             self._model_services[state.service_id].FillRPCResponse(
                 state.model_method, outputs, state.rpc_tasks[slot].response
             )
             state.rpc_tasks[slot].done(utils.ok(), query_cost=0)
             state.rpc_tasks[slot] = None
+
+          state.token_buffer[done] = 0
+          state.steps[done] = 0
+          state.slots_in_use[done] = 0
+          state.scores[done] = 0.0
 
   def _run_secondary_worker_loop(self):
     """Runs the processing loop in secondary hosts in a multi-host setup."""
@@ -2149,7 +2154,7 @@ class ModelServicesRunner:
             method_obj = self._loaded_models.get_model(model_key).method(
                 model_method
             )
-            _, state = method_obj.prefill_with_dummy()
+            _, _, state = method_obj.prefill_with_dummy()
             method_obj.insert(state, slot)
           except Exception as e:  # pylint: disable=broad-except
             self._worker_thread_exception = e
