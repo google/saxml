@@ -181,3 +181,33 @@ class Gamma2BInt8(Gamma2BFP16):
 @quantization.for_transformer(quantize_on_the_fly=False)
 class Gamma7BInt8(Gamma7BFP16):
   """Gamma7B model with int8 weight quantization."""
+
+
+@servable_model_registry.register
+class Gamma2BFP16Test(Gamma2BFP16):
+  """Gamma2B model for testing without ckpt."""
+
+  test_mode = True
+
+
+@servable_model_registry.register
+class Gamma7BFP16Test(Gamma7BFP16):
+  """Gamma7B model for testing without ckpt."""
+
+  test_mode = True
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False)
+class Gamma2BInt8Test(Gamma2BInt8):
+  """Gamma2B model with int8 weight quantization for testing without ckpt."""
+
+  test_mode = True
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False)
+class Gamma7BInt8Test(Gamma7BInt8):
+  """Gamma7B model with int8 weight quantization for testing without ckpt."""
+
+  test_mode = True
