@@ -27,6 +27,7 @@ class ServableMethodParams(metaclass=abc.ABCMeta):
   @abc.abstractmethod
   def get_batch_size(self) -> Union[int, List[int]]:
     """Returns the static batch size or a list of allowed batch sizes."""
+    # TODO(changlan): Refactor to always return a list.
 
   @abc.abstractmethod
   def get_max_live_batches(self) -> int:

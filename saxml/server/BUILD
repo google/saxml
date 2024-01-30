@@ -134,7 +134,6 @@ pytype_strict_library(
     srcs_version = "PY3",
     deps = [
         ":servable_model_params",
-        "//third_party/py/absl-py/logging",
         "//third_party/py/numpy",
     ],
 )
@@ -247,6 +246,7 @@ pytype_strict_library(
         "//third_party/py/absl-py/logging",
         "//third_party/py/grpcio",
         "//third_party/py/grpcio-reflection",
+        "//third_party/py/jaxtyping",
         "//third_party/py/numpy",
         "@com_google_protobuf//:protobuf_python",
     ],
