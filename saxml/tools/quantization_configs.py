@@ -98,6 +98,30 @@ class QuantizationConfigsGamma7B(QuantizationConfigsGPTJ):
   """Quantization config for Gamma 7B."""
 
 
+class QuantizationConfigsLLaMA70BWeightLinearOnlyInt8(QuantizationConfigs):
+  """Quantization config for LLaMA70B model."""
+
+  factor = 1.0
+  configs = {
+      'ff_layer.ffn_layer1.linear.w': ([0], factor, 0, 8),
+      'ff_layer.ffn_layer1_gate.linear.w': ([0], factor, 0, 8),
+      'ff_layer.ffn_layer2.linear.w': ([0], factor, 0, 8),
+  }
+
+
+class QuantizationConfigsLLaMA70BStackedWeightLinearOnlyInt8(
+    QuantizationConfigs
+):
+  """Quantization config for LLaMA70B model."""
+
+  factor = 1.0
+  configs = {
+      'ff_layer.ffn_layer1.linear.w': ([1], factor, 0, 8),
+      'ff_layer.ffn_layer1_gate.linear.w': ([1], factor, 0, 8),
+      'ff_layer.ffn_layer2.linear.w': ([1], factor, 0, 8),
+  }
+
+
 def quantize_tensor(
     var: np.ndarray,
     axis: list[int],

@@ -54,7 +54,12 @@ def parse_known_args(argv):
   parser.add_argument(
       '--quantization_configs',
       default='gptj',
-      choices=['gptj', 'gamma2b', 'gamma7b'],
+      choices=[
+          'gptj',
+          'gamma2b',
+          'gamma7b',
+          'llama2-70b-weight-linear-only-int8',
+      ],
       help='Quantization Config.',
   )
   parser.add_argument(
