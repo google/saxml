@@ -1973,6 +1973,8 @@ class ModelServicesRunner:
     logging.info('Running generation loop')
     while True:
       for model_key in self._loaded_models.get_models():
+        if model_key not in self._token_batching_state:
+          continue
         state = self._token_batching_state[model_key]
         assert model_key == state.model_key
         model = self._loaded_models.get_model(state.model_key)
