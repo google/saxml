@@ -240,8 +240,10 @@ class ServableMethod(servable_model.ServableMethod):
       return x
 
     dummy_step = np.array(0, dtype=np.int32)
+    dummy_prng_key = jax.random.PRNGKey(0)
     host_dummy = (
         dummy_step,
+        dummy_prng_key,
         batched_host_dummy,
         self.get_nonbatch_inputs(batched_host_dummy),
     )
@@ -420,9 +422,14 @@ class ServableMethod(servable_model.ServableMethod):
         ),
         one_core_inputs,
         # Only the batched inputs.
-        info.global_inputs_shape_dtype[1],
+        info.global_inputs_shape_dtype[2],
     )
-    host_inputs = (step, host_inputs, self.get_nonbatch_inputs(host_inputs))
+    host_inputs = (
+        step,
+        self._prng_key,
+        host_inputs,
+        self.get_nonbatch_inputs(host_inputs),
+    )
 
     def _pad_for_devices(x):
       # Keep x on only one device, and use zeros on other devices.
@@ -632,8 +639,8 @@ class ServableMethod(servable_model.ServableMethod):
         )
 
       inputs = jax.tree_util.tree_map(_replicate, inputs)
-      step, batched_inputs, non_batched_inputs = inputs
-      prng_key = jax.random.fold_in(self._prng_key, step)
+      step, prng_key, batched_inputs, non_batched_inputs = inputs
+      prng_key = jax.random.fold_in(prng_key, step)
       outputs = self.jax_func(
           mdl_vars, prng_key, batched_inputs, non_batched_inputs
       )
