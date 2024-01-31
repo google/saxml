@@ -130,6 +130,29 @@ pytype_strict_library(
     ],
 )
 
+py_strict_test(
+    name = "servable_lm_model_test",
+    srcs = ["servable_lm_model_test.py"],
+    data = [
+        "//saxml/server/pax/lm/test_data",
+    ],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":lm_tokenizer",
+        ":servable_lm_model",
+        "//third_party/py/absl-py/flags",
+        "//third_party/py/absl-py/logging",
+        "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/jax",
+        "//third_party/py/numpy",
+        "//third_party/py/paxml:checkpoints",
+        "//third_party/py/paxml/tasks/lm/params",
+        "//third_party/py/praxis:pax_fiddle",
+        "//third_party/py/praxis:py_utils",
+    ],
+)
+
 pytype_strict_library(
     name = "layers",
     srcs = ["layers.py"],
