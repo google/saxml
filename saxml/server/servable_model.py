@@ -302,7 +302,8 @@ class ServableMethod(abc.ABC):
     """Prefills the KV cache with the input sequence.
 
     Args:
-      inputs: A single sequence of tokens (`prompt`) [B, T] to run prefill on.
+      inputs: An opaque object that represents a sequence (`prompt`) [B, T] to
+        run prefill on.
 
     Returns:
       scores: Log probability [B] of sampled next tokens.

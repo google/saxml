@@ -1999,7 +1999,7 @@ class ModelServicesRunner:
           assert request.data is not None
           assert request.rpc is not None
           scores, tokens, prefix_cache = method_obj.prefill(
-              inputs=request.data.input_batch.prompts,
+              inputs=request.data,
           )
           state.update_stats(time.time() - request.ts)
           method_obj.insert(prefix_cache, slot)
