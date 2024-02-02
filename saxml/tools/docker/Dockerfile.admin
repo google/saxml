@@ -60,7 +60,6 @@ admin_server \
   --sax_root=${SAX_ROOT} \
   --port=${PORT} \
   --alsologtostderr\n' \
-  --v=3 \
 > /usr/bin/admin_server_entrypoint.sh && chmod +x /usr/bin/admin_server_entrypoint.sh
 
 ENTRYPOINT ["/usr/bin/admin_server_entrypoint.sh"]
