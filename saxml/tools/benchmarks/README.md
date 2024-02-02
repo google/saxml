@@ -80,6 +80,9 @@ export PYTHONPATH=${PYTHONPATH}:${PWD}/sax_client
 
 # Install deps:
 pip install -r requirements.txt
+
+# Set SAX_ROOT variable.
+export SAX_ROOT=gs://${GSBUCKET}/sax-root
 ```
 
 ```
