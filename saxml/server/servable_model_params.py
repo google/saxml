@@ -11,69 +11,89 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Base class for servable model configs."""
+"""Base classes for servable model and method config classes."""
 
 import abc
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from absl import logging
 import numpy as np
 from saxml.server import utils
 
 
-class ServableMethodParams(metaclass=abc.ABCMeta):
-  """A base config class for a method."""
+ExtraInputs = Dict[str, Union[float, List[float], str]]  # from common.proto
+
+
+class ServableMethodParams(abc.ABC):
+  """A base class for a servable method config class."""
 
   @abc.abstractmethod
   def get_batch_size(self) -> Union[int, List[int]]:
-    """Returns the static batch size or a list of allowed batch sizes."""
+    """Returns a fixed batch size or a list of allowed batch sizes."""
     # TODO(changlan): Refactor to always return a list.
 
   @abc.abstractmethod
   def get_max_live_batches(self) -> int:
-    """Returns the maximum number of batches in queue for this method."""
+    """Returns the (approximate) maximum number of in-flight batches.
 
-  @abc.abstractmethod
-  def get_default_extra_inputs(self) -> Optional[Dict[str, float]]:
-    """Returns the default values for extra inputs.
-
-    Extra inputs are a dictionary of {key: default_value} pairs. The input for a
-    function is a NestedMap. The `key` in `extra_inputs` can be one of the key
-    in the input. The `default_value` is the default value for input[key].
-    """
-
-  @abc.abstractmethod
-  def get_extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype]]:
-    """Returns the dtypes for extra inputs.
-
-    Extra inputs dtypes are a dictionary of {key: np.dtype} pairs. If the
-    dtype is not defined, default type for the extra input is np.float32.
+    The batching queue keeps roughly (max batch size) * (max live batches)
+    requests in-flight. Additional requests are dropped on arrival with a
+    "resource exhausted" error.
     """
 
   @abc.abstractmethod
   def get_batching_wait_secs(self) -> Optional[float]:
-    """Returns the optional batching waiting seconds for the method.
+    """Returns an optional batch formation time window.
 
-    If batching wait secs is None, will not wait for the next request if the
-    request queue is empty. Otherwise, the total waiting time for the incoming
-    requests after the first request is set to this value.
+    When the batching queue is drained to form a batch of requests, this value
+    indicates the maximum time interval to wait for, from when the first request
+    is dequeued to when the batch is formed. If this is None, a batch is formed
+    immediately when the batching queue is drained empty.
+    """
+
+  @abc.abstractmethod
+  def get_extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype]]:
+    """Returns the (device) dtypes for optional extra inputs.
+
+    Extra inputs are per-request key-value pairs. They can be used to override
+    default model params on a per-request basis. This function returns the
+    dtype each extra input value should be cast to, in the form of a
+    key-to-dtype dictionary. If the dtype for a key is not defined in the return
+    value, it defaults to np.float32.
+    """
+
+  @abc.abstractmethod
+  def get_default_extra_inputs(self) -> Optional[ExtraInputs]:
+    """Returns the default (host) values for optional extra inputs.
+
+    Extra inputs are per-request key-value pairs. They can be used to override
+    default model params on a per-request basis. This function returns the
+    default value for each extra input key, which is used when the key is not
+    found in the per-request "extra_inputs" proto field.
     """
 
 
-class ServableModelParams(metaclass=abc.ABCMeta):
-  """A base class that each model config needs to implement for serving."""
+class ServableModelParams(abc.ABC):
+  """A base class for a servable model config class."""
 
   @classmethod
   @abc.abstractmethod
   def get_supported_device_mesh(
       cls,
   ) -> Tuple[utils.Status, Optional[np.ndarray]]:
-    """Returns OK status and the supported device mesh, non-OK if this model is not supported."""
+    """Returns OK and a supported device mesh, or non-OK and None.
+
+    A model config can declare a single device mesh shape or a list of device
+    mesh shapes it supports. This function returns a JAX device mesh (i.e., the
+    jax.sharding.Mesh.devices attribute) successfully created on the current
+    platform using one of the supported device mesh shapes.
+    """
 
   @classmethod
-  @abc.abstractmethod
   def check_serving_platform(cls) -> utils.Status:
-    """Returns OK status if the current platform supports this model."""
+    """Returns OK if the current platform supports this model."""
+    status, _ = cls.get_supported_device_mesh()
+    return status
 
   @abc.abstractmethod
   def load(
@@ -83,30 +103,32 @@ class ServableModelParams(metaclass=abc.ABCMeta):
       primary_process_id: int,
       prng_key: int,
   ) -> Any:
-    """Loads and returns the ServableModel."""
+    """Loads a checkpoint and returns a ServableModel instance."""
+    # TODO(jiawenhao): Break ServableMethodParams into its own file so we can
+    # type the return value as ServableModel.
 
   @abc.abstractmethod
   def methods(self) -> Dict[str, ServableMethodParams]:
-    """Returns a dict of {name, method params}."""
+    """Returns a dictionary of supported method names and their configs."""
 
   @classmethod
   def sax_registration_name(cls) -> Optional[str]:
-    """Custom registration name for the model."""
+    """Returns an optional custom registration name for the model."""
     return None
 
   def apply_model_overrides(self, overrides: Dict[str, Any]) -> None:
-    """Receive custom config overrides from Publish.
+    """Applies model config overrides received from Publish.
 
     The default handling of overrides is as follows:
-      - Replace the value with the provided one.
-      - Fail if the types of override is mismatched.
-      - Fail if there is no key.
+
+      - Fail if the provided key is not found on this model config.
+      - Fail if the types of the original and provided values mismatch.
+      - Replace the original value with the provided value.
 
     This method may be overridden by subclasses for more customized behavior.
 
     Args:
-        overrides: User-defined dictionary of configuration params and values
-          supplied by the Publish command.
+        overrides: Model config key-value pairs supplied by the Publish command.
     """
     for k, v in overrides.items():
       if not hasattr(self, k):
@@ -123,6 +145,3 @@ class ServableModelParams(metaclass=abc.ABCMeta):
         )
       setattr(self, k, v)
       logging.info('Set override %s to %s on %s', k, v, self)
-
-
-ServableModelParamsT = Type[ServableModelParams]

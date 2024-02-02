@@ -23,7 +23,7 @@ from saxml.server import servable_model_params
 
 HostTensors = Any
 DeviceTensors = Any
-ExtraInput = Dict[str, str | float | List[float]]
+ExtraInput = servable_model_params.ExtraInputs
 
 
 @dataclasses.dataclass(eq=True, frozen=True)

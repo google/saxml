@@ -19,7 +19,7 @@ import functools
 import os
 import pprint
 import threading
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from absl import logging
 from flax import struct as flax_struct
@@ -35,7 +35,7 @@ from saxml.server import servable_model_params
 
 # string values can be used in host callbacks and are converted to integers
 # when passing around through a global repository on host.
-ExtraInput = Dict[str, Union[float, str, List[float]]]
+ExtraInput = servable_model_params.ExtraInputs
 # TODO(sax-dev): define these types or use pax's definitions.
 HostTensors = Any
 DeviceTensors = Any

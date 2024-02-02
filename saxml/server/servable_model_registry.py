@@ -32,10 +32,12 @@ it will have an alias `foo.FooExpABC`.
 """
 
 import inspect
-from typing import List, Mapping, Optional, Pattern
+from typing import List, Mapping, Optional, Pattern, Type
 
-from saxml.server.servable_model_params import ServableModelParams
-from saxml.server.servable_model_params import ServableModelParamsT
+from saxml.server import servable_model_params
+
+ServableModelParams = servable_model_params.ServableModelParams
+ServableModelParamsT = Type[ServableModelParams]
 
 # Root prefix path for the modules of servable params. Can be overwritten before
 # server starts.
