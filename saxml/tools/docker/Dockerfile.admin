@@ -42,14 +42,17 @@ ENV SAX_CELL=/sax/test
 # Use "10000" as default port for admin server gRPC endpoint.
 ENV PORT=10000
 
-ENV SAX_ROOT=gs://${GSBUCKET}/sax-root
-ENV FS_ROOT=gs://${GSBUCKET}/sax-fs-root
-
+ENV SAX_ROOT=""
+ENV FS_ROOT=""
 # Create a script that configures and runs the admin server.
 RUN echo '#!/bin/bash\n\
+if [[ -z "$SAX_ROOT"  ]]; then\n\
+        SAX_ROOT=gs://${GSBUCKET}/sax-root \n\ 
+        FS_ROOT=gs://${GSBUCKET}/sax-fs-root \n\
+fi\n\
 admin_config \
   --sax_cell=${SAX_CELL} \
-  --sax_root=${SAX_ROOT} \
+  --sax_root=${SAX_ROOT}\
   --fs_root=${FS_ROOT} \
   --alsologtostderr\n\
 admin_server \
@@ -57,6 +60,7 @@ admin_server \
   --sax_root=${SAX_ROOT} \
   --port=${PORT} \
   --alsologtostderr\n' \
+  --v=3 \
 > /usr/bin/admin_server_entrypoint.sh && chmod +x /usr/bin/admin_server_entrypoint.sh
 
 ENTRYPOINT ["/usr/bin/admin_server_entrypoint.sh"]
