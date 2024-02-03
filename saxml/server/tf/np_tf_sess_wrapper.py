@@ -61,7 +61,7 @@ class _NumpyTFSessionWrapper:
         member function of a class.
     """
     global _NEXT_COUNTER
-    self._fun = fun
+    self._fun = tf.autograph.experimental.do_not_convert(fun)
     with _NEXT_COUNTER_LOCK:
       name = f'{fun.__name__}__{_NEXT_COUNTER}'
       _NEXT_COUNTER += 1
