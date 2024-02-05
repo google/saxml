@@ -266,21 +266,22 @@ class ServableMethod(servable_model.ServableMethod):
         host_dummy,
     )
 
-    self._per_bs_infos[input_shape] = MethodInputInfo(
+    info = MethodInputInfo(
         input_pspecs=input_pspecs,
         global_inputs_shape_dtype=global_inputs_shape_dtype,
     )
-    info = self._per_bs_infos[input_shape]
 
     info.dummy_inputs_per_device_buffers = self._input_to_device_buffers(
-        batched_host_dummy, input_shape, is_dummy=True
+        batched_host_dummy, input_shape, info, is_dummy=True
     )
     info.dummy_inputs = self._device_buffers_to_jax_arrays(
-        info.dummy_inputs_per_device_buffers, input_shape
+        info.dummy_inputs_per_device_buffers, info
     )
 
     # Initialize the device function.
-    device_fn = self._pjit_device_fn(input_pspecs, input_shape.batch_size)
+    device_fn = self._pjit_device_fn(
+        input_pspecs, input_shape.batch_size, info.dummy_inputs
+    )
 
     logging.info(
         'SAX servable_model JAX AOT compiler_options:\n%s',
@@ -336,29 +337,32 @@ class ServableMethod(servable_model.ServableMethod):
 
     info.device_fn = device_fn
 
-    # Compute with dummy to trigger compilation.
     if self.model_state.precompile:
-      # Transfer dummy to host to block until dummy computation is done.
-      init_dummy_outputs = self.device_compute(info.dummy_inputs, input_shape)
+      # Compute with dummy to trigger compilation.
+      with self.model_state.global_mesh:
+        init_dummy_outputs = info.device_fn(
+            self.model_state.mdl_vars, info.dummy_inputs
+        )
 
       # Only warm up post processing on primary host.
-      if not self.model_state.is_primary_host:
-        return
+      if self.model_state.is_primary_host:
+        if self.streamable_output:
+          # Retrieve streamed outputs until streaming is done.
+          stream_state = None
+          while True:
+            stream_outs = self.dequeue_stream_output()
+            _, stream_state = self.post_processing_stream(
+                stream_outs, stream_state
+            )
+            if stream_outs is None:
+              break
+        else:
+          # Transfer of output to host blocks until dummy computation is done.
+          outs = self.output_to_host(init_dummy_outputs, self.batch_size)
+          # Warm up post processor.
+          self.post_processing(outs)
 
-      if self.streamable_output:
-        # Retrieve streamed outputs until streaming is done.
-        stream_state = None
-        while True:
-          stream_outs = self.dequeue_stream_output()
-          _, stream_state = self.post_processing_stream(
-              stream_outs, stream_state
-          )
-          if stream_outs is None:
-            break
-      else:
-        outs = self.output_to_host(init_dummy_outputs, self.batch_size)
-        # Warm up post processor.
-        self.post_processing(outs)
+    self._per_bs_infos[input_shape] = info
 
   @property
   def model_state(self) -> ServableModelState:
@@ -412,9 +416,9 @@ class ServableMethod(servable_model.ServableMethod):
       self,
       one_core_inputs: HostTensors,
       unpadded_input_shape: InputShapeInfo,
+      info: MethodInputInfo,
       is_dummy: bool,
   ) -> DeviceTensors:
-    info = self._per_bs_infos[self.get_padded_input_shape(unpadded_input_shape)]
     step = np.array(self._step.next(), dtype=np.int32)
     host_inputs = jax.tree_util.tree_map(
         functools.partial(
@@ -448,6 +452,7 @@ class ServableMethod(servable_model.ServableMethod):
       return jax.tree_util.tree_map(pad_fn, host_inputs)
     else:
       if is_dummy:
+        assert info.dummy_inputs_per_device_buffers is None
 
         def _to_buffers(x):
           if self.model_state.is_primary_host:
@@ -474,11 +479,10 @@ class ServableMethod(servable_model.ServableMethod):
         )
 
   def _device_buffers_to_jax_arrays(
-      self, buffers: Any, input_shape: InputShapeInfo
+      self, buffers: Any, info: MethodInputInfo
   ) -> DeviceTensors:
     if not self.model_state.input_prefetch:
       return buffers
-    info = self._per_bs_infos[input_shape]
 
     def _to_jax_array(pspec, bufs, shape_dtype):
       shape, _ = shape_dtype
@@ -499,11 +503,12 @@ class ServableMethod(servable_model.ServableMethod):
       self, one_core_inputs: HostTensors, unpadded_input_shape: InputShapeInfo
   ) -> DeviceTensors:
     """Transfers input data to device. Pads incomplete batches."""
-    buffers = self._input_to_device_buffers(
-        one_core_inputs, unpadded_input_shape, is_dummy=False
-    )
     padded_shape = self.get_padded_input_shape(unpadded_input_shape)
-    return self._device_buffers_to_jax_arrays(buffers, padded_shape)
+    info = self._per_bs_infos[padded_shape]
+    buffers = self._input_to_device_buffers(
+        one_core_inputs, unpadded_input_shape, info, is_dummy=False
+    )
+    return self._device_buffers_to_jax_arrays(buffers, info)
 
   def output_to_host(
       self, output_tensors: DeviceTensors, unpadded_batch_size: int
@@ -616,9 +621,10 @@ class ServableMethod(servable_model.ServableMethod):
     """Invokes the JAX function that implements the device computation."""
 
   def _pjit_device_fn(
-      self, input_pspecs: PSpecs, batch_size: int
+      self, input_pspecs: PSpecs, batch_size: int, dummy_inputs: DeviceTensors
   ) -> Callable[[DeviceTensors, DeviceTensors], DeviceTensors]:
     """Returns a pjit-ed model function with input handling."""
+    del dummy_inputs
 
     def _wrapped_fn(mdl_vars, inputs):
       # Remove padding on the vars.
