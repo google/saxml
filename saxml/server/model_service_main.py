@@ -150,7 +150,7 @@ def setup_jax(
     compilation_cache.set_cache_dir(_JAX_CACHE_DIR.value)
 
   # Log tracing and compilation time.
-  jax.config.update('jax_log_compiles', True)
+  jax.config.update('jax_log_compiles', logging.level_debug())
   # We use xmap only with SPMD.
   jax.config.update('experimental_xmap_spmd_lowering', True)
   # Use the manual partitioning lowering of xmap to avoid vectorization.
