@@ -641,6 +641,8 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
 
   @property
   def tf_trackable_resources(self) -> NestedTfTrackable | None:
+    if isinstance(self._image_preprocessor, tf.Module):
+      return self._image_preprocessor
     return None
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
