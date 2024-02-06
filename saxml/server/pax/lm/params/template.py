@@ -666,6 +666,7 @@ def set_decoding_sharding_hparams(
     task_p: pax_fiddle.Config[tasks_lib.SingleTask],
     mesh_shape: Sequence[int],
     decode_mesh_transpose: Optional[Dict[str, str]] = None,
+    use_batch_sharding: bool = False,
 ) -> pax_fiddle.Config[tasks_lib.SingleTask]:
   """Set spmd sharding params that works for decoding.
 
@@ -676,6 +677,7 @@ def set_decoding_sharding_hparams(
       will the mesh shape will be added to the mesh dim, and the model will use
       fprop/training-optimized sharding except for the prefix, and switch to
       decoding-optimized sharding for the decoding loop.
+    use_batch_sharding: sharding bld along batch dimension during fprop.
 
   Returns:
     The updated task_p.
@@ -715,12 +717,26 @@ def set_decoding_sharding_hparams(
   # embedding weight
   w_vd = [maybe_fprop_mdl(mdl_axis), maybe_fprop_data(data_mdl2_axis)]
   # Activations.
+  if use_batch_sharding:
+    batch_axes = (replica_axis, data_mdl2_axis)
+    data_mdl_axes = (mdl_axis,)
+    # Use different sharding during decoding.
+    a_bd = [maybe_fprop_data(replica_axis), maybe_fprop_mdl(data_mdl2_axis)]
+    a_bf = [maybe_fprop_data(replica_axis), maybe_fprop_mdl(mdl_axis)]
+    a_bv = [maybe_fprop_data(replica_axis), maybe_fprop_mdl(mdl_axis)]
+  else:
+    batch_axes = (replica_axis,)
+    data_mdl_axes = (data_mdl2_axis,)
+    a_bd = None
+    a_bf = None
+    a_bv = None
+
   a_bld = [
-      maybe_fprop_data(replica_axis),
+      maybe_fprop_data(*batch_axes),
       None,
-      maybe_fprop_mdl(data_mdl2_axis),
+      maybe_fprop_mdl(*data_mdl_axes),
   ]
-  a_blf = [maybe_fprop_data(replica_axis), None, maybe_fprop_mdl(mdl_axis)]
+  a_blf = [maybe_fprop_data(*batch_axes), None, maybe_fprop_mdl(mdl_axis)]
   # Attention state shards batch also by `data_mdl2`.
   a_blnh = [
       maybe_fprop_data(replica_axis, data_mdl2_axis),
@@ -729,7 +745,7 @@ def set_decoding_sharding_hparams(
       None,
   ]
   a_blh = None
-  a_blv = [maybe_fprop_data(replica_axis), None, maybe_fprop_mdl(mdl_axis)]
+  a_blv = [maybe_fprop_data(*batch_axes), None, maybe_fprop_mdl(mdl_axis)]
 
   lm_cls = cast(
       Type[transformer_models.TransformerLm],
@@ -748,6 +764,9 @@ def set_decoding_sharding_hparams(
       a_blh=a_blh,
       a_blnh=a_blnh,
       a_blv=a_blv,
+      a_bd=a_bd,
+      a_bf=a_bf,
+      a_bv=a_bv,
   )
   # Transpose the mesh axes for the decoding loop.
   model_p.decoder_tpl.decode_loop_mesh_axes_transpose = decode_mesh_transpose

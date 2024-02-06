@@ -64,6 +64,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
   ICI_MESH_SHAPE = [1, 1, 1]
   DCN_MESH_SHAPE = None
   DECODE_MESH_TRANSPOSE = None
+  USE_BATCH_SHARDING = False
 
   BATCH_SIZE = 1
   NUM_SAMPLES = 1
@@ -163,6 +164,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
         task_p,
         mesh_shape=self.ICI_MESH_SHAPE,
         decode_mesh_transpose=self.DECODE_MESH_TRANSPOSE,
+        use_batch_sharding=self.USE_BATCH_SHARDING,
     )
     # Unused.
     lp = task_p.train.learner
@@ -374,15 +376,25 @@ class LLaMA70BFP16TPUv5e(BaseLLaMA):
   HIDDEN_DIMS = 28672
   USE_MQA = True
   NUM_KV_HEADS = 8
-
-  ICI_MESH_SHAPE = [1, 1, 16]
-  MAX_DECODE_STEPS = 128
-
   ENABLE_GENERATE_STREAM = False
 
   @property
   def test_mode(self) -> bool:
     return True
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False)
+class LLaMA70BInt8TPUv5e8(LLaMA70BFP16TPUv5e):
+  ICI_MESH_SHAPE = [1, 1, 8]
+
+  INPUT_SEQ_LEN = 2048
+  BUCKET_KEYS = None
+  NUM_SAMPLES = 1
+  TOP_K = 1
+  MAX_DECODE_STEPS = 2048
+  BATCH_SIZE = 32
+  USE_BATCH_SHARDING = True
 
 
 @servable_model_registry.register
