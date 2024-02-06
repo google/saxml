@@ -1212,7 +1212,8 @@ class LMGradientMethod(ServableLMMethod):
 
     for k, v in split_inputs_tensor_names.items():
       try:
-        tensors_to_take_gradients['inputs'][k] = fetch(inputs, v)
+        # take only the first sample in the batch.
+        tensors_to_take_gradients['inputs'][k] = fetch(inputs, v)[:1]
       except Exception as e:
         raise ValueError(f'Failed to find tensor {k} from inputs') from e
     for k, v in split_mdl_vars_tensor_names.items():
@@ -1252,6 +1253,7 @@ class LMGradientMethod(ServableLMMethod):
   ) -> NestedJTensor:
     # fetch loss and gradients from the model output
     metrics, per_example_output = model_fn_outputs[0]
+    batch_pad_size = model_fn_inputs['ids'].shape[0] - 1
     output = dict(
         # LMScore's fetch_output uses only the 0-th element of output.
         # per_example_output contains a 'scores' field by default from the loss
@@ -1263,14 +1265,17 @@ class LMGradientMethod(ServableLMMethod):
         ),
         # Pad total_loss with 0s to the shape (batch_size,)
         total_loss=jnp.array(
-            [metrics['total_loss'][0]]
-            + [0.0] * (model_fn_inputs['ids'].shape[0] - 1)
+            [metrics['total_loss'][0]] + [0.0] * batch_pad_size
         ),
     )
 
     for grads_type, grads_dict in metrics['gradients'].items():
       for tensor_name, grads in grads_dict.items():
-        output[f'gradients/{grads_type}/{tensor_name}'] = grads
+        output[f'gradients/{grads_type}/{tensor_name}'] = jnp.pad(
+            # Provide a fake batch dim to mdl_vars to be consistent with inputs
+            grads if grads_type == 'inputs' else grads.reshape(1, -1),
+            pad_width=((0, batch_pad_size), (0, 0)),
+        )
 
     return output
 
