@@ -251,42 +251,52 @@ class Batch:
 
 @dataclasses.dataclass
 class PrefillRequest:
-  """Prefill request."""
+  """Prefill request.
 
-  data: Any
-  rpc: utils.RpcQueueTask
-  ts: float
+  A transient object created after an lm.generate RPC request's inputs are
+  pre-processed and destroyed when an empty cache slot takes its content.
+  """
+
+  preprocessed_inputs: DeviceTensors | None
+  rpc_task: utils.RpcQueueTask
+  enqueue_time: float
 
 
 @dataclasses.dataclass
-class BatchingState:
-  """Continuous batching states."""
+class ContinuousBatchingState:
+  """Continuous batching state."""
 
   method: servable_model.ServableMethod
   model_key: str
   model_method: str
   service_id: str
-  cache_size: int
+  num_cache_slots: int
   max_decode_steps: int
 
-  # Prefill requests. Requests will be enqueued here after getting
-  # preprocessed. If there are any cache slots available, dequeue requests
-  # for prefill and insert them into the cache.
+  # Prefill requests are enqueued here after getting successfully pre-processed
+  # on the primary host. When cache slots become available, dequeue requests
+  # from this queue in the generation loop for further prefill and generation.
   prefill_queue: queue.SimpleQueue[PrefillRequest]
+  # RPC tasks for requests being actively processed. One entry per cache slot.
+  # Entries are filled in when a request leaves prefill_queue and freed when
+  # the lm.generate RPC is fulfilled.
   rpc_tasks: list[utils.RpcQueueTask | None]
 
-  # Buffer for decoded tokens
-  token_buffer: Int[Array, 'B T']
-  steps: Int[Array, 'B']
-  slots_in_use: Int[Array, 'B']
+  # Decoded tokens, left aligned.
+  decoded_tokens: Int[Array, 'B T']
+  # Sum of log probabilities across prefilled and decoded tokens.
   scores: Float[Array, 'B']
+  # Number of steps decoded.
+  steps: Int[Array, 'B']
+  # Whether each cache slot is being used (1) or unused (0).
+  slots_in_use: Int[Array, 'B']
 
-  # Stats
+  # Stats.
   prefill_wait_time: utils.RequestStats
   insert_wait_time: utils.RequestStats
-  generate_wait_time: utils.RequestStats
+  generate_step_time: utils.RequestStats
   recent_waiting_prefills: Deque[int]
-  recent_empty_slots: Deque[int]
+  recent_slots_in_use: Deque[int]
 
   def __init__(
       self,
@@ -294,35 +304,36 @@ class BatchingState:
       model_key: str,
       model_method: str,
       service_id: str,
-      cache_size: int,
+      num_cache_slots: int,
       max_decode_step: int,
   ):
     self.method = method
     self.model_key = model_key
     self.model_method = model_method
     self.service_id = service_id
-    self.prefill_queue = typing.cast(
-        queue.SimpleQueue[PrefillRequest], queue.SimpleQueue()
-    )
-    self.rpc_tasks = [None] * cache_size
-    self.cache_size = cache_size
+    self.num_cache_slots = num_cache_slots
     self.max_decode_steps = max_decode_step
 
-    self.token_buffer = np.zeros((cache_size, max_decode_step), dtype=np.int32)
-    self.steps = np.zeros((cache_size,), dtype=np.int32)
-    self.slots_in_use = np.zeros((cache_size,), dtype=np.int32)
-    self.scores = np.zeros((cache_size,))
+    self.prefill_queue: queue.SimpleQueue[PrefillRequest] = queue.SimpleQueue()
+    self.rpc_tasks = [None] * num_cache_slots
+
+    self.decoded_tokens = np.zeros(
+        (num_cache_slots, max_decode_step), dtype=np.int32
+    )
+    self.scores = np.zeros((num_cache_slots,))
+    self.steps = np.zeros((num_cache_slots,), dtype=np.int32)
+    self.slots_in_use = np.zeros((num_cache_slots,), dtype=np.int32)
 
     self.prefill_wait_time = utils.RequestStats(timespan_sec=np.float64(60.0))
+    self.insert_wait_time = utils.RequestStats(timespan_sec=np.float64(60.0))
     self.generate_step_time = utils.RequestStats(timespan_sec=np.float64(60.0))
     self.recent_waiting_prefills = collections.deque()
     self.recent_slots_in_use = collections.deque()
 
-  def update_stats(
-      self,
-      prefill_wait_time,
-  ):
+  def update_stats(self, prefill_wait_time: float, insert_wait_time: float):
+    """Update RPC stats."""
     self.prefill_wait_time.add(prefill_wait_time)
+    self.insert_wait_time.add(insert_wait_time)
     self.recent_waiting_prefills.append(self.prefill_queue.qsize())
     if len(self.recent_waiting_prefills) > 10:
       self.recent_waiting_prefills.popleft()
@@ -800,10 +811,20 @@ class ModelService(metaclass=abc.ABCMeta):
       logging.error('Method %s does not support streaming output.', method)
       return
 
-    if method_obj.continuous_batching and method == 'lm.generate':
-      batcher_item_key = MethodKey(
-          MethodName.BATCHED_LM_GENERATE, method, self._service_id, model_key
-      )
+    # Only lm.generate supports continuous batching.
+    if method_obj.continuous_batching:
+      if method == 'lm.generate':
+        batcher_item_key = MethodKey(
+            MethodName.BATCHED_LM_GENERATE, method, self._service_id, model_key
+        )
+      else:
+        done(
+            utils.invalid_arg(
+                f'Method {method} does not support continuous batching.'
+            )
+        )
+        logging.error('Method %s does not support continuous batching.', method)
+        return
     else:
       batcher_item_key = MethodKey(
           MethodName.MODEL, method, self._service_id, model_key
@@ -1326,7 +1347,7 @@ class ModelServicesRunner:
       )
 
       # For continuous batching
-      self._token_batching_state: Dict[str, BatchingState] = {}
+      self._token_batching_state: Dict[str, ContinuousBatchingState] = {}
       self._generate_thread = threading.Thread(
           target=self._run_generation_loop,
           daemon=True,  # TODO(changlan): Handle shutdown properly
@@ -1553,7 +1574,14 @@ class ModelServicesRunner:
             batching_wait_secs=method.batching_wait_secs,
         )
 
+        # If a method supports continuous batching, additionally register the
+        # continuous batching variation of the method.
         if method.continuous_batching:
+          # Currently, only lm.generate supports continuous batching.
+          if method_name != MethodName.BATCHED_LM_GENERATE:
+            raise ValueError(
+                f'Continuous batching is not supported for {method_name}'
+            )
           batch_generate_method_key = MethodKey(
               MethodName.BATCHED_LM_GENERATE, method_name, service_id, model_key
           )
@@ -1568,6 +1596,9 @@ class ModelServicesRunner:
                 service.ParseMethodRPCRequest(method_name, t.request)
                 for t in rpc_tasks
             ])
+
+            # TODO(changlan): Support extra inputs.
+
             unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
             padded_shape = method.get_padded_input_shape(unpadded_shape)
             res = method.input_to_device_for_prefill(inputs, unpadded_shape)
@@ -1581,12 +1612,12 @@ class ModelServicesRunner:
               max_live_batches=method.batch_size * 4,
           )
 
-          self._token_batching_state[model_key] = BatchingState(
+          self._token_batching_state[model_key] = ContinuousBatchingState(
               method,
               model_key=model_key,
               model_method=method_name,
               service_id=service_id,
-              cache_size=method.num_cache_slots,
+              num_cache_slots=method.num_cache_slots,
               max_decode_step=method.max_decode_steps,
           )
 
@@ -1979,9 +2010,9 @@ class ModelServicesRunner:
 
             state.prefill_queue.put(
                 PrefillRequest(
-                    data=batch.input_tensors,
-                    rpc=batch.rpc_tasks[0],
-                    ts=time.time(),
+                    preprocessed_inputs=batch.input_tensors,
+                    rpc_task=batch.rpc_tasks[0],
+                    enqueue_time=time.time(),
                 )
             )
             batch.finish()
@@ -2009,6 +2040,7 @@ class ModelServicesRunner:
         # and insert them to the cache first
         while not (state.slots_in_use.all() or state.prefill_queue.empty()):
           request = state.prefill_queue.get()
+          prefill_dequeue_time = time.time()
 
           slot = np.argmin(state.slots_in_use)
           state.slots_in_use[slot] = 1
@@ -2021,17 +2053,20 @@ class ModelServicesRunner:
               skip_host_sync=False,
           )
 
-          assert request.data is not None
-          assert request.rpc is not None
+          assert request.preprocessed_inputs is not None
+          assert request.rpc_task is not None
           scores, tokens, prefix_cache = method_obj.prefill(
-              inputs=request.data,
+              inputs=request.preprocessed_inputs,
           )
-          state.update_stats(time.time() - request.ts)
+          state.update_stats(
+              prefill_wait_time=prefill_dequeue_time - request.enqueue_time,
+              insert_wait_time=time.time() - prefill_dequeue_time,
+          )
           method_obj.insert(prefix_cache, slot)
-          state.token_buffer[slot][0] = np.array(tokens.addressable_data(0))
-          state.rpc_tasks[slot] = request.rpc
-          state.steps[slot] = 1
+          state.decoded_tokens[slot][0] = np.array(tokens.addressable_data(0))
           state.scores[slot] = np.array(scores.addressable_data(0))
+          state.rpc_tasks[slot] = request.rpc_task
+          state.steps[slot] = 1
 
         # Skip generation if none of the cache slots are in use.
         if not state.slots_in_use.any():
@@ -2046,29 +2081,33 @@ class ModelServicesRunner:
             skip_host_sync=False,
         )
         token_batch = (
-            state.token_buffer[np.arange(state.cache_size), state.steps - 1]
+            state.decoded_tokens[
+                np.arange(state.num_cache_slots), state.steps - 1
+            ]
             * state.slots_in_use
         )
         token_batch = method_obj.input_to_device_for_prefill(
             token_batch,
-            InputShapeInfo(batch_size=state.cache_size),
+            InputShapeInfo(batch_size=state.num_cache_slots),
         )
         res = method_obj.generate(token_batch)
         scores, tokens, done = method_obj.output_to_host(
-            res, unpadded_batch_size=state.cache_size
+            res, unpadded_batch_size=state.num_cache_slots
         )
         state.generate_step_time.add(time.time() - start_ts)
 
-        state.token_buffer[np.arange(state.cache_size), state.steps] = tokens
-        state.steps += state.slots_in_use
+        state.decoded_tokens[np.arange(state.num_cache_slots), state.steps] = (
+            tokens
+        )
         state.scores += scores * state.slots_in_use
+        state.steps += state.slots_in_use
 
         done = done * state.slots_in_use
         done = np.logical_or(done, state.steps >= state.max_decode_steps)
 
         # If any of the sequences in the batch is done
         if np.any(done):
-          sequences = state.token_buffer[done]
+          sequences = state.decoded_tokens[done]
           output_strings = method_obj.detokenize(sequences)
           done_slots = np.flatnonzero(done)
 
@@ -2083,10 +2122,11 @@ class ModelServicesRunner:
               self._log_exception('Error occurred: %s, error: %s', model_key, e)
             state.rpc_tasks[slot] = None
 
-          state.token_buffer[done] = 0
+          # Reset the cache slot state.
+          state.decoded_tokens[done] = 0
+          state.scores[done] = 0.0
           state.steps[done] = 0
           state.slots_in_use[done] = 0
-          state.scores[done] = 0.0
 
   def _run_secondary_worker_loop(self):
     """Runs the processing loop in secondary hosts in a multi-host setup."""
