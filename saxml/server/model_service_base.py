@@ -2057,13 +2057,13 @@ class ModelServicesRunner:
         scores, tokens, done = method_obj.output_to_host(
             res, unpadded_batch_size=state.cache_size
         )
-
         state.generate_step_time.add(time.time() - start_ts)
 
         state.token_buffer[np.arange(state.cache_size), state.steps] = tokens
         state.steps += state.slots_in_use
         state.scores += scores * state.slots_in_use
 
+        done = done * state.slots_in_use
         done = np.logical_or(done, state.steps >= state.max_decode_steps)
 
         # If any of the sequences in the batch is done
@@ -2077,7 +2077,10 @@ class ModelServicesRunner:
             self._model_services[state.service_id].FillRPCResponse(
                 state.model_method, outputs, state.rpc_tasks[slot].response
             )
-            state.rpc_tasks[slot].done(utils.ok(), query_cost=0)
+            try:
+              state.rpc_tasks[slot].done(utils.ok(), query_cost=0)
+            except Exception as e:  # pylint: disable=broad-except
+              self._log_exception('Error occurred: %s, error: %s', model_key, e)
             state.rpc_tasks[slot] = None
 
           state.token_buffer[done] = 0
