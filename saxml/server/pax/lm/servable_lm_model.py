@@ -524,6 +524,7 @@ class LMScoreMethod(ServableLMMethod):
     if (
         isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
         and self._tokenizer.vocabulary_class
+        and not self._tokenizer.tokenized_input
     ):
       tf_pre_processed = self.tf_pre_processing(prefixes, suffixes)
       return jax.tree_util.tree_map(np.array, tf_pre_processed)
@@ -764,6 +765,7 @@ class LMDecodeMethod(ServableLMMethod):
     if (
         isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
         and self._tokenizer.vocabulary_class
+        and not self._tokenizer.tokenized_input
     ):
       tf_pre_processed = self.tf_pre_processing(texts)
       return jax.tree_util.tree_map(np.array, tf_pre_processed)
@@ -806,6 +808,7 @@ class LMDecodeMethod(ServableLMMethod):
     if (
         isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
         and self._tokenizer.vocabulary_class
+        and not self._tokenizer.tokenized_output
     ):
       tf_post_processed = self.tf_post_processing(compute_outputs)
       post_processed = jax.tree_util.tree_map(np.array, tf_post_processed)
@@ -836,6 +839,7 @@ class LMDecodeMethod(ServableLMMethod):
     if (
         isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
         and self._tokenizer.vocabulary_class
+        and not self._tokenizer.tokenized_output
     ):
       return [
           (decoded, list(scores))
@@ -1071,6 +1075,7 @@ class TextToEmbedding(servable_model.ServableMethod):
     if (
         isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
         and self._tokenizer.vocabulary_class
+        and not self._tokenizer.tokenized_input
     ):
       tf_pre_processed = self.tf_pre_processing(prefixes, suffixes)
       return jax.tree_util.tree_map(np.array, tf_pre_processed)
@@ -1299,6 +1304,7 @@ class LMGradientMethod(ServableLMMethod):
     if (
         isinstance(self._tokenizer, lm_tokenizer.LMTokenizer)
         and self._tokenizer.vocabulary_class
+        and not self._tokenizer.tokenized_input
     ):
       tf_pre_processed = self.tf_pre_processing(prefixes, suffixes)
       return jax.tree_util.tree_map(np.array, tf_pre_processed)
