@@ -70,13 +70,16 @@ class ServableMethod(servable_model.ServableMethod):
     return x
 
   def input_to_device(
-      self, one_core_inputs: HostTensors, unpadded_shape: InputShapeInfo
+      self,
+      one_core_inputs: HostTensors,
+      unpadded_shape: InputShapeInfo,
+      padded_shape: InputShapeInfo,
   ) -> DeviceTensors:
-    """Transfers input data to device."""
+    """Transfers host inputs to device. Pads incomplete shapes."""
     return pytree.tree_map(self._maybe_to_device, one_core_inputs)
 
   def device_compute(
-      self, input_batch: DeviceTensors, unpadded_shape: InputShapeInfo
+      self, input_batch: DeviceTensors, padded_shape: InputShapeInfo
   ) -> DeviceTensors:
     """Executes the device computation."""
     with torch.no_grad():
@@ -85,7 +88,7 @@ class ServableMethod(servable_model.ServableMethod):
   def output_to_host(
       self, output_tensors: DeviceTensors, unpadded_batch_size: int
   ) -> HostTensors:
-    """Fetches device outputs to host. Removes batch padding."""
+    """Transfers device outputs to host. Removes batch padding."""
     return pytree.tree_map(self._maybe_to_host, output_tensors)
 
   def remove_batch_padding(
@@ -111,7 +114,7 @@ class ServableMethod(servable_model.ServableMethod):
     return False
 
   def device_compute_with_dummy_data(
-      self, unpadded_shape: InputShapeInfo
+      self, padded_shape: InputShapeInfo
   ) -> DeviceTensors:
     raise NotImplementedError
 

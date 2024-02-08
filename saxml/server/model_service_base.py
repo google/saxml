@@ -208,15 +208,21 @@ class Batch:
 
   method: MethodKey
   rpc_tasks: Sequence[utils.RpcQueueTask]
-  input_tensors: Optional[DeviceTensors]
   done: Closure  # Must be called when the batch is done processing.
+
+  input_tensors: Optional[DeviceTensors] = None
   ready: bool = False
   cv: threading.Condition = threading.Condition()
   # Whether to skip the asynchronous host-based multi-host sync, and use the
   # synchronous device-based sync only. This is used when there is no unfinished
   # batch in queue to overlap with async host sync.
   skip_host_sync: bool = False
-  unpadded_shape: InputShapeInfo = InputShapeInfo()
+
+  # Exactly one of these two fields should be filled in with a not-None value
+  # before the batch is used. In addition, padded_shape is None if and only if
+  # input_tensors is None.
+  unpadded_shape: InputShapeInfo | None = None
+  padded_shape: InputShapeInfo | None = None
 
   def size(self):
     return len(self.rpc_tasks)
@@ -404,9 +410,7 @@ class PerMethodBatcher:
         batch = Batch(
             key,
             rpc_tasks,
-            None,
             _finish_batch,
-            unpadded_shape=InputShapeInfo(batch_size=len(rpc_tasks)),
         )
         # If there is no other unprocessed batch, we enqueue to batch before
         # preprocessing finishes.
@@ -417,15 +421,24 @@ class PerMethodBatcher:
           presync = can_presync and batch.skip_host_sync
           self._global_live_batches += 1
           if presync:
+            # For presync, we haven't pre-processed the input yet. So we have
+            # to send the unpadded batch size to let secondary hosts pad their
+            # dummy inputs to the next supported batch size.
+            assert batch.input_tensors is None
+            batch.unpadded_shape = InputShapeInfo(batch_size=len(rpc_tasks))
+            assert batch.padded_shape is None
             self._batch_queue.put(batch)
         if preprocess_fn is None:
           batch.mark_as_ready()
         else:
-          # Initialize input_tensors to None to indicate failed preprocess.
+          # Initialize input_tensors to None to indicate failed pre-processing.
           input_tensors = None
           unpadded_shape = InputShapeInfo(batch_size=len(rpc_tasks))
+          padded_shape = None
           try:
-            input_tensors, unpadded_shape = preprocess_fn(rpc_tasks)
+            # Change these three values all at once or not at all.
+            input_tensors, padded_shape = preprocess_fn(rpc_tasks)
+            unpadded_shape = None
           except Exception as e:  # pylint: disable=broad-except
             # Catch arbitrary exception and propagate the error to the client
             # without crashing the server.
@@ -437,8 +450,11 @@ class PerMethodBatcher:
               _finish_batch()
             continue
           finally:
+            # Regardless of whether pre-processing succeeded, assign these three
+            # values to batch while observing its invariance.
             batch.input_tensors = input_tensors
             batch.unpadded_shape = unpadded_shape
+            batch.padded_shape = padded_shape
             batch.mark_as_ready()
         if not presync:
           self._batch_queue.put(batch)
@@ -1511,8 +1527,6 @@ class ModelServicesRunner:
               service.ParseMethodRPCRequest(method_name, t.request)
               for t in rpc_tasks
           ])
-          unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
-
           extra_inputs = [
               method.get_extra_inputs_from_request_inputs(t.request)
               for t in rpc_tasks
@@ -1521,8 +1535,10 @@ class ModelServicesRunner:
               inputs, len(rpc_tasks), extra_inputs
           )
 
-          res = method.input_to_device(inputs, unpadded_shape)
-          return res, unpadded_shape
+          unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
+          padded_shape = method.get_padded_input_shape(unpadded_shape)
+          res = method.input_to_device(inputs, unpadded_shape, padded_shape)
+          return res, padded_shape
 
         method_key = MethodKey(
             MethodName.MODEL, method_name, service_id, model_key
@@ -1553,8 +1569,9 @@ class ModelServicesRunner:
                 for t in rpc_tasks
             ])
             unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
+            padded_shape = method.get_padded_input_shape(unpadded_shape)
             res = method.input_to_device_for_prefill(inputs, unpadded_shape)
-            return res, unpadded_shape
+            return res, padded_shape
 
           self._batcher.register_method(
               model,
@@ -1904,6 +1921,7 @@ class ModelServicesRunner:
                 batch.method.model_key,
                 batch.method.model_method,
                 str(batch.unpadded_shape),
+                str(batch.padded_shape),
                 skip_host_sync=batch.skip_host_sync,
             )
             model = self._loaded_models.get_model(batch.method.model_key)
@@ -1924,18 +1942,25 @@ class ModelServicesRunner:
                 # streaming queue until it finishes.
                 if enable_token_streaming:
                   self._postprocess_stream_async(model, batch, streaming_done)
-                result = method_obj.device_compute_with_dummy_data(
+                assert batch.unpadded_shape is not None
+                assert batch.padded_shape is None
+                padded_shape = method_obj.get_padded_input_shape(
                     batch.unpadded_shape
                 )
+                result = method_obj.device_compute_with_dummy_data(padded_shape)
               else:
                 # Skip device compute if there is no secondary host.
                 result = None
             else:
+              # Successful pre-processing. Compute on device using the padded
+              # shape picked by pre-processing.
               if enable_token_streaming:
                 self._postprocess_stream_async(model, batch, streaming_done)
+              assert batch.unpadded_shape is None
+              assert batch.padded_shape is not None
               result = method_obj.device_compute(
                   input_batch=batch.input_tensors,
-                  unpadded_shape=batch.unpadded_shape,
+                  padded_shape=batch.padded_shape,
               )
             if result is None:
               batch.finish()
@@ -2126,20 +2151,38 @@ class ModelServicesRunner:
           # exception here. An exception must be from low-level
           # software/hardware stack and we crash the job.
           try:
-            model_key, model_method, unpadded_shape_str = msgs
+            model_key, model_method, unpadded_shape_str, padded_shape_str = msgs
             logging.info(
-                'Received model_key %s method %s, unpadded_shape %s',
+                'Received model_key %s, method %s, unpadded_shape %s,'
+                ' padded_shape %s',
                 model_key,
                 model_method,
                 unpadded_shape_str,
+                padded_shape_str,
             )
             method_obj = self._loaded_models.get_model(model_key).method(
                 model_method
             )
-            unpadded_shape = method_obj.deserialize_input_shape(
-                unpadded_shape_str
-            )
-            method_obj.device_compute_with_dummy_data(unpadded_shape)
+            if unpadded_shape_str == 'None':
+              unpadded_shape = None
+            else:
+              unpadded_shape = method_obj.deserialize_input_shape(
+                  unpadded_shape_str
+              )
+            if padded_shape_str == 'None':
+              padded_shape = None
+            else:
+              padded_shape = method_obj.deserialize_input_shape(
+                  padded_shape_str
+              )
+            if unpadded_shape is None:
+              # Successful pre-processing.
+              assert padded_shape is not None
+            else:
+              # Presync or failed-preprocessing.
+              assert padded_shape is None
+              padded_shape = method_obj.get_padded_input_shape(unpadded_shape)
+            method_obj.device_compute_with_dummy_data(padded_shape)
           except Exception as e:  # pylint: disable=broad-except
             self._worker_thread_exception = e
             break

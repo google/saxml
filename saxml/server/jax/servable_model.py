@@ -500,20 +500,22 @@ class ServableMethod(servable_model.ServableMethod):
     )
 
   def input_to_device(
-      self, one_core_inputs: HostTensors, unpadded_input_shape: InputShapeInfo
+      self,
+      one_core_inputs: HostTensors,
+      unpadded_shape: InputShapeInfo,
+      padded_shape: InputShapeInfo,
   ) -> DeviceTensors:
-    """Transfers input data to device. Pads incomplete batches."""
-    padded_shape = self.get_padded_input_shape(unpadded_input_shape)
+    """Transfers host inputs to device. Pads incomplete shapes."""
     info = self._per_bs_infos[padded_shape]
     buffers = self._input_to_device_buffers(
-        one_core_inputs, unpadded_input_shape, info, is_dummy=False
+        one_core_inputs, unpadded_shape, info, is_dummy=False
     )
     return self._device_buffers_to_jax_arrays(buffers, info)
 
   def output_to_host(
       self, output_tensors: DeviceTensors, unpadded_batch_size: int
   ) -> HostTensors:
-    """Fetches device outputs to host. Removes batch padding."""
+    """Transfers device outputs to host. Removes batch padding."""
 
     if self.streamable_output:
       # Wait for all host callbacks to finish.
@@ -591,10 +593,9 @@ class ServableMethod(servable_model.ServableMethod):
     return self.add_extra_inputs(input_batch, extra_input_tensors)
 
   def device_compute(
-      self, input_batch: DeviceTensors, unpadded_shape: InputShapeInfo
+      self, input_batch: DeviceTensors, padded_shape: InputShapeInfo
   ) -> DeviceTensors:
     """Executes the device computation."""
-    padded_shape = self.get_padded_input_shape(unpadded_shape)
     with self.model_state.global_mesh:
       output_batch = self._per_bs_infos[padded_shape].device_fn(
           self.model_state.mdl_vars, input_batch
@@ -602,10 +603,9 @@ class ServableMethod(servable_model.ServableMethod):
       return output_batch
 
   def device_compute_with_dummy_data(
-      self, unpadded_shape: InputShapeInfo
+      self, padded_shape: InputShapeInfo
   ) -> DeviceTensors:
     """Executes device computation with dummy inputs."""
-    padded_shape = self.get_padded_input_shape(unpadded_shape)
     return self.device_compute(
         self._per_bs_infos[padded_shape].dummy_inputs, padded_shape
     )

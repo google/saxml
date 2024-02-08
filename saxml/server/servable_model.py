@@ -83,15 +83,18 @@ class ServableMethod(abc.ABC):
 
   @abc.abstractmethod
   def input_to_device(
-      self, one_core_inputs: HostTensors, unpadded_shape: InputShapeInfo
+      self,
+      one_core_inputs: HostTensors,
+      unpadded_shape: InputShapeInfo,
+      padded_shape: InputShapeInfo,
   ) -> DeviceTensors:
-    """Transfers input data to device. Pads incomplete batches."""
+    """Transfers host inputs to device. Pads incomplete shapes."""
 
   @abc.abstractmethod
   def output_to_host(
       self, output_tensors: DeviceTensors, unpadded_batch_size: int
   ) -> HostTensors:
-    """Fetches device outputs to host. Removes batch padding."""
+    """Transfers device outputs to host. Removes batch padding."""
 
   @abc.abstractmethod
   def remove_batch_padding(
@@ -196,13 +199,13 @@ class ServableMethod(abc.ABC):
 
   @abc.abstractmethod
   def device_compute(
-      self, input_batch: DeviceTensors, unpadded_shape: InputShapeInfo
+      self, input_batch: DeviceTensors, padded_shape: InputShapeInfo
   ) -> DeviceTensors:
     """Executes the device computation."""
 
   @abc.abstractmethod
   def device_compute_with_dummy_data(
-      self, unpadded_shape: InputShapeInfo
+      self, padded_shape: InputShapeInfo
   ) -> DeviceTensors:
     """Executes device computation with dummy inputs."""
     # This is needed for multi-host SPMD programs to execute in sync.
@@ -263,22 +266,39 @@ class ServableMethod(abc.ABC):
       raw_inputs: List[Any],
       extra_inputs: Optional[List[ExtraInput]] = None,
   ) -> List[Any]:
-    """Executes pre_processing, device_compute, and post_processing."""
+    """Runs pre-processing, device compute, and post-processing on raw inputs.
+
+    This is a convenience method that should only be used in non-performance-
+    critical code, such as tests, or to demonstrate the typical workflow of a
+    method. Performance critical code such as ModelServicesRunner calls
+    pre_processing, device_compute, and post_processing directly and
+    individually in a pipelined fashion.
+
+    Args:
+      raw_inputs: A list of raw inputs to be given to the pre-processor.
+      extra_inputs: An optional list of per-example extra inputs.
+
+    Returns:
+      Post-processed outputs.
+    """
     assert not self.streamable_output
     unpadded_batch_size = len(raw_inputs)
     if unpadded_batch_size > self.batch_size:
       raise ValueError(
-          'Inputs to compute() had a larger batch size ('
-          f'{unpadded_batch_size}) than was '
-          f'configured ({self.batch_size})'
+          'Input to compute() input has a larger batch size'
+          f' ({unpadded_batch_size}) than maximum ({self.batch_size})'
       )
+    if extra_inputs is not None and len(extra_inputs) != unpadded_batch_size:
+      raise ValueError(
+          f'Extra inputs ({extra_inputs}) must have the same length as that of'
+          f' input to compute() ({unpadded_batch_size})'
+      )
+
     inputs = self.pre_processing(raw_inputs)
+    inputs = self.update_extra_inputs(inputs, unpadded_batch_size, extra_inputs)
     unpadded_shape = self.get_unpadded_shape(unpadded_batch_size, inputs)
-    inputs = self.update_extra_inputs(
-        inputs, unpadded_shape.batch_size, extra_inputs
-    )
-    inputs = self.input_to_device(inputs, unpadded_shape)
     padded_shape = self.get_padded_input_shape(unpadded_shape)
+    inputs = self.input_to_device(inputs, unpadded_shape, padded_shape)
     outputs = self.device_compute(inputs, padded_shape)
     outputs = self.output_to_host(outputs, unpadded_shape.batch_size)
     return self.post_processing(outputs)
