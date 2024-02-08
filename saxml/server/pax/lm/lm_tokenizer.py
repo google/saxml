@@ -345,11 +345,23 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     )
     unprocessed_prefix_len = tf.ensure_shape(unprocessed_prefix_len, [None])
 
-    # Find the byte-encoded IDs.
+    # Find byte-encoded IDs, represented as "<0x??>", where ? is [0-9,A-F].
     new_ids_shape = tf.shape(new_ids)
     b, new_seqlen = new_ids_shape[0], new_ids_shape[1]
     new_pieces = self._vocab.id_to_string_tf(new_ids)
-    is_byte = tf.strings.regex_full_match(new_pieces, '<0x[0-9,A-F][0-9,A-F]>$')
+    # Extend every string tensor element length by 6.
+    spaces = tf.broadcast_to(tf.constant(' ' * 6), new_ids_shape)
+    new_pieces = tf.strings.join([new_pieces, spaces])
+    # Byte-encoded IDs should have length 6 + 6 = 12.
+    new_pieces_len = tf.equal(tf.strings.length(new_pieces), 12)
+    # Byte-encoded IDs should start with "<0x".
+    start = tf.constant('<0x')
+    new_pieces_start = tf.equal(tf.strings.substr(new_pieces, 0, 3), start)
+    # Byte-encoded IDs should end with ">".
+    end = tf.constant('>')
+    new_pieces_end = tf.equal(tf.strings.substr(new_pieces, 5, 1), end)
+    # Whether every ID is a byte-encoded ID, not testing two middle characters.
+    is_byte = new_pieces_len & new_pieces_start & new_pieces_end
     # Remove trailing bytes.
     trailing_byte_count = tf.reduce_sum(
         tf.cast(
