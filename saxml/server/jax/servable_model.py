@@ -47,7 +47,7 @@ InputShapeInfo = servable_model.InputShapeInfo
 
 
 def remove_padding(x: jnp.ndarray, shape: Sequence[int]) -> jnp.ndarray:
-  if list(x.shape) == shape:
+  if list(x.shape) == list(shape):
     return x
   return jax.lax.slice(x, [0] * x.ndim, shape)
 
