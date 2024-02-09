@@ -1543,6 +1543,7 @@ class ModelServicesRunner:
             method=method,
             method_name=method_name,
             service=service,
+            prefill=False,
         ):
           inputs = method.pre_processing([
               service.ParseMethodRPCRequest(method_name, t.request)
@@ -1558,7 +1559,10 @@ class ModelServicesRunner:
 
           unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
           padded_shape = method.get_padded_input_shape(unpadded_shape)
-          res = method.input_to_device(inputs, unpadded_shape, padded_shape)
+          if prefill:
+            res = method.input_to_device_for_prefill(inputs, unpadded_shape)
+          else:
+            res = method.input_to_device(inputs, unpadded_shape, padded_shape)
           return res, padded_shape
 
         method_key = MethodKey(
@@ -1578,37 +1582,20 @@ class ModelServicesRunner:
         # continuous batching variation of the method.
         if method.continuous_batching:
           # Currently, only lm.generate supports continuous batching.
-          if method_name != MethodName.BATCHED_LM_GENERATE:
+          if method_name != 'lm.generate':
             raise ValueError(
                 f'Continuous batching is not supported for {method_name}'
             )
           batch_generate_method_key = MethodKey(
               MethodName.BATCHED_LM_GENERATE, method_name, service_id, model_key
           )
-
-          def preprocess_for_prefill(
-              rpc_tasks: Sequence[utils.RpcQueueTask],
-              method=method,
-              method_name=method_name,
-              service=service,
-          ):
-            inputs = method.pre_processing([
-                service.ParseMethodRPCRequest(method_name, t.request)
-                for t in rpc_tasks
-            ])
-
-            # TODO(changlan): Support extra inputs.
-
-            unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
-            padded_shape = method.get_padded_input_shape(unpadded_shape)
-            res = method.input_to_device_for_prefill(inputs, unpadded_shape)
-            return res, padded_shape
-
           self._batcher.register_method(
               model,
               batch_generate_method_key,
               1,
-              preprocess_fn=preprocess_for_prefill,
+              preprocess_fn=functools.partial(
+                  preprocess_rpc_tasks, prefill=True
+              ),
               max_live_batches=method.batch_size * 4,
           )
 
