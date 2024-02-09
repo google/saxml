@@ -15,6 +15,7 @@
 #include "saxml/client/python/wrapper.h"
 
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -175,29 +176,36 @@ absl::Status LanguageModel::GenerateStream(absl::string_view prefix,
                                            const ModelOptions* options) const {
   if (!status_.ok()) return status_;
 
-  // Do not release GIL here like the other methods do because the callback
-  // contains Python code.
-  // TODO(jiawenhao): Figure out how to release and acquire GIL to enable
-  // Python multi-threading.
+  // While holding the GIL, create a shared_ptr around the Python callback.
+  auto fn = std::make_shared<GenerateCallback>(std::move(callback));
+  // Now we can release the GIL.
+  pybind11::gil_scoped_release release;
+  // Capturing the shared_ptr won't trigger the Python callback's pybind11
+  // std::function constructor, avoiding a "GIL not held" error.
   auto callback_wrapper =
-      [callback](bool last,
-                 const std::vector<::sax::client::LanguageModel::GenerateItem>&
-                     items) {
+      [fn](bool last,
+           const std::vector<::sax::client::LanguageModel::GenerateItem>&
+               items) {
+        // Reacquire the GIL because the callback contains Python code.
+        pybind11::gil_scoped_acquire acquire;
         std::vector<std::tuple<std::string, int, std::vector<double>>> r;
         r.reserve(items.size());
-        if (last) return callback(true, r);
+        if (last) return (*fn)(true, r);
         for (size_t i = 0; i < items.size(); i++) {
           auto& item = items[i];
           r.emplace_back(std::make_tuple(std::move(item.text), item.prefix_len,
                                          item.scores));
         }
-        callback(false, std::move(r));
+        (*fn)(false, std::move(r));
       };
 
+  // The shared_ptr is passed to additional owners, so the Python callback's
+  // pybind11 std::function destructor won't be called either when this function
+  // returns and the local ownership ends.
   if (options == nullptr) {
-    return model_->GenerateStream(prefix, callback_wrapper);
+    return model_->GenerateStream(prefix, std::move(callback_wrapper));
   }
-  return model_->GenerateStream(*options, prefix, callback_wrapper);
+  return model_->GenerateStream(*options, prefix, std::move(callback_wrapper));
 }
 
 absl::StatusOr<std::vector<double>> LanguageModel::Embed(
