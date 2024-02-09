@@ -120,7 +120,7 @@ class Gamma2BFP16(GammaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = True
 
-  BATCH_SIZE = 1
+  BATCH_SIZE = [1]
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024
   BUCKET_KEYS = None
@@ -151,7 +151,7 @@ class Gamma7BFP16(GammaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = False
 
-  BATCH_SIZE = 1
+  BATCH_SIZE = [1]
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024
   BUCKET_KEYS = None
@@ -172,6 +172,28 @@ class Gamma7BFP16(GammaBase):
 
 
 @servable_model_registry.register
+class Gamma2BFP16With8Replicas(Gamma2BFP16):
+  """Gamma2B model on v4-8 or v5e-8 with 8 replications."""
+
+  @classmethod
+  def serving_mesh_shape(cls):
+    return [
+        [8, 1, 1],
+    ]
+
+
+@servable_model_registry.register
+class Gamma7BFP16With2Replicas(Gamma7BFP16):
+  """Gamma7B model on v4-8 or v5e-8 with 2 replications."""
+
+  @classmethod
+  def serving_mesh_shape(cls):
+    return [
+        [2, 1, 4],
+    ]
+
+
+@servable_model_registry.register
 @quantization.for_transformer(quantize_on_the_fly=False)
 class Gamma2BInt8(Gamma2BFP16):
   """Gamma2B model with int8 weight quantization."""
@@ -181,6 +203,28 @@ class Gamma2BInt8(Gamma2BFP16):
 @quantization.for_transformer(quantize_on_the_fly=False)
 class Gamma7BInt8(Gamma7BFP16):
   """Gamma7B model with int8 weight quantization."""
+
+
+@servable_model_registry.register
+class Gamma2BInt8With8Replicas(Gamma2BInt8):
+  """Gamma2B model with int8 quantization on v4-8 or v5e-8 with 8 replications."""
+
+  @classmethod
+  def serving_mesh_shape(cls):
+    return [
+        [8, 1, 1],
+    ]
+
+
+@servable_model_registry.register
+class Gamma7BInt8With2Replicas(Gamma7BInt8):
+  """Gamma7B model with int8 quantization on v4-8 or v5e-8 with 2 replications."""
+
+  @classmethod
+  def serving_mesh_shape(cls):
+    return [
+        [2, 1, 4],
+    ]
 
 
 @servable_model_registry.register
