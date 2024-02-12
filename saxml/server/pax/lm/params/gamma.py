@@ -120,7 +120,7 @@ class Gamma2BFP16(GammaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = True
 
-  BATCH_SIZE = [1]
+  BATCH_SIZE = [16]
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024
   BUCKET_KEYS = None
@@ -151,7 +151,7 @@ class Gamma7BFP16(GammaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = False
 
-  BATCH_SIZE = [1]
+  BATCH_SIZE = [32]
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024
   BUCKET_KEYS = None
@@ -173,7 +173,7 @@ class Gamma7BFP16(GammaBase):
 
 @servable_model_registry.register
 class Gamma2BFP16With8Replicas(Gamma2BFP16):
-  """Gamma2B model on v4-8 or v5e-8 with 8 replications."""
+  """Gamma2B model on v5e-8 with 8 replications."""
 
   @classmethod
   def serving_mesh_shape(cls):
@@ -183,8 +183,19 @@ class Gamma2BFP16With8Replicas(Gamma2BFP16):
 
 
 @servable_model_registry.register
+class Gamma2BFP16With4Replicas(Gamma2BFP16):
+  """Gamma2B model on v4-8 or v5e-4 both with 4 replications."""
+
+  @classmethod
+  def serving_mesh_shape(cls):
+    return [
+        [4, 1, 1],
+    ]
+
+
+@servable_model_registry.register
 class Gamma7BFP16With2Replicas(Gamma7BFP16):
-  """Gamma7B model on v4-8 or v5e-8 with 2 replications."""
+  """Gamma7B model on v5e-8 with 2 replications."""
 
   @classmethod
   def serving_mesh_shape(cls):
