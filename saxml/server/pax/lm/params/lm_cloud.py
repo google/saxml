@@ -81,13 +81,20 @@ class BaseLLaMA(base_experiment.BaseExperiment):
       'per_example_top_p': 0.95,
   }
 
+  NUM_CACHE_SLOTS = 0
+
   def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     return []
 
   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
     """Returns the task parameters."""
     task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='xformer_task')
-    task_p.model = pax_fiddle.Config(layers.LanguageModel, name='xformer_lm')
+    if self.NUM_CACHE_SLOTS > 0:
+      task_p.model = pax_fiddle.Config(
+          layers.LanguageModelContinuousBatching, name='xformer_lm'
+      )
+    else:
+      task_p.model = pax_fiddle.Config(layers.LanguageModel, name='xformer_lm')
     model_p = task_p.model
     model_p.lm_tpl.packed_input = False
     model_p.lm_tpl.model_dims = self.MODEL_DIMS
@@ -276,7 +283,7 @@ class LLaMA7BFP16TPUv5e(LLaMA7BFP16):
 
 
 @servable_model_registry.register
-@quantization.for_transformer(quantize_on_the_fly=False)
+# @quantization.for_transformer(quantize_on_the_fly=False)
 class LLaMA7B(BaseLLaMA):
   """7B model on a A100-40GB.
 
@@ -295,6 +302,30 @@ class LLaMA7B(BaseLLaMA):
   @property
   def test_mode(self) -> bool:
     return True
+
+
+@servable_model_registry.register
+class LLaMA7BTPUv5e4(LLaMA7B):
+  """7B model on a v5e4. Test for continuous batching."""
+  INPUT_SEQ_LEN = 1024
+  NUM_SAMPLES = 1
+  TOP_K = 1
+  BATCH_SIZE = 1
+
+  MAX_DECODE_STEPS = 1024
+  BUCKET_KEYS = [1024]
+  NUM_CACHE_SLOTS = 1
+
+  ICI_MESH_SHAPE = [1, 1, 4]
+
+  ENABLE_GENERATE_STREAM = False
+
+  def score(self):
+    return None
+
+  @property
+  def test_mode(self) -> bool:
+    return False
 
 
 @servable_model_registry.register

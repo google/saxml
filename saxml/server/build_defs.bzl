@@ -75,6 +75,7 @@ def create_server_binary(
         //saxml/server:server_deps or imports_targets.
       name: binary name.
     """
+
     if use_tpu:
         pass  # Unused internal TPU extra deps
     create_binary(

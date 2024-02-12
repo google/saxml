@@ -99,6 +99,9 @@ class CommonServingTemplate:
   GENERATION_USE_GEOMEAN_PROB_SCORE = False
   SCORING_USE_GEOMEAN_PROB_SCORE = False
   SCORING_INCLUDE_EOS_SCORE = False
+  NUM_CACHE_SLOTS = 0
+  # if NUM_CACHE_SLOTS > 0, it will enable continuous batching with
+  # max batch_size = NUM_CACHE_SLOTS. Currently, only support greedy decoding
   NEXT_TOKEN_SAMPLER_TPL = pax_fiddle.Config(
       token_samplers.DefaultNextTokenSampler
   )
@@ -224,6 +227,7 @@ class ServingTemplate(
           eos_id=stop_token_ids,
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
           emb_lookup_style=self.EMB_LOOKUP_STYLE,
+          num_cache_slots=self.NUM_CACHE_SLOTS,
       )
     else:
       generate_hparams = decoder_hparams.SampleDecoderHParams(

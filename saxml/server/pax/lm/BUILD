@@ -138,9 +138,14 @@ py_strict_test(
     ],
     python_version = "PY3",
     srcs_version = "PY3",
+    tags = [
+        "requires-net:external",
+    ],
     deps = [
         ":lm_tokenizer",
+        ":servable_lm_common",
         ":servable_lm_model",
+        "//saxml/server/pax/lm/params:lm_cloud",
         "//third_party/py/absl-py/flags",
         "//third_party/py/absl-py/logging",
         "//third_party/py/absl-py/testing:absltest",
@@ -148,6 +153,7 @@ py_strict_test(
         "//third_party/py/numpy",
         "//third_party/py/paxml:checkpoints",
         "//third_party/py/paxml/tasks/lm/params",
+        "//third_party/py/praxis:decoder_hparams",
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
     ],
