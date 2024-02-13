@@ -319,7 +319,7 @@ func (m *Mgr) Join(ctx context.Context, addr, debugAddr, dataAddr string, specs 
 				if !ok {
 					continue
 				}
-				if seenModel.Status == protobuf.Loaded {
+				if seenModel.Info.Status == protobuf.Loaded {
 					model.waiter.Add(1)
 				}
 			}
@@ -377,20 +377,29 @@ func (m *Mgr) GetStatus(ctx context.Context, addr string, full bool) (*mpb.GetSt
 
 func (m *Mgr) makeJoinedModelServerLocked(addr string, modelet *modeletState) (*apb.JoinedModelServer, error) {
 	statuses := map[string]cpb.ModelStatus{}
+	var successesPerSecond, errorsPerSecond, meanLatencyInSeconds float32 = 0., 0., 0.
 	for fullName, status := range modelet.SeenModels() {
-		s, err := status.Status.ToProto()
+		s, err := status.Info.Status.ToProto()
 		if err != nil {
 			return nil, err
 		}
 		statuses[fullName.ModelFullName()] = s
+		for _, stats := range status.Info.Stats {
+			successesPerSecond += stats.SuccessesPerSecond
+			errorsPerSecond += stats.ErrorsPerSecond
+			meanLatencyInSeconds += stats.MeanLatencyInSeconds
+		}
 	}
 	return &apb.JoinedModelServer{
-		ModelServer:  modelet.Specs.ToProto(),
-		Address:      addr,
-		DebugAddress: modelet.DebugAddr,
-		DataAddress:  modelet.DataAddr,
-		LastJoinMs:   modelet.LastPing().UnixMilli(),
-		LoadedModels: statuses,
+		ModelServer:          modelet.Specs.ToProto(),
+		Address:              addr,
+		DebugAddress:         modelet.DebugAddr,
+		DataAddress:          modelet.DataAddr,
+		LastJoinMs:           modelet.LastPing().UnixMilli(),
+		LoadedModels:         statuses,
+		SuccessesPerSecond:   successesPerSecond,
+		ErrorsPerSecond:      errorsPerSecond,
+		MeanLatencyInSeconds: meanLatencyInSeconds,
 	}, nil
 }
 
@@ -470,7 +479,7 @@ func (m *Mgr) pruneModelets(timeout time.Duration) {
 			if !ok {
 				continue
 			}
-			if seenModel.Status == protobuf.Loaded {
+			if seenModel.Info.Status == protobuf.Loaded {
 				model.waiter.Add(-1)
 			}
 		}
@@ -554,7 +563,7 @@ func (m *Mgr) ComputeAssignment() RefreshResult {
 	modelIsLoaded := func(modelName naming.ModelFullName, addr modeletAddr) bool {
 		for seenModelName, modelWithStatus := range m.modelets[addr].SeenModels() {
 			if seenModelName == modelName {
-				return modelWithStatus.Status == protobuf.Loaded
+				return modelWithStatus.Info.Status == protobuf.Loaded
 			}
 		}
 		return false

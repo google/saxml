@@ -170,6 +170,11 @@ message JoinedModelServer {
   int64 last_join_ms = 3;                      // milliseconds since Unix epoch
   map<string, ModelStatus> loaded_models = 4;  // model ID: status
   map<string, string> failure_reasons = 5;     // model ID: error message
+
+  // stats
+  float errors_per_second = 8;
+  float successes_per_second = 9;
+  float mean_latency_in_seconds = 10;
 }
 
 message PublishRequest {

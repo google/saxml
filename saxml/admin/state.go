@@ -103,14 +103,27 @@ func (m *Model) clone() *Model {
 	}
 }
 
+// MethodStats represents a few statistics for a model method reported by a server.
+type MethodStats struct {
+	SuccessesPerSecond   float32
+	ErrorsPerSecond      float32
+	MeanLatencyInSeconds float32
+}
+
+// ModelInfo represents the status of a model and method stats reported by a server.
+type ModelInfo struct {
+	Status protobuf.ModelStatus // Loaded, unloaded, etc.
+	Stats  map[string]MethodStats
+}
+
 // ModelWithStatus represents a model's static + dynamic state.
 type ModelWithStatus struct {
 	Model
-	Status protobuf.ModelStatus
+	Info ModelInfo
 }
 
 func (m *ModelWithStatus) clone() *ModelWithStatus {
-	return &ModelWithStatus{Model: *m.Model.clone(), Status: m.Status}
+	return &ModelWithStatus{Model: *m.Model.clone(), Info: m.Info}
 }
 
 type actionKind int
@@ -336,19 +349,19 @@ func (s *State) GetStatus(ctx context.Context, full bool) (*mpb.GetStatusRespons
 }
 
 // getStatus calls GetStatus on the server and returns the response in an internal format.
-func (s *State) getStatus(ctx context.Context) (map[naming.ModelFullName]protobuf.ModelStatus, error) {
+func (s *State) getStatus(ctx context.Context) (map[naming.ModelFullName]*ModelInfo, error) {
 	if s.client == nil {
 		return nil, fmt.Errorf("no model server client: %w", errors.ErrFailedPrecondition)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, getStatusTimeout)
 	defer cancel()
-	res, err := s.client.GetStatus(ctx, &mpb.GetStatusRequest{})
+	res, err := s.client.GetStatus(ctx, &mpb.GetStatusRequest{IncludeMethodStats: true})
 	if err != nil {
 		return nil, fmt.Errorf("getStatus RPC error: %w", err)
 	}
 
-	seen := make(map[naming.ModelFullName]protobuf.ModelStatus)
+	seen := make(map[naming.ModelFullName]*ModelInfo)
 	for _, model := range res.GetModels() {
 		fullName, err := naming.NewModelFullName(model.GetModelKey())
 		if err != nil {
@@ -358,7 +371,16 @@ func (s *State) getStatus(ctx context.Context) (map[naming.ModelFullName]protobu
 		if err != nil {
 			return nil, fmt.Errorf("getStatus got invalid model status: %w", err)
 		}
-		seen[fullName] = status
+
+		methodStats := make(map[string]MethodStats)
+		for _, stats := range model.GetMethodStats() {
+			methodStats[stats.GetMethod()] = MethodStats{
+				SuccessesPerSecond:   stats.GetSuccessesPerSecond(),
+				ErrorsPerSecond:      stats.GetErrorsPerSecond(),
+				MeanLatencyInSeconds: stats.GetMeanLatencyOnSuccessPerSecond(),
+			}
+		}
+		seen[fullName] = &ModelInfo{Status: status, Stats: methodStats}
 	}
 	return seen, nil
 }
@@ -375,7 +397,8 @@ func (s *State) initialize(ctx context.Context, modelFinder ModelFinder) error {
 
 	log.V(3).Infof("The server sees %v", seen)
 
-	for fullName, status := range seen {
+	for fullName, info := range seen {
+		status := info.Status
 		modelPb := modelFinder.FindModel(fullName)
 		if modelPb == nil {
 			log.Infof("Ignoring an unknown model %v with status %v on server %s", fullName, status, s.Addr)
@@ -388,7 +411,7 @@ func (s *State) initialize(ctx context.Context, modelFinder ModelFinder) error {
 			// Possibly need to update the model metadata such as ACLs.
 			s.queue <- &action{update, context.Background(), fullName, model.clone(), nil}
 		}
-		s.seen[fullName] = &ModelWithStatus{Model: *model, Status: status}
+		s.seen[fullName] = &ModelWithStatus{Model: *model, Info: *info}
 	}
 
 	s.muLastPing.Lock()
@@ -423,19 +446,19 @@ func (s *State) Refresh(ctx context.Context) error {
 	}
 
 	// Now, s.seen is a subset of or equal to seen.
-	for fullName, status := range seen {
+	for fullName, info := range seen {
 		if previouslySeen, ok := s.seen[fullName]; ok {
-			log.V(3).Infof("Updating model %v status from %v to %v on server %v", fullName, previouslySeen.Status, status, s.Addr)
-			previouslySeen.Status = status
+			log.V(3).Infof("Updating model %v status from %v to %v on server %v", fullName, previouslySeen.Info.Status, info.Status, s.Addr)
+			previouslySeen.Info = *info
 			continue
 		}
 		expected, ok := s.wanted[fullName]
 		if !ok {
-			log.V(3).Infof("Ignoring unloaded or unrecognized model %v with status %v on server %v", fullName, status, s.Addr)
+			log.V(3).Infof("Ignoring unloaded or unrecognized model %v with status %v on server %v", fullName, info.Status, s.Addr)
 			continue
 		}
-		log.V(3).Infof("Seeing expected model %v with status %v for the first time on server %v", fullName, status, s.Addr)
-		newlySeen := &ModelWithStatus{Model: *expected.clone(), Status: status}
+		log.V(3).Infof("Seeing expected model %v with status %v for the first time on server %v", fullName, info.Status, s.Addr)
+		newlySeen := &ModelWithStatus{Model: *expected.clone(), Info: *info}
 		s.seen[fullName] = newlySeen
 	}
 
