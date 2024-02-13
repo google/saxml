@@ -97,6 +97,7 @@ func Join(ctx context.Context, saxCell string, ipPort string, debugAddr string, 
 		go func() {
 			adminServer := admin.NewServer(saxCell, adminPort)
 			log.Infof("Starting admin server at :%v", adminPort)
+			adminServer.EnableStatusPages()
 			if err := adminServer.Start(ctx); err != nil {
 				log.Errorf("Failed to start admin server at :%v: %v", adminPort, err)
 				return
