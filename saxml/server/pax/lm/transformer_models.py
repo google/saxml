@@ -75,12 +75,14 @@ def gamma(
         num_kv_heads=1,
         use_bias=False,
         use_rotary_position_emb=True,
+        consolidate_rope_key_state=True,
         scale_query_by_dim_per_head=True,
     )
   else:
     transformer_layer_p.tr_atten_tpl.use_bias = False
     transformer_layer_p.tr_atten_tpl.combine_qkv = True
     transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
+    transformer_layer_p.tr_atten_tpl.consolidate_rope_key_state = True
     transformer_layer_p.tr_atten_tpl.internal_enable_per_dim_scale = False
     transformer_layer_p.tr_atten_tpl.scale_query_by_dim_per_head = True
   # FeedForward
