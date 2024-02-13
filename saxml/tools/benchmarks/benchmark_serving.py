@@ -116,6 +116,7 @@ async def send_request(
   loop = asyncio.get_running_loop()
   request_start_time = time.perf_counter()
   options = sax.ModelOptions()
+  options.SetTimeout(3600)
   options.SetExtraInput("per_example_max_decode_steps", output_len)
   sax_response = await loop.run_in_executor(
       None, lm_client.Generate, prompt, options
