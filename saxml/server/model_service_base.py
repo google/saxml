@@ -1598,7 +1598,9 @@ class ModelServicesRunner:
               preprocess_fn=functools.partial(
                   preprocess_rpc_tasks, prefill=True
               ),
-              max_live_batches=method.batch_size * 4,
+              # Note: batch size of this method is always 1 so max_live_batches
+              # denotes the number of live requests.
+              max_live_batches=method.num_cache_slots * 2,
           )
 
           self._token_batching_state[model_key] = ContinuousBatchingState(
