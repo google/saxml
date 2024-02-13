@@ -224,6 +224,7 @@ go_library(
         "//saxml/protobuf:vision_go_proto_grpc",
         # unused internal vision gRPC dependency,
         "@com_github_golang_glog//:go_default_library",
+        "@org_golang_google_protobuf//proto",
     ],
 )
 

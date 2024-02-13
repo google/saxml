@@ -27,6 +27,7 @@ import (
 
 	log "github.com/golang/glog"
 	// unused internal test dependency
+	"google.golang.org/protobuf/proto"
 	"saxml/common/addr"
 	"saxml/common/cell"
 	"saxml/common/config"
@@ -605,6 +606,20 @@ type stubCustomModelServer struct{}
 
 func (s *stubCustomModelServer) Custom(ctx context.Context, in *cmpb.CustomRequest) (*cmpb.CustomResponse, error) {
 	text := in.GetRequest()
+	request := &mmpb.GenerateRequest{}
+	err := proto.Unmarshal(text, request)
+	if err == nil {
+		response := &mmpb.GenerateResponse{}
+		response.Results = make([]*mmpb.GenerateResult, len(request.GetItems()))
+		for i, item := range request.GetItems() {
+			response.Results[i] = &mmpb.GenerateResult{
+				Items: []*mmpb.DataItem{item},
+				Score: float64(i) * 2,
+			}
+		}
+		data, _ := proto.Marshal(response)
+		return &cmpb.CustomResponse{Response: data}, nil
+	}
 	return &cmpb.CustomResponse{
 		Response: append(text, []byte("_1")...),
 	}, nil
