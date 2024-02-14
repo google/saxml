@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 
+	log "github.com/golang/glog"
 	"github.com/google/subcommands"
 	"saxml/bin/saxcommand"
 	"saxml/common/platform/env"
@@ -68,5 +69,14 @@ func main() {
 	env.Get().Init(ctx)
 
 	go http.ListenAndServe(fmt.Sprintf(":%d", port), nil) // to get /rpcz, etc. for debugging RPCs
-	os.Exit(int(subcommands.Execute(ctx)))
+	status := subcommands.Execute(ctx)
+	if status == subcommands.ExitFailure {
+		log.Errorf(`
+Hint:
+* If the command failed with 'deadline exceeded', consider using a timeout longer than the default 60s (e.g., saxutil --sax_timeout=600s).
+* saxutil starts an http server on :8080. You can open http://localhost:8080/rpcz for debugging.
+* If you get 'permission denied', search and read about 'sax acl'. Uses 'saxutil getacl' to figure out who you should talk to.
+`)
+	}
+	os.Exit(int(status))
 }

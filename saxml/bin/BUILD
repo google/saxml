@@ -78,6 +78,7 @@ go_binary(
         ":saxcommand",
         "//saxml/common/platform:env",
         "//saxml/common/platform:register",
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_google_subcommands//:go_default_library",
     ],
 )
