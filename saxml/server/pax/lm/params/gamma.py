@@ -38,6 +38,7 @@ class GammaBase(base_experiment.BaseExperiment):
   SPM_MODEL = 'gs://cloud-tpu-inference-public/sax-tokenizers/gamma/gamma-tokenizer.model'
   SOS_ID = 2
   EOS_ID = 1
+  GENERATE_ONLY = True  # No need to compute loss.
 
   # Architecture-related.
   NUM_LAYERS = 18
@@ -120,7 +121,7 @@ class Gamma2BFP16(GammaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = True
 
-  BATCH_SIZE = [16]
+  BATCH_SIZE = [1, 64, 256]
   MAX_LIVE_BATCHES = 16
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024

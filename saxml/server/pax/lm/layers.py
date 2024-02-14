@@ -347,3 +347,28 @@ class GPTJRotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
       first_part = first_part.astype(self.fprop_dtype)
       second_part = second_part.astype(self.fprop_dtype)
     return jnp.concatenate([first_part, second_part], axis=-1)
+
+
+class TransformerFeedForwardWithSeqSplit(layers.TransformerFeedForward):
+  """TransformerFeedForward with seq split."""
+
+  chunked_ffn_num_seq_split: int = 16
+
+  def _compute_ffns(self, inputs, paddings, ap_ff0=None):
+    if inputs.ndim == 2 or self.chunked_ffn_num_seq_split == 1:
+      return super()._compute_ffns(inputs, paddings, ap_ff0)
+    t = inputs.shape[1]  # time dimension
+    if t < self.chunked_ffn_num_seq_split:
+      return super()._compute_ffns(inputs, paddings, ap_ff0)
+    assert (
+        t % self.chunked_ffn_num_seq_split == 0
+    ), f'{t=} must divide {self.chunked_ffn_num_seq_split}'
+    chunk_size = t // self.chunked_ffn_num_seq_split
+    for i in range(self.chunked_ffn_num_seq_split):
+      start = i * chunk_size
+      stop = start + chunk_size
+      inputs_chunk = super()._compute_ffns(
+          inputs[:, start:stop, :], paddings[:, start:stop, :], ap_ff0
+      )
+      inputs = inputs.at[:, start:stop, :].set(inputs_chunk)
+    return inputs

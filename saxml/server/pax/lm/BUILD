@@ -201,6 +201,7 @@ pytype_strict_library(
     name = "transformer_models",
     srcs = ["transformer_models.py"],
     deps = [
+        ":layers",
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis/layers",
         "//third_party/py/praxis/layers:multi_query_attention",

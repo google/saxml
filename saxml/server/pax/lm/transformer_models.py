@@ -16,6 +16,7 @@
 from praxis import layers
 from praxis import pax_fiddle
 from praxis.layers import multi_query_attention
+from saxml.server.pax.lm import layers as sax_layers
 
 
 def gamma(
@@ -45,12 +46,9 @@ def gamma(
   model_p.vocab_size = vocab_size
   model_p.model_dims = model_dims
   model_p.softmax_tpl = pax_fiddle.Config(
-      layers.embedding_softmax.SharedEmbeddingSoftmax,
+      layers.embedding_softmax.NClassMajorSharedEmbeddingSoftmax,
       scale_sqrt_depth=True,
-      feed_forward_tpl=pax_fiddle.Config(
-          layers.linears.FeedForward,
-          has_bias=False,
-      ),
+      use_bias=False,
   )
   model_p.position_emb_tpl = None
   ln_tpl = pax_fiddle.Config(
@@ -86,6 +84,9 @@ def gamma(
     transformer_layer_p.tr_atten_tpl.internal_enable_per_dim_scale = False
     transformer_layer_p.tr_atten_tpl.scale_query_by_dim_per_head = True
   # FeedForward
+  transformer_layer_p.tr_fflayer_tpl = pax_fiddle.Config(
+      sax_layers.TransformerFeedForwardWithSeqSplit
+  )
   transformer_layer_p.tr_fflayer_tpl.ln_tpl = ln_tpl.clone()
   transformer_layer_p.tr_fflayer_tpl.has_bias = False
   transformer_layer_p.tr_fflayer_tpl.use_gated_activation = True
