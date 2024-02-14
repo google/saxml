@@ -223,7 +223,7 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
       token_batch = (
           decoded_tokens[np.arange(num_slots), steps - 1] * slots_in_use
       )
-      token_batch = method.input_to_device_for_prefill(
+      token_batch = method.input_to_device_for_continuous_batching(
           token_batch,
           servable_lm_common.InputShapeInfo(batch_size=num_slots),
       )
@@ -303,8 +303,10 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     #   6. Run prefill for input3, insert the KV cache and run generate until
     #   input2 and input3 complete.
     #   There are total 3 prefill calls and 4 generate calls.
-    input1 = method_with_continuous_batching.input_to_device_for_prefill(
-        input1, servable_lm_common.InputShapeInfo(batch_size=1)
+    input1 = (
+        method_with_continuous_batching.input_to_device_for_continuous_batching(
+            input1, servable_lm_common.InputShapeInfo(batch_size=1)
+        )
     )
     self.assertSequenceEqual(
         input1.ids.shape,
@@ -338,8 +340,10 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     )
 
     # Run prefill for input2.
-    input2 = method_with_continuous_batching.input_to_device_for_prefill(
-        input2, servable_lm_common.InputShapeInfo(batch_size=1)
+    input2 = (
+        method_with_continuous_batching.input_to_device_for_continuous_batching(
+            input2, servable_lm_common.InputShapeInfo(batch_size=1)
+        )
     )
     token, prefix_state, slot = self._run_prefill(
         method_with_continuous_batching, slots_in_use, steps, input2
@@ -370,8 +374,10 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     slots_in_use[done] = 0
 
     # Run prefill for input3.
-    input3 = method_with_continuous_batching.input_to_device_for_prefill(
-        input3, servable_lm_common.InputShapeInfo(batch_size=1)
+    input3 = (
+        method_with_continuous_batching.input_to_device_for_continuous_batching(
+            input3, servable_lm_common.InputShapeInfo(batch_size=1)
+        )
     )
     token, prefix_state, slot = self._run_prefill(
         method_with_continuous_batching, slots_in_use, steps, input3
