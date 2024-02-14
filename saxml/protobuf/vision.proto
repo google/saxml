@@ -20,6 +20,8 @@ package sax.server.vision;
 
 import "saxml/protobuf/common.proto";
 
+// unused internal Java option
+
 message ClassifyRequest {
   string model_key = 1;
   bytes image_bytes = 2;

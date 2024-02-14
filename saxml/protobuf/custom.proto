@@ -20,6 +20,8 @@ package sax.server.custom;
 
 import "saxml/protobuf/common.proto";
 
+// unused internal Java option
+
 // Usage:
 //
 //   custom_req = CustomRequest(model_key="lm1t",
