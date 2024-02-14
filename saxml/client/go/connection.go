@@ -22,6 +22,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
+	"google3/third_party/golang/grpc/connectivity/connectivity"
 	"google.golang.org/grpc"
 	"saxml/client/go/location"
 	"saxml/common/errors"
@@ -29,9 +30,10 @@ import (
 )
 
 const (
-	sleepTime   = 10 * time.Second
-	purgeTime   = 1 * time.Hour
-	dialTimeout = 2 * time.Second
+	sleepTime     = 5 * time.Second
+	fastPurgeTime = 10 * time.Second
+	purgeTime     = 10 * time.Minute
+	dialTimeout   = 2 * time.Second
 )
 
 type conn struct {
@@ -53,17 +55,29 @@ func newConnTable() *connTable {
 		// This is intendented to live as long as the client library (client/go/...) lives.
 		// TODO(jianlijianli): consider passing in a context to close/cancel this routine.
 		for {
-			cutoff := time.Now().Add(-purgeTime)
+			now := time.Now()
 			c.mu.Lock()
-			log.V(2).Infof("clearing connTable with %d connections using cutoff time = %v\n", len(c.table), cutoff)
+			log.V(2).Infof("clearing connTable with %d connections: %v %v\n", len(c.table), purgeTime, fastPurgeTime)
 			for addr, conn := range c.table {
-				if conn.lastAccTime.Before(cutoff) {
-					conn.client.Close()
-					delete(c.table, addr) // It's safe to delete and traverse.
+				shouldClose := false
+				if conn.client.GetState() == connectivity.Ready {
+					// If the grpc connection is ready but has not been used for quite a while, close it.
+					if conn.lastAccTime.Before(now.Add(-purgeTime)) {
+						shouldClose = true
+						log.V(3).Infof("conneTable removed idle connection to addr %s\n", addr)
+					}
+				} else if conn.lastAccTime.Before(now.Add(-fastPurgeTime)) {
+					// If the grpc connection is _not_ ready and has not been used recently, close it.
+					shouldClose = true
 					log.V(3).Infof("conneTable removed addr %s\n", addr)
 				}
+				if shouldClose {
+					log.Infof("connTable close %s", addr)
+					conn.client.Close()
+					delete(c.table, addr) // It's safe to delete and traverse.
+				}
 			}
-			log.V(2).Infof("after clearing connTable initiated at %v, there are %d connections\n", cutoff, len(c.table))
+			log.V(2).Infof("after clearing connTable with %v/%v, there are %d connections\n", purgeTime, fastPurgeTime, len(c.table))
 			c.mu.Unlock()
 			time.Sleep(sleepTime)
 		}
