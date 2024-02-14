@@ -45,7 +45,7 @@ const (
 	delayForgetModel = 10 * time.Minute
 	// Inserts these many points into the consistent hash ring for
 	// each server address.
-	numVirtualReplicas = 3
+	numVirtualReplicas = 8
 )
 
 // Create Admin server connection.
@@ -278,22 +278,17 @@ func (a *addrReplica) reset(addrs []string) {
 	a.hash = skiplist.New[uint64](intcmp)
 	if addrs != nil {
 		for _, addr := range addrs {
-			for i := uint64(0); i < numVirtualReplicas; i++ {
-				h := a.hashAddr(addr, i)
-				if a.hash.Insert(&h, false /* dup not ok*/) {
-					a.addr[h] = addr
-				}
-			}
+			a.addLocked(addr)
 		}
 	}
 }
 
 func (a *addrReplica) hashAddr(addr string, index uint64) uint64 {
 	var h maphash.Hash
+	h.SetSeed(a.hashSeed)
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, index)
 	h.Write(b)
-	h.SetSeed(a.hashSeed)
 	h.WriteString(addr)
 	return h.Sum64()
 }
@@ -316,6 +311,10 @@ func (a *addrReplica) setError(err error) {
 func (a *addrReplica) add(addr string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.addLocked(addr)
+}
+
+func (a *addrReplica) addLocked(addr string) {
 	for i := uint64(0); i < numVirtualReplicas; i++ {
 		h := a.hashAddr(addr, i)
 		if a.hash.Insert(&h, false /* dup not ok*/) {
@@ -378,11 +377,13 @@ func (a *addrReplica) Pick(seed uint64) (string, error) {
 	if err == nil {
 		h := a.hashUint64(seed)
 		it := a.hash.LowerBound(&h)
+		var val uint64
 		if it.IsNil() {
-			addr = a.addr[*a.hash.First().Value()]
+			val = *a.hash.First().Value()
 		} else {
-			addr = a.addr[*it.Value()]
+			val = *it.Value()
 		}
+		addr = a.addr[val]
 	}
 	return addr, err
 }
