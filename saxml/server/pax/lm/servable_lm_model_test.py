@@ -171,6 +171,9 @@ class LLaMASmall(BaseLLaMA, servable_lm_model.ServableLMModelParams):
   def task(self):
     task_p = super().task()
     task_p.model.lm_tpl.packed_input = False
+    task_p.model.lm_tpl.stacked_transformer_tpl.transformer_layer_params_tpl.tr_atten_tpl.consolidate_rope_key_state = (
+        True
+    )
     return task_p
 
 

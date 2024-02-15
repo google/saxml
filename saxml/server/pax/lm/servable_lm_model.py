@@ -32,6 +32,7 @@ from praxis import decoder_utils
 from praxis import pax_fiddle
 from praxis import py_utils
 from praxis import pytypes
+from praxis.layers import multi_query_attention
 from saxml.server.jax import np_tf_sess_wrapper
 from saxml.server.jax import servable_model as jax_servable_model
 from saxml.server.pax import servable_model
@@ -1062,44 +1063,68 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     return self._model.lm_tpl.stacked_transformer_tpl.num_layers
 
   @property
-  def model_head_dims(self) -> int:
-    return int(
-        self._model.lm_tpl.stacked_transformer_tpl.model_dims
-        / self.model_num_heads
-    )
+  def dim_per_head(self) -> int:
+    return self._model.lm_tpl.stacked_transformer_tpl.dim_per_head
 
-  # TODO(jwyang): handle the case for mqa too
   @property
-  def model_num_heads(self) -> int:
+  def num_kv_heads(self) -> int:
+    tr_atten_tpl = (
+        self._model.lm_tpl.stacked_transformer_tpl.transformer_layer_params_tpl.tr_atten_tpl
+    )
+    if issubclass(
+        tr_atten_tpl.cls, multi_query_attention.MultiQueryDotProductAttention
+    ):
+      return tr_atten_tpl.num_kv_heads
     return self._model.lm_tpl.stacked_transformer_tpl.num_heads
 
   def init_decode_cache(self):
     # decode cache mdl_vars
     num_layers = self.model_num_layers
-    head_dims = self.model_head_dims
-    num_heads = self.model_num_heads
+    head_dims = self.dim_per_head
     sql_len = self.input_sequence_len + self.max_decode_steps
     kv_cache = {}
+    consolidate_rope_key_state = False
+    tr_atten_tpl = (
+        self._model.lm_tpl.stacked_transformer_tpl.transformer_layer_params_tpl.tr_atten_tpl
+    )
+    if hasattr(tr_atten_tpl, 'consolidate_rope_key_state'):
+      consolidate_rope_key_state = tr_atten_tpl.consolidate_rope_key_state
     # TODO(jwyang): handle the case when consolidate_rope_key_state = True
     for i in range(num_layers):
+      if self.num_kv_heads == 1:
+        kv_state_shape = (self.num_cache_slots, sql_len, head_dims)
+      else:
+        kv_state_shape = (
+            self.num_cache_slots,
+            sql_len,
+            self.num_kv_heads,
+            head_dims,
+        )
       layer_kv_cache = {
           'x_layers_{}'.format(i): {
               'self_attention': {
                   'key_state': jnp.zeros(
-                      (self.num_cache_slots, sql_len, num_heads, head_dims),
-                      dtype=jnp.bfloat16,
+                      kv_state_shape,
+                      dtype=self._model.fprop_dtype,
                   ),
                   'value_state': jnp.zeros(
-                      (self.num_cache_slots, sql_len, num_heads, head_dims),
-                      dtype=jnp.bfloat16,
-                  ),
-                  'key_post_rotary_pos_emb': jnp.zeros(
-                      (self.num_cache_slots, sql_len, num_heads, head_dims),
-                      dtype=jnp.bfloat16,
+                      kv_state_shape,
+                      dtype=self._model.fprop_dtype,
                   ),
               }
           }
       }
+      if not consolidate_rope_key_state:
+        layer_kv_cache.update({
+            'x_layers_{}'.format(i): {
+                'self_attention': {
+                    'key_post_rotary_pos_emb': jnp.zeros(
+                        kv_state_shape,
+                        dtype=self._model.fprop_dtype,
+                    ),
+                }
+            }
+        })
       kv_cache.update(layer_kv_cache)
     decode_cache = {
         'decoder_cache': {
@@ -1110,10 +1135,25 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         }
     }
 
-    # decode cache sharding
+    # decode cache sharding with a_blnh
+
     def _get_decode_pspec(x):
-      assert len(x.shape) == 4
-      return jax.sharding.PartitionSpec(None, None, ('mdl',), None)
+      assert len(x.shape) in [3, 4]
+      atten_ap = (
+          self._model.lm_tpl.stacked_transformer_tpl.transformer_layer_params_tpl.tr_atten_tpl.activation_split_dims_mapping
+      )
+      sharding = None
+      if len(x.shape) == 3:
+        if hasattr(atten_ap, 'blh'):
+          sharding = atten_ap.blh
+        else:
+          sharding = (None, None, None)
+      if len(x.shape) == 4:
+        if hasattr(atten_ap, 'blnh'):
+          sharding = atten_ap.blnh
+        else:
+          sharding = (None, None, None, None)
+      return jax.sharding.PartitionSpec(*sharding)
 
     time_step_partition_spec = jax.sharding.PartitionSpec()
     transformer_decode_partition_spec = jax.tree_util.tree_map(
@@ -1545,6 +1585,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     """
     # call device_fn insert to insert the prefill state to kv cache
     prefix_decode_state, prefix_decode_cache = prefix_state
+    logging.info('insert into slot %d', slot)
     with self.model_state.global_mesh:
       new_decode_state, new_decode_cache = self._insert_device_fn(
           self.model_state.mdl_vars,

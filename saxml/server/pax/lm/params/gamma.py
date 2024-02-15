@@ -57,6 +57,7 @@ class GammaBase(base_experiment.BaseExperiment):
   DECODE_MESH_TRANSPOSE = None
 
   BATCH_SIZE = 1
+  NUM_CACHE_SLOTS = 0
   NUM_SAMPLES = 1
   ENABLE_GENERATE_STREAM = True
   STREAM_INTERVAL_STEPS = 16
@@ -77,7 +78,12 @@ class GammaBase(base_experiment.BaseExperiment):
   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
     """Returns the task parameters."""
     task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='xformer_task')
-    task_p.model = pax_fiddle.Config(layers.LanguageModel, name='xformer_lm')
+    if self.NUM_CACHE_SLOTS > 0:
+      task_p.model = pax_fiddle.Config(
+          layers.LanguageModelContinuousBatching, name='xformer_lm'
+      )
+    else:
+      task_p.model = pax_fiddle.Config(layers.LanguageModel, name='xformer_lm')
     model_p = task_p.model
     model_p.lm_tpl = transformer_models.gamma(
         vocab_size=self.VOCAB_SIZE,
@@ -142,6 +148,14 @@ class Gamma2BFP16(GammaBase):
 
 
 @servable_model_registry.register
+class Gamma2BFP16Exp(Gamma2BFP16):
+  TOP_K = 1
+  BATCH_SIZE = 1
+  NUM_CACHE_SLOTS = 64
+  MAX_LIVE_BATCHES = 128 * 4  # BATCH_SIZE is always 1 in this case.
+
+
+@servable_model_registry.register
 class Gamma7BFP16(GammaBase):
   """Gamma7B model."""
 
@@ -153,7 +167,7 @@ class Gamma7BFP16(GammaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = False
 
-  BATCH_SIZE = [32]
+  BATCH_SIZE = [1, 32]
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024
   BUCKET_KEYS = None
@@ -171,6 +185,14 @@ class Gamma7BFP16(GammaBase):
         [1, 1, 4],
         [1, 1, 8],
     ]
+
+
+@servable_model_registry.register
+class Gamma7BFP16Exp(Gamma7BFP16):
+  BATCH_SIZE = 1
+  NUM_CACHE_SLOTS = 16
+  MAX_LIVE_BATCHES = 128 * 4  # BATCH_SIZE is always 1 in this case.
+  TOP_K = 1
 
 
 @servable_model_registry.register
