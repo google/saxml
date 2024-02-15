@@ -22,7 +22,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"google3/third_party/golang/grpc/connectivity/connectivity"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc"
 	"saxml/client/go/location"
 	"saxml/common/errors"
