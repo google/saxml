@@ -1048,15 +1048,15 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
   @property
   def max_decode_steps(self) -> int:
     assert isinstance(self._method_params, DecodeHParams)
-    return self._method_params.decoder.max_decode_steps
+    max_decode_steps = self._method_params.decoder.max_decode_steps
+    if isinstance(max_decode_steps, int):
+      max_decode_steps = [max_decode_steps]
+    return max(max_decode_steps)
 
   @property
   def input_sequence_len(self) -> int:
     assert isinstance(self._method_params, DecodeHParams)
-    return (
-        self._method_params.decoder.seqlen
-        - self._method_params.decoder.max_decode_steps
-    )
+    return self._method_params.decoder.seqlen - self.max_decode_steps
 
   @property
   def model_num_layers(self) -> int:
@@ -1187,6 +1187,15 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     decode_state.per_sample_steps = jnp.ones(
         shape=num_cache_slots, dtype=jnp.int32
     ) * (self.input_sequence_len - 1)
+    decode_state.per_example_max_decode_steps = (
+        jnp.ones(shape=num_cache_slots, dtype=jnp.int32) * self.max_decode_steps
+    )
+    decode_state.per_example_top_p = jnp.ones(
+        shape=num_cache_slots, dtype=jnp.float32
+    )
+    decode_state.per_example_top_k = jnp.ones(
+        shape=num_cache_slots, dtype=jnp.int32
+    )
 
     decode_state.done = jnp.ones(shape=num_cache_slots, dtype=jnp.bool_)
     decode_state.has_eos = jnp.zeros(shape=num_cache_slots, dtype=jnp.bool_)
@@ -1290,8 +1299,10 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
   # JIT compiled generate function
   def _pjit_device_fn_generate(self):
-    def _wrapped_fn_greedy_generate(
-        mdl_vars, tokens, decode_state, align_decode_state):
+
+    def _wrapped_fn_sample_generate(
+        mdl_vars, tokens, decode_state, align_decode_state
+    ):
       mdl_vars = jax.tree_util.tree_map(
           jax.lax.with_sharding_constraint,
           mdl_vars,
@@ -1327,10 +1338,10 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     )
 
     return jax_exp.pjit.pjit(
-        _wrapped_fn_greedy_generate,
+        _wrapped_fn_sample_generate,
         in_shardings=(self.model_state.mdl_var_pspecs, tokens_pspecs, None),
         out_shardings=(None, self.decode_cache_pspecs),
-        static_argnums=3
+        static_argnums=3,
     )
 
   def call_model_function_generate(
@@ -1350,7 +1361,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         tokens=tokens,
         decode_state=decode_state,
         align_decode_state=align_decode_state,
-        method=self._model.greedy_generate,
+        method=self._model.sample_generate,
         mutable=[
             base_layer.NON_TRAINABLE,
             base_layer.DECODE_CACHE,
@@ -1367,7 +1378,8 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
   # JIT compiled insert function
   def _pjit_device_fn_insert(self):
-    def _wrapped_fn_greedy_insert(
+
+    def _wrapped_fn_sample_insert(
         mdl_vars,
         prefix_decode_state,
         prefix_decode_cache,
@@ -1417,7 +1429,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         return decode_state, decode_cache
 
     return jax_exp.pjit.pjit(
-        _wrapped_fn_greedy_insert,
+        _wrapped_fn_sample_insert,
         in_shardings=(
             self.model_state.mdl_var_pspecs,
             None,
@@ -1455,7 +1467,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         decode_state=decode_state,
         decode_cache=decode_cache,
         slot=slot,
-        method=self._model.greedy_insert,
+        method=self._model.sample_insert,
         mutable=[
             base_layer.NON_TRAINABLE,
             base_layer.DECODE_CACHE,
@@ -1472,7 +1484,8 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
   # JIT compiled prefill function
   def _pjit_device_fn_prefill(self, batched_input_pspecs):
-    def _wrapped_fn_greedy_prefill(mdl_vars, batched_inputs):
+
+    def _wrapped_fn_sample_prefill(mdl_vars, batched_inputs):
       mdl_vars = jax.tree_util.tree_map(
           jax.lax.with_sharding_constraint,
           mdl_vars,
@@ -1508,7 +1521,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
     # pjit-ed function.
     return jax_exp.pjit.pjit(
-        _wrapped_fn_greedy_prefill,
+        _wrapped_fn_sample_prefill,
         in_shardings=(self.model_state.mdl_var_pspecs, batched_input_pspecs),
         out_shardings=(None, self.decode_cache_pspecs),
     )
@@ -1526,7 +1539,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     decode_state, decode_cache = self._model.apply(
         mdl_vars,
         input_batch=inputs,
-        method=self._model.greedy_prefill,
+        method=self._model.sample_prefill,
         mutable=[
             base_layer.NON_TRAINABLE,
             base_layer.DECODE_CACHE,

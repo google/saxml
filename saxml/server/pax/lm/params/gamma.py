@@ -149,7 +149,6 @@ class Gamma2BFP16(GammaBase):
 
 @servable_model_registry.register
 class Gamma2BFP16Exp(Gamma2BFP16):
-  TOP_K = 1
   BATCH_SIZE = 1
   NUM_CACHE_SLOTS = 64
   MAX_LIVE_BATCHES = 128 * 4  # BATCH_SIZE is always 1 in this case.
@@ -167,11 +166,13 @@ class Gamma7BFP16(GammaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = False
 
-  BATCH_SIZE = [1, 32]
+  BATCH_SIZE = 1
+  NUM_CACHE_SLOTS = 16
+  MAX_LIVE_BATCHES = 128 * 4  # BATCH_SIZE is always 1 in this case.
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024
   BUCKET_KEYS = None
-  MAX_DECODE_STEPS = 128
+  MAX_DECODE_STEPS = 1024
   ENABLE_GENERATE_STREAM = False
 
   FPROP_DTYPE = jnp.bfloat16
@@ -192,7 +193,6 @@ class Gamma7BFP16Exp(Gamma7BFP16):
   BATCH_SIZE = 1
   NUM_CACHE_SLOTS = 16
   MAX_LIVE_BATCHES = 128 * 4  # BATCH_SIZE is always 1 in this case.
-  TOP_K = 1
 
 
 @servable_model_registry.register

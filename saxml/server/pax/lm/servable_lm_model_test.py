@@ -158,6 +158,8 @@ class LLaMASmall(BaseLLaMA, servable_lm_model.ServableLMModelParams):
     decoder_params.seqlen = 11
     decoder_params.fprop_for_prefix = True
     params.decoder = decoder_params
+    params.decoder = decoder_params
+    params.extra_inputs = self.EXTRA_INPUTS
     return params
 
   def score(self):
@@ -197,6 +199,7 @@ class LLaMASmallWithContinuousBatching(
     decoder_params.seqlen = 11
     decoder_params.fprop_for_prefix = True
     params.decoder = decoder_params
+    params.extra_inputs = self.EXTRA_INPUTS
     return params
 
 
@@ -248,6 +251,66 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     logging.info('decoded_tokens after generation: %s', decoded_tokens)
     return decoded_tokens, done, steps
 
+  def test_per_example_max_decode_steps(self):
+    model_with_continuous_batching = servable_lm_model.ServableLMModel(
+        LLaMASmallWithContinuousBatching(),
+        primary_process_id=0,
+        ckpt_type=checkpoints.CheckpointType.GDA,
+        test_mode=True,
+    )
+    model_with_continuous_batching.load(
+        checkpoint_path=None, prng_key=self._prng_key
+    )
+    method_with_continuous_batching = model_with_continuous_batching.method(
+        servable_lm_model.LMMethodName.GENERATE
+    )
+    input1 = ['Hello World']
+    input1 = method_with_continuous_batching.pre_processing(input1)
+    input1 = method_with_continuous_batching.update_extra_inputs(
+        input1, 1, [{'per_example_max_decode_steps': 1}]
+    )
+    input1 = (
+        method_with_continuous_batching.input_to_device_for_continuous_batching(
+            input1, servable_lm_common.InputShapeInfo(batch_size=1)
+        )
+    )
+
+    num_slots = method_with_continuous_batching.num_cache_slots
+    max_steps = method_with_continuous_batching.max_decode_steps
+    decoded_tokens = np.zeros((num_slots, max_steps), dtype=np.int32)
+    slots_in_use = np.zeros((num_slots), dtype=np.int32)
+    steps = np.zeros((num_slots,), dtype=np.int32)
+    logging.info(
+        'default extra_inputs = %s',
+        method_with_continuous_batching.default_extra_inputs,
+    )
+    logging.info('input1 = %s', input1)
+    # Run prefill for input1.
+    token, prefix_state, slot = self._run_prefill(
+        method_with_continuous_batching, slots_in_use, steps, input1
+    )
+    self.assertTrue(hasattr(prefix_state[0], 'per_example_max_decode_steps'))
+    logging.info(
+        'per_example_max_decode_steps in prefill state: %s',
+        prefix_state[0].per_example_max_decode_steps,
+    )
+    # Insert input1 KV cache.
+    method_with_continuous_batching.insert(prefix_state, slot)
+    decoded_tokens[slot][0] = np.array(token.addressable_data(0))
+
+    # Run one time generate for input1.
+    logging.info('1st generate for input1')
+    _, done, _ = self._run_generate(
+        1,
+        method_with_continuous_batching,
+        decoded_tokens,
+        steps,
+        slots_in_use,
+        max_steps,
+    )
+    # max_decode_steps is 3 but per_example_max_decode_steps is 1.
+    self.assertTrue(done[0])
+
   # @TODO(@zhihaoshan): Enable the accuracy check after bug fixing.
   def test_continuous_batching(self):
     model = servable_lm_model.ServableLMModel(
@@ -281,9 +344,13 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     inputs = input1 + input2 + input3
 
     input1 = method.pre_processing(input1)
+    input1 = method.update_extra_inputs(input1, 1, None)
     input2 = method.pre_processing(input2)
+    input2 = method.update_extra_inputs(input2, 1, None)
     input3 = method.pre_processing(input3)
+    input3 = method.update_extra_inputs(input3, 1, None)
     inputs = method.pre_processing(inputs)
+    inputs = method.update_extra_inputs(inputs, 3, None)
     inputs_unpadded_shape = servable_lm_common.InputShapeInfo(batch_size=3)
     inputs_padded_shape = servable_lm_common.InputShapeInfo(batch_size=3)
 
