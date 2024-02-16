@@ -2041,7 +2041,7 @@ class ModelServicesRunner:
               state.model_key,
               state.model_method,
               str(slot),
-              skip_host_sync=False,
+              skip_host_sync=True,
           )
 
           assert request.preprocessed_inputs is not None
@@ -2069,7 +2069,7 @@ class ModelServicesRunner:
             MethodName.GENERATE,
             state.model_key,
             state.model_method,
-            skip_host_sync=False,
+            skip_host_sync=True,
         )
         token_batch = (
             state.decoded_tokens[
@@ -2096,28 +2096,30 @@ class ModelServicesRunner:
         done = done * state.slots_in_use
         done = np.logical_or(done, state.steps >= state.max_decode_steps)
 
+        if not np.any(done):
+          continue
+
         # If any of the sequences in the batch is done
-        if np.any(done):
-          sequences = state.decoded_tokens[done]
-          output_strings = method_obj.detokenize(sequences)
-          done_slots = np.flatnonzero(done)
+        sequences = state.decoded_tokens[done]
+        output_strings = method_obj.detokenize(sequences)
+        done_slots = np.flatnonzero(done)
 
-          for idx, slot in enumerate(done_slots):
-            outputs = [output_strings[idx]], [state.scores[slot]]
-            self._model_services[state.service_id].FillRPCResponse(
-                state.model_method, outputs, state.rpc_tasks[slot].response
-            )
-            try:
-              state.rpc_tasks[slot].done(utils.ok(), query_cost=0)
-            except Exception as e:  # pylint: disable=broad-except
-              self._log_exception('Error occurred: %s, error: %s', model_key, e)
-            state.rpc_tasks[slot] = None
+        for idx, slot in enumerate(done_slots):
+          outputs = [output_strings[idx]], [state.scores[slot]]
+          self._model_services[state.service_id].FillRPCResponse(
+              state.model_method, outputs, state.rpc_tasks[slot].response
+          )
+          try:
+            state.rpc_tasks[slot].done(utils.ok(), query_cost=0)
+          except Exception as e:  # pylint: disable=broad-except
+            self._log_exception('Error occurred: %s, error: %s', model_key, e)
+          state.rpc_tasks[slot] = None
 
-          # Reset the cache slot state.
-          state.decoded_tokens[done] = 0
-          state.scores[done] = 0.0
-          state.steps[done] = 0
-          state.slots_in_use[done] = 0
+        # Reset the cache slot state.
+        state.decoded_tokens[done] = 0
+        state.scores[done] = 0.0
+        state.steps[done] = 0
+        state.slots_in_use[done] = 0
 
   def _run_secondary_worker_loop(self):
     """Runs the processing loop in secondary hosts in a multi-host setup."""
