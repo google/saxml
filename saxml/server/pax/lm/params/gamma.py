@@ -127,7 +127,7 @@ class Gamma2BFP16(GammaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = True
 
-  BATCH_SIZE = [1, 64, 252]
+  BATCH_SIZE = [1, 64, 192]
   MAX_LIVE_BATCHES = 16
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024
@@ -166,9 +166,7 @@ class Gamma7BFP16(GammaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = False
 
-  BATCH_SIZE = 1
-  NUM_CACHE_SLOTS = 16
-  MAX_LIVE_BATCHES = 128 * 4  # BATCH_SIZE is always 1 in this case.
+  BATCH_SIZE = [1, 32]
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024
   BUCKET_KEYS = None
