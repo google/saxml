@@ -250,7 +250,7 @@ class ServingTemplate(
           emb_lookup_style=self.EMB_LOOKUP_STYLE,
           sort_samples=self.SORT_SAMPLES,
           next_token_sampler_tpl=self.NEXT_TOKEN_SAMPLER_TPL,
-          num_cache_slots=self.NUM_CACHE_SLOTS if self.NUM_SAMPLES > 1 else 0,
+          num_cache_slots=self.NUM_CACHE_SLOTS if self.NUM_SAMPLES == 1 else 0,
       )
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
