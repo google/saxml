@@ -274,7 +274,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     input1 = ['Hello World']
     input1 = method_with_continuous_batching.pre_processing(input1)
     input1 = method_with_continuous_batching.update_extra_inputs(
-        input1, 1, [{'per_example_max_decode_steps': 1}]
+        input1, 1, [{'per_example_max_decode_steps': 1, 'temperature': 1.0}]
     )
     input1 = (
         method_with_continuous_batching.input_to_device_for_continuous_batching(
@@ -287,16 +287,13 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     decoded_tokens = np.zeros((num_slots, max_steps), dtype=np.int32)
     slots_in_use = np.zeros((num_slots), dtype=np.int32)
     steps = np.zeros((num_slots,), dtype=np.int32)
-    logging.info(
-        'default extra_inputs = %s',
-        method_with_continuous_batching.default_extra_inputs,
-    )
-    logging.info('input1 = %s', input1)
+
     # Run prefill for input1.
     token, prefix_state, slot = self._run_prefill(
         method_with_continuous_batching, slots_in_use, steps, input1
     )
     self.assertTrue(hasattr(prefix_state[0], 'per_example_max_decode_steps'))
+    self.assertTrue(hasattr(prefix_state[0], 'temperature'))
     logging.info(
         'per_example_max_decode_steps in prefill state: %s',
         prefix_state[0].per_example_max_decode_steps,

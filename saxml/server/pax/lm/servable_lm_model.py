@@ -1187,6 +1187,9 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     decode_state.per_sample_steps = jnp.ones(
         shape=num_cache_slots, dtype=jnp.int32
     ) * (self.input_sequence_len - 1)
+    decode_state.temperature = jnp.zeros(
+        shape=num_cache_slots, dtype=jnp.float32
+    )
     decode_state.per_example_max_decode_steps = (
         jnp.ones(shape=num_cache_slots, dtype=jnp.int32) * self.max_decode_steps
     )
