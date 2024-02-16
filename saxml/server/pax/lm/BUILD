@@ -147,7 +147,6 @@ py_strict_test(
         ":lm_tokenizer",
         ":servable_lm_common",
         ":servable_lm_model",
-        "//saxml/server:servable_model",
         "//saxml/server/pax/lm/params:lm_cloud",
         "//third_party/py/absl-py/flags",
         "//third_party/py/absl-py/logging",
@@ -159,6 +158,7 @@ py_strict_test(
         "//third_party/py/praxis:decoder_hparams",
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
+        "//third_party/py/praxis:test_utils",
     ],
 )
 

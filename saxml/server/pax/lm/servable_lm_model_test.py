@@ -25,6 +25,7 @@ from paxml.tasks.lm.params import lm_cloud
 from praxis import decoder_hparams
 from praxis import pax_fiddle
 from praxis import py_utils
+from praxis import test_utils
 from saxml.server.pax.lm import lm_tokenizer
 from saxml.server.pax.lm import servable_lm_common
 from saxml.server.pax.lm import servable_lm_model
@@ -115,7 +116,7 @@ class LLaMASmall(BaseLLaMA, servable_lm_model.ServableLMModelParams):
   """LLaMA model with small params."""
 
   NUM_LAYERS = 2
-  VOCAB_SIZE = 64
+  VOCAB_SIZE = 128
   DIMS_PER_HEAD = 4
   NUM_HEADS = 2
   MODEL_DIMS = 8
@@ -126,7 +127,12 @@ class LLaMASmall(BaseLLaMA, servable_lm_model.ServableLMModelParams):
   BATCH_SIZE = 3
 
   def serving_tokenizer(self):
-    spm_model = '/cns/mf-d/home/huangyp/ulm/pax-llama/tokenizer.model'
+    spm_model = os.path.join(
+        flags.FLAGS.test_srcdir,
+        'google3/third_party/py/saxml/server/pax/lm/test_data',
+        'test_model.model',
+    )
+
     return pax_fiddle.Config(
         lm_tokenizer.LMTokenizer,
         spm_model=spm_model,
@@ -194,16 +200,16 @@ class LLaMASmallWithContinuousBatching(
     params = servable_lm_model.DecodeHParams(max_input_seq_len=8)
     decoder_params = decoder_hparams.GreedyDecoderHParams()
     decoder_params.num_cache_slots = 2
-    decoder_params.max_decode_steps = 3
+    decoder_params.max_decode_steps = 4
     # seqlen = max_input_seq_len + max_decode_steps
-    decoder_params.seqlen = 11
+    decoder_params.seqlen = 12
     decoder_params.fprop_for_prefix = True
     params.decoder = decoder_params
     params.extra_inputs = self.EXTRA_INPUTS
     return params
 
 
-class ServableLMModelContinuousBatchingTest(absltest.TestCase):
+class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -226,6 +232,7 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     logging.info('current generate steps: %s', steps)
     logging.info('slots_in_use: %s', slots_in_use)
     for _ in range(times):
+      logging.info('steps: %s', slots_in_use)
       token_batch = (
           decoded_tokens[np.arange(num_slots), steps - 1] * slots_in_use
       )
@@ -311,7 +318,6 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     # max_decode_steps is 3 but per_example_max_decode_steps is 1.
     self.assertTrue(done[0])
 
-  # @TODO(@zhihaoshan): Enable the accuracy check after bug fixing.
   def test_continuous_batching(self):
     model = servable_lm_model.ServableLMModel(
         LLaMASmall(),
@@ -326,7 +332,6 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
         ckpt_type=checkpoints.CheckpointType.GDA,
         test_mode=True,
     )
-
     model.load(checkpoint_path=None, prng_key=self._prng_key)
 
     model_with_continuous_batching.load(
@@ -343,14 +348,22 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     input3 = ['My dog is cute']
     inputs = input1 + input2 + input3
 
-    input1 = method.pre_processing(input1)
-    input1 = method.update_extra_inputs(input1, 1, None)
-    input2 = method.pre_processing(input2)
-    input2 = method.update_extra_inputs(input2, 1, None)
-    input3 = method.pre_processing(input3)
-    input3 = method.update_extra_inputs(input3, 1, None)
-    inputs = method.pre_processing(inputs)
-    inputs = method.update_extra_inputs(inputs, 3, None)
+    input1 = method_with_continuous_batching.pre_processing(input1)
+    input1 = method_with_continuous_batching.update_extra_inputs(
+        input1, 1, None
+    )
+    input2 = method_with_continuous_batching.pre_processing(input2)
+    input2 = method_with_continuous_batching.update_extra_inputs(
+        input2, 1, None
+    )
+    input3 = method_with_continuous_batching.pre_processing(input3)
+    input3 = method_with_continuous_batching.update_extra_inputs(
+        input3, 1, None
+    )
+    inputs = method_with_continuous_batching.pre_processing(inputs)
+    inputs = method_with_continuous_batching.update_extra_inputs(
+        inputs, 3, None
+    )
     inputs_unpadded_shape = servable_lm_common.InputShapeInfo(batch_size=3)
     inputs_padded_shape = servable_lm_common.InputShapeInfo(batch_size=3)
 
@@ -363,16 +376,19 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     logging.info('expected_output from static batching: %s', expected_outputs)
 
     # Run continuous batching to verify the result.
-    # The order will be (max decode step is 3 and max slots is 2):
-    #   1. Run prefill for input1 and insert the KV Cache.
-    #   2. Run generate for input1 for 1 more token.
-    #   3. Run prefill for input2 and insert the KV Cache.
-    #   4. Run generate for the input1 and input2 inside the slots.
-    #   5. input1 is completed with 3 decode steps and the slot for it will be
+    # The max decode step is 4. However, the real max decode step will be 3
+    # as the prefill will return the input last token.
+    # TODO(jwyang): fix the prefill issuse.
+    # The order will be (max decode step is 4 and max slots is 2):
+    #   1. Run prefill for input1 and insert the prefill KV Cache to the slot.
+    #   2. Run 1 generate for input1 for 1 more token.
+    #   3. Run prefill for input2 and insert the prefill KV Cache to the slot.
+    #   4. Run 2 generate for the input1 and input2 inside the slots.
+    #   5. input1 is completed with 4 decode steps and the slot for it will be
     #   free.
     #   6. Run prefill for input3, insert the KV cache and run generate until
     #   input2 and input3 complete.
-    #   There are total 3 prefill calls and 4 generate calls.
+    #   There are total 3 prefill calls and 6 generate calls.
     input1 = (
         method_with_continuous_batching.input_to_device_for_continuous_batching(
             input1, servable_lm_common.InputShapeInfo(batch_size=1)
@@ -424,10 +440,10 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     method_with_continuous_batching.insert(prefix_state, slot)
     decoded_tokens[slot][0] = np.array(token.addressable_data(0))
 
-    # Run one time generate for input1 and input2.
-    logging.info('2st generate for input1 and input2')
+    # Run two time generate for input1 and input2.
+    logging.info('2st and 3rd generate for input1 and input2')
     decoded_tokens, done, steps = self._run_generate(
-        1,
+        2,
         method_with_continuous_batching,
         decoded_tokens,
         steps,
@@ -459,7 +475,7 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     decoded_tokens[slot][0] = np.array(token.addressable_data(0))
 
     # Run one time generate for input2 and input3.
-    logging.info('3st generate for input2 and input3')
+    logging.info('4th generate for input2 and input3')
     decoded_tokens, done, steps = self._run_generate(
         1,
         method_with_continuous_batching,
@@ -476,10 +492,10 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     steps[done] = 0
     slots_in_use[done] = 0
 
-    # Run one time generate for input3.
-    logging.info('4th generate for and input3')
+    # Run two times generate for input3.
+    logging.info('5th and 6th generate for and input3')
     decoded_tokens, done, steps = self._run_generate(
-        1,
+        2,
         method_with_continuous_batching,
         decoded_tokens,
         steps,
@@ -492,6 +508,30 @@ class ServableLMModelContinuousBatchingTest(absltest.TestCase):
     decoded_tokens[done] = 0
     steps[done] = 0
     slots_in_use[done] = 0
+
+    expected_decode_lengths = expected_outputs.decode_lengths.reshape(3)
+    decode_start_index = expected_decode_lengths - max_steps
+    expected_inpus_res = np.array(expected_outputs.output_ids)
+
+    self.assertArraysEqual(
+        got_input1_res,
+        expected_inpus_res[0][0][
+            decode_start_index[0] : expected_decode_lengths[0]
+        ],
+    )
+    self.assertArraysEqual(
+        got_input2_res,
+        expected_inpus_res[1][0][
+            decode_start_index[1] : expected_decode_lengths[1]
+        ],
+    )
+    self.assertArraysEqual(
+        got_input3_res,
+        expected_inpus_res[2][0][
+            decode_start_index[2] : expected_decode_lengths[2]
+        ],
+    )
+
     logging.info('expected output with prefix: %s', expected_outputs)
     logging.info('got decode res for input1: %s', got_input1_res)
     logging.info('got decode res for input2: %s', got_input2_res)
