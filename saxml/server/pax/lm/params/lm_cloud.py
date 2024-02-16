@@ -151,6 +151,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
         pax_fiddle.Config(LLaMARotaryEmbedding)
     )
     transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
+    transformer_layer_p.tr_atten_tpl.consolidate_rope_key_state = True
 
     transformer_layer_p.tr_fflayer_tpl.has_bias = False
     transformer_layer_p.tr_fflayer_tpl.ln_tpl = ln_tpl.clone()
