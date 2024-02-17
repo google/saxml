@@ -166,6 +166,7 @@ pytype_strict_library(
     name = "layers",
     srcs = ["layers.py"],
     deps = [
+        "//third_party/py/flax:core",
         "//third_party/py/jax",
         "//third_party/py/praxis:base_layer",
         "//third_party/py/praxis:pax_fiddle",

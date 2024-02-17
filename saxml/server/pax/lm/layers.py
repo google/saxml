@@ -14,6 +14,7 @@
 """Customize layers for sax."""
 from typing import Optional, Tuple
 
+from flax import linen as nn
 import jax
 from jax import numpy as jnp
 from praxis import base_layer
@@ -355,20 +356,56 @@ class TransformerFeedForwardWithSeqSplit(layers.TransformerFeedForward):
   chunked_ffn_num_seq_split: int = 16
 
   def _compute_ffns(self, inputs, paddings, ap_ff0=None):
-    if inputs.ndim == 2 or self.chunked_ffn_num_seq_split == 1:
+    assert self._is_ffn1_gated
+    if (
+        not self.do_eval
+        or inputs.ndim == 2
+        or self.chunked_ffn_num_seq_split == 1
+        or inputs.shape[1] < self.chunked_ffn_num_seq_split
+    ):
       return super()._compute_ffns(inputs, paddings, ap_ff0)
     t = inputs.shape[1]  # time dimension
-    if t < self.chunked_ffn_num_seq_split:
-      return super()._compute_ffns(inputs, paddings, ap_ff0)
     assert (
         t % self.chunked_ffn_num_seq_split == 0
     ), f'{t=} must divide {self.chunked_ffn_num_seq_split}'
     chunk_size = t // self.chunked_ffn_num_seq_split
-    for i in range(self.chunked_ffn_num_seq_split):
-      start = i * chunk_size
-      stop = start + chunk_size
-      inputs_chunk = super()._compute_ffns(
-          inputs[:, start:stop, :], paddings[:, start:stop, :], ap_ff0
+
+    val = NestedMap()
+    val.inputs = inputs
+    val.paddings = paddings
+    # prefix_ids and prefix_paddings are right aligned.
+    val.i = self.chunked_ffn_num_seq_split
+
+    def cond_fn(mdl, val):
+      del mdl
+      start = val.i * chunk_size
+      return jnp.logical_and(
+          val.i > 0, jnp.sum(val.paddings[:, start, 0].astype(jnp.int32)) == 0
       )
-      inputs = inputs.at[:, start:stop, :].set(inputs_chunk)
-    return inputs
+
+    def loop_body(mdl, val):
+      start = val.i * chunk_size
+      chunk_inputs = jax.lax.dynamic_slice_in_dim(
+          val.inputs, start, chunk_size, axis=1
+      )
+      chunk_padings = jax.lax.dynamic_slice_in_dim(
+          val.paddings, start, chunk_size, axis=1
+      )
+      gate_value = mdl.ffn_layer1_gate(chunk_inputs)
+      # theta.ffn_layer1 corresponds to gshard_builder's wi1
+      activations = gate_value * mdl.ffn_layer1(chunk_inputs)
+
+      # Apply paddings if not None
+      if chunk_padings is not None:
+        activations *= 1.0 - chunk_padings
+
+      # Apply second FFN layer
+      outputs = mdl.ffn_layer2(activations)
+      val.inputs = jax.lax.dynamic_update_slice(
+          val.inputs, outputs, [0, start, 0]
+      )
+      val.i -= 1
+      return val
+
+    val = nn.while_loop(cond_fn, loop_body, self, val)
+    return val.inputs
