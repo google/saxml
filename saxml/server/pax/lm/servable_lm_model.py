@@ -1345,6 +1345,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         in_shardings=(self.model_state.mdl_var_pspecs, tokens_pspecs, None),
         out_shardings=(None, self.decode_cache_pspecs),
         static_argnums=3,
+        donate_argnums=(0,)
     )
 
   def call_model_function_generate(
@@ -1387,7 +1388,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         prefix_decode_state,
         prefix_decode_cache,
         decode_state,
-        decode_cache,
         slot,
     ):
       mdl_vars = jax.tree_util.tree_map(
@@ -1404,29 +1404,23 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
             prefix_decode_state,
             prefix_decode_cache,
             decode_state,
-            decode_cache,
             slot,
         ):
           outputs = self.call_model_function_insert(
               prefix_decode_state,
               prefix_decode_cache,
               decode_state,
-              decode_cache,
               slot,
               mdl_vars,
               [k1, k2],
           )  # pytype: disable=wrong-arg-types  # jax-ndarray
 
-          updated_vars = outputs[1]
-          if base_layer.DECODE_CACHE in updated_vars:
-            del updated_vars[base_layer.DECODE_CACHE]
           return outputs
 
-        (decode_state, decode_cache), _ = _model_fn(
+        decode_state, decode_cache = _model_fn(
             prefix_decode_state,
             prefix_decode_cache,
             decode_state,
-            decode_cache,
             slot,
         )
         return decode_state, decode_cache
@@ -1438,10 +1432,10 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
             None,
             self.decode_cache_pspecs,
             None,
-            self.decode_cache_pspecs,
             None,
         ),
         out_shardings=(None, self.decode_cache_pspecs),
+        donate_argnums=(0,),
     )
 
   def call_model_function_insert(
@@ -1449,7 +1443,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       prefix_decode_state,
       prefix_decode_cache,
       decode_state,
-      decode_cache,
       slot,
       mdl_vars,
       prng_key,
@@ -1468,7 +1461,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         prefix_decode_state=prefix_decode_state,
         prefix_decode_cache=prefix_decode_cache,
         decode_state=decode_state,
-        decode_cache=decode_cache,
         slot=slot,
         method=self._model.sample_insert,
         mutable=[
@@ -1527,6 +1519,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         _wrapped_fn_sample_prefill,
         in_shardings=(self.model_state.mdl_var_pspecs, batched_input_pspecs),
         out_shardings=(None, self.decode_cache_pspecs),
+        donate_argnums=(0,),
     )
 
   def call_model_function_prefill(self, inputs, mdl_vars, prng_key):
@@ -1601,6 +1594,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     """
     # call device_fn insert to insert the prefill state to kv cache
     prefix_decode_state, prefix_decode_cache = prefix_state
+    self.model_state.mdl_vars.update(self.decode_cache)
     logging.info('insert into slot %d', slot)
     with self.model_state.global_mesh:
       new_decode_state, new_decode_cache = self._insert_device_fn(
@@ -1608,7 +1602,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
           prefix_decode_state,
           prefix_decode_cache,
           self.decode_state,
-          self.decode_cache,
           slot,
       )
       self.decode_state = new_decode_state

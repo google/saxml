@@ -307,19 +307,28 @@ class LLaMA7B(BaseLLaMA):
 
 @servable_model_registry.register
 class LLaMA7BTPUv5e4(LLaMA7B):
-  """7B model on a v5e4. Test for continuous batching."""
-  INPUT_SEQ_LEN = 1024
+  """7B model on a v5e4."""
   NUM_SAMPLES = 1
   TOP_K = 1
-  BATCH_SIZE = 1
+  BATCH_SIZE = 32
 
+  INPUT_SEQ_LEN = 1024
   MAX_DECODE_STEPS = 1024
   BUCKET_KEYS = [1024]
-  NUM_CACHE_SLOTS = 1
 
   ICI_MESH_SHAPE = [1, 1, 4]
-
   ENABLE_GENERATE_STREAM = False
+
+  @property
+  def test_mode(self) -> bool:
+    return False
+
+
+@servable_model_registry.register
+class LLaMA7BContinuousBatchingTPUv5e4(LLaMA7BTPUv5e4):
+  """7B model on a v5e4. Test for continuous batching."""
+  BATCH_SIZE = 1
+  NUM_CACHE_SLOTS = 1
 
   def score(self):
     return None
