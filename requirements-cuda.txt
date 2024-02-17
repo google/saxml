@@ -223,6 +223,7 @@ jax[cuda,tpu] @ git+https://github.com/google/jax
     #   chex
     #   clu
     #   flax
+    #   jax
     #   optax
     #   orbax-checkpoint
     #   orbax-export
@@ -487,7 +488,7 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-pillow==10.0.0
+pillow==10.2.0
     # via
     #   lingvo
     #   matplotlib
