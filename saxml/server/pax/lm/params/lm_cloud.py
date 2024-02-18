@@ -68,6 +68,8 @@ class BaseLLaMA(base_experiment.BaseExperiment):
 
   BATCH_SIZE = 1
   NUM_SAMPLES = 1
+  ATTEN_NUM_SEQ_SPLITS = 1
+  GENERATE_ONLY = True
   ENABLE_GENERATE_STREAM = True
   STREAM_INTERVAL_STEPS = 16
   FPROP_FOR_PREFIX = True
@@ -139,6 +141,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
       transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
           multi_query_attention.MultiQueryDotProductAttention,
           num_kv_heads=self.NUM_KV_HEADS,
+          chunked_attn_num_seq_split=self.ATTEN_NUM_SEQ_SPLITS,
       )
       transformer_layer_p.tr_atten_tpl.combine_qkv = False
     else:
@@ -153,6 +156,9 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
     transformer_layer_p.tr_atten_tpl.consolidate_rope_key_state = True
 
+    transformer_layer_p.tr_fflayer_tpl = pax_fiddle.Config(
+        sax_layers.TransformerFeedForwardWithSeqSplit
+    )
     transformer_layer_p.tr_fflayer_tpl.has_bias = False
     transformer_layer_p.tr_fflayer_tpl.ln_tpl = ln_tpl.clone()
     transformer_layer_p.tr_fflayer_tpl.activation_tpl = pax_fiddle.Config(
@@ -433,9 +439,17 @@ class LLaMA70BInt8TPUv5e8(LLaMA70BFP16TPUv5e):
   BUCKET_KEYS = None
   NUM_SAMPLES = 1
   TOP_K = 1
-  MAX_DECODE_STEPS = 2048
+  MAX_DECODE_STEPS = 1024
   BATCH_SIZE = 32
   USE_BATCH_SHARDING = True
+  ATTEN_NUM_SEQ_SPLITS = 8
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False)
+class LLaMA70BInt8TPUv5e8Exp(LLaMA70BInt8TPUv5e8):
+  BATCH_SIZE = 1
+  NUM_CACHE_SLOTS = 60
 
 
 @servable_model_registry.register
