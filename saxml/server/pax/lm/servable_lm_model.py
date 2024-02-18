@@ -1305,10 +1305,15 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     self._prefill_device_fn = self._pjit_device_fn_prefill(
         self._per_bs_infos[prefill_input_shape].batched_input_pspecs
     )
-    self._dummy_tokens_for_prefill = (
+    self._dummy_input_for_prefill = self.pre_processing(['Hello World'])
+    self._dummy_input_for_prefill = self.update_extra_inputs(
+        self._dummy_input_for_prefill,
+        prefill_input_shape.batch_size,
+        [self.default_extra_inputs] * prefill_input_shape.batch_size,
+    )
+    self._dummy_input_for_prefill = (
         self.input_to_device_for_continuous_batching(
-            jnp.zeros((1,), dtype=jnp.int32), prefill_input_shape
-        )
+            self._dummy_input_for_prefill, prefill_input_shape)
     )
     # insert device function
     self._insert_device_fn = self._pjit_device_fn_insert()
@@ -1317,6 +1322,18 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     generate_input_shape = InputShapeInfo(input_shape.batch_size)
     self._register_bs_infos_for_input_shape(generate_input_shape)
     self._generate_device_fn = self._pjit_device_fn_generate()
+    # warmup
+    if self.model_state.precompile:
+      _, _, prefix_state = self.prefill_with_dummy()
+      slot_in_use = 0
+      self.insert(prefix_state, slot_in_use)
+      self.generate_with_dummy()  # compile w/ left_align_decode_state = False
+      self.decode_state.step = jnp.array(
+          [self.max_decode_steps + self.input_sequence_len - 1],
+          dtype=jnp.int32)
+      self.generate_with_dummy()  # compile w/ left_align_decode_state = True
+      # reset slot 0.
+      self.insert(prefix_state, slot_in_use)
 
   # JIT compiled generate function
   def _pjit_device_fn_generate(self):
@@ -1598,7 +1615,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       token: Next token of the prompt, sampled by model's default sampler.
       cache: Prefilled KV cache.
     """
-    return self.prefill(self._dummy_tokens_for_prefill)
+    return self.prefill(self._dummy_input_for_prefill)
 
   def insert(self, prefix_state: DeviceTensors, slot: int) -> None:
     """Insert the prefix state into the specified slot of the target state.
