@@ -150,8 +150,8 @@ class Gamma2BFP16(GammaBase):
 @servable_model_registry.register
 class Gamma2BFP16Exp(Gamma2BFP16):
   BATCH_SIZE = 1
-  NUM_CACHE_SLOTS = 64
-  MAX_LIVE_BATCHES = 128 * 4  # BATCH_SIZE is always 1 in this case.
+  NUM_CACHE_SLOTS = 256
+  MAX_LIVE_BATCHES = 256 * 4  # BATCH_SIZE is always 1 in this case.
 
 
 @servable_model_registry.register
@@ -189,8 +189,8 @@ class Gamma7BFP16(GammaBase):
 @servable_model_registry.register
 class Gamma7BFP16Exp(Gamma7BFP16):
   BATCH_SIZE = 1
-  NUM_CACHE_SLOTS = 16
-  MAX_LIVE_BATCHES = 128 * 4  # BATCH_SIZE is always 1 in this case.
+  NUM_CACHE_SLOTS = 32
+  MAX_LIVE_BATCHES = 32 * 4  # BATCH_SIZE is always 1 in this case.
 
 
 @servable_model_registry.register
