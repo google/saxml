@@ -215,7 +215,7 @@ ipywidgets==8.1.0
     # via jupyter
 isoduration==20.11.0
     # via jsonschema
-jax[tpu] @ git+https://github.com/google/jax
+jax[tpu]==0.4.23
     # via
     #   -r requirements.in
     #   chex
@@ -480,7 +480,7 @@ pandocfilters==1.5.0
     # via nbconvert
 parso==0.8.3
     # via jedi
-paxml @ git+https://github.com/google/paxml
+paxml==1.3.0
     # via -r requirements.in
 pexpect==4.8.0
     # via ipython
@@ -496,7 +496,7 @@ portalocker==2.7.0
     # via sacrebleu
 portpicker==1.6.0
     # via -r requirements.in
-praxis @ git+https://github.com/google/praxis
+praxis @ git+https://github.com/google/praxis@f684999636082fd12b152e84551e9fddb2496f61
     # via
     #   -r requirements.in
     #   paxml
