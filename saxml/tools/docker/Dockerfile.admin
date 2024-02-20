@@ -41,18 +41,34 @@ COPY --from=build_image \
 ENV SAX_CELL=/sax/test
 # Use "10000" as default port for admin server gRPC endpoint.
 ENV PORT=10000
-
+ENV SAX_ROOT=""
+ENV FS_ROOT=""
+ENV SAX_GCS_BUCKET=""
 # Create a script that configures and runs the admin server.
 RUN echo '#!/bin/bash\n\
+if [[ -n "$GSBUCKET" ]]; then\n\
+	SAX_GCS_BUCKET=${GSBUCKET}\n\
+fi\n\
+if [[ -n "$SAX_GCS_BUCKET" ]]; then\n\
+	if [[ -z "$SAX_REPLICA_NAME"  ]]; then\n\
+		SAX_ROOT=gs://${SAX_GCS_BUCKET}/sax-root \n\ 
+		FS_ROOT=gs://${SAX_GCS_BUCKET}/sax-fs-root \n\
+	else \n\
+		SAX_ROOT=gs://${SAX_GCS_BUCKET}/${SAX_REPLICA_NAME}/sax-root \n\
+		FS_ROOT=gs://${SAX_GCS_BUCKET}/${SAX_REPLICA_NAME}/sax-fs-root \n\
+	fi\n\
+fi\n\
 admin_config \
   --sax_cell=${SAX_CELL} \
-  --sax_root=gs://${GSBUCKET}/sax-root \
-  --fs_root=gs://${GSBUCKET}/sax-fs-root \
+  --sax_root=${SAX_ROOT}\
+  --fs_root=${FS_ROOT} \
   --alsologtostderr\n\
 admin_server \
   --sax_cell=${SAX_CELL} \
-  --sax_root=gs://${GSBUCKET}/sax-root \
+  --sax_root=${SAX_ROOT} \
   --port=${PORT} \
+  --v=3 \
+  $@ \
   --alsologtostderr\n' \
 > /usr/bin/admin_server_entrypoint.sh && chmod +x /usr/bin/admin_server_entrypoint.sh
 

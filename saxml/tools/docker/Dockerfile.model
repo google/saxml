@@ -57,4 +57,15 @@ COPY --from=build_image \
     /model-server-bin/ \
     /usr/bin
 
-ENTRYPOINT ["server", "--alsologtostderr"]
+ENV SAX_ROOT=""
+
+RUN echo '#!/bin/bash\n\
+if [[ -z "$SAX_ROOT"  ]]; then\n\
+	if [[ -n "$SAX_GCS_BUCKET" && -n "$SAX_REPLICA_NAME" ]]; then\n\
+		SAX_ROOT=gs://${SAX_GCS_BUCKET}/${SAX_REPLICA_NAME}/sax-root \n\
+	fi\n\
+fi\n\
+server --alsologtostderr --sax_cell=/sax/test $@\n' \
+> /usr/bin/model_server_entrypoint.sh && chmod +x /usr/bin/model_server_entrypoint.sh
+
+ENTRYPOINT ["/usr/bin/model_server_entrypoint.sh"]
