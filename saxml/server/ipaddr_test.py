@@ -11,19 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""IP address-related functions."""
+"""Test ipaddr.py."""
 
-from saxml.common.python import pybind_ipaddr
-
-
-def MyIPAddr() -> str:
-  """Returns the IP address of this process reachable by others."""
-  return pybind_ipaddr.MyIPAddr()
+from absl.testing import absltest
+from saxml.server import ipaddr
 
 
-def Join(ip: str, port: int) -> str:
-  """Returns an IP address joined with a port."""
-  if not ip.startswith("[") and ":" in ip:
-    return "[%s]:%d" % (ip, port)
-  else:
-    return "%s:%d" % (ip, port)
+class IpaddrTest(absltest.TestCase):
+
+  def test_basic(self):
+    print(ipaddr.MyIPAddr())
+    self.assertTrue(ipaddr.MyIPAddr())
+
+
+if __name__ == "__main__":
+  absltest.main()

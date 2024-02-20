@@ -220,7 +220,19 @@ py_strict_test(
 pytype_strict_library(
     name = "ipaddr",
     srcs = ["ipaddr.py"],
+    pybind_deps = ["//saxml/common/python:pybind_ipaddr"],
     srcs_version = "PY3",
+)
+
+py_strict_test(
+    name = "ipaddr_test",
+    srcs = ["ipaddr_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":ipaddr",
+        "//third_party/py/absl-py/testing:absltest",
+    ],
 )
 
 pytype_strict_library(

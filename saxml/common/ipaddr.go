@@ -17,6 +17,7 @@ package ipaddr
 
 import (
 	"net"
+	"os"
 	"sync"
 
 	log "github.com/golang/glog"
@@ -63,6 +64,11 @@ var myIPAddress net.IP = nil
 
 // MyIPAddr returns the ip address of this process reachable by others.
 func MyIPAddr() net.IP {
+	debugIpaddr := os.Getenv("SAX_DEBUG_IPADDR")
+	if debugIpaddr == "1" {
+		return net.IPv4(127, 0, 0, 1)
+	}
+
 	myIPAddressMu.Lock()
 	defer myIPAddressMu.Unlock()
 	if myIPAddress == nil {

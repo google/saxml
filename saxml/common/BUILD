@@ -41,6 +41,20 @@ go_library(
     deps = ["@com_github_golang_glog//:go_default_library"],
 )
 
+go_binary(
+    name = "ipaddrwrapper",
+    srcs = ["ipaddrwrapper.go"],
+    cgo = 1,
+    deps = [":ipaddr"],
+)
+
+cc_library(
+    name = "ipaddr_cc",
+    srcs = ["ipaddr.cc"],
+    hdrs = ["ipaddr.h"],
+    deps = [":ipaddrwrapper"],
+)
+
 go_library(
     name = "cell",
     srcs = ["cell.go"],
