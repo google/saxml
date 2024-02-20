@@ -43,10 +43,10 @@ go_library(
     srcs = [
         "saxutil_cmd_admin.go",
         "saxutil_cmd_am.go",
+        "saxutil_cmd_common.go",
         "saxutil_cmd_export.go",
         "saxutil_cmd_lm.go",
         "saxutil_cmd_save.go",
-        "saxutil_cmd_util.go",
         "saxutil_cmd_vm.go",
     ],
     deps = [

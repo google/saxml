@@ -26,7 +26,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"flag"
 	log "github.com/golang/glog"
@@ -46,8 +45,6 @@ import (
 	apb "saxml/protobuf/admin_go_proto_grpc"
 	cpb "saxml/protobuf/common_go_proto"
 )
-
-var cmdTimeout = flag.Duration("sax_timeout", 60*time.Second, "How many seconds to wait for command completion.")
 
 // CreateCmd creates a new Sax cell.
 type CreateCmd struct{}
@@ -809,6 +806,7 @@ func (c *WatchCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 
 	admin := saxadmin.Open(modelID.CellFullName())
 	ch := make(chan *saxadmin.WatchResult)
+	// The Watch command intentionally doesn't have a timeout.
 	go admin.WatchAddresses(ctx, modelID.ModelFullName(), ch)
 	for {
 		wr := <-ch

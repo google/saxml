@@ -57,6 +57,8 @@ func (c *SaveCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) sub
 		return subcommands.ExitFailure
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
+	defer cancel()
 	if err := m.Saver().Save(ctx, f.Args()[1]); err != nil {
 		log.Errorf("Failed to save model: %v", err)
 		return subcommands.ExitFailure

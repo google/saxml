@@ -21,9 +21,17 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"flag"
 	log "github.com/golang/glog"
 	"saxml/client/go/sax"
+)
+
+var cmdTimeout = flag.Duration(
+	"sax_timeout",
+	60*time.Second,
+	"Command timeout. Defaults to \"60s\". See https://pkg.go.dev/time#ParseDuration for format.",
 )
 
 func writesImagesToDir(images []sax.GeneratedImage, outputDir string, imagePath []string) error {

@@ -92,6 +92,8 @@ func (c *ExportCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		return subcommands.ExitFailure
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	exportPath := f.Args()[2]
 	if err := m.Exporter().Export(ctx, strings.Split(f.Args()[1], ","), exportPath, c.rngSeedMode, c.signatures); err != nil {
 		log.Errorf("Failed to export model: %v", err)
