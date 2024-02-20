@@ -18,7 +18,7 @@
 #include <cstring>
 #include <string>
 
-#include "saxml/common/ipaddrwrapper.cgo.h"
+#include "saxml/common/ipaddrwrapper.h"
 
 namespace sax {
 
