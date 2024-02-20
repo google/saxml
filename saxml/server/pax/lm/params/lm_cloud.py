@@ -431,25 +431,26 @@ class LLaMA70BFP16TPUv5e(BaseLLaMA):
 
 
 @servable_model_registry.register
-@quantization.for_transformer(quantize_on_the_fly=False)
+@quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
 class LLaMA70BInt8TPUv5e8(LLaMA70BFP16TPUv5e):
+  """LlaMA-2 70B model for MLPerf4 on TPU V5e-8 devices."""
   ICI_MESH_SHAPE = [1, 1, 8]
 
-  INPUT_SEQ_LEN = 2048
+  INPUT_SEQ_LEN = 1024
   BUCKET_KEYS = None
   NUM_SAMPLES = 1
   TOP_K = 1
   MAX_DECODE_STEPS = 1024
-  BATCH_SIZE = 32
   USE_BATCH_SHARDING = True
   ATTEN_NUM_SEQ_SPLITS = 8
 
-
-@servable_model_registry.register
-@quantization.for_transformer(quantize_on_the_fly=False)
-class LLaMA70BInt8TPUv5e8Exp(LLaMA70BInt8TPUv5e8):
+  # prefix batch size 1, decode batch size 72.
   BATCH_SIZE = 1
-  NUM_CACHE_SLOTS = 60
+  NUM_CACHE_SLOTS = 72
+
+  @property
+  def test_mode(self) -> bool:
+    return False
 
 
 @servable_model_registry.register
