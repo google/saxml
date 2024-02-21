@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Serving model parameters for Gamma."""
+"""Serving model parameters for Gemma."""
 
 # OSS import placeholder
 from typing import List
@@ -32,10 +32,10 @@ from saxml.server.pax.lm.params import template
 
 @servable_model_registry.register
 @template.make_servable(template.ServingTemplate)
-class GammaBase(base_experiment.BaseExperiment):
-  """Gamma Transformer LM configuration."""
+class GemmaBase(base_experiment.BaseExperiment):
+  """Gemma Transformer LM configuration."""
 
-  SPM_MODEL = 'gs://cloud-tpu-inference-public/sax-tokenizers/gamma/gamma-tokenizer.model'
+  SPM_MODEL = 'gs://cloud-tpu-inference-public/sax-tokenizers/gemma/gemma-tokenizer.model'
   SOS_ID = 2
   EOS_ID = 1
   GENERATE_ONLY = True  # No need to compute loss.
@@ -85,7 +85,7 @@ class GammaBase(base_experiment.BaseExperiment):
     else:
       task_p.model = pax_fiddle.Config(layers.LanguageModel, name='xformer_lm')
     model_p = task_p.model
-    model_p.lm_tpl = transformer_models.gamma(
+    model_p.lm_tpl = transformer_models.gemma(
         vocab_size=self.VOCAB_SIZE,
         model_dims=self.MODEL_DIMS,
         hidden_dims=self.HIDDEN_DIMS,
@@ -116,8 +116,8 @@ class GammaBase(base_experiment.BaseExperiment):
 
 
 @servable_model_registry.register
-class Gamma2BFP16(GammaBase):
-  """Gamma2B model."""
+class Gemma2BFP16(GemmaBase):
+  """Gemma2B model."""
 
   NUM_LAYERS = 18
   VOCAB_SIZE = 256128
@@ -148,15 +148,15 @@ class Gamma2BFP16(GammaBase):
 
 
 @servable_model_registry.register
-class Gamma2BFP16Exp(Gamma2BFP16):
+class Gemma2BFP16Exp(Gemma2BFP16):
   BATCH_SIZE = 1
   NUM_CACHE_SLOTS = 256
   MAX_LIVE_BATCHES = 256 * 4  # BATCH_SIZE is always 1 in this case.
 
 
 @servable_model_registry.register
-class Gamma7BFP16(GammaBase):
-  """Gamma7B model."""
+class Gemma7BFP16(GemmaBase):
+  """Gemma7B model."""
 
   NUM_LAYERS = 28
   VOCAB_SIZE = 256128
@@ -187,15 +187,15 @@ class Gamma7BFP16(GammaBase):
 
 
 @servable_model_registry.register
-class Gamma7BFP16Exp(Gamma7BFP16):
+class Gemma7BFP16Exp(Gemma7BFP16):
   BATCH_SIZE = 1
   NUM_CACHE_SLOTS = 32
   MAX_LIVE_BATCHES = 32 * 4  # BATCH_SIZE is always 1 in this case.
 
 
 @servable_model_registry.register
-class Gamma2BFP16With8Replicas(Gamma2BFP16):
-  """Gamma2B model on v5e-8 with 8 replications."""
+class Gemma2BFP16With8Replicas(Gemma2BFP16):
+  """Gemma2B model on v5e-8 with 8 replications."""
 
   @classmethod
   def serving_mesh_shape(cls):
@@ -205,8 +205,8 @@ class Gamma2BFP16With8Replicas(Gamma2BFP16):
 
 
 @servable_model_registry.register
-class Gamma2BFP16With4Replicas(Gamma2BFP16):
-  """Gamma2B model on v4-8 or v5e-4 both with 4 replications."""
+class Gemma2BFP16With4Replicas(Gemma2BFP16):
+  """Gemma2B model on v4-8 or v5e-4 both with 4 replications."""
 
   @classmethod
   def serving_mesh_shape(cls):
@@ -216,8 +216,8 @@ class Gamma2BFP16With4Replicas(Gamma2BFP16):
 
 
 @servable_model_registry.register
-class Gamma7BFP16With2Replicas(Gamma7BFP16):
-  """Gamma7B model on v5e-8 with 2 replications."""
+class Gemma7BFP16With2Replicas(Gemma7BFP16):
+  """Gemma7B model on v5e-8 with 2 replications."""
 
   @classmethod
   def serving_mesh_shape(cls):
@@ -228,19 +228,19 @@ class Gamma7BFP16With2Replicas(Gamma7BFP16):
 
 @servable_model_registry.register
 @quantization.for_transformer(quantize_on_the_fly=False)
-class Gamma2BInt8(Gamma2BFP16):
-  """Gamma2B model with int8 weight quantization."""
+class Gemma2BInt8(Gemma2BFP16):
+  """Gemma2B model with int8 weight quantization."""
 
 
 @servable_model_registry.register
 @quantization.for_transformer(quantize_on_the_fly=False)
-class Gamma7BInt8(Gamma7BFP16):
-  """Gamma7B model with int8 weight quantization."""
+class Gemma7BInt8(Gemma7BFP16):
+  """Gemma7B model with int8 weight quantization."""
 
 
 @servable_model_registry.register
-class Gamma2BInt8With8Replicas(Gamma2BInt8):
-  """Gamma2B model with int8 quantization on v4-8 or v5e-8 with 8 replications."""
+class Gemma2BInt8With8Replicas(Gemma2BInt8):
+  """Gemma2B model with int8 quantization on v4-8 or v5e-8 with 8 replications."""
 
   @classmethod
   def serving_mesh_shape(cls):
@@ -250,8 +250,8 @@ class Gamma2BInt8With8Replicas(Gamma2BInt8):
 
 
 @servable_model_registry.register
-class Gamma7BInt8With2Replicas(Gamma7BInt8):
-  """Gamma7B model with int8 quantization on v4-8 or v5e-8 with 2 replications."""
+class Gemma7BInt8With2Replicas(Gemma7BInt8):
+  """Gemma7B model with int8 quantization on v4-8 or v5e-8 with 2 replications."""
 
   @classmethod
   def serving_mesh_shape(cls):
@@ -261,30 +261,30 @@ class Gamma7BInt8With2Replicas(Gamma7BInt8):
 
 
 @servable_model_registry.register
-class Gamma2BFP16Test(Gamma2BFP16):
-  """Gamma2B model for testing without ckpt."""
+class Gemma2BFP16Test(Gemma2BFP16):
+  """Gemma2B model for testing without ckpt."""
 
   test_mode = True
 
 
 @servable_model_registry.register
-class Gamma7BFP16Test(Gamma7BFP16):
-  """Gamma7B model for testing without ckpt."""
-
-  test_mode = True
-
-
-@servable_model_registry.register
-@quantization.for_transformer(quantize_on_the_fly=False)
-class Gamma2BInt8Test(Gamma2BInt8):
-  """Gamma2B model with int8 weight quantization for testing without ckpt."""
+class Gemma7BFP16Test(Gemma7BFP16):
+  """Gemma7B model for testing without ckpt."""
 
   test_mode = True
 
 
 @servable_model_registry.register
 @quantization.for_transformer(quantize_on_the_fly=False)
-class Gamma7BInt8Test(Gamma7BInt8):
-  """Gamma7B model with int8 weight quantization for testing without ckpt."""
+class Gemma2BInt8Test(Gemma2BInt8):
+  """Gemma2B model with int8 weight quantization for testing without ckpt."""
+
+  test_mode = True
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False)
+class Gemma7BInt8Test(Gemma7BInt8):
+  """Gemma7B model with int8 weight quantization for testing without ckpt."""
 
   test_mode = True

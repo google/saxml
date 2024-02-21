@@ -19,7 +19,7 @@
 from saxml.server.pax.lm.params import lm_cloud
 from saxml.server.pax.lm.params import c4
 from saxml.server.pax.lm.params import gptj
-from saxml.server.pax.lm.params import gamma
+from saxml.server.pax.lm.params import gemma
 # Experimental models.
 
 # Specify the registry root.

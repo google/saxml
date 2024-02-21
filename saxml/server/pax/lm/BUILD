@@ -17,7 +17,7 @@ pytype_strict_library(
     deps = [
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax/lm/params:c4",
-        "//saxml/server/pax/lm/params:gamma",
+        "//saxml/server/pax/lm/params:gemma",
         "//saxml/server/pax/lm/params:gptj",
         "//saxml/server/pax/lm/params:lm_cloud",
     ],

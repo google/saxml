@@ -79,8 +79,8 @@ class QuantizationConfigsGPTJStacked(QuantizationConfigs):
   }
 
 
-class QuantizationConfigsGamma2B(QuantizationConfigs):
-  """Quantization config for Gamma 2B."""
+class QuantizationConfigsGemma2B(QuantizationConfigs):
+  """Quantization config for Gemma 2B."""
 
   factor = 1.0
   configs = {
@@ -94,8 +94,8 @@ class QuantizationConfigsGamma2B(QuantizationConfigs):
   }
 
 
-class QuantizationConfigsGamma7B(QuantizationConfigsGPTJ):
-  """Quantization config for Gamma 7B."""
+class QuantizationConfigsGemma7B(QuantizationConfigsGPTJ):
+  """Quantization config for Gemma 7B."""
 
 
 class QuantizationConfigsLLaMA70BWeightLinearOnlyInt8(QuantizationConfigs):
