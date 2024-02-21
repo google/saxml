@@ -17,12 +17,17 @@ newgrp docker
 
 Build all images (assume you are in this directory):
 
+NOTE: For building CUDA image, copy requirements.txt file as described in
+https://github.com/google/saxml/tree/main?tab=readme-ov-file#start-the-sax-gpu-model-server
+
 ```
 SAX_ROOT_PATH=$(git rev-parse --show-toplevel)
 docker build -f Dockerfile.dev ${SAX_ROOT_PATH} -t sax-dev
 docker build -f Dockerfile.admin . -t sax-admin
 docker build -f Dockerfile.model . -t sax-model
 docker build -f Dockerfile.util . -t sax-util
+docker build --build-arg JAX_PLATFORMS=tpu -f Dockerfile.vertex . -t sax-vertex-tpu
+docker build --build-arg JAX_PLATFORMS=cuda -f Dockerfile.vertex . -t sax-vertex-cuda
 ```
 
 Create a Cloud Storage bucket:
