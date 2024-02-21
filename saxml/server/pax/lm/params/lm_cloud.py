@@ -325,6 +325,13 @@ class LLaMA7BTPUv5e4(LLaMA7B):
   ICI_MESH_SHAPE = [1, 1, 4]
   ENABLE_GENERATE_STREAM = False
 
+  EXTRA_INPUTS = {
+      'temperature': 0.5,
+      'per_example_max_decode_steps': 1024,
+      'per_example_top_k': 200,
+      'per_example_top_p': 0.95,
+  }
+
   @property
   def test_mode(self) -> bool:
     return False
@@ -334,7 +341,24 @@ class LLaMA7BTPUv5e4(LLaMA7B):
 class LLaMA7BContinuousBatchingTPUv5e4(LLaMA7BTPUv5e4):
   """7B model on a v5e4. Test for continuous batching."""
   BATCH_SIZE = 1
-  NUM_CACHE_SLOTS = 1
+  NUM_CACHE_SLOTS = 16
+
+  def score(self):
+    return None
+
+  @property
+  def test_mode(self) -> bool:
+    return False
+
+
+@servable_model_registry.register
+class LLaMA7BContinuousBatchingTPUv5e8(LLaMA7BTPUv5e4):
+  """7B model on a v5e8. Test for continuous batching."""
+
+  BATCH_SIZE = 1
+  NUM_CACHE_SLOTS = 16
+
+  ICI_MESH_SHAPE = [1, 1, 8]
 
   def score(self):
     return None
@@ -447,6 +471,13 @@ class LLaMA70BInt8TPUv5e8(LLaMA70BFP16TPUv5e):
   # prefix batch size 1, decode batch size 72.
   BATCH_SIZE = 1
   NUM_CACHE_SLOTS = 72
+
+  EXTRA_INPUTS = {
+      'temperature': 0.5,
+      'per_example_max_decode_steps': 1024,
+      'per_example_top_k': 200,
+      'per_example_top_p': 0.95,
+  }
 
   @property
   def test_mode(self) -> bool:
