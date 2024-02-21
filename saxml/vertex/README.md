@@ -1,21 +1,60 @@
 # Deploy SAX model to Vertex Prediction
 
+SAX has implementation for Gemma, Llama2 and GPT-J models that can be deployed
+on GPU or TPU.
+
 ## Get model checkpoint
 
-We are going to use LLama2 7B as an example here, but the process is same for
-any model.
+For the purpose of this sample we assume that model is deployed to
+\${PROJECT_ID} GCP project and model is saved to
+gs://$(BUCKET_NAME)/\<model_folder\>/checkpoint_00000000 GCS folder.
+
+
+### Gemma
+To get access to the Gemma models, you must sign in to the [Kaggle](https://www.kaggle.com/) platform,
+sign the license consent agreement, and get a Kaggle API token as described in
+https://github.com/Kaggle/kaggle-api/blob/main/README.md#kaggle-api.
+
+You can download `google/gemma/pax/2b-it/1` and `google/gemma/pax/7b-it/1` models.
+
+```sh
+pip install kaggle --break-system-packages
+mkdir -p /data/gemma_2b-it &&\
+kaggle models instances versions download google/gemma/pax/2b-it/1 --untar -p /data/gemma_2b-it
+gsutil -m cp -R /data/gemma_2b-it/* gs://${BUCKET_NAME}/gemma_2b-it/
+```
+
+### LLama2
 
 For LLama2, you first need to download model weights from Meta
 https://ai.meta.com/llama/. Then convert weights to SAX format using
 convert_llama_ckpt.py script from tools folder as described in
 [here](../../README.md?tab=readme-ov-file#use-sax-to-load-llama-7b13b70b-model).
 
-For the purpose of this sample we assume that model is deployed to
-\${PROJECT_ID} GCP project and model is saved to
-gs://$(PROJECT_ID)/llama2/pax_7b/checkpoint_00000000 GCS folder.
+### GPT-J
+
+For GPT-J follow instructions in [convert_gptj_ckpt.py](../../saxml/tools/convert_gptj_ckpt.py) script.
+
+## Obtain prebuilt SAX containers
+
+Prebuilt containers are available at `us-docker.pkg.dev/vertex-ai/prediction/sax-gpu:latest` and
+`us-docker.pkg.dev/vertex-ai/prediction/sax-tpu:latest`.
+
+You can use those, but you first need to copy them into your project:
+
+```bash
+# For GPU
+docker tag us-docker.pkg.dev/vertex-ai/prediction/sax-gpu:latest us-docker.pkg.dev/${PROJECT_ID}/prediction/sax-vertex-cuda:latest
+docker push us-docker.pkg.dev/${PROJECT_ID}/prediction/sax-vertex-cuda:latest
+
+# For TPU
+docker tag us-docker.pkg.dev/vertex-ai/prediction/sax-tpu:latest us-docker.pkg.dev/${PROJECT_ID}/prediction/sax-vertex-tpu:latest
+docker push us-docker.pkg.dev/${PROJECT_ID}/prediction/sax-vertex-tpu:latest
+```
 
 ## Build Vertex TPU or GPU container
 
+If you need to do any changes to the models you can build containers yourself.
 Follow steps in [docker README file](../tools/docker/README.md) to build either
 `sax-vertex-cuda` or `sax-vertex-tpu` container.
 
@@ -155,7 +194,7 @@ aiplatform.init(project='${PROJECT_ID}', location='us-west1')
 ### Create endpoint
 
 ```python
-endpoint = aiplatform.Endpoint.create(display_name='SAX LLama2 7B endpoint')
+endpoint = aiplatform.Endpoint.create(display_name='SAX endpoint')
 ```
 
 ### Upload model
@@ -164,11 +203,11 @@ To upload model for L4 GPUs, you can use following configuration:
 
 ```python
 model = aiplatform.Model.upload(
-    display_name='SAX LLama2 7B model for g2-standard-48',
-    artifact_uri="gs://${PROJECT_ID}/llama2/pax_7b/",
+    display_name='SAX Gemma 2B model for g2-standard-48',
+    artifact_uri="gs://${PROJECT_ID}//gemma_2b-it/",
     serving_container_image_uri="us-docker.pkg.dev/${PROJECT_ID}/prediction/sax-vertex-cuda:latest",
     serving_container_args=[
-      "--model_path=saxml.server.pax.lm.params.lm_cloud.LLaMA7BFP16TPUv5e",
+      "--model_path=saxml.server.pax.lm.params.gemma.Gemma2BFP16",
       "--platform_chip=l4",
       "--platform_topology=4",
       "--ckpt_path_suffix=checkpoint_00000000",
@@ -184,13 +223,13 @@ guide: https://cloud.google.com/vertex-ai/docs/predictions/use-tpu
 
 ```python
 model = aiplatform.Model.upload(
-    display_name='SAX LLama2 7B for ct5lp-hightpu-4t',
-    artifact_uri="gs://${PROJECT_ID}/llama2/pax_7b/",
+    display_name='SAX Gemma 2B for ct5lp-hightpu-4t',
+    artifact_uri="gs://${PROJECT_ID}/gemma_2b-it/",
     serving_container_image_uri="us-docker.pkg.dev/${PROJECT_ID}/prediction/sax-vertex-tpu:latest",
     serving_container_args=[
-      "--model_path=saxml.server.pax.lm.params.lm_cloud.LLaMA7BFP16TPUv5e",
-      "--platform_chip=tpuv5",
-      "--platform_topology=1x1x4"
+      "--model_path=saxml.server.pax.lm.params.gemma.Gemma2BFP16",
+      "--platform_chip=tpuv5e",
+      "--platform_topology=2x2"
       "--ckpt_path_suffix=checkpoint_00000000",
       "--bypass_health_check=true",
       "--prediction_timeout_seconds=600",
@@ -206,7 +245,7 @@ To deploy on 4xL4 GPUs:
 ```python
 endpoint_deployed = model.deploy(
     endpoint=endpoint,
-    deployed_model_display_name='SAX LLama2 7B on 4xL4 deployed model',
+    deployed_model_display_name='SAX Gemma 2B on 4xL4 deployed model',
     machine_type='g2-standard-48',
     accelerator_type="NVIDIA_L4",
     accelerator_count=4,
@@ -215,12 +254,12 @@ endpoint_deployed = model.deploy(
 )
 ```
 
-To deploy tpuv5e:
+To deploy on tpuv5e:
 
 ```python
 endpoint_deployed = model.deploy(
     endpoint=endpoint,
-    deployed_model_display_name='SAX LLama2 7B on ct5lp-hightpu-4t deployed model',
+    deployed_model_display_name='SAX Gemma 2B on ct5lp-hightpu-4t deployed model',
     machine_type='ct5lp-hightpu-4t',
     traffic_percentage=100,
     sync=True
