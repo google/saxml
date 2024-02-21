@@ -44,9 +44,3 @@ pybind_extension(
     visibility = ["//visibility:public"],
     deps = ["//saxml/common:testutil_cc"],
 )
-
-pybind_extension(
-    name = "pybind_ipaddr",
-    srcs = ["pybind_ipaddr.cc"],
-    deps = ["//saxml/common:ipaddr_cc"],
-)

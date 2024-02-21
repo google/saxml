@@ -13,12 +13,35 @@
 # limitations under the License.
 """IP address-related functions."""
 
-from saxml.common.python import pybind_ipaddr
+import ipaddress
+import socket
 
 
 def MyIPAddr() -> str:
   """Returns the IP address of this process reachable by others."""
-  return pybind_ipaddr.MyIPAddr()
+  hostname = socket.gethostname()
+
+  try:
+    addrs = socket.getaddrinfo(hostname, None, socket.AF_INET6)
+    if addrs:
+      addr = addrs[0][4][0]
+      ip = ipaddress.ip_address(addr)
+      if not ip.is_link_local and (ip.is_private or ip.is_global):
+        return addr
+  except socket.error:
+    pass
+
+  try:
+    addrs = socket.getaddrinfo(hostname, None, socket.AF_INET)
+    if addrs:
+      addr = addrs[0][4][0]
+      ip = ipaddress.ip_address(addr)
+      if not ip.is_link_local and (ip.is_private or ip.is_global):
+        return addr
+  except socket.error:
+    pass
+
+  return "localhost"
 
 
 def Join(ip: str, port: int) -> str:
