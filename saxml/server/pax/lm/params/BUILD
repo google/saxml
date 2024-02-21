@@ -108,8 +108,8 @@ pytype_strict_library(
 )
 
 pytype_strict_library(
-    name = "gamma",
-    srcs = ["gamma.py"],
+    name = "gemma",
+    srcs = ["gemma.py"],
     srcs_version = "PY3",
     deps = [
         "//saxml/server:servable_model_registry",

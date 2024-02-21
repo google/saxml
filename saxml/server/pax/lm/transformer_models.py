@@ -19,7 +19,7 @@ from praxis.layers import multi_query_attention
 from saxml.server.pax.lm import layers as sax_layers
 
 
-def gamma(
+def gemma(
     vocab_size,
     model_dims,
     hidden_dims,
@@ -28,7 +28,7 @@ def gamma(
     dim_per_head,
     use_mqa,
 ) -> pax_fiddle.Config[layers.TransformerLm]:
-  """Create a TransformerLm config(template) for Gamma model family.
+  """Create a TransformerLm config(template) for Gemma model family.
 
   Args:
     vocab_size: Size of vocabulary.
@@ -40,7 +40,7 @@ def gamma(
     use_mqa: Whether use Multi-Query Attention.
 
   Returns:
-    TransformerLm for Gamma.
+    TransformerLm for Gemma.
   """
   model_p = pax_fiddle.Config(layers.TransformerLm)
   model_p.vocab_size = vocab_size

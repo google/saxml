@@ -56,8 +56,8 @@ def parse_known_args(argv):
       default='gptj',
       choices=[
           'gptj',
-          'gamma2b',
-          'gamma7b',
+          'gemma2b',
+          'gemma7b',
           'llama2-70b-weight-linear-only-int8',
       ],
       help='Quantization Config.',

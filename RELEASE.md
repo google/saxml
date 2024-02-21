@@ -1,3 +1,8 @@
+# Release 1.2.0
+## Major Features and Improvements
+*   Open-source model: Gemma.
+*   Continuous Batching experimental support.
+
 # Release 1.1.0
 
 ## Major Features and Improvements
