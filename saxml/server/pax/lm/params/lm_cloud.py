@@ -45,7 +45,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
   SOS_ID = 1
   EOS_ID = 2
 
-  # architecture related
+  # Architecture related params.
   NUM_LAYERS = 32
   VOCAB_SIZE = 32000
   DIMS_PER_HEAD = 128
@@ -83,6 +83,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
       'per_example_top_p': 0.95,
   }
 
+  # Disable continuous batching by default.
   NUM_CACHE_SLOTS = 0
 
   def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
@@ -186,7 +187,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     lp.optimizer = pax_fiddle.Config(
         optimizers.ShardedSgd,
         learning_rate=1e-3,
-        lr_schedule=pax_fiddle.Config(schedules.Constant)
+        lr_schedule=pax_fiddle.Config(schedules.Constant),
     )
     return task_p
 
@@ -274,9 +275,7 @@ class LLaMA7BFP16TPUv4(LLaMA7BFP16):
 
 @servable_model_registry.register
 class LLaMA7BFP16TPUv5e(LLaMA7BFP16):
-  """7B model on TPU v5e-4.
-
-  """
+  """7B model on TPU v5e-4."""
 
   BATCH_SIZE = [1]
   BUCKET_KEYS = [128]
@@ -314,6 +313,7 @@ class LLaMA7B(BaseLLaMA):
 @servable_model_registry.register
 class LLaMA7BTPUv5e4(LLaMA7B):
   """7B model on a v5e4."""
+
   NUM_SAMPLES = 1
   TOP_K = 1
   BATCH_SIZE = 32
@@ -340,6 +340,7 @@ class LLaMA7BTPUv5e4(LLaMA7B):
 @servable_model_registry.register
 class LLaMA7BContinuousBatchingTPUv5e4(LLaMA7BTPUv5e4):
   """7B model on a v5e4. Test for continuous batching."""
+
   BATCH_SIZE = 1
   NUM_CACHE_SLOTS = 16
 
@@ -458,6 +459,7 @@ class LLaMA70BFP16TPUv5e(BaseLLaMA):
 @quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
 class LLaMA70BInt8TPUv5e8(LLaMA70BFP16TPUv5e):
   """LlaMA-2 70B model for MLPerf4 on TPU V5e-8 devices."""
+
   ICI_MESH_SHAPE = [1, 1, 8]
 
   INPUT_SEQ_LEN = 1024
@@ -487,18 +489,20 @@ class LLaMA70BInt8TPUv5e8(LLaMA70BFP16TPUv5e):
 @servable_model_registry.register
 class LLaMA70BFP16TPUv5e32(LLaMA70BFP16TPUv5e):
   """LlaMA-2 70B model on TPUv5-32."""
+
   ICI_MESH_SHAPE = [1, 1, 32]
 
 
 @servable_model_registry.register
 class LLaMA70BFP16TPUv5e64(LLaMA70BFP16TPUv5e):
   """LlaMA-2 70B model on TPUv5-64."""
+
   ICI_MESH_SHAPE = [1, 1, 64]
 
 
 @servable_model_registry.register
 @quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
-class LLaMA70BINT8LinearOnlyx8(LLaMA70BFP16TPUv5e):
+class LLaMA70BInt8LinearOnlyx8(LLaMA70BFP16TPUv5e):
   """LlaMA-2 70B model with pre-quantized int8 checkpoint on 8 devices."""
 
   USE_REPEATED_LAYER = False
@@ -508,6 +512,16 @@ class LLaMA70BINT8LinearOnlyx8(LLaMA70BFP16TPUv5e):
   @property
   def test_mode(self) -> bool:
     return False
+
+
+@servable_model_registry.register
+class LLaMA70BInt8H100x8(LLaMA70BInt8TPUv5e8):
+  """LlaMA-2 70B model with pre-quantized int8 checkpoint on H100x8."""
+
+  USE_REPEATED_LAYER = False
+  REPEATED_LAYERS = False
+  ICI_MESH_SHAPE = [1, 1, 8]
+  NUM_CACHE_SLOTS = 256
 
 
 # GPT-J/NeoX family
@@ -625,7 +639,7 @@ class BaseNeoX(base_experiment.BaseExperiment):
     lp.optimizer = pax_fiddle.Config(
         optimizers.ShardedSgd,
         learning_rate=1e-3,
-        lr_schedule=pax_fiddle.Config(schedules.Constant)
+        lr_schedule=pax_fiddle.Config(schedules.Constant),
     )
     return task_p
 
