@@ -14,11 +14,16 @@
 """IP address-related functions."""
 
 import ipaddress
+import os
 import socket
 
 
 def MyIPAddr() -> str:
   """Returns the IP address of this process reachable by others."""
+  debug_ipaddr = os.environ.get("SAX_DEBUG_IPADDR", "")
+  if debug_ipaddr == "1":
+    return "127.0.0.1"
+
   hostname = socket.gethostname()
 
   try:
