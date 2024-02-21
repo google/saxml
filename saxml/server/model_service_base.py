@@ -673,7 +673,10 @@ class LoadedModelManager:
     try:
       model_class = servable_model_registry.get(model_path)
       if model_class is None:
-        raise ValueError(f'Could not find servable model `{model_path}`.')
+        raise ValueError(
+            f'Could not find servable model {model_path} in'
+            f' {servable_model_registry.get_all().keys()}.'
+        )
       if not issubclass(model_class, servable_model_params.ServableModelParams):
         raise ValueError(f'{model_path} is not a ServableModelParams')
       # pytype: disable=not-instantiable
@@ -2183,7 +2186,7 @@ class ModelServicesRunner:
               state.model_method, outputs, state.rpc_tasks[slot].response
           )
           try:
-            state.rpc_tasks[slot].done(utils.ok(), query_cost=0)
+            state.rpc_tasks[slot].done(utils.ok())
           except Exception as e:  # pylint: disable=broad-except
             self._log_exception('Error occurred: %s, error: %s', model_key, e)
           state.rpc_tasks[slot] = None
