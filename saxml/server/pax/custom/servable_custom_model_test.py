@@ -224,7 +224,6 @@ class ServableCustomModelTest(test_utils.TestCase):
 
   def setUp(self):
     super().setUp()
-    jax.config.update('jax_parallel_functions_output_gda', True)
     self._prng_key = jax.random.PRNGKey(1234)
 
   def test_load_model_custom(self):
