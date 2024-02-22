@@ -2138,12 +2138,6 @@ class ModelServicesRunner:
           state.generate_cv.wait()
 
         # Perform generation.
-        token_batch = (
-            state.decoded_tokens[
-                np.arange(state.num_cache_slots), state.steps - 1
-            ]
-            * state.slots_in_use
-        )
         with self._device_compute_mutex:
           start_ts = time.time()
           self._inform_secondary_hosts(
@@ -2152,11 +2146,7 @@ class ModelServicesRunner:
               state.model_method,
               skip_host_sync=True,
           )
-          token_batch = method_obj.input_to_device_for_continuous_batching(
-              token_batch,
-              InputShapeInfo(batch_size=state.num_cache_slots),
-          )
-          res = method_obj.generate(token_batch)
+          res = method_obj.generate()
           scores, tokens, done = method_obj.output_to_host(
               res, unpadded_batch_size=state.num_cache_slots
           )
@@ -2332,7 +2322,7 @@ class ModelServicesRunner:
             method_obj = self._loaded_models.get_model(model_key).method(
                 model_method
             )
-            method_obj.generate_with_dummy()
+            method_obj.generate()
           except Exception as e:  # pylint: disable=broad-except
             self._worker_thread_exception = e
             break

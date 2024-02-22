@@ -233,15 +233,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     logging.info('slots_in_use: %s', slots_in_use)
     for _ in range(times):
       logging.info('steps: %s', slots_in_use)
-      token_batch = (
-          decoded_tokens[np.arange(num_slots), steps - 1] * slots_in_use
-      )
-      token_batch = method.input_to_device_for_continuous_batching(
-          token_batch,
-          servable_lm_common.InputShapeInfo(batch_size=num_slots),
-      )
-      logging.info('token_batch for generate: %s', token_batch)
-      scores, tokens, done = method.generate(token_batch)
+      scores, tokens, done = method.generate()
       scores, tokens, done = method.output_to_host(
           (scores, tokens, done), unpadded_batch_size=num_slots
       )

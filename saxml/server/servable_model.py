@@ -355,13 +355,8 @@ class ServableMethod(abc.ABC):
     """
     raise NotImplementedError('insert_cache not implemented')
 
-  def generate(
-      self, tokens: DeviceTensors
-  ) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
-    """Given a batch of tokens and the KV state (managed internally), generate the next batch of tokens.
-
-    Args:
-      tokens: a batch of tokens [B].
+  def generate(self) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
+    """Given previous tokens and the KV state (managed internally), generate the next batch of tokens.
 
     Returns:
       scores: Log probability [B] of sampled next tokens.
@@ -369,18 +364,6 @@ class ServableMethod(abc.ABC):
       done: a batch of booleans [B] indicating whether the sampled token is EOS.
     """
     raise NotImplementedError('generate not implemented')
-
-  def generate_with_dummy(
-      self,
-  ) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
-    """Given a batch of dummy tokens and the KV state (managed internally), generate the next batch of tokens.
-
-    Returns:
-      scores: Log probability [B] of sampled next tokens.
-      new_tokens: a batch of new tokens [B] sampled by model's sampler.
-      done: a batch of booleans [B] indicating whether the sampled token is EOS.
-    """
-    raise NotImplementedError('generate_with_dummy not implemented')
 
   def detokenize(self, tokens: HostTensors) -> List[str]:
     """Detokenize a batch of sequences into a list of strings."""

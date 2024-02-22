@@ -1313,7 +1313,8 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     )
     self._dummy_input_for_prefill = (
         self.input_to_device_for_continuous_batching(
-            self._dummy_input_for_prefill, prefill_input_shape)
+            self._dummy_input_for_prefill, prefill_input_shape
+        )
     )
     # insert device function
     self._insert_device_fn = self._pjit_device_fn_insert()
@@ -1327,64 +1328,46 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       _, _, prefix_state = self.prefill_with_dummy()
       slot_in_use = 0
       self.insert(prefix_state, slot_in_use)
-      self.generate_with_dummy()  # compile w/ left_align_decode_state = False
+      self.generate()  # compile w/ left_align_decode_state = False
       self.decode_state.step = jnp.array(
-          [self.max_decode_steps + self.input_sequence_len - 1],
-          dtype=jnp.int32)
-      self.generate_with_dummy()  # compile w/ left_align_decode_state = True
+          [self.max_decode_steps + self.input_sequence_len - 1], dtype=jnp.int32
+      )
+      self.generate()  # compile w/ left_align_decode_state = True
       # reset slot 0.
       self.insert(prefix_state, slot_in_use)
 
   # JIT compiled generate function
   def _pjit_device_fn_generate(self):
-
-    def _wrapped_fn_sample_generate(
-        mdl_vars, tokens, decode_state, align_decode_state
-    ):
+    def _wrapped_fn_sample_generate(mdl_vars, decode_state, align_decode_state):
       mdl_vars = jax.tree_util.tree_map(
           jax.lax.with_sharding_constraint,
           mdl_vars,
           self.model_state.mdl_var_pspecs,
       )
 
-      # Only one core has real data, others have zeros. Summing on the
-      # leading `cores` dimension can make data replicated.
-      def _replicate(x):
-        return jax.lax.with_sharding_constraint(
-            jnp.sum(x, axis=0, promote_integers=False), None
-        )
-
-      tokens = jax.tree_util.tree_map(_replicate, tokens)
-
       context_p = base_layer.JaxContext.HParams(do_eval=True)
       k1, k2 = jax.random.split(self._prng_key)
       with base_layer.JaxContext.new_context(hparams=context_p):
 
-        def _model_fn(tokens, decode_state, align_decode_state):
+        def _model_fn(decode_state, align_decode_state):
           outputs = self.call_model_function_generate(
-              tokens, decode_state, align_decode_state, mdl_vars, [k1, k2]
+              decode_state, align_decode_state, mdl_vars, [k1, k2]
           )  # pytype: disable=wrong-arg-types  # jax-ndarray
           return outputs
 
-        decode_state, decode_cache = _model_fn(
-            tokens, decode_state, align_decode_state)
+        decode_state, decode_cache = _model_fn(decode_state, align_decode_state)
         return decode_state, decode_cache
-
-    tokens_pspecs = jax.sharding.PartitionSpec(
-        self.model_state.global_mesh.axis_names,
-        None,
-    )
 
     return jax_exp.pjit.pjit(
         _wrapped_fn_sample_generate,
-        in_shardings=(self.model_state.mdl_var_pspecs, tokens_pspecs, None),
+        in_shardings=(self.model_state.mdl_var_pspecs, None),
         out_shardings=(None, self.decode_cache_pspecs),
-        static_argnums=3,
-        donate_argnums=(0,)
+        static_argnums=2,
+        donate_argnums=(0,),
     )
 
   def call_model_function_generate(
-      self, tokens, decode_state, align_decode_state, mdl_vars, prng_key
+      self, decode_state, align_decode_state, mdl_vars, prng_key
   ):
     k1, k2 = prng_key
 
@@ -1397,7 +1380,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
     decode_state, decode_cache = self._model.apply(
         mdl_vars,
-        tokens=tokens,
         decode_state=decode_state,
         align_decode_state=align_decode_state,
         method=self._model.sample_generate,
@@ -1417,7 +1399,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
   # JIT compiled insert function
   def _pjit_device_fn_insert(self):
-
     def _wrapped_fn_sample_insert(
         mdl_vars,
         prefix_decode_state,
@@ -1514,7 +1495,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
   # JIT compiled prefill function
   def _pjit_device_fn_prefill(self, batched_input_pspecs):
-
     def _wrapped_fn_sample_prefill(mdl_vars, batched_inputs):
       mdl_vars = jax.tree_util.tree_map(
           jax.lax.with_sharding_constraint,
@@ -1641,13 +1621,8 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       self.decode_state = new_decode_state
       self.decode_cache = new_decode_cache
 
-  def generate(
-      self, tokens: DeviceTensors
-  ) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
+  def generate(self) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
     """Given a batch of tokens and the KV state (managed internally), generate the next batch of tokens.
-
-    Args:
-      tokens: a batch of tokens.
 
     Returns:
       new_tokens: a batch of new tokens sampled by model's sampler.
@@ -1657,16 +1632,14 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     self.model_state.mdl_vars.update(self.decode_cache)
     left_align_decode_state = False
     if self.decode_state.step == (
-        self.max_decode_steps + self.input_sequence_len - 1):
+        self.max_decode_steps + self.input_sequence_len - 1
+    ):
       logging.info('set left_align_decode_state to True')
       left_align_decode_state = True
 
     with self.model_state.global_mesh:
       decode_state, decode_cache = self._generate_device_fn(
-          self.model_state.mdl_vars,
-          tokens,
-          self.decode_state,
-          left_align_decode_state
+          self.model_state.mdl_vars, self.decode_state, left_align_decode_state
       )
       new_tokens = decode_state.output_ids
       scores = decode_state.logprobs
@@ -1674,17 +1647,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       self.decode_state = decode_state
       self.decode_cache = decode_cache
       return scores, new_tokens, self.decode_state.done
-
-  def generate_with_dummy(
-      self,
-  ) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
-    """Given a batch of dummy tokens and the KV state (managed internally), generate the next batch of tokens.
-
-    Returns:
-      new_tokens: a batch of new tokens sampled by model's sampler.
-      done: a batch of booleans indicating whether the sampled token is EOS.
-    """
-    return self.generate(self._dummy_tokens_for_generate)
 
   def detokenize(self, tokens: HostTensors) -> List[str]:
     """Detokenize a batch of sequences into a list of strings."""
@@ -1715,7 +1677,8 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       unpadded_input_shape: InputShapeInfo,
   ):
     return jax_servable_model.ServableMethod.resize_host_array(
-        self, x, global_input_shape_dtype, unpadded_input_shape)
+        self, x, global_input_shape_dtype, unpadded_input_shape
+    )
 
   def input_to_device_for_continuous_batching(
       self, one_core_inputs: HostTensors, unpadded_shape: InputShapeInfo
