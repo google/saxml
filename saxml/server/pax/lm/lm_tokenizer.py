@@ -103,6 +103,11 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
 
       self._vocab = vocab_cls(vocabulary_path)
 
+  @property
+  def Vocabulary(self) -> vocabularies.Vocabulary:
+    """Get the vocabulary."""
+    return self._vocab
+
   def StringsToIdsTokenized(
       self, strs: tf.Tensor, max_length: int
   ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:

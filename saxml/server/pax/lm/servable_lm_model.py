@@ -1692,7 +1692,18 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     # Ignore the first token, which is the last token of prefix
     # TODO(jwyang): modify the prefill to do one step decoding
     tokens = tokens[:, 1:]
-    bytes_strs = np.array(tokenizer.IdsToStrings(tokens))
+
+    # Use ragged tensor to get rid of the paddings
+    # TODO(jwyang): fix potential bug that tokenizer don't ignore paddings
+    def decode(ids_and_lens):
+      ids, lens = ids_and_lens
+      return tokenizer.IdsToStrings(tf.RaggedTensor.from_tensor(ids, lens))
+
+    assert len(tokens.shape) == 2
+    decode_lengths = np.sum(
+        tokens != getattr(self._tokenizer.Vocabulary, 'pad_id', 0), axis=1
+    )
+    bytes_strs = np.array(decode((tokens, decode_lengths)))
     if isinstance(bytes_strs, bytes):
       bytes_strs = np.array([bytes_strs])
     return np.char.decode(bytes_strs.astype(np.bytes_), 'UTF-8')
