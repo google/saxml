@@ -515,12 +515,43 @@ class LLaMA70BInt8LinearOnlyx8(LLaMA70BFP16TPUv5e):
 
 
 @servable_model_registry.register
-class LLaMA70BInt8H100x8(LLaMA70BInt8TPUv5e8):
+class LLaMA70BFP16H100x8(LLaMA70BFP16TPUv5e):
+  """LlaMA-2 70B model on H100x8."""
+
+  ICI_MESH_SHAPE = [1, 1, 8]
+
+  INPUT_SEQ_LEN = 1024
+  BUCKET_KEYS = None
+  NUM_SAMPLES = 1
+  TOP_K = 1
+  MAX_DECODE_STEPS = 1024
+  USE_BATCH_SHARDING = True
+  ATTEN_NUM_SEQ_SPLITS = 8
+
+  BATCH_SIZE = 1
+  NUM_CACHE_SLOTS = 128
+
+  EXTRA_INPUTS = {
+      'temperature': 0.5,
+      'per_example_max_decode_steps': 1024,
+      'per_example_top_k': 200,
+      'per_example_top_p': 0.95,
+  }
+
+  @property
+  def test_mode(self) -> bool:
+    return False
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
+class LLaMA70BInt8H100x8(LLaMA70BFP16H100x8):
   """LlaMA-2 70B model with pre-quantized int8 checkpoint on H100x8."""
 
   USE_REPEATED_LAYER = False
   REPEATED_LAYERS = False
   ICI_MESH_SHAPE = [1, 1, 8]
+
   NUM_CACHE_SLOTS = 256
 
 
