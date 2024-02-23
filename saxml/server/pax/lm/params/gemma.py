@@ -50,6 +50,7 @@ class GemmaBase(base_experiment.BaseExperiment):
   FPROP_DTYPE = jnp.float32
   MODEL_DTYPE = jnp.float32
   USE_MQA = False
+  USE_MXU_ATTENTION = False  # whether to force MHA attention to use MXU.
 
   # Sub-class has to specify a mesh.
   ICI_MESH_SHAPE = [1, 1, 1]
@@ -93,6 +94,7 @@ class GemmaBase(base_experiment.BaseExperiment):
         num_heads=self.NUM_HEADS,
         dim_per_head=self.DIMS_PER_HEAD,
         use_mqa=self.USE_MQA,
+        use_mxu_attention=self.USE_MXU_ATTENTION,
     )
 
     model_p.fprop_dtype = self.FPROP_DTYPE
@@ -158,6 +160,7 @@ class Gemma2BFP16Exp(Gemma2BFP16):
 class Gemma7BFP16(GemmaBase):
   """Gemma7B model."""
 
+  USE_MXU_ATTENTION = True
   NUM_LAYERS = 28
   VOCAB_SIZE = 256128
   DIMS_PER_HEAD = 256

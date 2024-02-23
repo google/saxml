@@ -17,6 +17,7 @@ from typing import Optional, Tuple
 from flax import linen as nn
 import jax
 from jax import numpy as jnp
+import numpy as np
 from praxis import base_layer
 from praxis import layers
 from praxis import pax_fiddle
@@ -410,3 +411,101 @@ class TransformerFeedForwardWithSeqSplit(layers.TransformerFeedForward):
 
     val = nn.while_loop(cond_fn, loop_body, self, val)
     return val.inputs
+
+
+class MXUDotProductAttention(layers.DotProductAttention):
+  """DotProductAttention that uses MXU for Dot attention."""
+
+  def _dot_atten_one_step(
+      self,
+      query: JTensor,
+      key_state_name: str,
+      value_state_name: str,
+      atten_mask: JTensor,
+      relative_bias: JTensor | None = None,
+      time_step: JTensor | None = None,
+  ) -> tuple[JTensor, JTensor]:
+    """Dot attention function for queries with 1 time step.
+
+    Args:
+      query: JTensor of shape [B, N, H].
+      key_state_name: Name of the decoding key state variable.
+      value_state_name: Name of the decoding value state variable.
+      atten_mask: JTensor of shape [1|B, 1, S] which is a mask that is applied
+        to prevent attention between unwanted pairs. This has already been
+        converted into large negative logits. The first dimension is allowed to
+        be of size 1, if the mask is shared by all items in the batch (e.g.,
+        only a causal mask).
+      relative_bias: Relative bias of shape [1|B, N, 1, S].
+      time_step: A scalar. The time step tensor.
+
+    Returns:
+      encoded: JTensor of shape [B, N, H].
+      probs: JTensor of shape [B, N, S].
+    """
+    if relative_bias is not None:
+      return super()._dot_atten_one_step(
+          query, key_state_name, value_state_name,
+          atten_mask, relative_bias, time_step)
+    del time_step
+    key = self._shard_blnh(self.get_decode_state(key_state_name))
+    value = self._shard_blnh(self.get_decode_state(value_state_name))
+    k_b = key.shape[0]
+    q_b = query.shape[0]
+    if q_b != k_b:
+      if q_b % k_b != 0:
+        raise ValueError(
+            f'q batch size {q_b} is not divisible by state batch size {k_b}'
+        )
+      key = jnp.repeat(key, q_b // k_b, axis=0)
+      value = jnp.repeat(value, q_b // k_b, axis=0)
+    if atten_mask.shape[0] != q_b and atten_mask.shape[0] != 1:
+      assert atten_mask.shape[0] == k_b, (atten_mask.shape, k_b)
+      atten_mask = jnp.repeat(atten_mask, q_b // k_b, axis=0)
+    # query is 3d.
+    query = self._shard_bnh(query)
+
+    b, s, n, h = key.shape
+    base_layer.assert_has_shape(value, [b, s, n, h])
+    base_layer.assert_has_shape(query, [b, n, h])
+    base_layer.assert_has_shape(atten_mask, [-1, 1, s])
+    query = self._scale_query(query)
+    # Expand the query tensor from BNH to BNHD to force matrix-style
+    # multiplication within qk_einsum and pv_einsum for better tpu performance.
+    # This is still computationally efficient because query and logits tensors
+    # are small relative to the key tensor, and these einsum operation's primary
+    # bottleneck is HBM bandwidth rather than raw computation (flops).
+    query = jnp.expand_dims(query, axis=-1)
+    query = jnp.repeat(query, 2, axis=-1)
+    logits = self.qk_einsum('BNHD,BSNH->BNDS', query, key)
+
+    if self.scale_logits_by_head_dims:
+      logits = jnp.multiply(logits, 1.0 / np.sqrt(h))
+
+    logits = self._cap_logits(logits)
+    # Attention softmax is always carried out in fp32.
+    logits = logits.astype(jnp.float32)
+    # Apply attention masking
+    padded_logits = py_utils.apply_mask_to_logits(
+        logits, jnp.expand_dims(atten_mask, axis=1))
+    # Of shape [b, n, 1, s]
+    if self.attention_extra_logit is None:
+      probs = jax.nn.softmax(padded_logits, axis=-1).astype(key.dtype)
+    else:
+      probs = jnp.exp(self._log_softmax_with_extra_logit(padded_logits)).astype(
+          key.dtype
+      )
+    # Compute the attention context.
+    encoded = self.pv_einsum('BNDS,BSNH->BNDH', probs, value)
+    # Get back to the original BNH tensor
+    encoded = encoded[:, :, 0, :]
+    if self.zero_fully_masked:
+      # Return zeros for tokens which don't attend anything.
+      fully_masked = jnp.all(
+          atten_mask < py_utils.get_large_negative_number(jnp.float32) / 2,
+          axis=-1,
+      )[..., jnp.newaxis]
+      encoded *= 1 - fully_masked
+
+    encoded = self._shard_bnh(encoded)
+    return encoded, probs

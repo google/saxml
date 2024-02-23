@@ -27,6 +27,7 @@ def gemma(
     num_heads,
     dim_per_head,
     use_mqa,
+    use_mxu_attention
 ) -> pax_fiddle.Config[layers.TransformerLm]:
   """Create a TransformerLm config(template) for Gemma model family.
 
@@ -38,6 +39,7 @@ def gemma(
     num_heads: Number of heads.
     dim_per_head: Dimension per head.
     use_mqa: Whether use Multi-Query Attention.
+    use_mxu_attention: whether to force MHA attention to use MXU.
 
   Returns:
     TransformerLm for Gemma.
@@ -77,6 +79,9 @@ def gemma(
         scale_query_by_dim_per_head=True,
     )
   else:
+    if use_mxu_attention:
+      transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
+          sax_layers.MXUDotProductAttention)
     transformer_layer_p.tr_atten_tpl.use_bias = False
     transformer_layer_p.tr_atten_tpl.combine_qkv = True
     transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True

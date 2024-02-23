@@ -168,6 +168,7 @@ pytype_strict_library(
     deps = [
         "//third_party/py/flax:core",
         "//third_party/py/jax",
+        "//third_party/py/numpy",
         "//third_party/py/praxis:base_layer",
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis:py_utils",
