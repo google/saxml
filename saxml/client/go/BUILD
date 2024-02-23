@@ -87,10 +87,10 @@ go_library(
     name = "saxadmin",
     srcs = ["admin.go"],
     deps = [
-        ":skiplist",
         "//saxml/common:addr",
         "//saxml/common:errors",
         "//saxml/common:retrier",
+        "//saxml/common:skiplist",
         "//saxml/common:watchable",
         "//saxml/common/platform:env",
         "//saxml/protobuf:admin_go_proto_grpc",
@@ -98,17 +98,6 @@ go_library(
         "@com_github_golang_glog//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],
-)
-
-go_library(
-    name = "skiplist",
-    srcs = ["skiplist.go"],
-)
-
-go_test(
-    name = "skiplist_test",
-    srcs = ["skiplist_test.go"],
-    library = ":skiplist",
 )
 
 go_test(

@@ -277,3 +277,14 @@ go_library(
     name = "eventlog",
     srcs = ["eventlog.go"],
 )
+
+go_library(
+    name = "skiplist",
+    srcs = ["skiplist.go"],
+)
+
+go_test(
+    name = "skiplist_test",
+    srcs = ["skiplist_test.go"],
+    library = ":skiplist",
+)

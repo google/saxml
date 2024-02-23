@@ -25,11 +25,11 @@ import (
 
 	log "github.com/golang/glog"
 	"google.golang.org/grpc"
-	"saxml/client/go/skiplist"
 	"saxml/common/addr"
 	"saxml/common/errors"
 	"saxml/common/platform/env"
 	"saxml/common/retrier"
+	"saxml/common/skiplist"
 	"saxml/common/watchable"
 
 	pb "saxml/protobuf/admin_go_proto_grpc"
