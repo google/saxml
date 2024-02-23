@@ -189,8 +189,9 @@ class Gemma7BFP16(GemmaBase):
 @servable_model_registry.register
 class Gemma7BFP16Exp(Gemma7BFP16):
   BATCH_SIZE = 1
-  NUM_CACHE_SLOTS = 32
-  MAX_LIVE_BATCHES = 32 * 4  # BATCH_SIZE is always 1 in this case.
+  NUM_CACHE_SLOTS = 48
+  MAX_LIVE_BATCHES = 48 * 4  # BATCH_SIZE is always 1 in this case.
+  # Need to add --extra_flags=xla_tpu_enable_dot_strength_reduction=false
 
 
 @servable_model_registry.register
