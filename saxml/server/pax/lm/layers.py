@@ -373,14 +373,15 @@ class TransformerFeedForwardWithSeqSplit(layers.TransformerFeedForward):
     val = NestedMap()
     val.inputs = inputs
     val.paddings = paddings
-    # prefix_ids and prefix_paddings are right aligned.
-    val.i = self.chunked_ffn_num_seq_split
+    # prefix_ids are right aligned while paddings are on the left
+    val.i = self.chunked_ffn_num_seq_split - 1
 
     def cond_fn(mdl, val):
       del mdl
-      start = val.i * chunk_size
+      # Check paddings at rigthmost position in the chunk are 0 or not.
+      end = (val.i + 1) * chunk_size - 1
       return jnp.logical_and(
-          val.i > 0, jnp.sum(val.paddings[:, start, 0].astype(jnp.int32)) == 0
+          val.i >= 0, jnp.sum(val.paddings[:, end, 0].astype(jnp.int32)) == 0
       )
 
     def loop_body(mdl, val):
