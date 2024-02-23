@@ -141,7 +141,7 @@ class LLaMASmall(BaseLLaMA, servable_lm_model.ServableLMModelParams):
     )
 
   def input_for_model_init(self):
-    batch_size, seq_len = 3, 16
+    batch_size, seq_len = 3, 11
     targets = np.ones([batch_size, seq_len], dtype=np.int32)
     input_batch = py_utils.NestedMap()
     input_batch.ids = targets
@@ -228,11 +228,10 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
   ):
     num_slots = len(slots_in_use)
     done = None
-    logging.info('decoded_tokens before generate: %s', decoded_tokens)
-    logging.info('current generate steps: %s', steps)
-    logging.info('slots_in_use: %s', slots_in_use)
     for _ in range(times):
-      logging.info('steps: %s', slots_in_use)
+      logging.info('current generate steps: %s', steps)
+      logging.info('decoded_tokens before generate: %s', decoded_tokens)
+      logging.info('slots_in_use: %s', slots_in_use)
       scores, tokens, done = method.generate()
       scores, tokens, done = method.output_to_host(
           (scores, tokens, done), unpadded_batch_size=num_slots
@@ -245,9 +244,9 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
 
       steps += slots_in_use
       done = np.logical_or(done * slots_in_use, steps >= max_steps)
+      logging.info('done after generation: %s', done)
+      logging.info('decoded_tokens after generation: %s', decoded_tokens)
 
-    logging.info('done after generation: %s', done)
-    logging.info('decoded_tokens after generation: %s', decoded_tokens)
     return decoded_tokens, done, steps
 
   def test_per_example_max_decode_steps(self):
@@ -370,9 +369,9 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     # TODO(jwyang): fix the prefill issuse.
     # The order will be (max decode step is 4 and max slots is 2):
     #   1. Run prefill for input1 and insert the prefill KV Cache to the slot.
-    #   2. Run 1 generate for input1 for 1 more token.
+    #   2. Run 2 generate for input1 for 2 more token.
     #   3. Run prefill for input2 and insert the prefill KV Cache to the slot.
-    #   4. Run 2 generate for the input1 and input2 inside the slots.
+    #   4. Run 1 generate for the input1 and input2 inside the slots.
     #   5. input1 is completed with 4 decode steps and the slot for it will be
     #   free.
     #   6. Run prefill for input3, insert the KV cache and run generate until
@@ -404,9 +403,9 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     decoded_tokens[slot][0] = np.array(token.addressable_data(0))
 
     # Run one time generate for input1.
-    logging.info('1st generate for input1')
+    logging.info('1st and 2nd generate for input1')
     decoded_tokens, done, steps = self._run_generate(
-        1,
+        2,
         method_with_continuous_batching,
         decoded_tokens,
         steps,
@@ -429,10 +428,10 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     method_with_continuous_batching.insert(prefix_state, slot)
     decoded_tokens[slot][0] = np.array(token.addressable_data(0))
 
-    # Run two time generate for input1 and input2.
-    logging.info('2st and 3rd generate for input1 and input2')
+    # Run one time generate for input1 and input2.
+    logging.info('3rd generate for input1 and input2')
     decoded_tokens, done, steps = self._run_generate(
-        2,
+        1,
         method_with_continuous_batching,
         decoded_tokens,
         steps,
@@ -464,9 +463,9 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     decoded_tokens[slot][0] = np.array(token.addressable_data(0))
 
     # Run one time generate for input2 and input3.
-    logging.info('4th generate for input2 and input3')
+    logging.info('4th and 5th generate for input2 and input3')
     decoded_tokens, done, steps = self._run_generate(
-        1,
+        2,
         method_with_continuous_batching,
         decoded_tokens,
         steps,
@@ -482,9 +481,9 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     slots_in_use[done] = 0
 
     # Run two times generate for input3.
-    logging.info('5th and 6th generate for and input3')
+    logging.info('6th generate for and input3')
     decoded_tokens, done, steps = self._run_generate(
-        2,
+        1,
         method_with_continuous_batching,
         decoded_tokens,
         steps,
