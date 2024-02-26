@@ -487,6 +487,13 @@ class LLaMA70BInt8TPUv5e8(LLaMA70BFP16TPUv5e):
 
 
 @servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
+class LLaMA70BInt8TokenizedInputTPUv5e8(LLaMA70BInt8TPUv5e8):
+  """LlaMA-2 70B model for MLPerf4 on TPU V5e-8 devices."""
+  TOKENIZED_INPUT = True
+
+
+@servable_model_registry.register
 class LLaMA70BFP16TPUv5e32(LLaMA70BFP16TPUv5e):
   """LlaMA-2 70B model on TPUv5-32."""
 

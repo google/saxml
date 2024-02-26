@@ -1278,13 +1278,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     info = self._per_bs_infos[input_shape]
     info.batched_input_pspecs = batched_input_psepcs
 
-    info.dummy_inputs_per_device_buffers = self._input_to_device_buffers(
-        batched_host_dummy, input_shape, info, is_dummy=True
-    )
-    info.dummy_inputs = self._device_buffers_to_jax_arrays(
-        info.dummy_inputs_per_device_buffers, info
-    )
-
   def _register_for_input_shape(
       self, input_shape: servable_model.InputShapeInfo
   ):
@@ -1305,7 +1298,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     self._prefill_device_fn = self._pjit_device_fn_prefill(
         self._per_bs_infos[prefill_input_shape].batched_input_pspecs
     )
-    self._dummy_input_for_prefill = self.pre_processing(['Hello World'])
+    self._dummy_input_for_prefill = self.get_dummy_inputs(prefill_input_shape)
     self._dummy_input_for_prefill = self.update_extra_inputs(
         self._dummy_input_for_prefill,
         prefill_input_shape.batch_size,
@@ -1316,6 +1309,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
             self._dummy_input_for_prefill, prefill_input_shape
         )
     )
+
     # insert device function
     self._insert_device_fn = self._pjit_device_fn_insert()
 
@@ -1323,8 +1317,10 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     generate_input_shape = InputShapeInfo(input_shape.batch_size)
     self._register_bs_infos_for_input_shape(generate_input_shape)
     self._generate_device_fn = self._pjit_device_fn_generate()
+
     # warmup
     if self.model_state.precompile:
+      logging.info('start precompile')
       _, _, prefix_state = self.prefill_with_dummy()
       slot_in_use = 0
       self.insert(prefix_state, slot_in_use)
