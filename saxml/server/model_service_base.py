@@ -279,6 +279,7 @@ class ContinuousBatchingState:
   prefill_queue: queue.SimpleQueue[PrefillRequest]
   prefill_thread: threading.Thread
   generate_thread: threading.Thread
+  post_process_pool: utils.ThreadPool
   # When a new request is prefilled, prefill_thread uses this conditional
   # variable to signal the availability to generate_thread.
   generate_cv: threading.Condition
@@ -335,6 +336,14 @@ class ContinuousBatchingState:
     )
     self.generate_thread = threading.Thread(
         target=generate_fn, args=(self,), daemon=True
+    )
+
+    # By constraining num_thread=1, we can ensure the operations on
+    # state.rpc_tasks are also serializable because utils.ThreadPool
+    # runs in FIFO order.
+    self.post_process_pool = utils.ThreadPool(
+        num_threads=1,
+        thread_name_prefix='model_service_runner_post_processer',
     )
     self.generate_cv = threading.Condition()
     self.available_slots = queue.SimpleQueue()
@@ -2106,7 +2115,7 @@ class ModelServicesRunner:
 
         state.decoded_tokens[slot][0] = np.array(tokens.addressable_data(0))
         state.scores[slot] = np.array(scores.addressable_data(0))
-        state.rpc_tasks[slot] = request.rpc_task
+        self._post_prefill_async(state, slot, request.rpc_task)
         state.steps[slot] = 1
 
         # Must set slots_in_use in the end.
@@ -2117,6 +2126,12 @@ class ModelServicesRunner:
         if state.prefill_queue.empty() or state.available_slots.empty():
           state.pending_insert = False
           state.generate_cv.notify()
+
+  def _post_prefill_async(self, state, slot, request_rpc):
+    def _postprocess():
+      state.rpc_tasks[slot] = request_rpc
+
+    state.post_process_pool.run(_postprocess)
 
   def _run_generation_loop(
       self,
@@ -2164,23 +2179,12 @@ class ModelServicesRunner:
         if not np.any(done):
           continue
 
-        # If any of the sequences in the batch is done, return the response
-        # and reset the cache slot.
-        sequences = state.decoded_tokens[done]
-        output_strings = method_obj.detokenize(sequences)
-        done_slots = np.flatnonzero(done)
-
-        for idx, slot in enumerate(done_slots):
-          outputs = [output_strings[idx]], [state.scores[slot]]
-          self._model_services[state.service_id].FillRPCResponse(
-              state.model_method, outputs, state.rpc_tasks[slot].response
-          )
-          try:
-            state.rpc_tasks[slot].done(utils.ok())
-          except Exception as e:  # pylint: disable=broad-except
-            self._log_exception('Error occurred: %s, error: %s', model_key, e)
-          state.rpc_tasks[slot] = None
-
+        self._run_post_generate_async(
+            state,
+            copy.deepcopy(state.decoded_tokens[done]),
+            copy.deepcopy(state.scores[done]),
+            done,
+        )
         # Reset the cache slot state.
         state.decoded_tokens[done] = 0
         state.scores[done] = 0.0
@@ -2188,9 +2192,37 @@ class ModelServicesRunner:
         state.slots_in_use[done] = 0
 
         # Release the slots.
-        for slot in done_slots:
+        for slot in np.flatnonzero(done):
           logging.info('Releasing slot %d.', slot)
           state.available_slots.put(slot)
+
+  def _run_post_generate_async(
+      self,
+      state: ContinuousBatchingState,
+      sequences,
+      scores,
+      done,
+  ):
+    """Runs the post-generate processing on a dedicated thread."""
+    def _postprocess():
+      # If any of the sequences in the batch is done, return the response
+      # and reset the cache slot.
+      output_strings = state.method.detokenize(sequences)
+
+      for idx, slot in enumerate(np.flatnonzero(done)):
+        outputs = [output_strings[idx]], [scores[idx]]
+        self._model_services[state.service_id].FillRPCResponse(
+            state.model_method, outputs, state.rpc_tasks[slot].response
+        )
+        try:
+          state.rpc_tasks[slot].done(utils.ok())
+        except Exception as e:  # pylint: disable=broad-except
+          self._log_exception(
+              'Error occurred: %s, error: %s', state.model_key, e
+          )
+        state.rpc_tasks[slot] = None
+
+    state.post_process_pool.run(_postprocess)
 
   def _run_secondary_worker_loop(self):
     """Runs the processing loop in secondary hosts in a multi-host setup."""
