@@ -178,6 +178,27 @@ pytype_strict_library(
     ],
 )
 
+py_strict_test(
+    name = "layers_test",
+    srcs = ["layers_test.py"],
+    shard_count = 1,
+    deps = [
+        ":layers",
+        "//third_party/py/absl-py/logging",
+        "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/absl-py/testing:parameterized",
+        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        "//third_party/py/jax",
+        "//third_party/py/numpy",
+        "//third_party/py/praxis:base_layer",
+        "//third_party/py/praxis:pax_fiddle",
+        "//third_party/py/praxis:py_utils",
+        "//third_party/py/praxis:test_utils",
+        "//third_party/py/praxis/layers",
+        "//third_party/py/praxis/layers:attentions",
+    ],
+)
+
 pytype_strict_library(
     name = "vocabularies",
     srcs = ["vocabularies.py"],
