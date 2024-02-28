@@ -1627,7 +1627,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     # update KV cache
     self.model_state.mdl_vars.update(self.decode_cache)
     left_align_decode_state = False
-    if self.decode_state.step == (
+    if self.decode_state.step.addressable_data(0) == (
         self.max_decode_steps + self.input_sequence_len - 1
     ):
       logging.info('set left_align_decode_state to True')
