@@ -80,7 +80,7 @@ py_strict_test(
     deps = [
         ":multi_host_sync",
         "//third_party/py/absl-py/testing:absltest",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
     ],
 )
 
@@ -101,7 +101,7 @@ py_strict_test(
     deps = [
         ":servable_model_params",
         "//third_party/py/absl-py/testing:absltest",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
     ],
 )
 
@@ -124,7 +124,7 @@ py_strict_test(
         ":all_imports",
         ":servable_model_registry",
         "//third_party/py/absl-py/testing:absltest",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
     ],
 )
 
@@ -167,7 +167,7 @@ py_strict_test(
     deps = [
         ":utils",
         "//third_party/py/absl-py/testing:absltest",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
         "//third_party/py/numpy",
     ],
 )
@@ -189,10 +189,10 @@ py_strict_test(
     srcs_version = "PY3",
     deps = [
         ":validate",
-        "//saxml/protobuf:test_py_pb2",
-        "//third_party/py/absl-py/testing:absltest",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
         "//third_party/py/grpcio",
+        "//third_party/py/absl-py/testing:absltest",
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
+        "//saxml/protobuf:test_py_pb2",
     ],
 )
 
@@ -210,10 +210,10 @@ py_strict_test(
     srcs_version = "PY3",
     deps = [
         ":proto_util",
-        "//saxml/protobuf:admin_py_pb2",
         "//third_party/py/absl-py/testing:absltest",
         "//third_party/py/absl-py/testing:parameterized",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
+        "//saxml/protobuf:admin_py_pb2",
     ],
 )
 
@@ -260,7 +260,6 @@ py_strict_test(
         ":utils",
         "//saxml/protobuf:common_py_pb2",
         "//saxml/protobuf:modelet_py_pb2",
-        "//testing/pybase",
         "//third_party/py/absl-py/testing:absltest",
         "//third_party/py/numpy",
         "//third_party/py/portpicker",

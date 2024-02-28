@@ -50,7 +50,7 @@ py_strict_test(
         ":classify",
         ":servable_model",
         "//third_party/py/absl-py/testing:absltest",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
         "//third_party/py/praxis:py_utils",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
         "//third_party/py/torchvision",
@@ -82,7 +82,7 @@ py_strict_test(
         ":servable_model",
         "//third_party/py/absl-py/testing:absltest",
         "//third_party/py/detectron2",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
         "//third_party/py/praxis:py_utils",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],

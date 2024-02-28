@@ -44,7 +44,7 @@ py_strict_test(
     deps = [
         ":branch_selection",
         "//third_party/py/absl-py/testing:absltest",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
     ],
 )
 
@@ -117,14 +117,14 @@ py_strict_test(
     srcs = ["quantization_test.py"],
     deps = [
         ":quantization",
-        "//saxml/server/pax/lm/params:lm_cloud",
         "//third_party/py/absl-py/testing:absltest",
         "//third_party/py/absl-py/testing:parameterized",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
         "//third_party/py/praxis:test_utils",
         "//third_party/py/praxis/layers",
         "//third_party/py/praxis/layers/quantization:layers",
         "//third_party/py/praxis/layers/quantization:quantization_hparams",
+        "//saxml/server/pax/lm/params:lm_cloud",
     ],
 )
 

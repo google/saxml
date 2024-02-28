@@ -49,7 +49,7 @@ py_strict_test(
     deps = [
         ":lm_cloud",
         ":template",
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
         "//third_party/py/praxis:test_utils",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],

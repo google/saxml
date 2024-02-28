@@ -100,19 +100,6 @@ http_archive(
 )
 
 http_archive(
-    name = "build_bazel_rules_apple",
-    sha256 = "65eafafe94b8573e74160b7f587d091a0fa34d69e6d2c41c4afb1eef140383ec",
-    url = "https://github.com/bazelbuild/rules_apple/releases/download/3.3.0/rules_apple.3.3.0.tar.gz",
-)
-
-load(
-    "@build_bazel_rules_apple//apple:repositories.bzl",
-    "apple_rules_dependencies",
-)
-
-apple_rules_dependencies()
-
-http_archive(
     name = "com_google_protobuf",
     sha256 = "930c2c3b5ecc6c9c12615cf5ad93f1cd6e12d0aba862b572e076259970ac3a53",
     strip_prefix = "protobuf-3.21.12",
@@ -315,6 +302,10 @@ switched_rules_by_language(
     grpc = True,
     python = True,
 )
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
 
 http_archive(
     name = "rules_cc",
