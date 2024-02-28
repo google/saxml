@@ -99,9 +99,12 @@ class CommonServingTemplate:
   GENERATION_USE_GEOMEAN_PROB_SCORE = False
   SCORING_USE_GEOMEAN_PROB_SCORE = False
   SCORING_INCLUDE_EOS_SCORE = False
-  NUM_CACHE_SLOTS = 0
-  # if NUM_CACHE_SLOTS > 0, it will enable continuous batching with
-  # max batch_size = NUM_CACHE_SLOTS. Currently, only support NUM_SAMPLES=1
+
+  # Params for continuous batching.
+  # Setting NUM_CACHE_SLOTS to 0 disables continuous batching.
+  # Only NUM_SAMPLES = 1 is supported.
+  NUM_CACHE_SLOTS = 0  # Batch size for generate.
+
   NEXT_TOKEN_SAMPLER_TPL = pax_fiddle.Config(
       token_samplers.DefaultNextTokenSampler
   )
@@ -470,6 +473,7 @@ def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
   lbp_multi_query_atten_tpl = pax_fiddle.Config(
       mqs_lpb_cls,
   )
+
   def _set_lpb_params_for_layer(layer_p: LayerTpl):
     if issubclass(layer_p.tr_atten_tpl.cls, attentions.DotProductAttention):
       lbp_tr_atten_tpl.copy_fields_from(layer_p.tr_atten_tpl)
@@ -482,6 +486,7 @@ def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
           'Attention layer does not support lazy prefix broadcast '
           f'{layer_p.tr_atten_tpl.cls}.'
       )
+
   if isinstance(layer_ps, Sequence):
     for layer_p in layer_ps:
       _set_lpb_params_for_layer(layer_p)
