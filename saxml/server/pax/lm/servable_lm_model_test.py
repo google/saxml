@@ -141,7 +141,7 @@ class LLaMASmall(BaseLLaMA, servable_lm_model.ServableLMModelParams):
     )
 
   def input_for_model_init(self):
-    batch_size, seq_len = 3, 11
+    batch_size, seq_len = 3, 12
     targets = np.ones([batch_size, seq_len], dtype=np.int32)
     input_batch = py_utils.NestedMap()
     input_batch.ids = targets
@@ -159,9 +159,9 @@ class LLaMASmall(BaseLLaMA, servable_lm_model.ServableLMModelParams):
         max_input_seq_len=8, batch_size=self.BATCH_SIZE
     )
     decoder_params = decoder_hparams.GreedyDecoderHParams()
-    decoder_params.max_decode_steps = 3
+    decoder_params.max_decode_steps = 4
     # seqlen = max_input_seq_len + max_decode_steps
-    decoder_params.seqlen = 11
+    decoder_params.seqlen = 12
     decoder_params.fprop_for_prefix = True
     params.decoder = decoder_params
     params.decoder = decoder_params
@@ -191,6 +191,13 @@ class LLaMASmallWithContinuousBatching(
   """LLaMA model with small params and Continuous Batching enabled."""
 
   NUM_CACHE_SLOTS = 2
+
+  EXTRA_INPUTS = {
+      'temperature': 0.0,
+      'per_example_max_decode_steps': 1024,
+      'per_example_top_k': 1,
+      'per_example_top_p': None,
+  }
 
   @classmethod
   def serving_mesh_shape(cls):
@@ -397,6 +404,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     token, prefix_state, slot = self._run_prefill(
         method_with_continuous_batching, slots_in_use, steps, input1
     )
+    logging.info('input1 prefill token: %s', token)
 
     # Insert input1 KV cache.
     method_with_continuous_batching.insert(prefix_state, slot)
@@ -422,6 +430,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     token, prefix_state, slot = self._run_prefill(
         method_with_continuous_batching, slots_in_use, steps, input2
     )
+    logging.info('input2 prefill token: %s', token)
     logging.info('slots_in_use after prefill for input2: %s', slots_in_use)
 
     # Insert input2 KV cache.
@@ -501,6 +510,11 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     decode_start_index = expected_decode_lengths - max_steps
     expected_inpus_res = np.array(expected_outputs.output_ids)
 
+    logging.info('expected output with prefix: %s', expected_outputs)
+    logging.info('got decode res for input1: %s', got_input1_res)
+    logging.info('got decode res for input2: %s', got_input2_res)
+    logging.info('got decode res for input3: %s', got_input3_res)
+
     self.assertArraysEqual(
         got_input1_res,
         expected_inpus_res[0][0][
@@ -519,11 +533,6 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
             decode_start_index[2] : expected_decode_lengths[2]
         ],
     )
-
-    logging.info('expected output with prefix: %s', expected_outputs)
-    logging.info('got decode res for input1: %s', got_input1_res)
-    logging.info('got decode res for input2: %s', got_input2_res)
-    logging.info('got decode res for input3: %s', got_input3_res)
 
 
 if __name__ == '__main__':

@@ -1130,7 +1130,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       return {
           base_layer.DECODE_CACHE: {
               'lm': {
-                  'time_step': self.input_sequence_len - 1,
+                  'time_step': self.input_sequence_len,
                   'transformer': kv_cache,
               }
           }
@@ -1196,12 +1196,12 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
     decode_state = NestedMap()
     decode_state.start_step = jnp.array(
-        [self.input_sequence_len - 1], dtype=jnp.int32
+        [self.input_sequence_len], dtype=jnp.int32
     )
     decode_state.step = decode_state.start_step
     decode_state.per_sample_steps = jnp.ones(
         shape=num_cache_slots, dtype=jnp.int32
-    ) * (self.input_sequence_len - 1)
+    ) * (self.input_sequence_len)
     decode_state.temperature = jnp.zeros(
         shape=num_cache_slots, dtype=jnp.float32
     )
@@ -1647,9 +1647,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
   def detokenize(self, tokens: HostTensors) -> List[str]:
     """Detokenize a batch of sequences into a list of strings."""
     tokenizer = self._tokenizer
-    # Ignore the first token, which is the last token of prefix
-    # TODO(jwyang): modify the prefill to do one step decoding
-    tokens = tokens[:, 1:]
 
     # Use ragged tensor to get rid of the paddings
     # TODO(jwyang): fix potential bug that tokenizer don't ignore paddings

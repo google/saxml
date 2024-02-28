@@ -475,10 +475,10 @@ class LLaMA70BInt8TPUv5e8(LLaMA70BFP16TPUv5e):
   NUM_CACHE_SLOTS = 72
 
   EXTRA_INPUTS = {
-      'temperature': 0.5,
+      'temperature': 0.0,
       'per_example_max_decode_steps': 1024,
-      'per_example_top_k': 200,
-      'per_example_top_p': 0.95,
+      'per_example_top_k': 1,
+      'per_example_top_p': None,
   }
 
   @property
