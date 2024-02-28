@@ -656,7 +656,7 @@ class LMDecodeMethod(ServableLMMethod):
     )
     self._streamable_output = streamable_output
     logging.info(
-        f'Initialize {self.__class__.__name__} to be streamable_output=%s.',
+        'Initialize LMDecodeMethod to be streamable_output=%s.',
         streamable_output,
     )
 
@@ -2168,29 +2168,31 @@ class ServableLMModel(servable_model.ServableModel):
       )
     elif method == LMMethodName.GENERATE:
       assert isinstance(method_params, DecodeHParams)
-      method_cls = (
-          LMDecodeMethodContinuousBatching
-          if method_params.decoder.num_cache_slots > 0
-          else LMDecodeMethod
-      )
-      return method_cls(
-          model,
-          model_state,
-          prng_key,
-          method_params,
-          tokenizer_p,
-          exportable=True,
-          enable_auto_sharding=self._enable_auto_sharding,
-          compiler_options=self._compiler_options,
-      )
+      if method_params.decoder.num_cache_slots > 0:
+        return LMDecodeMethodContinuousBatching(
+            model,
+            model_state,
+            prng_key,
+            method_params,
+            tokenizer_p,
+            exportable=True,
+            enable_auto_sharding=self._enable_auto_sharding,
+            compiler_options=self._compiler_options,
+        )
+      else:
+        return LMDecodeMethod(
+            model,
+            model_state,
+            prng_key,
+            method_params,
+            tokenizer_p,
+            exportable=True,
+            enable_auto_sharding=self._enable_auto_sharding,
+            compiler_options=self._compiler_options,
+        )
     elif method == LMMethodName.GENERATE_STREAM:
       assert isinstance(method_params, DecodeHParams)
-      method_cls = (
-          LMDecodeMethodContinuousBatching
-          if method_params.decoder.num_cache_slots > 0
-          else LMDecodeMethod
-      )
-      return method_cls(
+      return LMDecodeMethod(
           model,
           model_state,
           prng_key,
