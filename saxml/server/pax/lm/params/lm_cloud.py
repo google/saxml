@@ -491,6 +491,20 @@ class LLaMA70BInt8TPUv5e8(LLaMA70BFP16TPUv5e):
 class LLaMA70BInt8TokenizedInputTPUv5e8(LLaMA70BInt8TPUv5e8):
   """LlaMA-2 70B model for MLPerf4 on TPU V5e-8 devices."""
   TOKENIZED_INPUT = True
+  TOKENIZED_OUTPUT = False
+
+
+@servable_model_registry.register
+class LLaMA70BInt8TokenizedInputTPUv5e8Stream(
+    LLaMA70BInt8TokenizedInputTPUv5e8
+):
+  """LlaMA-2 70B model for MLPerf4 on TPU V5e-8 devices."""
+
+  TOKENIZED_INPUT = True
+  TOKENIZED_OUTPUT = True
+
+  ENABLE_GENERATE = False
+  ENABLE_GENERATE_STREAM = True
 
 
 @servable_model_registry.register

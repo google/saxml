@@ -253,8 +253,9 @@ class Batch:
 class PrefillRequest:
   """Prefill request.
 
-  A transient object created after an lm.generate RPC request's inputs are
-  pre-processed and destroyed when an empty cache slot takes its content.
+  A transient object created after an lm.generate or lm.generate_stream RPC
+  request's inputs are pre-processed and destroyed when an empty cache slot
+  takes its content.
   """
 
   preprocessed_inputs: DeviceTensors | None
@@ -290,7 +291,7 @@ class ContinuousBatchingState:
   pending_insert: bool
   # RPC tasks for requests being actively processed. One entry per cache slot.
   # Entries are filled in when a request leaves prefill_queue and freed when
-  # the lm.generate RPC is fulfilled.
+  # the lm.generate / lm.generate_stream RPC is fulfilled.
   rpc_tasks: list[utils.RpcQueueTask | None]
 
   # Decoded tokens, left aligned.
@@ -850,7 +851,7 @@ class ModelService(metaclass=abc.ABCMeta):
 
     # Only lm.generate supports continuous batching.
     if method_obj.continuous_batching:
-      if method == 'lm.generate':
+      if method in ['lm.generate', 'lm.generate_stream']:
         batcher_item_key = MethodKey(
             MethodName.BATCHED_LM_GENERATE, method, self._service_id, model_key
         )
@@ -1619,8 +1620,9 @@ class ModelServicesRunner:
         # If a method supports continuous batching, additionally register the
         # continuous batching variation of the method.
         if method.continuous_batching:
-          # Currently, only lm.generate supports continuous batching.
-          if method_name != 'lm.generate':
+          # Currently, only lm.generate and lm.generate_stream supports
+          # continuous batching.
+          if method_name not in ['lm.generate', 'lm.generate_stream']:
             raise ValueError(
                 f'Continuous batching is not supported for {method_name}'
             )
@@ -2113,9 +2115,18 @@ class ModelServicesRunner:
 
           method_obj.insert(prefix_cache, slot)
 
-        state.decoded_tokens[slot][0] = np.array(tokens.addressable_data(0))
-        state.scores[slot] = np.array(scores.addressable_data(0))
-        self._post_prefill_async(state, slot, request.rpc_task)
+        host_tokens = np.array(tokens.addressable_data(0))
+        host_scores = np.array(scores.addressable_data(0))
+        state.decoded_tokens[slot][0] = host_tokens
+        state.scores[slot] = host_scores
+
+        self._run_post_prefill_async(
+            state,
+            slot,
+            copy.deepcopy(host_tokens),
+            copy.deepcopy(host_scores),
+            request.rpc_task,
+        )
         state.steps[slot] = 1
 
         # Must set slots_in_use in the end.
@@ -2127,9 +2138,31 @@ class ModelServicesRunner:
           state.pending_insert = False
           state.generate_cv.notify()
 
-  def _post_prefill_async(self, state, slot, request_rpc):
+  # pylint: disable=unused-argument
+  def _run_post_prefill_async(self, state, slot, tokens, scores, request_rpc):
+    """Runs the post-prefill processing on a dedicated thread."""
+
     def _postprocess():
       state.rpc_tasks[slot] = request_rpc
+
+      if state.method.streamable_output:
+        nonlocal tokens
+        nonlocal scores
+        tokens = np.expand_dims(tokens, axis=0)
+        scores = np.expand_dims(scores, axis=0)
+
+        output_strings = state.method.detokenize(tokens)
+        outputs = output_strings, scores
+        resp = copy.deepcopy(state.rpc_tasks[slot].response)
+        self._model_services[state.service_id].FillRPCResponse(
+            state.model_method, outputs, resp
+        )
+        try:
+          state.rpc_tasks[slot].done(utils.ok(), resp=resp)
+        except Exception as e:  # pylint: disable=broad-except
+          self._log_exception(
+              'Error occurred: %s, error: %s', state.model_key, e
+          )
 
     state.post_process_pool.run(_postprocess)
 
@@ -2197,13 +2230,12 @@ class ModelServicesRunner:
           state.available_slots.put(slot)
 
   def _run_post_generate_async(
-      self,
-      state: ContinuousBatchingState,
-      sequences,
-      scores,
-      done,
+      self, state: ContinuousBatchingState, sequences, scores, done
   ):
     """Runs the post-generate processing on a dedicated thread."""
+    if state.method.streamable_output:
+      sequences = sequences[:, 1:]
+
     def _postprocess():
       # If any of the sequences in the batch is done, return the response
       # and reset the cache slot.
@@ -2211,16 +2243,39 @@ class ModelServicesRunner:
 
       for idx, slot in enumerate(np.flatnonzero(done)):
         outputs = [output_strings[idx]], [scores[idx]]
-        self._model_services[state.service_id].FillRPCResponse(
-            state.model_method, outputs, state.rpc_tasks[slot].response
-        )
-        try:
-          state.rpc_tasks[slot].done(utils.ok())
-        except Exception as e:  # pylint: disable=broad-except
-          self._log_exception(
-              'Error occurred: %s, error: %s', state.model_key, e
+        if state.method.streamable_output:
+          # send response back to generate_stream
+          resp = copy.deepcopy(state.rpc_tasks[slot].response)
+          self._model_services[state.service_id].FillRPCResponse(
+              state.model_method, outputs, resp
           )
-        state.rpc_tasks[slot] = None
+          try:
+            state.rpc_tasks[slot].done(utils.ok(), resp=resp)
+          except Exception as e:  # pylint: disable=broad-except
+            self._log_exception(
+                'Error occurred: %s, error: %s', state.model_key, e
+            )
+
+          # send response done back to generate_stream
+          try:
+            state.rpc_tasks[slot].done(utils.ok())
+          except Exception as e:  # pylint: disable=broad-except
+            self._log_exception(
+                'Error occurred: %s, error: %s', state.model_key, e
+            )
+          state.rpc_tasks[slot] = None
+        else:
+          # send response back to generate
+          self._model_services[state.service_id].FillRPCResponse(
+              state.model_method, outputs, state.rpc_tasks[slot].response
+          )
+          try:
+            state.rpc_tasks[slot].done(utils.ok())
+          except Exception as e:  # pylint: disable=broad-except
+            self._log_exception(
+                'Error occurred: %s, error: %s', state.model_key, e
+            )
+          state.rpc_tasks[slot] = None
 
     state.post_process_pool.run(_postprocess)
 

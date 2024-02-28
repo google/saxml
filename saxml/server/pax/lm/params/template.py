@@ -294,24 +294,40 @@ class ServingTemplate(
         else (self.INPUT_SEQ_LEN + max_decode_steps)
     )
 
-    generate_hparams = decoder_hparams.SampleDecoderHParams(
-        fprop_for_prefix=self.FPROP_FOR_PREFIX,
-        # Use LPB for whenever FPROP_FOR_PREFIX is enabled.
-        lazy_prefix_broadcast=self.FPROP_FOR_PREFIX
-        and self.NUM_SAMPLES > 1
-        and self.SUPPORT_LAZY_PREFIX_BROADCAST,
-        max_decode_steps=self.MAX_DECODE_STEPS,
-        seqlen=seqlen,
-        num_samples=self.NUM_SAMPLES,
-        temperature=None,
-        eos_id=stop_token_ids,
-        k=self.TOP_K,
-        decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
-        emb_lookup_style=self.EMB_LOOKUP_STYLE,
-        sort_samples=self.SORT_SAMPLES,
-        next_token_sampler_tpl=self.NEXT_TOKEN_SAMPLER_TPL,
-    )
-
+    if self.NUM_SAMPLES == 1 and self.TOP_K == 1:
+      generate_hparams = decoder_hparams.GreedyDecoderHParams(
+          fprop_for_prefix=self.FPROP_FOR_PREFIX,
+          min_decode_steps=self.MIN_DECODE_STEPS,
+          max_decode_steps=self.MAX_DECODE_STEPS,
+          seqlen=seqlen,
+          eos_id=stop_token_ids,
+          decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
+          emb_lookup_style=self.EMB_LOOKUP_STYLE,
+          num_cache_slots=self.NUM_CACHE_SLOTS,
+      )
+    else:
+      generate_hparams = decoder_hparams.SampleDecoderHParams(
+          fprop_for_prefix=self.FPROP_FOR_PREFIX,
+          # Use LPB for whenever FPROP_FOR_PREFIX is enabled.
+          lazy_prefix_broadcast=self.FPROP_FOR_PREFIX
+          and self.NUM_SAMPLES > 1
+          and self.SUPPORT_LAZY_PREFIX_BROADCAST,
+          min_decode_steps=self.MIN_DECODE_STEPS,
+          max_decode_steps=self.MAX_DECODE_STEPS,
+          seqlen=seqlen,
+          num_samples=self.NUM_SAMPLES,
+          temperature=0.0,
+          eos_id=stop_token_ids,
+          k=self.TOP_K,
+          top_k_recall_target=self.TOP_K_RECALL_TARGET,
+          use_top_k_for_logprobs=self.USE_TOP_K_FOR_LOGPROBS,
+          global_normalize=self.GLOBAL_NORMALIZE,
+          decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
+          emb_lookup_style=self.EMB_LOOKUP_STYLE,
+          sort_samples=self.SORT_SAMPLES,
+          next_token_sampler_tpl=self.NEXT_TOKEN_SAMPLER_TPL,
+          num_cache_slots=self.NUM_CACHE_SLOTS if self.NUM_SAMPLES == 1 else 0,
+      )
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
         polymorphic_seq_len_exclusion=self.POLYMORPHIC_SEQ_LEN_EXCLUSION,
@@ -320,10 +336,12 @@ class ServingTemplate(
         decoder=generate_hparams,
         include_prefix_in_result=self.INCLUDE_PREFIX_IN_RESULT,
         max_live_batches=self.MAX_LIVE_BATCHES,
+        batching_wait_secs=self.BATCH_WAIT_SECS,
         extra_inputs=self.EXTRA_INPUTS,
         extra_inputs_dtypes=self.EXTRA_INPUTS_DTYPES,
         stream_interval_steps=self.STREAM_INTERVAL_STEPS,
         fetch_prefix_lengths_from_inputs=self.FETCH_PREFIX_LENGTHS_FROM_INPUTS,
+        output_geometric_mean_prob_score=self.GENERATION_USE_GEOMEAN_PROB_SCORE,
     )
 
   def text_to_embedding(
