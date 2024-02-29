@@ -105,3 +105,23 @@ go_library(
         "@org_golang_google_protobuf//encoding/prototext",
     ],
 )
+
+go_library(
+    name = "utils",
+    srcs = ["utils.go"],
+    deps = [
+        ":protobuf",
+        "//saxml/protobuf:admin_go_proto_grpc",
+        "@com_github_golang_glog//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "utils_test",
+    srcs = ["utils_test.go"],
+    library = ":utils",
+    deps = [
+        ":protobuf",
+        "//saxml/protobuf:admin_go_proto_grpc",
+    ],
+)
