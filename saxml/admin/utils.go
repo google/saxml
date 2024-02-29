@@ -37,10 +37,7 @@ func GetServerMemoryCapacity(spec *protobuf.ModelServer) int64 {
 		memGBPerCore = 16
 	case apb.ModelServer_CHIP_TYPE_TPU_V4I:
 		memGBPerCore = 8
-	case apb.ModelServer_CHIP_TYPE_TPU_V5:
-		memGBPerCore = 48
-	case apb.ModelServer_CHIP_TYPE_TPU_V5I:
-		memGBPerCore = 16
+   // some unhandled cases
 	case apb.ModelServer_CHIP_TYPE_TPU_V5E:
 		memGBPerCore = 16
 	case apb.ModelServer_CHIP_TYPE_GPU_P100:
@@ -55,13 +52,11 @@ func GetServerMemoryCapacity(spec *protobuf.ModelServer) int64 {
 		memGBPerCore = 80
 	case apb.ModelServer_CHIP_TYPE_GPU_L4:
 		memGBPerCore = 24
-	case apb.ModelServer_CHIP_TYPE_CPU:
+	default:
 		memGBPerCore = 64 // Assumption
 	}
 	var numCores int64
 	switch apb.ModelServer_ChipTopology(spec.ChipTopology) {
-	case apb.ModelServer_CHIP_TOPOLOGY_UNKNOWN:
-		numCores = 1 // Assumption
 	case apb.ModelServer_CHIP_TOPOLOGY_1:
 		numCores = 1
 	case apb.ModelServer_CHIP_TOPOLOGY_2:
@@ -118,6 +113,8 @@ func GetServerMemoryCapacity(spec *protobuf.ModelServer) int64 {
 		numCores = 768
 	case apb.ModelServer_CHIP_TOPOLOGY_8X8X8:
 		numCores = 512
+	default:
+		numCores = 1 // Assumption
 	}
 	return memGBPerCore * numCores * (1 << 30)
 }
