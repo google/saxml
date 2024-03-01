@@ -1035,6 +1035,16 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         compiler_options,
     )
 
+  def unload(self) -> None:
+    """Clears references held by this method."""
+    super().unload()
+    del self.decode_cache
+    del self.decode_cache_pspecs
+    del self.decode_state
+    del self.decode_state_pspecs
+    for x in jax.live_arrays():
+      x.delete()
+
   @property
   def continuous_batching(self) -> bool:
     """Returns if the model method supports continuous batching."""
