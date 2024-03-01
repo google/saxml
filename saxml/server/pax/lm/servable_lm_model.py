@@ -14,6 +14,7 @@
 """Wraps a model with LMService APIs."""
 
 import abc
+from collections.abc import Sequence
 import dataclasses
 import functools
 import inspect
@@ -1303,7 +1304,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         )
     )
     # prefill device function
-    prefill_input_shape = InputShapeInfo(1)
+    prefill_input_shape = InputShapeInfo(input_shape.batch_size)
     self._register_bs_infos_for_input_shape(prefill_input_shape)
     self._prefill_device_fn = self._pjit_device_fn_prefill(
         self._per_bs_infos[prefill_input_shape].batched_input_pspecs
@@ -1324,7 +1325,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     self._insert_device_fn = self._pjit_device_fn_insert()
 
     # generate device function
-    generate_input_shape = InputShapeInfo(input_shape.batch_size)
+    generate_input_shape = InputShapeInfo(self.num_cache_slots)
     self._register_bs_infos_for_input_shape(generate_input_shape)
     self._generate_device_fn = self._pjit_device_fn_generate()
 
@@ -1332,15 +1333,13 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     if self.model_state.precompile:
       logging.info('start precompile')
       _, _, prefix_state = self.prefill_with_dummy()
-      slot_in_use = 0
+      slot_in_use = list(range(input_shape.batch_size))
       self.insert(prefix_state, slot_in_use)
       self.generate()  # compile w/ left_align_decode_state = False
       self.decode_state.step = jnp.array(
           [self.max_decode_steps + self.input_sequence_len - 1], dtype=jnp.int32
       )
       self.generate()  # compile w/ left_align_decode_state = True
-      # reset slot 0.
-      self.insert(prefix_state, slot_in_use)
 
   # JIT compiled generate function
   def _pjit_device_fn_generate(self):
@@ -1519,7 +1518,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
       if self._model.fprop_dtype == jnp.bfloat16:
         # Convert float inputs/vars if fprop dtype is bfloat16.
-        batched_inputs, mdl_vars = jax.tree_map(
+        batched_inputs, mdl_vars = jax.tree_util.tree_map(
             (lambda x: x.astype(jnp.bfloat16) if x.dtype == jnp.float32 else x),
             (batched_inputs, mdl_vars),
         )
@@ -1603,7 +1602,9 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     """
     return self.prefill(self._dummy_input_for_prefill)
 
-  def insert(self, prefix_state: DeviceTensors, slot: int) -> None:
+  def insert(
+      self, prefix_state: DeviceTensors, slot: int | Sequence[int]
+  ) -> None:
     """Insert the prefix state into the specified slot of the target state.
 
     The target state is an internal state managed by the ServableMethod object.
@@ -1615,7 +1616,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     # call device_fn insert to insert the prefill state to kv cache
     prefix_decode_state, prefix_decode_cache = prefix_state
     self.model_state.mdl_vars.update(self.decode_cache)
-    logging.info('insert into slot %d', slot)
+    logging.info('insert into slot %s', slot)
     with self.model_state.global_mesh:
       new_decode_state, new_decode_cache = self._insert_device_fn(
           self.model_state.mdl_vars,
