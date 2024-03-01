@@ -107,6 +107,27 @@ go_library(
 )
 
 go_library(
+    name = "assigner",
+    srcs = ["assigner.go"],
+    deps = [
+        ":protobuf",
+        ":utils",
+        "//saxml/common:naming",
+        "//saxml/protobuf:admin_go_proto_grpc",
+    ],
+)
+
+go_test(
+    name = "assigner_test",
+    srcs = ["assigner_test.go"],
+    library = ":assigner",
+    deps = [
+        ":protobuf",
+        "//saxml/common:naming",
+    ],
+)
+
+go_library(
     name = "utils",
     srcs = ["utils.go"],
     deps = [
