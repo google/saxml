@@ -65,9 +65,11 @@ go_library(
     name = "mgr",
     srcs = ["mgr.go"],
     deps = [
+        ":assigner",
         ":protobuf",
         ":state",
         ":validator",
+        # unused internal flag dependency,
         "//saxml/common:errors",
         "//saxml/common:eventlog",
         "//saxml/common:naming",

@@ -22,9 +22,11 @@ import (
 	"sync"
 	"time"
 
+	"flag"
 	log "github.com/golang/glog"
 	"google.golang.org/protobuf/proto"
 	"github.com/pborman/uuid"
+	"saxml/admin/assigner"
 	"saxml/admin/protobuf"
 	"saxml/admin/state"
 	"saxml/admin/validator"
@@ -47,6 +49,8 @@ var (
 	// Model servers that haven't sent any valid GetStatus response for this long will get pruned.
 	// This should be longer than refreshPeriod in the state package.
 	pruneTimeout = time.Second * 25
+
+	expAssigner = flag.Bool("sax_admin_exp_assigner", false, "If true, experiments the assigner implementation.")
 )
 
 // SetOptionsForTesting updates refreshPeriod and pruneTimeout for tests.
@@ -667,7 +671,7 @@ func (m *Mgr) installAssignment(assignment map[modelFullName][]modeletAddr) {
 }
 
 // loadModels loads models onto newly assigned modelets in parallel.
-func (m *Mgr) loadModels(ctx context.Context, newlyAssigned map[modeletAddr]modelFullName) {
+func (m *Mgr) loadModels(ctx context.Context, newlyAssigned []assigner.Action) {
 	load := func(ctx context.Context, fullName modelFullName, addr modeletAddr) error {
 		m.mu.Lock()
 		modelet, ok := m.modelets[addr]
@@ -698,7 +702,9 @@ func (m *Mgr) loadModels(ctx context.Context, newlyAssigned map[modeletAddr]mode
 		return nil
 	}
 
-	for addr, fullName := range newlyAssigned {
+	for _, item := range newlyAssigned {
+		addr := modeletAddr(item.Addr)
+		fullName := item.Model
 		log.V(2).Infof("Loading model %v onto model server %v", fullName, addr)
 		go func(fullName modelFullName, addr modeletAddr) {
 			if err := load(ctx, fullName, modeletAddr(addr)); err != nil {
@@ -713,7 +719,7 @@ func (m *Mgr) loadModels(ctx context.Context, newlyAssigned map[modeletAddr]mode
 // unloadModels unloads models from newly unassigned modelets in parallel.
 // addrWatcher needs dataAddr to remove unloaded models, and `dataAddress“ is dictionary from
 // addr to dataAddr.
-func (m *Mgr) unloadModels(ctx context.Context, newlyUnassigned map[modeletAddr]modelFullName, dataAddress map[modeletAddr]string) {
+func (m *Mgr) unloadModels(ctx context.Context, newlyUnassigned []assigner.Action, dataAddress map[modeletAddr]string) {
 	unload := func(ctx context.Context, fullName modelFullName, addr modeletAddr, dataAddr string) error {
 		m.mu.Lock()
 		model, ok := m.models[fullName]
@@ -739,7 +745,9 @@ func (m *Mgr) unloadModels(ctx context.Context, newlyUnassigned map[modeletAddr]
 		return modelet.Unload(ctx, fullName, waiter)
 	}
 
-	for addr, fullName := range newlyUnassigned {
+	for _, item := range newlyUnassigned {
+		addr := modeletAddr(item.Addr)
+		fullName := item.Model
 		log.V(2).Infof("Unloading model %v from model server %v", fullName, addr)
 		go func(fullName modelFullName, addr modeletAddr, dataAddr string) {
 			if err := unload(ctx, fullName, modeletAddr(addr), dataAddr); err != nil {
@@ -767,16 +775,91 @@ func (m *Mgr) freeUnpublishedNames(unpublished map[modelFullName]bool) {
 func (m *Mgr) Refresh(ctx context.Context) {
 	// Remove dead model servers.
 	m.pruneModelets(pruneTimeout)
-	// Compute new assignment.
-	result := m.ComputeAssignment()
-	// Install the new assignment.
-	m.installAssignment(result.NewAssignment)
-	// Unload and load models according to assignment results.
-	m.unloadModels(ctx, result.NewlyUnassigned, result.DataAddress)
-	m.loadModels(ctx, result.NewlyAssigned)
-	// Now that unload calls have been issued, make model full names unpublished before the
-	// ComputeAssignment call available for use again.
-	m.freeUnpublishedNames(result.pendingUnpublished)
+
+	var pendingUnpublished map[modelFullName]bool
+	if !*expAssigner {
+		// Compute new assignment.
+		result := m.ComputeAssignment()
+		// Install the new assignment.
+		m.installAssignment(result.NewAssignment)
+		// Unload models according to assignment results.
+		var toUnload []assigner.Action
+		for addr, name := range result.NewlyUnassigned {
+			toUnload = append(toUnload, assigner.Action{Addr: assigner.ServerAddr(addr), Model: name})
+		}
+		m.unloadModels(ctx, toUnload, result.DataAddress)
+		// Load models according to assignment results.
+		var toLoad []assigner.Action
+		for addr, name := range result.NewlyAssigned {
+			toLoad = append(toLoad, assigner.Action{Addr: assigner.ServerAddr(addr), Model: name})
+		}
+		m.loadModels(ctx, toLoad)
+
+		pendingUnpublished = result.pendingUnpublished
+	} else {
+		a := assigner.New()
+
+		// From server addrs to the actuall data access host:port addrs.
+		dataAddress := map[modeletAddr]string{}
+		pendingUnpublished = map[modelFullName]bool{}
+		{
+			m.mu.RLock()
+
+			// Take a snapshot of models recently unpublished. Their
+			// unload ops, if needed, should be generated below and
+			// placed in newlyUnassigned. Remove them from
+			// m.pendingUnpublished after these unload ops are
+			// successfully issued.
+			for fullName := range m.pendingUnpublished {
+				pendingUnpublished[fullName] = true
+			}
+
+			// Tells the assigner about servers.
+			for addr, state := range m.modelets {
+				sinfo := assigner.NewServerInfo(state.Specs)
+				wanted := state.WantedModels()
+				seen := state.SeenModels()
+				dataAddress[addr] = state.DataAddr
+				for name := range wanted {
+					var status protobuf.ModelStatus
+					if found, ok := seen[name]; !ok {
+						status = protobuf.None
+					} else {
+						status = found.Info.Status
+					}
+					sinfo.AddLoadedModel(name, status)
+				}
+				a.AddServer(assigner.ServerAddr(addr), sinfo)
+			}
+
+			// Tells the assigner about published models.
+			for fullName, model := range m.models {
+				a.AddModel(fullName, assigner.NewModelInfo(model.specs))
+			}
+
+			m.mu.RUnlock()
+		}
+
+		// Compute the new assignment outside m.mu
+		a.Assign()
+
+		newAssign := map[modelFullName][]modeletAddr{}
+		for fullName, addrs := range a.GetAssignment() {
+			var x []modeletAddr
+			for _, addr := range addrs {
+				x = append(x, modeletAddr(addr))
+			}
+			newAssign[fullName] = x
+		}
+		m.installAssignment(newAssign)
+		m.unloadModels(ctx, a.GetToUnload(), dataAddress)
+		m.loadModels(ctx, a.GetToLoad())
+	}
+
+	// Now that unload calls have been issued, make model full names
+	// unpublished before the ComputeAssignment call available for use
+	// again.
+	m.freeUnpublishedNames(pendingUnpublished)
 }
 
 // Restore restores the manager state from its backing store.
