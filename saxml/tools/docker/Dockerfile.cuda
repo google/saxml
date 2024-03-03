@@ -1,0 +1,77 @@
+# Copyright 2024 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubi8 as cudnn8
+
+# JAX 0.4.24+ dropped the support for CUDA 12.2
+FROM nvidia/cuda:12.3.2-cudnn9-devel-ubuntu22.04
+
+# Copy CuDNN 8.9
+COPY --from=cudnn8 /lib64/libcudnn.so.8  /lib/x86_64-linux-gnu/
+COPY --from=cudnn8 /lib64/libcudnn_ops_train.so.8  /lib/x86_64-linux-gnu/
+COPY --from=cudnn8 /lib64/libcudnn_ops_infer.so.8  /lib/x86_64-linux-gnu/
+COPY --from=cudnn8 /lib64/libcudnn_cnn_train.so.8  /lib/x86_64-linux-gnu/
+COPY --from=cudnn8 /lib64/libcudnn_cnn_infer.so.8  /lib/x86_64-linux-gnu/
+COPY --from=cudnn8 /lib64/libcudnn_adv_train.so.8  /lib/x86_64-linux-gnu/
+COPY --from=cudnn8 /lib64/libcudnn_adv_infer.so.8  /lib/x86_64-linux-gnu/
+
+RUN apt update \
+ && apt install -y --no-install-recommends \
+        cuda-nsight-systems-12-1 curl vim git \
+ && git config --global user.email "sax-dev@google.com" \
+ && git config --global user.name "Sax Dev" \
+ && git clone https://github.com/google/saxml /saxml \
+ && cd /saxml \
+ && apt -y install python3 \
+ && apt -y install python3-pip \
+ && python3 -m pip install pip-tools \
+ && cp requirements-cuda.txt requirements.txt \
+ && sed -i 's/sudo //g' saxml/tools/init_cloud_vm.sh \
+ && saxml/tools/init_cloud_vm.sh \
+ && rm -rf /var/lib/apt/lists/*
+
+# TensorFlow 2.11 needs a minor tweak in order to build with CUDA 12
+RUN git clone https://github.com/tensorflow/tensorflow.git \
+        -b v2.11.0 /tensorflow \
+ && cd /tensorflow
+
+WORKDIR /saxml
+
+# SAX_ROOT consumed implicitly by saxml/server:server
+ENV SAX_ROOT=/sax-root
+ENV SAX_CELL=/sax/test
+ENV PLATFORM_CHIP=h100
+ENV PLATFORM_TOPOLOGY=8
+
+# Configure sax admin server
+RUN mkdir -p $SAX_ROOT \
+ && mkdir -p /sax-fs-root \
+ && bazel run \
+        --override_repository=org_tensorflow=/tensorflow \
+        saxml/bin:admin_config \
+        -- \
+        --sax_cell=$SAX_CELL \
+        --sax_root=$SAX_ROOT \
+        --fs_root=/sax-fs-root \
+        --alsologtostderr
+
+RUN bazel build saxml/bin:saxutil && \
+  bazel build --override_repository=org_tensorflow=/tensorflow saxml/server:server
+
+RUN echo '#/bin/bash\n\
+echo $1 $2\n\
+bazel-bin/saxml/server/server -sax_cell=/sax/test -port=10001 -platform_chip=${PLATFORM_CHIP} -platform_topology=${PLATFORM_TOPOLOGY} --jax_platforms=cuda --models="$1" --model_keys=/sax/test/gpu --checkpoints="$2" --admin_port=10000\n'\
+> entrypoint.sh && chmod +x entrypoint.sh
+
+ENTRYPOINT ['/bin/sh', '/saxml/entrypoint.sh']

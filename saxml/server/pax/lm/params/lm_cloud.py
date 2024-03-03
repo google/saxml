@@ -490,6 +490,7 @@ class LLaMA70BInt8TPUv5e8(LLaMA70BFP16TPUv5e):
 @quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
 class LLaMA70BInt8TokenizedInputTPUv5e8(LLaMA70BInt8TPUv5e8):
   """LlaMA-2 70B model for MLPerf4 on TPU V5e-8 devices."""
+
   TOKENIZED_INPUT = True
   TOKENIZED_OUTPUT = False
 
@@ -574,6 +575,16 @@ class LLaMA70BInt8H100x8(LLaMA70BFP16H100x8):
   ICI_MESH_SHAPE = [1, 1, 8]
 
   NUM_CACHE_SLOTS = 256
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
+class LLaMA70BInt8H100x8Fake(LLaMA70BInt8H100x8):
+  """LlaMA-2 70B model with fake pre-quantized int8 checkpoint on H100x8."""
+
+  @property
+  def test_mode(self) -> bool:
+    return True
 
 
 # GPT-J/NeoX family
