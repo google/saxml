@@ -55,23 +55,15 @@ ENV PLATFORM_CHIP=h100
 ENV PLATFORM_TOPOLOGY=8
 
 # Configure sax admin server
-RUN mkdir -p $SAX_ROOT \
- && mkdir -p /sax-fs-root \
- && bazel run \
-        --override_repository=org_tensorflow=/tensorflow \
-        saxml/bin:admin_config \
-        -- \
-        --sax_cell=$SAX_CELL \
-        --sax_root=$SAX_ROOT \
-        --fs_root=/sax-fs-root \
-        --alsologtostderr
+RUN mkdir -p /sax-fs-root \
+ && bazel build --override_repository=org_tensorflow=/tensorflow saxml/bin:admin_config \
+ && bazel build --override_repository=org_tensorflow=/tensorflow saxml/bin:saxutil \
+ && bazel build --override_repository=org_tensorflow=/tensorflow saxml/server:server
 
-RUN bazel build saxml/bin:saxutil && \
-  bazel build --override_repository=org_tensorflow=/tensorflow saxml/server:server
-
-RUN echo '#/bin/bash\n\
+RUN echo '#/bin/bash\n\n\
 echo $1 $2\n\
-bazel-bin/saxml/server/server -sax_cell=/sax/test -port=10001 -platform_chip=${PLATFORM_CHIP} -platform_topology=${PLATFORM_TOPOLOGY} --jax_platforms=cuda --models="$1" --model_keys=/sax/test/gpu --checkpoints="$2" --admin_port=10000\n'\
+bazel-bin/saxml/bin/admin_config_/admin_config --sax_cell=${SAX_CELL} --sax_root=${SAX_ROOT} --fs_root=/sax-fs-root --alsologtostderr\n\
+bazel-bin/saxml/server/server -sax_cell=${SAX_CELL} -port=10001 -platform_chip=${PLATFORM_CHIP} -platform_topology=${PLATFORM_TOPOLOGY} --jax_platforms=cuda --models="$1" --model_keys=/sax/test/gpu --checkpoints="$2" --admin_port=10000\n'\
 > entrypoint.sh && chmod +x entrypoint.sh
 
 ENTRYPOINT ['/bin/sh', '/saxml/entrypoint.sh']
