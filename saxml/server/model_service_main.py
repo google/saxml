@@ -130,6 +130,7 @@ def _load_static_model(
       stub.Load(req)
     except grpc.RpcError as e:
       logging.exception('Exception during loading: %s', e)
+      raise e
 
 
 def setup_jax(
