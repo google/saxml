@@ -551,7 +551,7 @@ class LLaMA70BFP16H100x8(LLaMA70BFP16TPUv5e):
   ATTEN_NUM_SEQ_SPLITS = 8
 
   BATCH_SIZE = 1
-  NUM_CACHE_SLOTS = 128
+  NUM_CACHE_SLOTS = 64
 
   EXTRA_INPUTS = {
       'temperature': 0.5,
@@ -574,7 +574,7 @@ class LLaMA70BInt8H100x8(LLaMA70BFP16H100x8):
   REPEATED_LAYERS = False
   ICI_MESH_SHAPE = [1, 1, 8]
 
-  NUM_CACHE_SLOTS = 256
+  NUM_CACHE_SLOTS = 64
 
 
 @servable_model_registry.register
