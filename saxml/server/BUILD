@@ -24,6 +24,7 @@ package_group(
     packages = [
         "//waymo/planner/...",  # //waymo/... is siloed.
         "//waymo/research/...",  # //waymo/... is siloed.
+        "//wireless/android/apps/pixel/agent/ml/serving/sax/...",
     ],
 )
 
