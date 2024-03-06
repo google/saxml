@@ -27,6 +27,7 @@ from praxis import optimizers
 from praxis import pax_fiddle
 from praxis import schedules
 from praxis.layers import activations
+from praxis.layers import gpu_fast_attention
 from praxis.layers import multi_query_attention
 from saxml.server import servable_model_registry
 from saxml.server.pax import quantization
@@ -55,6 +56,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
   FPROP_DTYPE = jnp.bfloat16
   MODEL_DTYPE = jnp.bfloat16
   USE_MQA = False
+  FLASH_DECODING = False
 
   ACTIVATION_CLS = activations.SiLU
   USE_GATED_ACTIVATION = True
@@ -138,7 +140,15 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     transformer_layer_p.norm_policy = 'pre'
     transformer_layer_p.ln_tpl = ln_tpl.clone()
 
-    if self.USE_MQA:
+    if self.USE_MQA and self.FLASH_DECODING:
+      transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
+          gpu_fast_attention.GpuTritonFusedMultiQueryDotProductAttention,
+          num_kv_heads=self.NUM_KV_HEADS,
+          chunked_attn_num_seq_split=self.ATTEN_NUM_SEQ_SPLITS,
+          use_flash_decoding=True,
+      )
+      transformer_layer_p.tr_atten_tpl.combine_qkv = False
+    elif self.USE_MQA:
       transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
           multi_query_attention.MultiQueryDotProductAttention,
           num_kv_heads=self.NUM_KV_HEADS,
@@ -552,6 +562,8 @@ class LLaMA70BFP16H100x8(LLaMA70BFP16TPUv5e):
 
   BATCH_SIZE = 1
   NUM_CACHE_SLOTS = 64
+
+  FLASH_DECODING = True
 
   EXTRA_INPUTS = {
       'temperature': 0.5,
