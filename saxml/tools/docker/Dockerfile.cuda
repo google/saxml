@@ -66,4 +66,4 @@ bazel-bin/saxml/bin/admin_config_/admin_config --sax_cell=${SAX_CELL} --sax_root
 bazel-bin/saxml/server/server -sax_cell=${SAX_CELL} -port=10001 -platform_chip=${PLATFORM_CHIP} -platform_topology=${PLATFORM_TOPOLOGY} --jax_platforms=cuda --models="$1" --model_keys=/sax/test/gpu --checkpoints="$2" --admin_port=10000\n'\
 > entrypoint.sh && chmod +x entrypoint.sh
 
-ENTRYPOINT ['/bin/sh', '/saxml/entrypoint.sh']
+ENTRYPOINT ["/bin/sh", "/saxml/entrypoint.sh"]
