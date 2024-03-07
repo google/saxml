@@ -118,6 +118,7 @@ pytype_strict_library(
         "//saxml/server/pax/lm:transformer_models",
         "//saxml/server/pax/lm/params:template",
         "//third_party/py/jax",
+        "//third_party/py/numpy",
         "//third_party/py/paxml:base_experiment",
         "//third_party/py/paxml:tasks_lib",
         "//third_party/py/praxis:base_input",
