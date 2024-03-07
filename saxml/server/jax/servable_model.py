@@ -569,7 +569,7 @@ class ServableMethod(servable_model.ServableMethod):
     if extra_inputs is None:
       extra_inputs = [self.default_extra_inputs] * batch_size
 
-    extra_input_dyptes = (
+    extra_input_dtypes = (
         self.extra_inputs_dtypes if self.extra_inputs_dtypes else {}
     )
 
@@ -583,12 +583,12 @@ class ServableMethod(servable_model.ServableMethod):
           # Map string to int.
           # Downstream usage will look up the string with the repository.
           value = paxml_hcb.repository(input_key).add(value)
-          extra_input_dyptes[input_key] = np.int32
+          extra_input_dtypes[input_key] = np.int32
         input_value.append(value)
 
       # Some extra inputs such as per_example_max_decode_steps are ints
       extra_input_tensors[input_key] = np.array(
-          input_value, dtype=extra_input_dyptes.get(input_key, np.float32)
+          input_value, dtype=extra_input_dtypes.get(input_key, np.float32)
       )
     return self.add_extra_inputs(input_batch, extra_input_tensors)
 

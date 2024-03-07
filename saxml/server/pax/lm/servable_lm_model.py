@@ -1409,6 +1409,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         prefix_decode_state,
         prefix_decode_cache,
         decode_state,
+        prefix_slot,
         slot,
     ):
       mdl_vars = jax.tree_util.tree_map(
@@ -1425,12 +1426,14 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
             prefix_decode_state,
             prefix_decode_cache,
             decode_state,
+            prefix_slot,
             slot,
         ):
           outputs = self.call_model_function_insert(
               prefix_decode_state,
               prefix_decode_cache,
               decode_state,
+              prefix_slot,
               slot,
               mdl_vars,
               [k1, k2],
@@ -1442,6 +1445,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
             prefix_decode_state,
             prefix_decode_cache,
             decode_state,
+            prefix_slot,
             slot,
         )
         return decode_state, decode_cache
@@ -1454,6 +1458,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
             self.decode_cache_pspecs,
             None,
             None,
+            None,
         ),
         out_shardings=(None, self.decode_cache_pspecs),
         donate_argnums=(0,),
@@ -1464,6 +1469,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       prefix_decode_state,
       prefix_decode_cache,
       decode_state,
+      prefix_slot,
       slot,
       mdl_vars,
       prng_key,
@@ -1482,6 +1488,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         prefix_decode_state=prefix_decode_state,
         prefix_decode_cache=prefix_decode_cache,
         decode_state=decode_state,
+        prefix_slot=prefix_slot,
         slot=slot,
         method=self._model.sample_insert,
         mutable=[
@@ -1617,16 +1624,20 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     prefix_decode_state, prefix_decode_cache = prefix_state
     self.model_state.mdl_vars.update(self.decode_cache)
     logging.info('insert into slot %s', slot)
+
+    slots = [slot] if np.isscalar(slot) else slot
     with self.model_state.global_mesh:
-      new_decode_state, new_decode_cache = self._insert_device_fn(
-          self.model_state.mdl_vars,
-          prefix_decode_state,
-          prefix_decode_cache,
-          self.decode_state,
-          slot,
-      )
-      self.decode_state = new_decode_state
-      self.decode_cache = new_decode_cache
+      for prefix_slot, slot in enumerate(slots):
+        new_decode_state, new_decode_cache = self._insert_device_fn(
+            self.model_state.mdl_vars,
+            prefix_decode_state,
+            prefix_decode_cache,
+            self.decode_state,
+            prefix_slot,
+            slot,
+        )
+        self.decode_state = new_decode_state
+        self.decode_cache = new_decode_cache
 
   def generate(self) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
     """Given a batch of tokens and the KV state (managed internally), generate the next batch of tokens.

@@ -166,6 +166,7 @@ class LLaMASmall(BaseLLaMA, servable_lm_model.ServableLMModelParams):
     params.decoder = decoder_params
     params.decoder = decoder_params
     params.extra_inputs = self.EXTRA_INPUTS
+    params.extra_inputs_dtypes = self.EXTRA_INPUTS_DTYPES
     return params
 
   def score(self):
@@ -213,6 +214,7 @@ class LLaMASmallWithContinuousBatching(
     decoder_params.fprop_for_prefix = True
     params.decoder = decoder_params
     params.extra_inputs = self.EXTRA_INPUTS
+    params.extra_inputs_dtypes = self.EXTRA_INPUTS_DTYPES
     return params
 
 

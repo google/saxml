@@ -18,6 +18,7 @@ from typing import List, cast
 
 import jax
 from jax import numpy as jnp
+import numpy as np
 from paxml import base_experiment
 from paxml import tasks_lib
 from paxml.tasks.lm.params import lm_cloud
@@ -82,6 +83,12 @@ class BaseLLaMA(base_experiment.BaseExperiment):
       'per_example_max_decode_steps': 128,
       'per_example_top_k': 200,
       'per_example_top_p': 0.95,
+  }
+  EXTRA_INPUTS_DTYPES = {
+      'temperature': np.float32,
+      'per_example_max_decode_steps': np.int32,
+      'per_example_top_k': np.int32,
+      'per_example_top_p': np.float32,
   }
 
   # Disable continuous batching by default.
