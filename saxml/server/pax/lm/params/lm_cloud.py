@@ -27,7 +27,6 @@ from praxis import optimizers
 from praxis import pax_fiddle
 from praxis import schedules
 from praxis.layers import activations
-from praxis.layers import gpu_fast_attention
 from praxis.layers import multi_query_attention
 from saxml.server import servable_model_registry
 from saxml.server.pax import quantization
@@ -56,7 +55,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
   FPROP_DTYPE = jnp.bfloat16
   MODEL_DTYPE = jnp.bfloat16
   USE_MQA = False
-  FLASH_DECODING = False
+  GPU_FLASH_DECODING = False
 
   ACTIVATION_CLS = activations.SiLU
   USE_GATED_ACTIVATION = True
@@ -140,7 +139,9 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     transformer_layer_p.norm_policy = 'pre'
     transformer_layer_p.ln_tpl = ln_tpl.clone()
 
-    if self.USE_MQA and self.FLASH_DECODING:
+    if self.USE_MQA and self.GPU_FLASH_DECODING:
+      from praxis.layers import gpu_fast_attention  # pylint: disable=g-import-not-at-top
+
       transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
           gpu_fast_attention.GpuTritonFusedMultiQueryDotProductAttention,
           num_kv_heads=self.NUM_KV_HEADS,

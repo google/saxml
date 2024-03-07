@@ -223,3 +223,6 @@ def rpc_endpoint_interface(
         proto_library,  # @unused
         **kwargs):  # @unused
     pass
+
+def if_cuda(if_true):
+    return if_true

@@ -1,7 +1,7 @@
 # Description:
 #   Language model servable parameters definition.
 
-load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_library")
+load("//saxml:saxml.bzl", "if_cuda", "py_strict_test", "pytype_strict_library")
 
 package(
     # unused internal package attribute
@@ -74,9 +74,8 @@ pytype_strict_library(
         "//third_party/py/praxis:schedules",
         "//third_party/py/praxis/layers",
         "//third_party/py/praxis/layers:activations",
-        "//third_party/py/praxis/layers:gpu_fast_attention",
         "//third_party/py/praxis/layers:multi_query_attention",
-    ],
+    ] + if_cuda(["//third_party/py/praxis/layers:gpu_fast_attention"]),
 )
 
 pytype_strict_library(
