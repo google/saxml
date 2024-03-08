@@ -142,7 +142,7 @@ class MethodKey:
   service_id: Optional[str] = None
   model_key: Optional[str] = None
 
-  def method_name(self) -> str:
+  def method_name(self) -> str | None:
     if self.name == MethodName.MODEL:
       return self.model_method
     return str(self.name)
@@ -579,7 +579,7 @@ class PerMethodBatcher:
       return done(utils.not_found(f'method {key} is unloaded'))
 
     # Check ACLs.
-    model: servable_model.ServableModel = method.model
+    model: servable_model.ServableModel | None = method.model
 
     if model is not None and key.model_method is not None:
       model_method_name: str = key.model_method
