@@ -278,7 +278,11 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     )
     input1 = (
         method_with_continuous_batching.input_to_device_for_continuous_batching(
-            input1, servable_lm_common.InputShapeInfo(batch_size=1)
+            input1,
+            servable_lm_common.InputShapeInfo(batch_size=1),
+            servable_lm_common.InputShapeInfo(
+                batch_size=method_with_continuous_batching.batch_size
+            ),
         )
     )
 
@@ -388,12 +392,20 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     #   There are total 3 prefill calls and 6 generate calls.
     input1 = (
         method_with_continuous_batching.input_to_device_for_continuous_batching(
-            input1, servable_lm_common.InputShapeInfo(batch_size=1)
+            input1,
+            servable_lm_common.InputShapeInfo(batch_size=1),
+            servable_lm_common.InputShapeInfo(
+                batch_size=method_with_continuous_batching.batch_size
+            ),
         )
     )
     self.assertSequenceEqual(
         input1.ids.shape,
-        (num_devices, 1, method_with_continuous_batching.input_sequence_len),
+        (
+            num_devices,
+            method_with_continuous_batching.batch_size,
+            method_with_continuous_batching.input_sequence_len,
+        ),
     )
 
     num_slots = method_with_continuous_batching.num_cache_slots
@@ -410,7 +422,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
 
     # Insert input1 KV cache.
     method_with_continuous_batching.insert(prefix_state, slot)
-    decoded_tokens[slot][0] = np.array(token.addressable_data(0))
+    decoded_tokens[slot][0] = np.array(token.addressable_data(0))[0]
 
     # Run one time generate for input1.
     logging.info('1st and 2nd generate for input1')
@@ -426,7 +438,11 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     # Run prefill for input2.
     input2 = (
         method_with_continuous_batching.input_to_device_for_continuous_batching(
-            input2, servable_lm_common.InputShapeInfo(batch_size=1)
+            input2,
+            servable_lm_common.InputShapeInfo(batch_size=1),
+            servable_lm_common.InputShapeInfo(
+                batch_size=method_with_continuous_batching.batch_size
+            ),
         )
     )
     token, prefix_state, slot = self._run_prefill(
@@ -437,7 +453,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
 
     # Insert input2 KV cache.
     method_with_continuous_batching.insert(prefix_state, slot)
-    decoded_tokens[slot][0] = np.array(token.addressable_data(0))
+    decoded_tokens[slot][0] = np.array(token.addressable_data(0))[0]
 
     # Run one time generate for input1 and input2.
     logging.info('3rd generate for input1 and input2')
@@ -461,7 +477,11 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     # Run prefill for input3.
     input3 = (
         method_with_continuous_batching.input_to_device_for_continuous_batching(
-            input3, servable_lm_common.InputShapeInfo(batch_size=1)
+            input3,
+            servable_lm_common.InputShapeInfo(batch_size=1),
+            servable_lm_common.InputShapeInfo(
+                batch_size=method_with_continuous_batching.batch_size
+            ),
         )
     )
     token, prefix_state, slot = self._run_prefill(
@@ -471,7 +491,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
 
     # Insert input3 KV cache.
     method_with_continuous_batching.insert(prefix_state, slot)
-    decoded_tokens[slot][0] = np.array(token.addressable_data(0))
+    decoded_tokens[slot][0] = np.array(token.addressable_data(0))[0]
 
     # Run one time generate for input2 and input3.
     logging.info('4th and 5th generate for input2 and input3')

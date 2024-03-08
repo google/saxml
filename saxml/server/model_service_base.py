@@ -259,7 +259,7 @@ class PrefillRequest:
   """
 
   preprocessed_inputs: DeviceTensors | None
-  rpc_task: utils.RpcQueueTask
+  rpc_tasks: Sequence[utils.RpcQueueTask]
   enqueue_time: float
 
 
@@ -1598,7 +1598,7 @@ class ModelServicesRunner:
           padded_shape = method.get_padded_input_shape(unpadded_shape)
           if prefill:
             res = method.input_to_device_for_continuous_batching(
-                inputs, unpadded_shape
+                inputs, unpadded_shape, padded_shape
             )
           else:
             res = method.input_to_device(inputs, unpadded_shape, padded_shape)
@@ -2041,7 +2041,6 @@ class ModelServicesRunner:
         case MethodName.BATCHED_LM_GENERATE:
           try:
             batch.wait_for_ready()
-            assert len(batch.rpc_tasks) == 1
 
             key = (batch.method.model_key, batch.method.model_method)
             assert key in self._continuous_batching_state, (
@@ -2054,7 +2053,7 @@ class ModelServicesRunner:
             state.prefill_queue.put(
                 PrefillRequest(
                     preprocessed_inputs=batch.input_tensors,
-                    rpc_task=batch.rpc_tasks[0],
+                    rpc_tasks=batch.rpc_tasks,
                     enqueue_time=time.time(),
                 )
             )
@@ -2083,12 +2082,19 @@ class ModelServicesRunner:
     while True:
       # Block if there is no prefill requests.
       request = state.prefill_queue.get()
+
+      n_tasks = len(request.rpc_tasks)
+
       # Block if there is no available cache slot.
-      slot = state.available_slots.get()
+      slots = []
+      for _ in range(n_tasks):
+        slots.append(state.available_slots.get())
+      slots = tuple(slots)
+
       prefill_dequeue_time = time.time()
 
-      # Take an unused slot.
-      logging.info('Taking slot %d', slot)
+      # Take unused slots.
+      logging.info('Taking slots %s', slots)
 
       # Atomic mutation. Safe to be outside of generate_cv guard.
       state.pending_insert = True
@@ -2098,12 +2104,12 @@ class ModelServicesRunner:
               MethodName.PREFILL_INSERT,
               state.model_key,
               state.model_method,
-              str(slot),
+              json.dumps(slots),
               skip_host_sync=True,
           )
 
           assert request.preprocessed_inputs is not None
-          assert request.rpc_task is not None
+          assert request.rpc_tasks is not None
 
           scores, tokens, prefix_cache = method_obj.prefill(
               inputs=request.preprocessed_inputs,
@@ -2113,24 +2119,24 @@ class ModelServicesRunner:
               insert_wait_time=time.time() - prefill_dequeue_time,
           )
 
-          method_obj.insert(prefix_cache, slot)
+          method_obj.insert(prefix_cache, slots)
 
         host_tokens = np.array(tokens.addressable_data(0))
         host_scores = np.array(scores.addressable_data(0))
-        state.decoded_tokens[slot][0] = host_tokens
-        state.scores[slot] = host_scores
+        state.decoded_tokens[slots, 0] = host_tokens[:n_tasks]
+        state.scores[slots, ...] = host_scores[:n_tasks]
 
         self._run_post_prefill_async(
             state,
-            slot,
+            slots,
             copy.deepcopy(host_tokens),
             copy.deepcopy(host_scores),
-            request.rpc_task,
+            request.rpc_tasks,
         )
-        state.steps[slot] = 1
+        state.steps[slots, ...] = 1
 
         # Must set slots_in_use in the end.
-        state.slots_in_use[slot] = 1
+        state.slots_in_use[slots, ...] = 1
 
         # Don't wake up the generate thread if there are more pending requests
         # and empty slots.
@@ -2139,30 +2145,43 @@ class ModelServicesRunner:
           state.generate_cv.notify()
 
   # pylint: disable=unused-argument
-  def _run_post_prefill_async(self, state, slot, tokens, scores, request_rpc):
+  def _run_post_prefill_async(self, state, slots, tokens, scores, request_rpcs):
     """Runs the post-prefill processing on a dedicated thread."""
 
+    n_tasks = len(slots)
+    assert n_tasks == len(request_rpcs)
+
     def _postprocess():
-      state.rpc_tasks[slot] = request_rpc
+      for i, slot in enumerate(slots):
+        state.rpc_tasks[slot] = request_rpcs[i]
 
       if state.method.streamable_output:
         nonlocal tokens
         nonlocal scores
-        tokens = np.expand_dims(tokens, axis=0)
-        scores = np.expand_dims(scores, axis=0)
 
-        output_strings = state.method.detokenize(tokens)
-        outputs = output_strings, scores
-        resp = copy.deepcopy(state.rpc_tasks[slot].response)
-        self._model_services[state.service_id].FillRPCResponse(
-            state.model_method, outputs, resp
+        assert len(tokens.shape) == 1, tokens.shape
+        assert len(scores.shape) == 1, scores.shape
+        assert tokens.shape[0] == scores.shape[0], (
+            scores.shape,
+            tokens.shape,
         )
-        try:
-          state.rpc_tasks[slot].done(utils.ok(), resp=resp)
-        except Exception as e:  # pylint: disable=broad-except
-          self._log_exception(
-              'Error occurred: %s, error: %s', state.model_key, e
+
+        scores = np.expand_dims(scores, axis=1)
+        tokens = np.expand_dims(tokens, axis=1)
+        output_strings = state.method.detokenize(tokens)
+
+        for i, slot in enumerate(slots):
+          resp = copy.deepcopy(state.rpc_tasks[slot].response)
+          outputs = output_strings[i], scores[i]
+          self._model_services[state.service_id].FillRPCResponse(
+              state.model_method, outputs, resp
           )
+          try:
+            state.rpc_tasks[slot].done(utils.ok(), resp=resp)
+          except Exception as e:  # pylint: disable=broad-except
+            self._log_exception(
+                'Error occurred: %s, error: %s', state.model_key, e
+            )
 
     state.post_process_pool.run(_postprocess)
 
@@ -2382,19 +2401,19 @@ class ModelServicesRunner:
             break
         case MethodName.PREFILL_INSERT:
           try:
-            model_key, model_method, slot = msgs
+            model_key, model_method, slots = msgs
             logging.info(
                 'Received PREFILL_INSERT model_key %s method %s slot %s',
                 model_key,
                 model_method,
-                slot,
+                slots,
             )
-            slot = int(slot)
+            slots = json.loads(slots)
             method_obj = self._loaded_models.get_model(model_key).method(
                 model_method
             )
             _, _, state = method_obj.prefill_with_dummy()
-            method_obj.insert(state, slot)
+            method_obj.insert(state, slots)
           except Exception as e:  # pylint: disable=broad-except
             self._worker_thread_exception = e
             break

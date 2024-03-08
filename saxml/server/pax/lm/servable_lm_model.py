@@ -1300,7 +1300,9 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     tokens = jnp.zeros((self.num_cache_slots,), dtype=jnp.int32)
     self._dummy_tokens_for_generate = (
         self.input_to_device_for_continuous_batching(
-            tokens, InputShapeInfo(batch_size=self.num_cache_slots)
+            tokens,
+            InputShapeInfo(batch_size=self.num_cache_slots),
+            InputShapeInfo(batch_size=self.num_cache_slots),
         )
     )
     # prefill device function
@@ -1317,7 +1319,9 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     )
     self._dummy_input_for_prefill = (
         self.input_to_device_for_continuous_batching(
-            self._dummy_input_for_prefill, prefill_input_shape
+            self._dummy_input_for_prefill,
+            prefill_input_shape,
+            prefill_input_shape,
         )
     )
 
@@ -1696,7 +1700,10 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     )
 
   def input_to_device_for_continuous_batching(
-      self, one_core_inputs: HostTensors, unpadded_shape: InputShapeInfo
+      self,
+      one_core_inputs: HostTensors,
+      unpadded_shape: InputShapeInfo,
+      padded_shape: InputShapeInfo,
   ) -> DeviceTensors:
     """Transfers input data to device."""
 
@@ -1734,7 +1741,8 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     )
     num_cores = len(self.model_state.global_mesh.devices.flat)
     global_inputs_shape_dtype = jax.tree_util.tree_map(
-        lambda x: ((num_cores,) + x.shape, x.dtype), one_core_inputs
+        lambda x: ((num_cores, padded_shape.batch_size) + x.shape[1:], x.dtype),
+        one_core_inputs,
     )
 
     host_inputs = jax.tree_util.tree_map(

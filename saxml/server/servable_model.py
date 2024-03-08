@@ -373,7 +373,10 @@ class ServableMethod(abc.ABC):
     raise NotImplementedError('detokenize not implemented')
 
   def input_to_device_for_continuous_batching(
-      self, one_core_inputs: HostTensors, unpadded_shape: InputShapeInfo
+      self,
+      one_core_inputs: HostTensors,
+      unpadded_shape: InputShapeInfo,
+      padded_shape: InputShapeInfo,
   ) -> DeviceTensors:
     """Transfers input data to device for either prefill or generate."""
     raise NotImplementedError(
