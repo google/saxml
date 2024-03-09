@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Customize layers for sax."""
+import functools
 from typing import Optional, Tuple
 
 from flax import linen as nn
@@ -24,6 +25,7 @@ from praxis import pax_fiddle
 from praxis import py_utils
 from praxis import pytypes
 from praxis.layers import embedding_softmax
+from praxis.layers import multi_query_attention
 
 template_field = base_layer.template_field
 JTensor = pytypes.JTensor
@@ -411,6 +413,230 @@ class TransformerFeedForwardWithSeqSplit(layers.TransformerFeedForward):
 
     val = nn.while_loop(cond_fn, loop_body, self, val)
     return val.inputs
+
+
+class ChunkedMQA(multi_query_attention.MultiQueryDotProductAttention):
+  """MQA that computes qkv attention only on non-padded slices.
+
+  A lot of time positions of kv states are just paddings. We can identify the
+  start and slice widths of non-padding kv states by checking atten_mask and
+  the present time_step during extend_step. We then  do qk_einsum and
+  pv_enisum only over the non-padding slices. However, jax
+  won't allow dynamic_slice with variable widths, we have to predefine
+  `chunked_one_step_attn_num_seq_split` number of partial functions, each with
+  fixed slice width, and use jax.lax.switch to pick the corresponding function
+  based on the actual dynamic non-padding width from the input batch.
+  """
+
+  chunked_one_step_attn_num_seq_split: int = 16
+
+  def _dot_atten_one_step_from_qkv(
+      self,
+      query: JTensor,
+      key: JTensor,
+      value: JTensor,
+      atten_mask: JTensor,
+      relative_bias: JTensor | None = None,
+      time_step: JTensor | None = None,
+  ) -> tuple[JTensor, JTensor]:
+    if (
+        self.num_kv_heads > 1
+        or self.chunked_one_step_attn_num_seq_split <= 1
+        or relative_bias is not None
+        or len(query.shape) != 3
+    ):
+      return super()._dot_atten_one_step_from_qkv(
+          query, key, value, atten_mask, relative_bias
+      )
+    b, s, h = key.shape
+    base_layer.assert_has_shape(query, [b, -1, h])
+    base_layer.assert_has_shape(atten_mask, [-1, -1, s])
+    base_layer.assert_has_shape(value, [b, s, h])
+    query = self._scale_query(query)
+
+    assert s % self.chunked_one_step_attn_num_seq_split == 0
+    w = s // self.chunked_one_step_attn_num_seq_split
+
+    def _dynamic_qkv(query, key, value, atten_mask, start_chunk, num_chunks):
+      key = jax.lax.dynamic_slice(
+          key, [0, start_chunk, 0], [b, num_chunks * w, h]
+      )
+      value = jax.lax.dynamic_slice(
+          value, [0, start_chunk, 0], [b, num_chunks * w, h]
+      )
+      atten_mask = jax.lax.dynamic_slice(
+          atten_mask, [0, 0, start_chunk], [b, 1, num_chunks * w]
+      )
+      logits = self.qk_einsum('BNH,BSH->BNS', query, key)
+      logits = self._cap_logits(logits)
+      # Attention softmax is always carried out in fp32.
+      logits = logits.astype(jnp.float32)
+      # Apply attention masking
+      padded_logits = py_utils.apply_mask_to_logits(logits, atten_mask)
+      # Of shape [b, n, s]
+      if self.attention_extra_logit is None:
+        probs = jax.nn.softmax(padded_logits, axis=-1).astype(key.dtype)
+      else:
+        probs = jnp.exp(
+            self._log_softmax_with_extra_logit(padded_logits)
+        ).astype(key.dtype)
+
+      return self.pv_einsum('BNS,BSH->BNH', probs, value)
+
+    dynamic_qkv_fns = []
+    for c in range(self.chunked_one_step_attn_num_seq_split):
+      dynamic_qkv_fns.append(functools.partial(_dynamic_qkv, num_chunks=c + 1))
+
+    start_chunk = 0
+    num_chunks = time_step // w - start_chunk + 1
+    encoded = jax.lax.switch(
+        num_chunks - 1,
+        dynamic_qkv_fns,
+        query,
+        key,
+        value,
+        atten_mask,
+        start_chunk,
+    )
+
+    return encoded, jnp.zeros((0,))  # pytype: disable=bad-return-type  # jax-ndarray
+
+
+class ChunkedMHA(layers.DotProductAttention):
+  """MHA that computes qkv attention only on non-padded slices.
+
+  A lot of time positions of kv states are just paddings. We can identify the
+  start and slice widths of non-padding kv states by checking atten_mask and
+  the present time_step during extend_step. We then  do qk_einsum and
+  pv_enisum only over the non-padding slices. However, jax
+  won't allow dynamic_slice with variable widths, we have to predefine
+  `chunked_one_step_attn_num_seq_split` number of partial functions, each with
+  fixed slice width, and use jax.lax.switch to pick the corresponding function
+  based on the actual dynamic non-padding width from the input batch.
+  """
+
+  chunked_one_step_attn_num_seq_split: int = 16
+
+  def _dot_atten_one_step(
+      self,
+      query: JTensor,
+      key_state_name: str,
+      value_state_name: str,
+      atten_mask: JTensor,
+      relative_bias: JTensor | None = None,
+      time_step: JTensor | None = None,
+  ) -> tuple[JTensor, JTensor]:
+    """Dot attention function for queries with 1 time step.
+
+    Args:
+      query: JTensor of shape [B, N, H].
+      key_state_name: Name of the decoding key state variable.
+      value_state_name: Name of the decoding value state variable.
+      atten_mask: JTensor of shape [1|B, 1, S] which is a mask that is applied
+        to prevent attention between unwanted pairs. This has already been
+        converted into large negative logits. The first dimension is allowed to
+        be of size 1, if the mask is shared by all items in the batch (e.g.,
+        only a causal mask).
+      relative_bias: Relative bias of shape [1|B, N, 1, S].
+      time_step: A scalar. The time step tensor.
+
+    Returns:
+      encoded: JTensor of shape [B, N, H].
+      probs: JTensor of shape [B, N, S].
+    """
+    if (
+        self.chunked_one_step_attn_num_seq_split <= 1
+        or relative_bias is not None
+    ):
+      return super()._dot_atten_one_step(
+          query,
+          key_state_name,
+          value_state_name,
+          atten_mask,
+          relative_bias,
+          time_step,
+      )
+    key = self._shard_blnh(self.get_decode_state(key_state_name))
+    value = self._shard_blnh(self.get_decode_state(value_state_name))
+    k_b = key.shape[0]
+    q_b = query.shape[0]
+    if q_b != k_b:
+      if q_b % k_b != 0:
+        raise ValueError(
+            f'q batch size {q_b} is not divisible by state batch size {k_b}'
+        )
+      key = jnp.repeat(key, q_b // k_b, axis=0)
+      value = jnp.repeat(value, q_b // k_b, axis=0)
+    if atten_mask.shape[0] != q_b and atten_mask.shape[0] != 1:
+      assert atten_mask.shape[0] == k_b, (atten_mask.shape, k_b)
+      atten_mask = jnp.repeat(atten_mask, q_b // k_b, axis=0)
+    # query is 3d.
+    query = self._shard_bnh(query)
+
+    b, s, n, h = key.shape
+    base_layer.assert_has_shape(value, [b, s, n, h])
+    base_layer.assert_has_shape(query, [b, n, h])
+    base_layer.assert_has_shape(atten_mask, [-1, 1, s])
+    query = self._scale_query(query)
+
+    assert s % self.chunked_one_step_attn_num_seq_split == 0
+    w = s // self.chunked_one_step_attn_num_seq_split
+
+    def _dynamic_qkv(query, key, value, atten_mask, start_chunk, num_chunks):
+      key = jax.lax.dynamic_slice(
+          key, [0, start_chunk, 0, 0], [b, num_chunks * w, n, h]
+      )
+      value = jax.lax.dynamic_slice(
+          value, [0, start_chunk, 0, 0], [b, num_chunks * w, n, h]
+      )
+      atten_mask = jax.lax.dynamic_slice(
+          atten_mask, [0, 0, start_chunk], [b, 1, num_chunks * w]
+      )
+      logits = self.qk_einsum('BNH,BSNH->BNS', query, key)
+      if self.scale_logits_by_head_dims:
+        logits = jnp.multiply(logits, 1.0 / np.sqrt(h))
+
+      logits = self._cap_logits(logits)
+      # Attention softmax is always carried out in fp32.
+      logits = logits.astype(jnp.float32)
+      # Apply attention masking
+      padded_logits = py_utils.apply_mask_to_logits(logits, atten_mask)
+
+      # Of shape [b, n, s]
+      if self.attention_extra_logit is None:
+        probs = jax.nn.softmax(padded_logits, axis=-1).astype(key.dtype)
+      else:
+        probs = jnp.exp(
+            self._log_softmax_with_extra_logit(padded_logits)
+        ).astype(key.dtype)
+      return self.pv_einsum('BNS,BSNH->BNH', probs, value)
+
+    dynamic_qkv_fns = []
+    for c in range(self.chunked_one_step_attn_num_seq_split):
+      dynamic_qkv_fns.append(functools.partial(_dynamic_qkv, num_chunks=c + 1))
+
+    start_chunk = 0
+    num_chunks = time_step // w - start_chunk + 1
+    encoded = jax.lax.switch(
+        num_chunks - 1,
+        dynamic_qkv_fns,
+        query,
+        key,
+        value,
+        atten_mask,
+        start_chunk,
+    )
+
+    if self.zero_fully_masked:
+      # Return zeros for tokens which don't attend anything.
+      fully_masked = jnp.all(
+          atten_mask < py_utils.get_large_negative_number(jnp.float32) / 2,
+          axis=-1,
+      )[..., jnp.newaxis]
+      encoded *= 1 - fully_masked
+
+    encoded = self._shard_bnh(encoded)
+    return encoded, jnp.zeros((0,))  # pytype: disable=bad-return-type  # jax-ndarray
 
 
 class MXUDotProductAttention(layers.DotProductAttention):

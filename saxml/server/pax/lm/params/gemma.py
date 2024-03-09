@@ -51,7 +51,9 @@ class GemmaBase(base_experiment.BaseExperiment):
   FPROP_DTYPE = jnp.float32
   MODEL_DTYPE = jnp.float32
   USE_MQA = False
-  USE_MXU_ATTENTION = False  # whether to force MHA attention to use MXU.
+  CHUNKED_ONE_STEP_ATTN_NUM_SEQ_SPLIT = (
+      16  # whether to force MHA attention to use MXU.
+  )
 
   # Sub-class has to specify a mesh.
   ICI_MESH_SHAPE = [1, 1, 1]
@@ -102,7 +104,7 @@ class GemmaBase(base_experiment.BaseExperiment):
         num_heads=self.NUM_HEADS,
         dim_per_head=self.DIMS_PER_HEAD,
         use_mqa=self.USE_MQA,
-        use_mxu_attention=self.USE_MXU_ATTENTION,
+        chunked_one_step_attn_num_seq_split=self.CHUNKED_ONE_STEP_ATTN_NUM_SEQ_SPLIT,
     )
 
     model_p.fprop_dtype = self.FPROP_DTYPE

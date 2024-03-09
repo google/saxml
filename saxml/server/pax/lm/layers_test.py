@@ -71,24 +71,19 @@ class LayersTest(test_utils.TestCase, parameterized.TestCase):
     self.assertAllClose(fprop_out, fprop_out2)
 
   @parameterized.parameters([
-      (False, None),
-      (True, None),
-      (False, 1.0),
-      (True, 1.0),
-
+      (False, False),
+      (True, True),
+      (False, True),
+      (True, False),
   ])
-  def test_attention(
-      self,
-      use_rotary_position_emb,
-      attention_extra_logit,
-  ):
+  def test_attention(self, use_rotary_position_emb, use_mqa):
     mdl_dim = 16
     hidden_dim = 32
     num_heads = 4
     target_batch_size = 3
     source_max_length = 16
     target_max_length = 16
-    layer_p = layers.MXUDotProductAttention
+    layer_p = layers.ChunkedMQA if use_mqa else layers.ChunkedMHA
     test_layer_p = pax_fiddle.Config(
         layer_p,
         name='self_atten',
@@ -97,8 +92,8 @@ class LayersTest(test_utils.TestCase, parameterized.TestCase):
         num_heads=num_heads,
         dim_per_head=16 if use_rotary_position_emb else None,
         atten_logit_cap=20.0,
-        attention_extra_logit=attention_extra_logit,
         use_rotary_position_emb=use_rotary_position_emb,
+        chunked_one_step_attn_num_seq_split=8,
     )
     layer = base_layer.instantiate(test_layer_p)
     prng_key = jax.random.PRNGKey(seed=123)
@@ -107,13 +102,15 @@ class LayersTest(test_utils.TestCase, parameterized.TestCase):
     query_vec = np.random.normal(
         size=[target_batch_size, source_max_length, mdl_dim]
     ).astype(np.float32)
-    query_vec[0, :, :] = 0
+    query_vec[0, 0:2, :] = 0
+    query_vec[1, 0, :] = 0
+
     key_vec = query_vec
     value_vec = query_vec
     fake_query_vec = jnp.zeros_like(query_vec)
     atten_mask = attentions.causal_mask(query_vec)
+    atten_mask = jnp.repeat(atten_mask, target_batch_size, axis=0)
     segment_pos = np.tile(np.arange(source_max_length), (target_batch_size, 1))
-
     starting_index = 0
 
     with base_layer.JaxContext.new_context():

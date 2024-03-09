@@ -15,7 +15,6 @@
 
 from praxis import layers
 from praxis import pax_fiddle
-from praxis.layers import multi_query_attention
 from saxml.server.pax.lm import layers as sax_layers
 
 
@@ -27,7 +26,7 @@ def gemma(
     num_heads,
     dim_per_head,
     use_mqa,
-    use_mxu_attention
+    chunked_one_step_attn_num_seq_split=1,
 ) -> pax_fiddle.Config[layers.TransformerLm]:
   """Create a TransformerLm config(template) for Gemma model family.
 
@@ -39,7 +38,7 @@ def gemma(
     num_heads: Number of heads.
     dim_per_head: Dimension per head.
     use_mqa: Whether use Multi-Query Attention.
-    use_mxu_attention: whether to force MHA attention to use MXU.
+    chunked_one_step_attn_num_seq_split: split attention computation in chunks.
 
   Returns:
     TransformerLm for Gemma.
@@ -71,23 +70,20 @@ def gemma(
   # Attention Layer.
   if use_mqa:
     transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
-        multi_query_attention.MultiQueryDotProductAttention,
+        sax_layers.ChunkedMQA,
         num_kv_heads=1,
-        use_bias=False,
-        use_rotary_position_emb=True,
-        consolidate_rope_key_state=True,
-        scale_query_by_dim_per_head=True,
+        chunked_one_step_attn_num_seq_split=chunked_one_step_attn_num_seq_split,
     )
   else:
-    if use_mxu_attention:
-      transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
-          sax_layers.MXUDotProductAttention)
-    transformer_layer_p.tr_atten_tpl.use_bias = False
-    transformer_layer_p.tr_atten_tpl.combine_qkv = True
-    transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
-    transformer_layer_p.tr_atten_tpl.consolidate_rope_key_state = True
-    transformer_layer_p.tr_atten_tpl.internal_enable_per_dim_scale = False
-    transformer_layer_p.tr_atten_tpl.scale_query_by_dim_per_head = True
+    transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
+        sax_layers.MXUDotProductAttention,
+        combine_qkv=True,
+        internal_enable_per_dim_scale=False,
+    )
+  transformer_layer_p.tr_atten_tpl.use_bias = False
+  transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
+  transformer_layer_p.tr_atten_tpl.consolidate_rope_key_state = True
+  transformer_layer_p.tr_atten_tpl.scale_query_by_dim_per_head = True
   # FeedForward
   transformer_layer_p.tr_fflayer_tpl = pax_fiddle.Config(
       sax_layers.TransformerFeedForwardWithSeqSplit

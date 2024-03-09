@@ -175,13 +175,14 @@ pytype_strict_library(
         "//third_party/py/praxis:pytypes",
         "//third_party/py/praxis/layers",
         "//third_party/py/praxis/layers:embedding_softmax",
+        "//third_party/py/praxis/layers:multi_query_attention",
     ],
 )
 
 py_strict_test(
     name = "layers_test",
     srcs = ["layers_test.py"],
-    shard_count = 1,
+    shard_count = 4,
     deps = [
         ":layers",
         "//third_party/py/absl-py/logging",
