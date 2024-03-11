@@ -78,6 +78,7 @@ class GetStatusTest(absltest.TestCase):
             utils.RequestStats.Stats(
                 timespan_sec=8, total=1, summ=1, summ2=1, samples=np.array([1])
             ),
+            10,
             [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
         ),
     ]

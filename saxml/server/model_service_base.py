@@ -536,6 +536,7 @@ class PerMethodBatcher:
           MethodKey,
           utils.RequestStats.Stats,
           utils.RequestStats.Stats,
+          int,
           List[int],
       ]
   ]:
@@ -547,6 +548,7 @@ class PerMethodBatcher:
           mkey,
           method.ok_stats.get(100),
           method.err_stats.get(1),
+          method.batch_size,
           list(method.recent_batch_sizes),
       ))
     return ret
@@ -1193,6 +1195,7 @@ class ModeletService:
           key,
           ok_stats,
           err_stats,
+          _,
           recent_batch_sizes,
       ) in self._batcher.get_method_stats():
         if (
@@ -1632,13 +1635,13 @@ class ModelServicesRunner:
           self._batcher.register_method(
               model,
               batch_generate_method_key,
-              1,
+              method.batch_size,
               preprocess_fn=functools.partial(
                   preprocess_rpc_tasks, prefill=True
               ),
-              # Note: batch size of this method is always 1 so max_live_batches
-              # denotes the number of live requests.
-              max_live_batches=method.num_cache_slots * 2,
+              # Each batch has `batch_size` requests and we should have at least
+              # `num_cache_slots` * 2 live requests
+              max_live_batches=method.num_cache_slots * 2 // method.batch_size,
           )
 
     model = self._loaded_models.load(
