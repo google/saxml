@@ -254,6 +254,28 @@ func (m *Mgr) ListAll() []*apb.PublishedModel {
 	return publishedModels
 }
 
+// GetStatsPerModel returns a map from model fullnames to model's
+// stats (ops/second) aggregated over servers specified by 'addrs'.
+func (m *Mgr) GetStatsPerModel(addrs map[string]bool) map[naming.ModelFullName]float32 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	ret := make(map[naming.ModelFullName]float32)
+	for addr, modelet := range m.modelets {
+		if _, ok := addrs[string(addr)]; ok {
+			for fullName, seenModel := range modelet.SeenModels() {
+				var rate float32 = 0
+				for _, stats := range seenModel.Info.Stats {
+					rate = rate + stats.SuccessesPerSecond
+				}
+				ret[fullName] = ret[fullName] + rate
+			}
+		}
+	}
+
+	return ret
+}
+
 // WatchLoc watches changes of the model server addresses after the given seqno.
 func (m *Mgr) WatchLoc(ctx context.Context, fullName string, seqno int32) (*watchable.WatchResult, error) {
 	modelFullName, err := naming.NewModelFullName(fullName)

@@ -547,14 +547,14 @@ func (s *Server) CheckACLs(ctx context.Context, acls []string) error {
 	return nil
 }
 
-func modelTableRows(models []*pb.PublishedModel) []tmplModelTableRow {
+func modelTableRows(models []*env.ModelInfo) []tmplModelTableRow {
 	var items []tmplModelTableRow
 	for _, model := range models {
-		id := model.GetModel().GetModelId()
-		path := model.GetModel().GetModelPath()
-		ckpt := model.GetModel().GetCheckpointPath()
-		requested := fmt.Sprintf("%v", model.GetModel().GetRequestedNumReplicas())
-		assigned := fmt.Sprintf("%v", len(model.GetModeletAddresses()))
+		id := model.Model.GetModel().GetModelId()
+		path := model.Model.GetModel().GetModelPath()
+		ckpt := model.Model.GetModel().GetCheckpointPath()
+		requested := fmt.Sprintf("%v", model.Model.GetModel().GetRequestedNumReplicas())
+		assigned := fmt.Sprintf("%v", len(model.Model.GetModeletAddresses()))
 		items = append(items, tmplModelTableRow{id, requested, assigned, path, ckpt})
 	}
 	return items
@@ -596,7 +596,7 @@ func (s *Server) WriteStatusPage(w http.ResponseWriter, data *env.StatusPageData
 		if len(data.Models) != 1 {
 			return fmt.Errorf("want 1 model, got %v", len(data.Models))
 		}
-		tmplData.ModelTableHeader = "Model " + data.Models[0].GetModel().GetModelId()
+		tmplData.ModelTableHeader = "Model " + data.Models[0].Model.GetModel().GetModelId()
 		tmplData.ServerTableHeader = "Servers"
 	case env.ServerStatusPage:
 		tmplData.PageHeader = data.SaxCell + " Server Status"

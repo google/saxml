@@ -39,11 +39,20 @@ const (
 	ServerStatusPage
 )
 
+// ModelInfo contains metadata of a published model together with
+// its aggregated usage statistics.
+type ModelInfo struct {
+	Model *pb.PublishedModel
+
+	// Stats
+	SuccessesPerSecond float32
+}
+
 // StatusPageData contains data needed for generating a server status page.
 type StatusPageData struct {
 	Kind    StatusPageKind
 	SaxCell string
-	Models  []*pb.PublishedModel
+	Models  []*ModelInfo
 	Servers []*pb.JoinedModelServer
 }
 

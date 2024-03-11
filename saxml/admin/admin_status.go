@@ -36,6 +36,23 @@ const (
 	getStatusTimeout = time.Second * 2
 )
 
+func (s *Server) createModelInfos(models []*apb.PublishedModel, servers []*apb.JoinedModelServer) []*env.ModelInfo {
+	addrs := make(map[string]bool)
+	for _, server := range servers {
+		addrs[server.Address] = true
+	}
+	modelStats := s.Mgr.GetStatsPerModel(addrs)
+	var ret []*env.ModelInfo
+	for _, m := range models {
+		var rate float32
+		if name, err := naming.NewModelFullName(m.GetModel().GetModelId()); err == nil {
+			rate = modelStats[name]
+		}
+		ret = append(ret, &env.ModelInfo{Model: m, SuccessesPerSecond: rate})
+	}
+	return ret
+}
+
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	models := s.Mgr.ListAll()
 	servers, err := s.Mgr.LocateAll()
@@ -44,7 +61,11 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := &env.StatusPageData{Kind: env.RootStatusPage, SaxCell: s.saxCell, Models: models, Servers: servers}
+	data := &env.StatusPageData{
+		Kind:    env.RootStatusPage,
+		SaxCell: s.saxCell,
+		Models:  s.createModelInfos(models, servers),
+		Servers: servers}
 	if err := s.gRPCServer.WriteStatusPage(w, data); err != nil {
 		http.Error(w, fmt.Sprintf("Page generation failed: %v", err), http.StatusInternalServerError)
 		return
@@ -69,7 +90,11 @@ func (s *Server) handleModel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to locate servers %v: %v", addrs, err), http.StatusInternalServerError)
 	}
 
-	data := &env.StatusPageData{Kind: env.ModelStatusPage, SaxCell: s.saxCell, Models: []*apb.PublishedModel{model}, Servers: servers}
+	data := &env.StatusPageData{
+		Kind:    env.ModelStatusPage,
+		SaxCell: s.saxCell,
+		Models:  s.createModelInfos([]*apb.PublishedModel{model}, servers),
+		Servers: servers}
 	if err := s.gRPCServer.WriteStatusPage(w, data); err != nil {
 		http.Error(w, fmt.Sprintf("Page generation failed: %v", err), http.StatusInternalServerError)
 		return
@@ -114,7 +139,12 @@ func (s *Server) handleServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := &env.StatusPageData{Kind: env.ServerStatusPage, SaxCell: s.saxCell, Models: models, Servers: []*apb.JoinedModelServer{server}}
+	servers := []*apb.JoinedModelServer{server}
+	data := &env.StatusPageData{
+		Kind:    env.ServerStatusPage,
+		SaxCell: s.saxCell,
+		Models:  s.createModelInfos(models, servers),
+		Servers: servers}
 	if err := s.gRPCServer.WriteStatusPage(w, data); err != nil {
 		http.Error(w, fmt.Sprintf("Page generation failed: %v", err), http.StatusInternalServerError)
 		return
