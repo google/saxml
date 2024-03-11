@@ -1094,11 +1094,15 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     head_dims = self.dim_per_head
     sql_len = self.input_sequence_len + self.max_decode_steps
     consolidate_rope_key_state = False
+    quantize_kv = False
     tr_atten_tpl = (
         self._model.lm_tpl.stacked_transformer_tpl.transformer_layer_params_tpl.tr_atten_tpl
     )
     if hasattr(tr_atten_tpl, 'consolidate_rope_key_state'):
       consolidate_rope_key_state = tr_atten_tpl.consolidate_rope_key_state
+    if hasattr(tr_atten_tpl, 'quantize_kv'):
+      quantize_kv = tr_atten_tpl.quantize_kv
+    kv_cache_type = jnp.int8 if quantize_kv else self._model.fprop_dtype
 
     def _init_decode_cache_fn():
       kv_cache = {}
@@ -1117,26 +1121,35 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
                 'self_attention': {
                     'key_state': jnp.zeros(
                         kv_state_shape,
-                        dtype=self._model.fprop_dtype,
+                        dtype=kv_cache_type,
                     ),
                     'value_state': jnp.zeros(
                         kv_state_shape,
-                        dtype=self._model.fprop_dtype,
+                        dtype=kv_cache_type,
                     ),
                 }
             }
         }
+        attn_cache = layer_kv_cache['x_layers_{}'.format(i)]['self_attention']
+        if quantize_kv:
+          attn_cache['key_state_scale'] = jnp.zeros(
+              kv_state_shape[:-1] + (1,),
+              dtype=self._model.fprop_dtype,
+          )
+          attn_cache['value_state_scale'] = jnp.zeros(
+              kv_state_shape[:-1] + (1,),
+              dtype=self._model.fprop_dtype,
+          )
         if not consolidate_rope_key_state:
-          layer_kv_cache.update({
-              'x_layers_{}'.format(i): {
-                  'self_attention': {
-                      'key_post_rotary_pos_emb': jnp.zeros(
-                          kv_state_shape,
-                          dtype=self._model.fprop_dtype,
-                      ),
-                  }
-              }
-          })
+          attn_cache['key_post_rotary_pos_emb'] = jnp.zeros(
+              kv_state_shape,
+              dtype=kv_cache_type,
+          )
+          if quantize_kv:
+            attn_cache['key_post_rotary_pos_emb_scale'] = jnp.zeros(
+                kv_state_shape[:-1] + (1,),
+                dtype=self._model.fprop_dtype,
+            )
         kv_cache.update(layer_kv_cache)
       return {
           base_layer.DECODE_CACHE: {
@@ -1172,12 +1185,14 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
               }
           }
       }
+      attn_spec = layer_kv_spec['x_layers_{}'.format(i)]['self_attention']
+      if quantize_kv:
+        attn_spec['key_state_scale'] = kv_state_spec
+        attn_spec['value_state_scale'] = kv_state_spec
       if not consolidate_rope_key_state:
-        layer_kv_spec.update({
-            'x_layers_{}'.format(i): {
-                'self_attention': {'key_post_rotary_pos_emb': kv_state_spec}
-            }
-        })
+        attn_spec['key_post_rotary_pos_emb'] = kv_state_spec
+        if quantize_kv:
+          attn_spec['key_post_rotary_pos_emb_scale'] = kv_state_spec
       transformer_decode_partition_spec.update(layer_kv_spec)
 
     time_step_partition_spec = jax.sharding.PartitionSpec()

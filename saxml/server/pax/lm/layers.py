@@ -27,10 +27,22 @@ from praxis import pytypes
 from praxis.layers import embedding_softmax
 from praxis.layers import multi_query_attention
 
+
 template_field = base_layer.template_field
 JTensor = pytypes.JTensor
 LayerTpl = pax_fiddle.Config[base_layer.BaseLayer]
 NestedMap = py_utils.NestedMap
+DECODE_CACHE = base_layer.DECODE_CACHE
+CACHE_SCALE_SUFFIX = '_scale'
+
+
+def _reduce_last_dim(t: JTensor) -> tuple[JTensor, JTensor]:
+  bound = jnp.max(jnp.abs(t), axis=[-1], keepdims=True)
+  scale = bound / 127.0
+  scale = jnp.where(scale == 0.0, 1.0, scale)
+  t = jnp.round(jnp.divide(t, scale))
+  t = jnp.clip(t, -127.0, 127.0).astype(jnp.int8)
+  return t, scale
 
 
 class LLaMARotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
@@ -353,6 +365,83 @@ class GPTJRotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
     return jnp.concatenate([first_part, second_part], axis=-1)
 
 
+class QuantizedKVMQA(multi_query_attention.MultiQueryDotProductAttention):
+  """MQA with INT8 KV states."""
+
+  quantize_kv: bool = False  # Whether to quantize kv cache.
+
+  def update_decode_state(self, name: str, state: JTensor) -> None:
+    if not self.quantize_kv:
+      return super().update_decode_state(name, state)
+
+    if not self.is_mutable_collection(DECODE_CACHE):
+      return
+
+    q_value, q_scale = _reduce_last_dim(state)
+    self.put_variable(DECODE_CACHE, name, q_value)
+    self.put_variable(DECODE_CACHE, name + CACHE_SCALE_SUFFIX, q_scale)
+
+  def get_decode_state(self, name: str) -> JTensor:
+    if not self.quantize_kv:
+      return super().get_decode_state(name)
+
+    q_value = self.get_variable(DECODE_CACHE, name)
+    q_scale = self.get_variable(DECODE_CACHE, name + CACHE_SCALE_SUFFIX)
+    return jnp.multiply(q_value, q_scale)
+
+  @nn.nowrap
+  def extend_decode_state(
+      self, name: str, value: JTensor, time_step: JTensor, time_dim: int
+  ) -> JTensor:
+    if not self.quantize_kv:
+      return super().extend_decode_state(name, value, time_step, time_dim)
+
+    if (self.num_kv_heads == 1 and len(value.shape) == time_dim + 1) or (
+        self.num_kv_heads > 1 and len(value.shape) == time_dim + 2
+    ):
+      extend_value = jnp.expand_dims(value, axis=time_dim)
+    else:
+      extend_value = value
+    qvalue, qscale = _reduce_last_dim(extend_value)
+    indices = [0] * qvalue.ndim
+    indices[time_dim] = time_step.astype(jnp.int32)
+    state = self.get_variable(DECODE_CACHE, name)
+    assert state is not None
+    scale = self.get_variable(DECODE_CACHE, name + CACHE_SCALE_SUFFIX)
+    assert scale is not None
+
+    new_state = jax.lax.dynamic_update_slice(
+        state, qvalue.astype(state.dtype), indices
+    )
+    new_scale = jax.lax.dynamic_update_slice(
+        scale, qscale.astype(scale.dtype), indices
+    )
+    if self.is_mutable_collection(DECODE_CACHE):
+      self.put_variable(DECODE_CACHE, name, new_state)
+      self.put_variable(DECODE_CACHE, name + CACHE_SCALE_SUFFIX, new_scale)
+    return new_state
+
+  def transform_decode_state(
+      self, transform_fn: base_layer.DecodeStateTransformFn
+  ):
+    """Transforms all decode state variables based on transform_fn."""
+    batch_dim = 0
+    time_dim = 1
+    names = self.variables[base_layer.DECODE_CACHE].keys()
+    for name in names:
+      if CACHE_SCALE_SUFFIX in name:
+        continue
+      state = self.get_decode_state(name)
+      if not isinstance(state, JTensor):
+        continue
+      new_state = transform_fn(state, batch_dim, time_dim)
+      if self.num_kv_heads == 1:
+        new_state = self._shard_blh(new_state)
+      else:
+        new_state = self._shard_blnh(new_state)
+      self.update_decode_state(name, new_state)
+
+
 class TransformerFeedForwardWithSeqSplit(layers.TransformerFeedForward):
   """TransformerFeedForward with seq split."""
 
@@ -415,7 +504,7 @@ class TransformerFeedForwardWithSeqSplit(layers.TransformerFeedForward):
     return val.inputs
 
 
-class ChunkedMQA(multi_query_attention.MultiQueryDotProductAttention):
+class ChunkedMQA(QuantizedKVMQA):
   """MQA that computes qkv attention only on non-padded slices.
 
   A lot of time positions of kv states are just paddings. We can identify the

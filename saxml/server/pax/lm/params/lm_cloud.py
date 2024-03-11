@@ -67,6 +67,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
   DCN_MESH_SHAPE = None
   DECODE_MESH_TRANSPOSE = None
   USE_BATCH_SHARDING = False
+  QUANTIZE_KV = False
 
   BATCH_SIZE = 1
   NUM_SAMPLES = 1
@@ -154,6 +155,13 @@ class BaseLLaMA(base_experiment.BaseExperiment):
           num_kv_heads=self.NUM_KV_HEADS,
           chunked_attn_num_seq_split=self.ATTEN_NUM_SEQ_SPLITS,
           use_flash_decoding=True,
+      )
+      transformer_layer_p.tr_atten_tpl.combine_qkv = False
+    elif self.USE_MQA and self.QUANTIZE_KV:
+      transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
+          sax_layers.QuantizedKVMQA,
+          num_kv_heads=self.NUM_KV_HEADS,
+          chunked_attn_num_seq_split=self.ATTEN_NUM_SEQ_SPLITS,
       )
       transformer_layer_p.tr_atten_tpl.combine_qkv = False
     elif self.USE_MQA:

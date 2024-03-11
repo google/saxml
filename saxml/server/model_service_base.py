@@ -2104,7 +2104,7 @@ class ModelServicesRunner:
               MethodName.PREFILL_INSERT,
               state.model_key,
               state.model_method,
-              json.dumps(slots),
+              ','.join([str(s) for s in slots]),
               skip_host_sync=True,
           )
 
@@ -2408,7 +2408,7 @@ class ModelServicesRunner:
                 model_method,
                 slots,
             )
-            slots = json.loads(slots)
+            slots = [int(s) for s in slots.split(',')]
             method_obj = self._loaded_models.get_model(model_key).method(
                 model_method
             )

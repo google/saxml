@@ -118,6 +118,9 @@ class LLaMASmall(BaseLLaMA, servable_lm_model.ServableLMModelParams):
   NUM_LAYERS = 2
   VOCAB_SIZE = 128
   DIMS_PER_HEAD = 4
+  USE_MQA = True
+  QUANTIZE_KV = True
+  NUM_KV_HEADS = 2
   NUM_HEADS = 4
   MODEL_DIMS = 8
   HIDDEN_DIMS = MODEL_DIMS * 4
