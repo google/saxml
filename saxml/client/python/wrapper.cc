@@ -437,9 +437,11 @@ absl::StatusOr<std::vector<VisionModel::PyDetectResult>> VisionModel::Detect(
   // NOTE: pybind11::bytes must be called within GIL.
   for (size_t i = 0; i < result.size(); i++) {
     auto& item = result[i];
-    PyDetectResult res =
-        std::make_tuple(item.cx, item.cy, item.w, item.h,
-                        pybind11::bytes(std::move(item.text)), item.score);
+    PyDetectResult res = std::make_tuple(
+        item.cx, item.cy, item.w, item.h, pybind11::bytes(std::move(item.text)),
+        item.score,
+        std::make_tuple(item.mask.mask_height, item.mask.mask_width,
+                        pybind11::bytes(std::move(item.mask.mask_values))));
     ret.push_back(res);
   }
   return ret;

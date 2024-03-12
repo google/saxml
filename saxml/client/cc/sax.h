@@ -412,11 +412,19 @@ class VisionModel {
   absl::Status Embed(const ModelOptions& options, absl::string_view image_bytes,
                      std::vector<double>* embedding) const;
 
+  // The following structs mirror vision.proto's message types. Please refer to
+  // comments there for their semantics.
   struct BoundingBox {
     double cx;  // Center of the box in x-axis.
     double cy;  // Center of the box in y-axis.
     double w;   // Width of the box.
     double h;   // Height of the box.
+  };
+
+  struct DetectionMask {
+    int32_t mask_height;
+    int32_t mask_width;
+    std::string mask_values;
   };
 
   struct DetectResult {
@@ -426,6 +434,7 @@ class VisionModel {
     double h;
     std::string text;
     double score;
+    DetectionMask mask;
   };
 
   // Detect produces a list of bounding boxes given 'image_bytes'.

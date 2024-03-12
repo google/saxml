@@ -990,6 +990,11 @@ func go_vm_detect(ptr C.long, timeout C.float, imageData *C.char, imageSize C.in
 	ret := &vmpb.DetectResponse{}
 	items := []*vmpb.BoundingBox{}
 	for _, v := range res {
+		mask := &vmpb.DetectionMask{
+			MaskHeight: v.Mask.Height,
+			MaskWidth:  v.Mask.Width,
+			MaskValues: v.Mask.MaskValues,
+		}
 		item := &vmpb.BoundingBox{
 			Cx:    v.CenterX,
 			Cy:    v.CenterY,
@@ -997,6 +1002,7 @@ func go_vm_detect(ptr C.long, timeout C.float, imageData *C.char, imageSize C.in
 			H:     v.Height,
 			Text:  v.Text,
 			Score: v.Score,
+			Mask:  mask,
 		}
 		items = append(items, item)
 	}

@@ -19,6 +19,7 @@
 #ifndef SAXML_CLIENT_PYTHON_WRAPPER_H_
 #define SAXML_CLIENT_PYTHON_WRAPPER_H_
 
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -195,7 +196,8 @@ class VisionModel {
   absl::StatusOr<std::vector<double>> Embed(
       absl::string_view image, const ModelOptions* options = nullptr) const;
 
-  typedef std::tuple<double, double, double, double, pybind11::bytes, double>
+  typedef std::tuple<double, double, double, double, pybind11::bytes, double,
+                     std::tuple<int32_t, int32_t, pybind11::bytes>>
       PyDetectResult;
 
   // Run detection on the given image.
@@ -203,7 +205,8 @@ class VisionModel {
   // For open-set detection models, one can pass text lists as the second
   // argument.
   //
-  // Returns a vector of bounding boxes as a tuple <cx, cy, w, h, text, score>.
+  // Returns a vector of bounding boxes as a tuple <cx, cy, w, h, text, score,
+  // mask>.
   absl::StatusOr<std::vector<PyDetectResult>> Detect(
       absl::string_view image_bytes, std::vector<std::string> text = {},
       std::vector<std::tuple<double, double, double, double>> boxes = {},

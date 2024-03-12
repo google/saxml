@@ -79,6 +79,17 @@ message EmbedResponse {
   repeated double embedding = 1 [packed = true];
 }
 
+message DetectionMask {
+  // mask represents a C-order 2-D uint8 array.
+  // The array's dimension are given by [mask_height, mask_width].
+  // mask[i, j] / 255 represents the probability of the pixel being in the
+  // segment (the range [0,1] was scaled to [0, 255] for compression).
+  bytes mask_values = 1;
+
+  int32 mask_height = 2;
+  int32 mask_width = 3;
+}
+
 message BoundingBox {
   // Coordinates are in pixel space.
   // Upper left corner of the image represents (0.0, 0.0)
@@ -95,6 +106,19 @@ message BoundingBox {
   // of the bounding boxes. The semantic meaning of the score is left for
   // each model to define.
   double score = 6;
+
+  // A mask for the bounding box, indicating which pixels belong to the object.
+  // Note that the mask is optional, but cx/cy/w/h must be set.
+
+  // When a mask is present, it only contains values inside the bounding box
+  // defined by cx,cy,w,h. I.e.:
+  // mask[i, j] corresponding the image pixel[cx - w/2 + i, cy - h / 2 + j],
+  // where cx,cy,w,h are given in the BoundingBox.
+  // Outside the bounding box the mask is always zero. This enables sending
+  // smaller mask sizes, since the mask size is only the bounding box size.
+  // E.g. MaskRCNN returns masks that are always 28x28 pixels, and they resized
+  // by third_party/cloud_tpu/models/detection/utils/mask_utils.py.
+  DetectionMask mask = 7;
 }
 
 message DetectRequest {

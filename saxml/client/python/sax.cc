@@ -203,7 +203,8 @@ PYBIND11_MODULE(sax, m) {
              std::vector<std::tuple<double, double, double, double>> boxes,
              const sax::client::ModelOptions* options)
               -> absl::StatusOr<std::vector<std::tuple<
-                  double, double, double, double, pybind11::bytes, double>>> {
+                  double, double, double, double, pybind11::bytes, double,
+                  std::tuple<int32_t, int32_t, pybind11::bytes>>>> {
             return vm.Detect(image_bytes, text, boxes, options);
           },
           py::arg("image_bytes"), py::arg("text") = std::vector<std::string>{},

@@ -104,13 +104,37 @@ class VisionService(model_service_base.ModelService):
         )
       return
     if method_name == VisionMethodName.DETECT:
-      boxes, scores, texts = method_outputs
-      for box, score, text in zip(boxes, scores, texts):
-        response.bounding_boxes.append(
-            vision_pb2.BoundingBox(
-                cx=box[0], cy=box[1], w=box[2], h=box[3], text=text, score=score
-            )
-        )
+      if len(method_outputs) == 3:
+        boxes, scores, texts = method_outputs
+        for box, score, text in zip(boxes, scores, texts):
+          response.bounding_boxes.append(
+              vision_pb2.BoundingBox(
+                  cx=box[0],
+                  cy=box[1],
+                  w=box[2],
+                  h=box[3],
+                  text=text,
+                  score=score,
+              )
+          )
+      elif len(method_outputs) == 4:
+        boxes, scores, texts, masks = method_outputs
+        for box, score, text, mask in zip(boxes, scores, texts, masks):
+          response.bounding_boxes.append(
+              vision_pb2.BoundingBox(
+                  cx=box[0],
+                  cy=box[1],
+                  w=box[2],
+                  h=box[3],
+                  text=text,
+                  score=score,
+                  mask=vision_pb2.DetectionMask(
+                      mask_height=mask[0],
+                      mask_width=mask[1],
+                      mask_values=mask[2],
+                  ),
+              )
+          )
       return
     if method_name == VisionMethodName.IMAGE_TO_TEXT:
       texts, scores = method_outputs

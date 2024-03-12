@@ -321,7 +321,7 @@ func (c *DetectCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		return subcommands.ExitFailure
 	}
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"CenterX", "CenterY", "Width", "Height", "Text", "Score"})
+	table.SetHeader([]string{"CenterX", "CenterY", "Width", "Height", "Text", "Score", "Mask"})
 	for _, result := range results {
 		table.Append([]string{
 			formatFloat(result.CenterX),
@@ -329,7 +329,8 @@ func (c *DetectCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 			formatFloat(result.Width),
 			formatFloat(result.Height),
 			result.Text,
-			formatFloat(result.Score)})
+			formatFloat(result.Score),
+			fmt.Sprintf("%d,%d", result.Mask.Height, result.Mask.Width)})
 	}
 	table.Render()
 	return subcommands.ExitSuccess

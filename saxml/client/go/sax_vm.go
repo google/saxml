@@ -165,7 +165,16 @@ type BoundingBox struct {
 	Height  float64 // Height of the box.
 }
 
+// DetectionMask contains a representation for a single mask.
+type DetectionMask struct {
+	Height     int32
+	Width      int32
+	MaskValues []byte
+}
+
 // DetectResult contains a representation for a single bounding box.
+// All fields should be set except for Mask which is optional.
+// When the mask is empty, the following holds: Height == 0, Width == 0, len(MaskValues) == 0.
 type DetectResult struct {
 	CenterX float64
 	CenterY float64
@@ -173,6 +182,7 @@ type DetectResult struct {
 	Height  float64
 	Text    string
 	Score   float64
+	Mask    DetectionMask
 }
 
 func insertBoundingBoxes(boxes []BoundingBox, req *pb.DetectRequest) {
@@ -191,13 +201,19 @@ func insertBoundingBoxes(boxes []BoundingBox, req *pb.DetectRequest) {
 func extractBoundingBoxes(res *pb.DetectResponse) []DetectResult {
 	var result []DetectResult
 	for _, one := range res.GetBoundingBoxes() {
+		mask := DetectionMask{
+			Height:     one.GetMask().GetMaskHeight(),
+			Width:      one.GetMask().GetMaskWidth(),
+			MaskValues: one.GetMask().GetMaskValues(),
+		}
 		candidate := DetectResult{
 			CenterX: one.GetCx(),
 			CenterY: one.GetCy(),
 			Width:   one.GetW(),
 			Height:  one.GetH(),
 			Text:    one.GetText(),
-			Score:   one.GetScore()}
+			Score:   one.GetScore(),
+			Mask:    mask}
 		result = append(result, candidate)
 	}
 	return result

@@ -746,8 +746,10 @@ absl::Status VisionModel::Detect(const ModelOptions& options,
     free(outputStr);
   }
   for (const auto& res : output.bounding_boxes()) {
-    result->push_back(DetectResult{res.cx(), res.cy(), res.w(), res.h(),
-                                   res.text(), res.score()});
+    result->push_back(DetectResult{
+        res.cx(), res.cy(), res.w(), res.h(), res.text(), res.score(),
+        DetectionMask{res.mask().mask_height(), res.mask().mask_width(),
+                      res.mask().mask_values()}});
   }
   return absl::OkStatus();
 }
