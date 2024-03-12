@@ -413,8 +413,11 @@ func (m *Mgr) makeJoinedModelServerLocked(addr string, modelet *modeletState) (*
 		for _, stats := range status.Info.Stats {
 			successesPerSecond += stats.SuccessesPerSecond
 			errorsPerSecond += stats.ErrorsPerSecond
-			meanLatencyInSeconds += stats.MeanLatencyInSeconds
+			meanLatencyInSeconds += stats.MeanLatencyInSeconds * stats.SuccessesPerSecond
 		}
+	}
+	if successesPerSecond != 0 {
+		meanLatencyInSeconds = meanLatencyInSeconds / successesPerSecond
 	}
 	return &apb.JoinedModelServer{
 		ModelServer:          modelet.Specs.ToProto(),
