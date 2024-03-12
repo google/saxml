@@ -58,7 +58,9 @@ ENV PLATFORM_TOPOLOGY=8
 RUN mkdir -p /sax-fs-root \
  && bazel build --override_repository=org_tensorflow=/tensorflow saxml/bin:admin_config \
  && bazel build --override_repository=org_tensorflow=/tensorflow saxml/bin:saxutil \
- && bazel build --override_repository=org_tensorflow=/tensorflow saxml/server:server
+ && bazel build --override_repository=org_tensorflow=/tensorflow saxml/server:server \
+ && mkdir /saxml/bazel-bin/saxml/server/server.runfiles/third_party_jax/site-packages/jax/experimental/pallas/ops/gpu \
+ && curl -o /saxml/bazel-bin/saxml/server/server.runfiles/third_party_jax/site-packages/jax/experimental/pallas/ops/gpu/decode_attention.py https://raw.githubusercontent.com/google/jax/main/jax/experimental/pallas/ops/gpu/decode_attention.py
 
 RUN echo '#/bin/bash\n\n\
 echo $1 $2\n\
