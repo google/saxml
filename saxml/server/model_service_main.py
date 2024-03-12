@@ -152,10 +152,6 @@ def setup_jax(
 
   # Log tracing and compilation time.
   jax.config.update('jax_log_compiles', logging.level_debug())
-  # We use xmap only with SPMD.
-  jax.config.update('experimental_xmap_spmd_lowering', True)
-  # Use the manual partitioning lowering of xmap to avoid vectorization.
-  jax.config.update('experimental_xmap_spmd_lowering_manual', True)
 
   if jax_enable_checks:
     jax.config.update('jax_enable_checks', True)
