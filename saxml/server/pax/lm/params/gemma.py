@@ -139,8 +139,9 @@ class Gemma2BFP16(GemmaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = True
 
-  BATCH_SIZE = [1, 64, 192]
-  MAX_LIVE_BATCHES = 16
+  BATCH_SIZE = 1  # prefill batch size
+  NUM_CACHE_SLOTS = 256  # generate batch size
+
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024
   BUCKET_KEYS = None
@@ -162,15 +163,14 @@ class Gemma2BFP16(GemmaBase):
 @servable_model_registry.register
 class Gemma2BFP16Exp(Gemma2BFP16):
   BATCH_SIZE = 8
+  BATCHING_WAIT_SECS = 60  # For offline bulk inference only
   NUM_CACHE_SLOTS = 256
-  MAX_LIVE_BATCHES = 256 * 4  # BATCH_SIZE is always 1 in this case.
 
 
 @servable_model_registry.register
 class Gemma7BFP16(GemmaBase):
   """Gemma7B model."""
-
-  USE_MXU_ATTENTION = True
+  # Need to add --extra_flags=xla_tpu_enable_dot_strength_reduction=false
   NUM_LAYERS = 28
   VOCAB_SIZE = 256128
   DIMS_PER_HEAD = 256
@@ -179,7 +179,8 @@ class Gemma7BFP16(GemmaBase):
   HIDDEN_DIMS = MODEL_DIMS * 8
   USE_MQA = False
 
-  BATCH_SIZE = [1, 32]
+  BATCH_SIZE = 1
+  NUM_CACHE_SLOTS = 48
   NUM_SAMPLES = 1
   INPUT_SEQ_LEN = 1024
   BUCKET_KEYS = None
@@ -192,7 +193,7 @@ class Gemma7BFP16(GemmaBase):
   @classmethod
   def serving_mesh_shape(cls):
     return [
-        # A single device or just on CPU. Note: it's not fitted in v5e-1.
+        # A single device or just on CPU/GPU. Note: it's not fitted in v5e-1.
         [1, 1, 1],
         [1, 1, 4],
         [1, 1, 8],
@@ -201,10 +202,9 @@ class Gemma7BFP16(GemmaBase):
 
 @servable_model_registry.register
 class Gemma7BFP16Exp(Gemma7BFP16):
-  BATCH_SIZE = 1
-  NUM_CACHE_SLOTS = 48
-  MAX_LIVE_BATCHES = 48 * 4  # BATCH_SIZE is always 1 in this case.
-  # Need to add --extra_flags=xla_tpu_enable_dot_strength_reduction=false
+  BATCH_SIZE = 4
+  BATCHING_WAIT_SECS = 60  # For offline bulk inference only
+  NUM_CACHE_SLOTS = 42
 
 
 @servable_model_registry.register

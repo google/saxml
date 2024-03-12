@@ -1642,6 +1642,7 @@ class ModelServicesRunner:
               # Each batch has `batch_size` requests and we should have at least
               # `num_cache_slots` * 2 live requests
               max_live_batches=method.num_cache_slots * 2 // method.batch_size,
+              batching_wait_secs=method.batching_wait_secs,
           )
 
     model = self._loaded_models.load(
@@ -2085,13 +2086,16 @@ class ModelServicesRunner:
     while True:
       # Block if there is no prefill requests.
       request = state.prefill_queue.get()
-
       n_tasks = len(request.rpc_tasks)
-
       # Block if there is no available cache slot.
       slots = []
-      for _ in range(n_tasks):
+      for i in range(n_tasks):
         slots.append(state.available_slots.get())
+        # Wake up the generation loop when no available slot is left
+        if state.available_slots.empty() and i < n_tasks -1:
+          state.pending_insert = False
+          with state.generate_cv:
+            state.generate_cv.notify()
       slots = tuple(slots)
 
       prefill_dequeue_time = time.time()
