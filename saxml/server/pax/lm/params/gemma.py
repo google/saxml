@@ -161,7 +161,7 @@ class Gemma2BFP16(GemmaBase):
 
 @servable_model_registry.register
 class Gemma2BFP16Exp(Gemma2BFP16):
-  BATCH_SIZE = 1
+  BATCH_SIZE = 8
   NUM_CACHE_SLOTS = 256
   MAX_LIVE_BATCHES = 256 * 4  # BATCH_SIZE is always 1 in this case.
 
