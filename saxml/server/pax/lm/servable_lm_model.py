@@ -1380,7 +1380,10 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         in_shardings=(self.model_state.mdl_var_pspecs, None),
         out_shardings=(None, self.decode_cache_pspecs),
         static_argnums=2,
-        donate_argnums=(0, 1,),
+        donate_argnums=(
+            0,
+            1,
+        ),
     )
 
   def call_model_function_generate(
@@ -1546,7 +1549,10 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         _wrapped_fn_sample_prefill,
         in_shardings=(self.model_state.mdl_var_pspecs, batched_input_pspecs),
         out_shardings=(None, self.decode_cache_pspecs),
-        donate_argnums=(0, 1,)
+        donate_argnums=(
+            0,
+            1,
+        ),
     )
 
   def call_model_function_prefill(self, inputs, mdl_vars, prng_key):
@@ -1657,12 +1663,15 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       decode_state, decode_cache = self._generate_device_fn(
           self.model_state.mdl_vars, self.decode_state, left_align_decode_state
       )
-      new_tokens = decode_state.output_ids
-      scores = decode_state.logprobs
+
+      # Copy because decode_state will be donated in the next iteration.
+      new_tokens = decode_state.output_ids.copy()
+      scores = decode_state.logprobs.copy()
+      done = decode_state.done.copy()
 
       self.decode_state = decode_state
       self.model_state.mdl_vars.update(decode_cache)
-      return scores, new_tokens, self.decode_state.done
+      return scores, new_tokens, done
 
   def detokenize(self, tokens: HostTensors) -> List[str]:
     """Detokenize a batch of sequences into a list of strings."""

@@ -2092,7 +2092,7 @@ class ModelServicesRunner:
       for i in range(n_tasks):
         slots.append(state.available_slots.get())
         # Wake up the generation loop when no available slot is left
-        if state.available_slots.empty() and i < n_tasks -1:
+        if state.available_slots.empty() and i < n_tasks - 1:
           state.pending_insert = False
           with state.generate_cv:
             state.generate_cv.notify()
@@ -2205,6 +2205,9 @@ class ModelServicesRunner:
         model_method,
     )
     method_obj = state.method
+
+    prev_result = None
+    prev_mask = None
     while True:
       with state.generate_cv:
         while not state.slots_in_use.any() or state.pending_insert:
@@ -2220,40 +2223,52 @@ class ModelServicesRunner:
               state.model_method,
               skip_host_sync=True,
           )
-          res = method_obj.generate()
+          current_result = method_obj.generate()
+          current_mask = state.slots_in_use.copy()
+
+        # Copy result to host
+        if prev_result is not None:
+          assert prev_mask is not None
           scores, tokens, done = method_obj.output_to_host(
-              res, unpadded_batch_size=state.num_cache_slots
+              prev_result, unpadded_batch_size=state.num_cache_slots
           )
-          state.generate_step_time.add(time.time() - start_ts)
 
-        state.decoded_tokens[np.arange(state.num_cache_slots), state.steps] = (
-            tokens
-        )
-        state.scores += scores * state.slots_in_use
-        state.steps += state.slots_in_use
+          state.decoded_tokens[
+              np.arange(state.num_cache_slots), state.steps
+          ] = tokens
 
-        done = done * state.slots_in_use
-        done = np.logical_or(done, state.steps >= state.max_decode_steps)
+          state.scores += scores * prev_mask
+          state.steps += prev_mask
+          done = done * prev_mask
 
-        if not np.any(done):
-          continue
+          done = np.logical_or(done, state.steps >= state.max_decode_steps)
 
-        self._run_post_generate_async(
-            state,
-            copy.deepcopy(state.decoded_tokens[done]),
-            copy.deepcopy(state.scores[done]),
-            done,
-        )
-        # Reset the cache slot state.
-        state.decoded_tokens[done] = 0
-        state.scores[done] = 0.0
-        state.steps[done] = 0
-        state.slots_in_use[done] = 0
+          if np.any(done):
+            # Detokenize and send RPC in another thread for done slots
+            self._run_post_generate_async(
+                state,
+                copy.deepcopy(state.decoded_tokens[done]),
+                copy.deepcopy(state.scores[done]),
+                done,
+            )
+            # Reset the cache slot state.
+            state.decoded_tokens[done] = 0
+            state.scores[done] = 0.0
+            state.steps[done] = 0
+            state.slots_in_use[done] = 0
 
-        # Release the slots.
-        for slot in np.flatnonzero(done):
-          logging.info('Releasing slot %d.', slot)
-          state.available_slots.put(slot)
+            # Discard stale run-ahead results
+            current_mask[done] = 0
+
+            # Release the slots.
+            for slot in np.flatnonzero(done):
+              logging.info('Releasing slot %d.', slot)
+              state.available_slots.put(slot)
+
+        prev_result = current_result
+        prev_mask = current_mask
+
+        state.generate_step_time.add(time.time() - start_ts)
 
   def _run_post_generate_async(
       self, state: ContinuousBatchingState, sequences, scores, done
