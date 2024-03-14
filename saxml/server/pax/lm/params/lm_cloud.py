@@ -396,6 +396,34 @@ class LLaMA7BContinuousBatchingTPUv5e8(LLaMA7BTPUv5e4):
 
 
 @servable_model_registry.register
+class LLaMA7BH100BS8(LLaMA7BTPUv5e4):
+  """7B model on a H100."""
+
+  BATCH_SIZE = 8
+  NUM_CACHE_SLOTS = 0
+
+  ICI_MESH_SHAPE = [1, 1, 1]
+
+  @property
+  def test_mode(self) -> bool:
+    return False
+
+
+@servable_model_registry.register
+class LLaMA7BH100(LLaMA7BTPUv5e4):
+  """7B model on a H100."""
+
+  BATCH_SIZE = 8
+  NUM_CACHE_SLOTS = 16
+
+  ICI_MESH_SHAPE = [1, 1, 1]
+
+  @property
+  def test_mode(self) -> bool:
+    return False
+
+
+@servable_model_registry.register
 @quantization.for_transformer(quantize_on_the_fly=False)
 class LLaMA13B(BaseLLaMA):
   """13B model on a A100-40GB.
@@ -602,7 +630,17 @@ class LLaMA70BInt8H100x8(LLaMA70BFP16H100x8):
   REPEATED_LAYERS = False
   ICI_MESH_SHAPE = [1, 1, 8]
 
-  NUM_CACHE_SLOTS = 64
+  BATCH_SIZE = 32
+  NUM_CACHE_SLOTS = 128
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
+class LLaMA70BInt8H100x8BS32(LLaMA70BFP16H100x8):
+  """LlaMA-2 70B model with pre-quantized int8 checkpoint on H100x8."""
+
+  BATCH_SIZE = 32
+  NUM_CACHE_SLOTS = 0
 
 
 @servable_model_registry.register
