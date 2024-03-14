@@ -14,6 +14,10 @@ pytype_strict_library(
     srcs = ["all_imports.py"],
     srcs_version = "PY3",
     tags = ["keep_dep"],
+    visibility = [
+        "//learning/grp/managed_models:__subpackages__",
+        "//saxml:internal",
+    ],
     deps = [
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax/lm/params:c4",
