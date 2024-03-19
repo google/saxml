@@ -91,7 +91,7 @@ func formatFloat(val float64) string {
 	return strconv.FormatFloat(val, 'G', 8, 64)
 }
 
-// ExtraInputs creates a list of options setters from a string in the form of "a:0.5,b:1.2".
+// ExtraInputs creates a list of options setters from a string in the form of "a:0.5,b:1.2,c:'/foo/bar'".
 func ExtraInputs(extra string) []sax.ModelOptionSetter {
 	extraFields := strings.Split(extra, ",")
 	options := []sax.ModelOptionSetter{}
@@ -102,12 +102,25 @@ func ExtraInputs(extra string) []sax.ModelOptionSetter {
 			continue
 		}
 
-		value, err := strconv.ParseFloat(kv[1], 32)
-		if err != nil {
-			log.V(1).Infof("Cannot parse value for %s\n", kv[1])
+		key, val := kv[0], kv[1]
+		sz := len(val)
+
+		// val is a quoted string.
+		if sz >= 2 && (val[0] == '"' || val[0] == '\'') && (val[0] == val[sz-1]) {
+			options = append(options, sax.WithExtraInputString(key, val[1:sz-1]))
 			continue
 		}
-		options = append(options, sax.WithExtraInput(kv[0], float32(value)))
+
+		// val is a float
+		value, err := strconv.ParseFloat(val, 32)
+		if err == nil {
+			options = append(options, sax.WithExtraInput(key, float32(value)))
+			continue
+		}
+
+		// Assume val is a string.
+		options = append(options, sax.WithExtraInputString(key, val))
 	}
+	log.V(1).Infof("options %v", options)
 	return options
 }
