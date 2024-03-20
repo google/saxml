@@ -36,7 +36,7 @@ DECODE_CACHE = base_layer.DECODE_CACHE
 CACHE_SCALE_SUFFIX = '_scale'
 
 
-def _reduce_last_dim(t: JTensor) -> tuple[JTensor, JTensor]:
+def reduce_last_dim_for_quantization(t: JTensor) -> tuple[JTensor, JTensor]:
   bound = jnp.max(jnp.abs(t), axis=[-1], keepdims=True)
   scale = bound / 127.0
   scale = jnp.where(scale == 0.0, 1.0, scale)
@@ -377,7 +377,7 @@ class QuantizedKVMQA(multi_query_attention.MultiQueryDotProductAttention):
     if not self.is_mutable_collection(DECODE_CACHE):
       return
 
-    q_value, q_scale = _reduce_last_dim(state)
+    q_value, q_scale = reduce_last_dim_for_quantization(state)
     self.put_variable(DECODE_CACHE, name, q_value)
     self.put_variable(DECODE_CACHE, name + CACHE_SCALE_SUFFIX, q_scale)
 
@@ -402,7 +402,7 @@ class QuantizedKVMQA(multi_query_attention.MultiQueryDotProductAttention):
       extend_value = jnp.expand_dims(value, axis=time_dim)
     else:
       extend_value = value
-    qvalue, qscale = _reduce_last_dim(extend_value)
+    qvalue, qscale = reduce_last_dim_for_quantization(extend_value)
     indices = [0] * qvalue.ndim
     indices[time_dim] = time_step.astype(jnp.int32)
     state = self.get_variable(DECODE_CACHE, name)
