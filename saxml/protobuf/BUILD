@@ -27,6 +27,7 @@ package_group(
         "//saxml:internal",
     ],
     packages = [
+        "//cloud/security/ctd/aiassist/saxclient/...",
         "//java/com/google/vr/multimodal/...",
         "//javatests/com/google/vr/multimodal/...",
         "//research/bigpicture/llm_api_use/sax/...",
