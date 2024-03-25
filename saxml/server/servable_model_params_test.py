@@ -31,26 +31,26 @@ class ServableModelParamsTest(absltest.TestCase):
     params.LIST_KEY = [128, 256]
     params.ANOTHER_LIST_KEY = [1, 2]
     params.apply_model_overrides(dict(
-        INT_KEY=100,
-        STR_KEY="foo",
-        LIST_KEY=[55, 65, 75],
+        INT_KEY="100",
+        STR_KEY="\"foo\"",
+        LIST_KEY="[55, 65, 75]",
     ))
     self.assertEqual(params.INT_KEY, 100)
     self.assertEqual(params.STR_KEY, "foo")
     self.assertEqual(params.LIST_KEY, [55, 65, 75])
     self.assertEqual(params.ANOTHER_LIST_KEY, [1, 2])
 
-  def test_exception_on_missing_field(self):
+  def test_skip_on_missing_field(self):
     params = self.params
     params.INT_KEY = 42
-    self.assertRaises(ValueError, params.apply_model_overrides, dict(
-        ANOTHER_INT_KEY=100,))
+    params.apply_model_overrides(dict(ANOTHER_INT_KEY="100",))
+    self.assertEqual(params.INT_KEY, 42)
 
   def test_exception_on_different_type(self):
     params = self.params
     params.INT_KEY = 42
     self.assertRaises(ValueError, params.apply_model_overrides, dict(
-        INT_KEY=False,))
+        INT_KEY="false",))
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@
 """Base classes for servable model and method config classes."""
 
 import abc
+import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from absl import logging
@@ -121,7 +122,7 @@ class ServableModelParams(abc.ABC):
 
     The default handling of overrides is as follows:
 
-      - Fail if the provided key is not found on this model config.
+      - Warning if the provided key is not found on this model config.
       - Fail if the types of the original and provided values mismatch.
       - Replace the original value with the provided value.
 
@@ -130,15 +131,17 @@ class ServableModelParams(abc.ABC):
     Args:
         overrides: Model config key-value pairs supplied by the Publish command.
     """
-    for k, v in overrides.items():
+    for k, v_raw in overrides.items():
       if not hasattr(self, k):
-        raise ValueError(
-            "Can't override %s because it's not set on %s" % (k, self)
-        )
+        logging.warning("Can't override %s because it's not set on %s", k, self)
+        continue
+      try:
+        v = json.loads(v_raw)
+      except Exception as e:  # pylint: disable=broad-exception-caught
+        logging.warning('Not a valid json value: %s %s', v_raw, e)
+        continue
       cur_v = getattr(self, k)
-      if (v is not None
-          and cur_v is not None
-          and type(v) != type(cur_v)):  # pylint: disable=unidiomatic-typecheck
+      if v is not None and cur_v is not None and type(v) != type(cur_v):  # pylint: disable=unidiomatic-typecheck
         raise ValueError(
             'Mismatched type of override: original: %s; override: %s'
             % (cur_v, v)

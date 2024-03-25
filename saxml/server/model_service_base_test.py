@@ -50,6 +50,7 @@ class GetStatusTest(absltest.TestCase):
         admin_port=portpicker.pick_unused_port(),
         platform_chip='cpu',
         platform_topology='1',
+        tags=[]
     )
     mock_loader = self.enter_context(
         mock.patch.object(self._service, '_loader', autospec=True)

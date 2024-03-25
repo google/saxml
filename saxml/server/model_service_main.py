@@ -52,6 +52,9 @@ _PLATFORM_CHIP = flags.DEFINE_string(
 _PLATFORM_TOPOLOGY = flags.DEFINE_string(
     'platform_topology', '1', 'Optional topology description.'
 )
+_TAGS = flags.DEFINE_list(
+    'tags', [], 'Optional list of string tags.'
+)
 _JAX_PROFILER_PORT = flags.DEFINE_integer(
     'jax_profiler_port',
     None,
@@ -212,6 +215,7 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
       admin_port=_ADMIN_PORT.value,
       platform_chip=_PLATFORM_CHIP.value,
       platform_topology=_PLATFORM_TOPOLOGY.value,
+      tags=_TAGS.value,
       backend=spmd_bknd,
   )
   # Start jax.profiler for TensorBoard and profiling in open source.

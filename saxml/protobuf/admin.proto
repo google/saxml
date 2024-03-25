@@ -152,7 +152,16 @@ message ModelServer {
   }
   ChipTopology chip_topology = 2;
 
+  // The server informs the admin which model paths it supported. Hence,
+  // it is expected that the admin will only ask this server to load models
+  // whose model paths in this list.
+  //
+  // E.g., saxml.lm.params.Gemma7B
   repeated string servable_model_paths = 3;
+
+  // A set of strings associated with this server. Each tag is a free form
+  // string. The admin may use these tags during the model assignment.
+  repeated string tags = 4;
 }
 
 message ModelServerTypeStat {

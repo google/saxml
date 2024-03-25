@@ -17,6 +17,7 @@ package utils
 
 import (
 	"strconv"
+	"strings"
 
 	log "github.com/golang/glog"
 	"saxml/admin/protobuf"
@@ -135,4 +136,13 @@ func GetMemoryRequired(spec *apb.Model) int64 {
 		return -1
 	}
 	return value
+}
+
+// GetConstraints extracts constraints from the model specification's overrides.
+func GetConstraints(spec *apb.Model) []string {
+	found, ok := spec.GetOverrides()["constraints"]
+	if !ok {
+		return nil
+	}
+	return strings.Split(found, ",")
 }

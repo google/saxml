@@ -36,6 +36,7 @@ type ParamPath string
 type ServerInfo struct {
 	memoryCapacity    int64
 	servableModelPath []ParamPath
+	tags              map[string]bool
 	loadedModel       map[naming.ModelFullName]protobuf.ModelStatus
 }
 
@@ -45,10 +46,14 @@ func NewServerInfo(serverSpec *protobuf.ModelServer) *ServerInfo {
 	s := &ServerInfo{
 		memoryCapacity:    utils.GetServerMemoryCapacity(serverSpec),
 		servableModelPath: []ParamPath{},
+		tags:              make(map[string]bool),
 		loadedModel:       make(map[naming.ModelFullName]protobuf.ModelStatus),
 	}
 	for _, path := range serverSpec.ServableModelPaths {
 		s.servableModelPath = append(s.servableModelPath, ParamPath(path))
+	}
+	for _, tag := range serverSpec.Tags {
+		s.tags[tag] = true
 	}
 	return s
 }
@@ -64,6 +69,7 @@ type ModelInfo struct {
 	modelPath      ParamPath
 	neededReplicas int
 	memoryRequired int64
+	constraints    []string
 }
 
 // NewModelInfo constructs a ModelInfo given a model definition.
@@ -72,6 +78,7 @@ func NewModelInfo(spec *apb.Model) *ModelInfo {
 		modelPath:      ParamPath(spec.GetModelPath()),
 		neededReplicas: int(spec.GetRequestedNumReplicas()),
 		memoryRequired: utils.GetMemoryRequired(spec),
+		constraints:    utils.GetConstraints(spec),
 	}
 }
 
@@ -245,7 +252,19 @@ func (a *Assigner) Assign() {
 		candidates := []*serverMemItem{}
 		for _, addr := range a.params[model.modelPath] {
 			avail := availMem[addr]
-			if required <= avail {
+			if required > avail {
+				continue
+			}
+			server := a.servers[addr]
+			// All constraints need to be met by tags of the server.
+			constrainsMet := true
+			for _, tag := range model.constraints {
+				if _, ok := server.tags[tag]; !ok {
+					constrainsMet = false
+					break
+				}
+			}
+			if constrainsMet {
 				candidates = append(candidates, &serverMemItem{
 					addr:     addr,
 					availMem: avail,

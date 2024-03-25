@@ -17,6 +17,7 @@ package protobuf
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"saxml/common/errors"
@@ -102,16 +103,21 @@ type ModelServer struct {
 	ChipType           ChipType
 	ChipTopology       ChipTopology
 	ServableModelPaths []string
+	Tags               []string
 }
 
 // NewModelServer converts a proto value to a ModelServer value.
 func NewModelServer(m *apb.ModelServer) *ModelServer {
 	paths := make([]string, len(m.GetServableModelPaths()))
 	copy(paths, m.GetServableModelPaths())
+	tags := make([]string, len(m.GetTags()))
+	copy(tags, m.GetTags())
+	sort.Strings(tags)
 	return &ModelServer{
 		ChipType:           ChipType(m.GetChipType()),
 		ChipTopology:       ChipTopology(m.GetChipTopology()),
 		ServableModelPaths: paths,
+		Tags:               tags,
 	}
 }
 
@@ -119,10 +125,13 @@ func NewModelServer(m *apb.ModelServer) *ModelServer {
 func (m *ModelServer) ToProto() *apb.ModelServer {
 	paths := make([]string, len(m.ServableModelPaths))
 	copy(paths, m.ServableModelPaths)
+	tags := make([]string, len(m.Tags))
+	copy(tags, m.Tags)
 	return &apb.ModelServer{
 		ChipType:           apb.ModelServer_ChipType(m.ChipType),
 		ChipTopology:       apb.ModelServer_ChipTopology(m.ChipTopology),
 		ServableModelPaths: paths,
+		Tags:               tags,
 	}
 }
 

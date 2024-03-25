@@ -344,7 +344,7 @@ class ContinuousBatchingState:
     # runs in FIFO order.
     self.post_process_pool = utils.ThreadPool(
         num_threads=1,
-        thread_name_prefix='model_service_runner_post_processer',
+        thread_name_prefix='model_service_runner_post_processor',
     )
     self.generate_cv = threading.Condition()
     self.available_slots = queue.SimpleQueue()
@@ -670,7 +670,7 @@ class LoadedModelManager:
       ckpt_path: Path of the checkpoint.
       acls: ACL names for this model's methods.
       overrides: Overrides that can be used for dynamic reconfiguration of
-        params. Values must be serialized JSONs.
+        params.
       prng_key: PRNG key for this model.
       register_methods_callback: Optional callback to initialize model methods.
 
@@ -693,11 +693,7 @@ class LoadedModelManager:
         raise ValueError(f'{model_path} is not a ServableModelParams')
       # pytype: disable=not-instantiable
       params = model_class()
-      parsed_overrides = {
-          key: json.loads(value) for key, value in overrides.items()
-      }
-      logging.info('model_service_base overrides= %s', parsed_overrides)
-      params.apply_model_overrides(parsed_overrides)
+      params.apply_model_overrides(overrides)
       loaded = params.load(key, ckpt_path, self._primary_process_id, prng_key)
       # pytype: enable=not-instantiable
       loaded.set_acls(acls)
@@ -979,6 +975,7 @@ class ModeletService:
       admin_port: Optional[int],
       platform_chip: Optional[str],
       platform_topology: Optional[str],
+      tags: Optional[List[str]],
       *args,
       **kwargs,
   ):
@@ -1046,6 +1043,7 @@ class ModeletService:
           logging.info('Servable model alias %s for %s', alias, k)
           self._loadable_model_paths.append(alias)
 
+    self._tags = tags
     self._ipport = ipaddr.Join(ipaddr.MyIPAddr(), service_port)
     self._debug_addr = (
         '' if debug_port is None else ipaddr.Join(ipaddr.MyIPAddr(), debug_port)
@@ -1065,6 +1063,7 @@ class ModeletService:
           chip_type=self._platform_chip,
           chip_topology=self._platform_topology,
           servable_model_paths=list(self._loadable_model_paths),
+          tags=self._tags
       )
       try:
         location.Join(
@@ -1333,6 +1332,7 @@ class ModelServicesRunner:
       admin_port: Optional[int] = None,
       platform_chip: Optional[str] = None,
       platform_topology: Optional[str] = None,
+      tags: Optional[List[str]] = None,
       backend: Optional[spmd_backend.SPMDBackend] = None,
       fail_on_error: bool = False,
   ):
@@ -1417,6 +1417,7 @@ class ModelServicesRunner:
         admin_port=admin_port,
         platform_chip=platform_chip,
         platform_topology=platform_topology,
+        tags=tags
     )
     self._platform_topology = platform_topology
     all_grpc_services = [self._modelet_service]

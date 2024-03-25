@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"reflect"
 	"testing"
 
 	"saxml/admin/protobuf"
@@ -69,6 +70,26 @@ func TestGetMemoryRequired(t *testing.T) {
 		actual := GetMemoryRequired(spec)
 		if actual != tc.expected {
 			t.Errorf("GetMemoryRequired(%v) err got %d, want %d", spec, actual, tc.expected)
+		}
+	}
+}
+
+func TestGetConstraints(t *testing.T) {
+	tests := []struct {
+		constraints string
+		expected    []string
+	}{
+		{"", nil},
+		{"run=abc,topo=2x2", []string{"run=abc", "topo=2x2"}},
+	}
+	for _, tc := range tests {
+		spec := &apb.Model{}
+		if tc.constraints != "" {
+			spec.Overrides = map[string]string{"constraints": tc.constraints}
+		}
+		actual := GetConstraints(spec)
+		if !reflect.DeepEqual(actual, tc.expected) {
+			t.Errorf("GetConstraints(%v) err got %v, want %v", spec, actual, tc.expected)
 		}
 	}
 }

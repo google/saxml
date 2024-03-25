@@ -17,7 +17,6 @@ package saxcommand
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -410,11 +409,6 @@ func (c *PublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) 
 		key, val, found := strings.Cut(item, "=")
 		if !found {
 			log.Errorf("Overrides should be of the form key=val")
-			return subcommands.ExitUsageError
-		}
-		var parsedValue any
-		if err := json.Unmarshal([]byte(val), &parsedValue); err != nil {
-			log.Errorf("Override value is not a valid JSON: %v", err)
 			return subcommands.ExitUsageError
 		}
 		overrides[key] = val
