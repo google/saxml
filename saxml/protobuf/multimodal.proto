@@ -27,6 +27,10 @@ message IdList {
   repeated int64 id = 1;
 }
 
+message Embedding {
+  repeated float values = 1 [packed = true];
+}
+
 message AudioFloatSamples {
   repeated float sample = 1;
 }
@@ -36,6 +40,7 @@ message DataItem {
     string text = 1;
     bytes image_bytes = 2;
     IdList image_tokens = 3;
+    Embedding image_embedding = 6;
     AudioFloatSamples audio_float_samples = 4;
     // 'video' is up to the specific model to interpret. E.g., it can be the
     // content of a mpeg4 file.
