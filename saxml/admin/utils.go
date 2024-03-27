@@ -58,6 +58,8 @@ func GetServerMemoryCapacity(spec *protobuf.ModelServer) int64 {
 	}
 	var numCores int64
 	switch apb.ModelServer_ChipTopology(spec.ChipTopology) {
+	case apb.ModelServer_CHIP_TOPOLOGY_UNKNOWN:
+		numCores = 1 // Assumption
 	case apb.ModelServer_CHIP_TOPOLOGY_1:
 		numCores = 1
 	case apb.ModelServer_CHIP_TOPOLOGY_2:

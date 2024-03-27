@@ -1,8 +1,8 @@
 # Sax model server.
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_binary", "pytype_strict_library")
 load("//saxml/server:build_defs.bzl", "create_server_binary")
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 default_visibility = ["//saxml:internal"]
 

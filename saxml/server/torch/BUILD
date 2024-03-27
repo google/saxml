@@ -1,5 +1,5 @@
-load("//saxml/server:build_defs.bzl", "create_server_binary")
 load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_library")
+load("//saxml/server:build_defs.bzl", "create_server_binary")
 
 licenses(["notice"])
 

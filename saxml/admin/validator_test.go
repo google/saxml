@@ -387,13 +387,13 @@ func TestValidateJoinRequest(t *testing.T) {
 
 	req.Address = "localhost:20000"
 	req.ModelServer = &apb.ModelServer{}
-	if err := validator.ValidateJoinRequest(req); err == nil {
-		t.Errorf("Join(%v) no error, want some error for unknown ChipType", req)
+	if err := validator.ValidateJoinRequest(req); err != nil {
+		t.Errorf("Join(%v) err %v, want no error", req, err)
 	}
 
 	req.GetModelServer().ChipType = apb.ModelServer_CHIP_TYPE_TPU_V2
-	if err := validator.ValidateJoinRequest(req); err == nil {
-		t.Errorf("Join(%v) no error, want some error for unknown ChipTopology", req)
+	if err := validator.ValidateJoinRequest(req); err != nil {
+		t.Errorf("Join(%v) err %v, want no error", req, err)
 	}
 
 	req.GetModelServer().ChipTopology = apb.ModelServer_CHIP_TOPOLOGY_1X1

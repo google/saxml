@@ -1007,17 +1007,6 @@ class ModeletService:
     logging.info(
         'Platform topology %s, %s', platform_topology, self._platform_topology
     )
-    if sax_cell:
-      if (
-          self._platform_chip
-          == admin_pb2.ModelServer.ChipType.CHIP_TYPE_UNKNOWN
-      ):
-        raise ValueError('Chip type unknown')
-      if (
-          self._platform_topology
-          == admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_UNKNOWN
-      ):
-        raise ValueError('Chip topology unknown')
     # If self._sax_cell is set to not None below, loadable model paths will get
     # imported, and location.Join will be called after the server starts.
     self._sax_cell = None

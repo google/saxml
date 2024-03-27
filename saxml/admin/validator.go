@@ -170,15 +170,5 @@ func ValidateJoinRequest(req *pb.JoinRequest) error {
 		return fmt.Errorf("JoinRequest.modelet missing: %w", errors.ErrInvalidArgument)
 	}
 
-	chipType := modelet.GetChipType()
-	if chipType == pb.ModelServer_CHIP_TYPE_UNKNOWN {
-		return fmt.Errorf("Modelet.chip_type cannot be unknown: %w", errors.ErrInvalidArgument)
-	}
-
-	chipTopology := modelet.GetChipTopology()
-	if chipTopology == pb.ModelServer_CHIP_TOPOLOGY_UNKNOWN {
-		return fmt.Errorf("Modelet.chip_topology cannot be unknown: %w", errors.ErrInvalidArgument)
-	}
-
 	return nil
 }
