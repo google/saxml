@@ -412,8 +412,9 @@ class VisionModel {
   absl::Status Embed(const ModelOptions& options, absl::string_view image_bytes,
                      std::vector<double>* embedding) const;
 
-  // The following structs mirror vision.proto's message types. Please refer to
-  // comments there for their semantics.
+  // The following structs mirror vision.proto's message types.
+  // The coordinates are normalized coordinates in the range [0,1] and are
+  // interpreted as a fraction of the image height or width.
   struct BoundingBox {
     double cx;  // Center of the box in x-axis.
     double cy;  // Center of the box in y-axis.
