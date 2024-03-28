@@ -18,8 +18,8 @@ import time
 from absl.testing import absltest
 import grpc
 import portpicker
+from saxml.common import location
 from saxml.common.platform import env
-from saxml.common.python import location
 from saxml.common.python import testutil
 from saxml.protobuf import admin_pb2
 from saxml.protobuf import admin_pb2_grpc

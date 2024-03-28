@@ -15,7 +15,7 @@
 
 from typing import Optional
 
-from saxml.common.python import pybind_location
+from saxml.common import pybind_location
 
 
 def Join(

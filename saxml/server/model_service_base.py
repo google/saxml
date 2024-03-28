@@ -34,7 +34,7 @@ import grpc
 from grpc_reflection.v1alpha import reflection
 import jaxtyping as jt
 import numpy as np
-from saxml.common.python import location
+from saxml.common import location
 from saxml.protobuf import admin_pb2
 from saxml.protobuf import common_pb2
 from saxml.protobuf import modelet_pb2

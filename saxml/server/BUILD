@@ -239,7 +239,7 @@ pytype_strict_library(
         ":spmd_backend",
         ":utils",
         ":validate",
-        "//saxml/common/python:location",
+        "//saxml/common:location_py",
         "//saxml/protobuf:admin_py_pb2",
         "//saxml/protobuf:common_py_pb2",
         "//saxml/protobuf:modelet_py_pb2",

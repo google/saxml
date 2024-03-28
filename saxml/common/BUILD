@@ -1,6 +1,6 @@
 # Sax components used by the client, admin server, and model server.
 
-load("//saxml:saxml.bzl", "go_binary", "go_library", "go_test")
+load("//saxml:saxml.bzl", "go_binary", "go_library", "go_test", "py_strict_test", "pybind_extension", "pytype_strict_library")
 
 package(
     default_visibility = ["//saxml:internal"],
@@ -131,6 +131,38 @@ cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_github_grpc_grpc//:grpc++",
+    ],
+)
+
+pybind_extension(
+    name = "pybind_location",
+    srcs = ["pybind_location.cc"],
+    deps = [":location_cc"],
+)
+
+pytype_strict_library(
+    name = "location_py",
+    srcs = ["location.py"],
+    pybind_deps = [":pybind_location"],
+    srcs_version = "PY3",
+)
+
+py_strict_test(
+    name = "location_py_test",
+    srcs = ["location_test.py"],
+    main = "location_test.py",
+    pybind_deps = ["//saxml/common/python:testutil"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":location_py",
+        "//third_party/py/grpcio",
+        "//third_party/py/absl-py/testing:absltest",
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
+        "//third_party/py/portpicker",
+        "//saxml/common/platform:env_py",
+        "//saxml/protobuf:admin_py_pb2",
+        "//saxml/protobuf:admin_py_pb2_grpc",
     ],
 )
 
