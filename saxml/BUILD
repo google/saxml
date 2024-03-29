@@ -13,6 +13,7 @@ package_group(
     name = "internal",
     packages = [
         "//gdm/sys/gammaray/...",
+        "//gdm/sys/sax/...",
         "//saxml/...",
     ],
 )
