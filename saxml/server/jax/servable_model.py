@@ -522,7 +522,9 @@ class ServableMethod(servable_model.ServableMethod):
       jax.effects_barrier()
 
     return jax.tree_util.tree_map(
-        lambda x: np.array(x.addressable_data(0))[:unpadded_batch_size],
+        lambda x: np.array(x.addressable_data(0))[:unpadded_batch_size]
+        if x.ndim > 0
+        else np.array(x.addressable_data(0)),
         output_tensors,
     )
 
