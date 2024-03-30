@@ -2,10 +2,6 @@
 
 load("//saxml:saxml.bzl", "pybind_extension")
 
-package(
-    default_visibility = ["//saxml:internal"],
-)
-
 pybind_extension(
     name = "testutil",
     testonly = True,
