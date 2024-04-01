@@ -431,8 +431,12 @@ class PerMethodBatcher:
 
     # Start the batching loop.
     def _batching():
-      # Keeps at most 2 active batches in the rest of pipeline.
-      batch_sem = threading.Semaphore(value=2)
+      # Keeps 1 or 2 active batches in the rest of pipeline.
+      if max_live_batches <= 2:
+        sem_limit = 1
+      else:
+        sem_limit = 2
+      batch_sem = threading.Semaphore(value=sem_limit)
 
       def _finish_batch():
         batch_sem.release()
