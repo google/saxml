@@ -37,15 +37,20 @@ COPY --from=build_image \
     /saxml/bazel-bin/saxml/bin/saxutil_/saxutil \
     /usr/bin/saxutil
 
-# Use "/sax/test" as default sax cell.
-ENV SAX_CELL=/sax/test
+# Use "/sax/cell" as default sax cell.
+ENV SAX_CELL=/sax/cell
 # Use "10000" as default port for admin server gRPC endpoint.
 ENV PORT=10000
 ENV SAX_ROOT=""
 ENV FS_ROOT=""
 ENV SAX_GCS_BUCKET=""
+ENV SAX_DIR=""
 # Create a script that configures and runs the admin server.
 RUN echo '#!/bin/bash\n\
+if [[ -n "$SAX_DIR" ]]; then\n\
+	SAX_ROOT=${SAX_DIR}/sax-root \n\
+	FS_ROOT=${SAX_DIR}/sax-fs-root \n\
+fi\n\
 if [[ -n "$GSBUCKET" ]]; then\n\
 	SAX_GCS_BUCKET=${GSBUCKET}\n\
 fi\n\
