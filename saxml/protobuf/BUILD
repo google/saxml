@@ -121,9 +121,7 @@ cc_proto_library(
 cc_stubby_library(
     name = "admin_cc_stubby",
     srcs = [":admin_proto"],
-    visibility = [
-        "//visibility:private",  # Only private by automation, not intent. Owner may accept CLs adding visibility. See go/scheuklappen#explicit-private.
-    ],
+    visibility = ["//visibility:private"],
     deps = [":admin_cc_proto"],
 )
 
