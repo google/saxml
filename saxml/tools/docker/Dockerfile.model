@@ -62,7 +62,7 @@ ENV SAX_DIR=""
 
 RUN echo '#!/bin/bash\n\
 if [[ -n "$SAX_DIR" ]];then \n\
-	SAX_ROOT=${LOCAL_DIR}/sax-root \n\
+	SAX_ROOT=${SAX_DIR}/sax-root \n\
 fi\n\
 if [[ -z "$SAX_ROOT"  ]]; then\n\
 	if [[ -n "$SAX_GCS_BUCKET" && -n "$SAX_REPLICA_NAME" ]]; then\n\
