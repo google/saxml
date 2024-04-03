@@ -1633,9 +1633,7 @@ class ModelServicesRunner:
               preprocess_fn=functools.partial(
                   preprocess_rpc_tasks, prefill=True
               ),
-              # Each batch has `batch_size` requests and we should have at least
-              # `num_cache_slots` * 2 live requests
-              max_live_batches=method.num_cache_slots * 2 // method.batch_size,
+              max_live_batches=method.max_live_batches,
               batching_wait_secs=method.batching_wait_secs,
           )
 
