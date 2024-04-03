@@ -41,7 +41,7 @@ class LocationTest(absltest.TestCase):
     with env.create_grpc_channel(admin_addr) as channel:
       grpc.channel_ready_future(channel).result()
       stub = admin_pb2_grpc.AdminStub(channel)
-      req = admin_pb2.WatchLocRequest(seqno=0)
+      req = admin_pb2.WatchLocRequest()
       resp = stub.WatchLoc(req)
       result = resp.result
       self.assertTrue(result.has_fullset)

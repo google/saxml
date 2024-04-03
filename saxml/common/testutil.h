@@ -33,6 +33,9 @@ void SetUp(const std::string& sax_cell);
 void StartLocalTestCluster(const std::string& sax_cell,
                            ModelType model_type = Language, int admin_port = 0);
 
+// Exports flags needed by other processes to access this testing environment.
+std::string ExportLocalTestClusterFlags();
+
 // Stops and cleans up a running Sax testing environment.
 void StopLocalTestCluster(const std::string& sax_cell);
 

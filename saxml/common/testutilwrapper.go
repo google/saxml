@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"os"
+	"strings"
 	"sync"
 
 	log "github.com/golang/glog"
@@ -103,6 +104,13 @@ func sax_set_up(saxCellStr *C.char, saxCellSize C.int) {
 func sax_start_local_test_cluster(saxCellStr *C.char, saxCellSize C.int, modelType C.int, adminPort C.int) {
 	saxCell := C.GoStringN(saxCellStr, saxCellSize)
 	startLocalTestCluster(saxCell, testutil.ModelType(modelType), int(adminPort))
+}
+
+//export sax_export_local_test_cluster_flags
+func sax_export_local_test_cluster_flags(flagsPtr **C.char, flagsSize *C.int) {
+	flags := strings.Join(testutil.ExportedFlags(), " ")
+	*flagsPtr = C.CString(flags)
+	*flagsSize = C.int(len(flags))
 }
 
 //export sax_stop_local_test_cluster

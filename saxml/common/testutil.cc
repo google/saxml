@@ -31,6 +31,13 @@ void StartLocalTestCluster(const std::string& sax_cell, ModelType model_type,
                                sax_cell.size(), (int)model_type, admin_port);
 }
 
+std::string ExportLocalTestClusterFlags() {
+  char* flags_ptr = nullptr;
+  int flags_size = 0;
+  sax_export_local_test_cluster_flags(&flags_ptr, &flags_size);
+  return std::string(flags_ptr, flags_size);
+}
+
 void StopLocalTestCluster(const std::string& sax_cell) {
   sax_stop_local_test_cluster(const_cast<char*>(sax_cell.data()),
                               sax_cell.size());

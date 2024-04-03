@@ -117,7 +117,7 @@ cc_library(
 )
 
 cc_test(
-    name = "location_cc_test",
+    name = "location_test_cc",
     srcs = ["location_test.cc"],
     deps = [
         ":location_cc",
@@ -148,7 +148,7 @@ pytype_strict_library(
 )
 
 py_strict_test(
-    name = "location_py_test",
+    name = "location_test_py",
     srcs = ["location_test.py"],
     main = "location_test.py",
     pybind_deps = ["//saxml/common/python:testutil"],

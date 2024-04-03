@@ -32,7 +32,9 @@ PYBIND11_MODULE(testutil, m) {
         "Set up and start a Sax test environment", pybind11::arg("sax_cell"),
         pybind11::arg("model_type") = ModelType::Language,
         pybind11::arg("admin_port") = 0);
-
+  m.def(
+      "ExportLocalTestClusterFlags", &ExportLocalTestClusterFlags,
+      "Export flags needed by other processes to access this test environment");
   m.def("StopLocalTestCluster", &StopLocalTestCluster,
         "Stop and clean up a Sax test environment", pybind11::arg("sax_cell"));
 }

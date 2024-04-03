@@ -85,6 +85,11 @@ func SetUp(ctx context.Context, t *testing.T, saxCell string, adminACL string) {
 	}
 }
 
+// ExportedFlags returns the flags needed by other processes to access this test environment.
+func ExportedFlags() []string {
+	return nil  // unused internal test flags
+}
+
 type stubAdminServer struct {
 	saxCell        string
 	modelAddresses *watchable.Watchable
