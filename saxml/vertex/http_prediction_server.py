@@ -13,6 +13,7 @@
 # limitations under the License.
 """Http prediction server."""
 
+import asyncio
 import concurrent
 import json
 import multiprocessing
@@ -20,14 +21,12 @@ import os
 
 from absl import flags
 from absl import logging
-
 import grpc
 from saxml.client.python import sax
 from saxml.protobuf import admin_pb2
 from saxml.protobuf import admin_pb2_grpc
 from saxml.vertex import constants
 from saxml.vertex import translate
-import tornado.ioloop
 import tornado.web
 
 
@@ -59,6 +58,11 @@ class PredictHandler(tornado.web.RequestHandler):
     self.executor = concurrent.futures.ThreadPoolExecutor(
         max_workers=multiprocessing.cpu_count())
 
+  async def _send_request(self, lm, lm_request_text, option):
+    return await asyncio.get_running_loop().run_in_executor(
+        self.executor, lm.Generate, lm_request_text, option
+    )
+
   async def post(self):
     logging.info("got prediction request")
     try:
@@ -76,11 +80,10 @@ class PredictHandler(tornado.web.RequestHandler):
 
       tasks = []
       for lm_request_text, option in lm_requests:
-        tasks.append(self.executor.submit(lm.Generate, lm_request_text, option))
-
-      lm_responses = []
-      for task in concurrent.futures.as_completed(tasks):
-        lm_responses.append(task.result())
+        tasks.append(
+            asyncio.create_task(self._send_request(lm, lm_request_text, option))
+        )
+      lm_responses = await asyncio.gather(*tasks)
 
       response["predictions"].extend(lm_responses)
 
@@ -167,8 +170,8 @@ def _make_app(
     Tornado web application.
 
   """
-    # pylint: disable=g-line-too-long
-    # https://cloud.google.com/vertex-ai/docs/predictions/custom-container-requirements
+  # pylint: disable=g-line-too-long
+  # https://cloud.google.com/vertex-ai/docs/predictions/custom-container-requirements
   predict_handler = (
       os.getenv("PREDICT_ROUTE")
       or os.getenv("AIP_PREDICT_ROUTE")
@@ -199,14 +202,15 @@ def _make_app(
   ])
 
 
-def run(
+async def run(
     http_port: int,
     admin_port: int,
     model_key: str,
-    prediction_timeout_seconds: int
+    prediction_timeout_seconds: int,
 ):
   """Run the tornado http prediction server."""
 
+  logging.info("Using Tornado version: %s", str(tornado.version_info))
   webserver_app = _make_app(
       admin_port=admin_port,
       model_key=model_key,
@@ -216,6 +220,5 @@ def run(
   webserver_app.listen(http_port)
 
   logging.info("Tornado loop started")
-  tornado.ioloop.IOLoop.current().start()
+  await asyncio.Event().wait()
   logging.info("Tornado server stopped.")
-

@@ -13,13 +13,14 @@
 # limitations under the License.
 """Launcher for SAX Model Server, HTTP and GRPC servers."""
 
+import asyncio
 import concurrent
 import os
 import subprocess
+import sys
 import time
 from typing import Sequence
 
-from absl import app
 from absl import flags
 from absl import logging
 from saxml.client.python import sax
@@ -310,15 +311,14 @@ def _get_prediction_service_ports():
   return http_port, grpc_port
 
 
-def main(argv: list[str]):
-  del argv
+async def main():
   logging.set_verbosity(logging.INFO)
 
   try:
     http_port, grpc_port = _get_prediction_service_ports()
 
     configure_admin_server()
-    sax_server = launch_sax_model_server()
+    launch_sax_model_server()
 
     # publish model using SAX client
     if not publish_model(_MODEL_KEY.value, _MODEL_PATH.value):
@@ -326,25 +326,22 @@ def main(argv: list[str]):
                     _MODEL_KEY.value, _MODEL_PATH.value)
       os._exit(-1)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-      if http_port:
-        logging.info("Starting HTTP server at port: %d", http_port)
-        executor.submit(
-            http_prediction_server.run,
-            http_port,
-            _ADMIN_PORT.value,
-            _MODEL_KEY.value,
-            _PREDICTION_TIMEOUT_SECONDS.value
-        )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
       if grpc_port:
         executor.submit(
             grpc_prediction_server.run,
             grpc_port,
             _MODEL_KEY.value,
-            _PREDICTION_TIMEOUT_SECONDS.value
+            _PREDICTION_TIMEOUT_SECONDS.value,
         )
-    logging.info("done initializing HTTP and/or gRPC servers")
-    sax_server.wait()
+    if http_port:
+      logging.info("Starting HTTP server at port: %d", http_port)
+      await http_prediction_server.run(
+          http_port,
+          _ADMIN_PORT.value,
+          _MODEL_KEY.value,
+          _PREDICTION_TIMEOUT_SECONDS.value,
+      )
   except Exception as e:  # pylint: disable=broad-except
     logging.exception("Caught exception: %s", e)
     # Need to use os._exit(), instead of sys.exit(), to really exit the
@@ -352,5 +349,7 @@ def main(argv: list[str]):
     # launched processes run as non-daemon.
     os._exit(-1)  # pylint: disable=protected-access
 
+
 if __name__ == "__main__":
-  app.run(main, flags_parser=lambda _args: flags.FLAGS(_args, known_only=True))
+  flags.FLAGS(sys.argv, known_only=True)
+  asyncio.run(main())

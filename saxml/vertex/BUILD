@@ -18,11 +18,10 @@ pytype_strict_binary(
         ":launcher_lib",
         ":sax_model_server",
         ":translate",
-        "//third_party/py/absl-py:app",
         "//third_party/py/absl-py/flags",
         "//third_party/py/absl-py/logging",
         "//third_party/py/grpcio",
-        "//third_party/py/tornado",
+        "//third_party/py/tornado:tornado_vnext",
     ],
 )
 
@@ -40,11 +39,10 @@ pytype_strict_library(
         ":http_prediction_server",
         ":sax_model_server",
         ":translate",
-        "//third_party/py/absl-py:app",
         "//third_party/py/absl-py/flags",
         "//third_party/py/absl-py/logging",
         "//third_party/py/grpcio",
-        "//third_party/py/tornado",
+        "//third_party/py/tornado:tornado_vnext",
     ],
 )
 
@@ -70,7 +68,7 @@ pytype_strict_library(
         "//third_party/py/absl-py/flags",
         "//third_party/py/absl-py/logging",
         "//third_party/py/grpcio",
-        "//third_party/py/tornado",
+        "//third_party/py/tornado:tornado_vnext",
     ],
 )
 
@@ -122,7 +120,7 @@ pytype_strict_library(
     deps = [
         ":constants",
         "//third_party/py/absl-py/logging",
-        "//third_party/py/tornado",
+        "//third_party/py/tornado:tornado_vnext",
     ],
 )
 
