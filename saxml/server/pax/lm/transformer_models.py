@@ -27,6 +27,7 @@ def gemma(
     dim_per_head,
     use_mqa,
     chunked_one_step_attn_num_seq_split=1,
+    chunked_ffn_num_seq_split=1,
 ) -> pax_fiddle.Config[layers.TransformerLm]:
   """Create a TransformerLm config(template) for Gemma model family.
 
@@ -39,6 +40,7 @@ def gemma(
     dim_per_head: Dimension per head.
     use_mqa: Whether use Multi-Query Attention.
     chunked_one_step_attn_num_seq_split: split attention computation in chunks.
+    chunked_ffn_num_seq_split: chunk ff weight computation.
 
   Returns:
     TransformerLm for Gemma.
@@ -86,7 +88,8 @@ def gemma(
   transformer_layer_p.tr_atten_tpl.scale_query_by_dim_per_head = True
   # FeedForward
   transformer_layer_p.tr_fflayer_tpl = pax_fiddle.Config(
-      sax_layers.TransformerFeedForwardWithSeqSplit
+      sax_layers.TransformerFeedForwardWithSeqSplit,
+      chunked_ffn_num_seq_split=chunked_ffn_num_seq_split
   )
   transformer_layer_p.tr_fflayer_tpl.ln_tpl = ln_tpl.clone()
   transformer_layer_p.tr_fflayer_tpl.has_bias = False
