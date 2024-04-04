@@ -28,7 +28,9 @@ package_group(
     ],
     packages = [
         "//cloud/security/ctd/aiassist/saxclient/...",
+        "//java/com/google/contentads/xbid/server/llm/...",
         "//java/com/google/vr/multimodal/...",
+        "//javatests/com/google/contentads/xbid/server/llm/...",
         "//javatests/com/google/vr/multimodal/...",
         "//research/bigpicture/llm_api_use/sax/...",
         "//vr/multimodal/...",
