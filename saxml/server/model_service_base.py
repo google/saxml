@@ -2113,11 +2113,7 @@ class ModelServicesRunner:
           scores, tokens, prefix_cache = method_obj.prefill(
               inputs=request.preprocessed_inputs,
           )
-          state.update_stats(
-              prefill_wait_time=prefill_dequeue_time - request.enqueue_time,
-              insert_wait_time=time.time() - prefill_dequeue_time,
-          )
-
+          insert_start_time = time.time()
           method_obj.insert(prefix_cache, slots)
           del prefix_cache
 
@@ -2137,6 +2133,12 @@ class ModelServicesRunner:
 
         # Must set slots_in_use in the end.
         state.slots_in_use[slots, ...] = 1
+
+        # Update stats
+        state.update_stats(
+            prefill_wait_time=prefill_dequeue_time - request.enqueue_time,
+            insert_wait_time=insert_start_time - prefill_dequeue_time,
+        )
 
         # Don't wake up the generate thread if there are more pending requests
         # and empty slots.
@@ -2417,12 +2419,6 @@ class ModelServicesRunner:
         case MethodName.PREFILL_INSERT:
           try:
             model_key, model_method, slots = msgs
-            logging.info(
-                'Received PREFILL_INSERT model_key %s method %s slot %s',
-                model_key,
-                model_method,
-                slots,
-            )
             slots = [int(s) for s in slots.split(',')]
             method_obj = self._loaded_models.get_model(model_key).method(
                 model_method
@@ -2436,11 +2432,6 @@ class ModelServicesRunner:
         case MethodName.GENERATE:
           try:
             model_key, model_method = msgs
-            logging.info(
-                'Received GENERATE model_key %s method %s',
-                model_key,
-                model_method,
-            )
             method_obj = self._loaded_models.get_model(model_key).method(
                 model_method
             )
