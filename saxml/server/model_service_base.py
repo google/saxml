@@ -2119,6 +2119,7 @@ class ModelServicesRunner:
           )
 
           method_obj.insert(prefix_cache, slots)
+          del prefix_cache
 
         host_tokens = np.array(tokens.addressable_data(0))
         host_scores = np.array(scores.addressable_data(0))
@@ -2428,6 +2429,7 @@ class ModelServicesRunner:
             )
             _, _, state = method_obj.prefill_with_dummy()
             method_obj.insert(state, slots)
+            del state
           except Exception as e:  # pylint: disable=broad-except
             self._worker_thread_exception = e
             break
