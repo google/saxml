@@ -18,6 +18,7 @@ import threading
 from typing import Any, Callable
 
 from absl import logging
+import numpy as np
 from saxml.server.tf import tf_session_runner
 import tensorflow.compat.v1 as tf
 
@@ -122,7 +123,7 @@ class _NumpyTFSessionWrapper:
         self._initialize(*args)
     if self._is_class_member:
       args = args[1:]
-    flat_args = [a for a in tree_flatten(args)[0] if a is not None]
+    flat_args = [np.asarray(a) for a in tree_flatten(args)[0] if a is not None]
     assert len(flat_args) == len(self._feed_names), 'Unexpected arg count'
     outs = self._runner.run(self._feed_names, self._fetch_names, flat_args)
     return tree_map(

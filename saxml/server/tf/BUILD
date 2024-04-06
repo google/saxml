@@ -17,6 +17,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     deps = [
         "//third_party/py/absl-py/logging",
+        "//third_party/py/numpy",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )
