@@ -32,6 +32,18 @@ pytype_strict_library(
 )
 
 pytype_strict_library(
+    name = "multimodal_service",
+    srcs = ["multimodal_service.py"],
+    srcs_version = "PY3",
+    visibility = ["//saxml:internal"],
+    deps = [
+        "//saxml/protobuf:multimodal_py_pb2",
+        "//saxml/protobuf:multimodal_py_pb2_grpc",
+        "//saxml/server:model_service_base",
+    ],
+)
+
+pytype_strict_library(
     name = "vision_service",
     srcs = ["vision_service.py"],
     srcs_version = "PY3",
