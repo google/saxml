@@ -2039,8 +2039,9 @@ class LMGradientMethod(ServableLMMethod):
             self, [per_example_output], model_fn_inputs
         ),
         # Pad total_loss with 0s to the shape (batch_size,)
-        total_loss=jnp.array(
-            [metrics['total_loss'][0]] + [0.0] * batch_pad_size
+        total_loss=jnp.pad(
+            metrics['total_loss'][0].reshape(1, -1),
+            pad_width=((0, batch_pad_size), (0, 0)),
         ),
     )
 
