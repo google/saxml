@@ -29,7 +29,8 @@ from saxml.vertex import constants
 from saxml.vertex import translate
 import tornado.web
 
-
+# Has to be true for multihost deployments due to:
+# https://github.com/kubernetes-sigs/lws/issues/85
 _BYPASS_HEALTH_CHECK = flags.DEFINE_bool(
     name="bypass_health_check",
     required=False,
@@ -64,10 +65,10 @@ class PredictHandler(tornado.web.RequestHandler):
     )
 
   async def post(self):
-    logging.info("got prediction request")
+    logging.debug("got prediction request")
     try:
       req = json.loads(self.request.body.decode())
-      logging.info("prediction request body: %s", req)
+      logging.debug("prediction request body: %s", req)
 
       lm_requests = translate.user_request_to_lm_generate_request(
           req, self.prediction_timeout_seconds
@@ -89,15 +90,15 @@ class PredictHandler(tornado.web.RequestHandler):
 
       self.write(json.dumps(response))
       self.set_status(200)
-      logging.info("prediction success: %s", json.dumps(response))
+      logging.debug("prediction success: %s", json.dumps(response))
 
     except (ValueError, json.JSONDecodeError) as e:
-      logging.info("Bad request. Error is: %s", str(e))
+      logging.debug("Bad request. Error is: %s", str(e))
       self.write(json.dumps({"error": str(e)}))
       self.set_status(400)
 
     except Exception as e:  # pylint: disable=broad-except
-      logging.info("Predict Failed. Error is: %s", str(e))
+      logging.debug("Predict Failed. Error is: %s", str(e))
       self.write(json.dumps({"error": str(e)}))
       self.set_status(500)
 
@@ -114,7 +115,7 @@ class HealthHandler(tornado.web.RequestHandler):
     self.admin_port = admin_port
 
   def get(self):
-    logging.info("got health request")
+    logging.debug("got health request")
     # If model loading time takes more than Vertex Prediction timeout,
     # bypass health check handler to return health before model loaded.
     if _BYPASS_HEALTH_CHECK.value:
@@ -125,7 +126,7 @@ class HealthHandler(tornado.web.RequestHandler):
       }
       self.write(json.dumps(success_response))
       self.set_status(200)
-      logging.info("health request _BYPASS_HEALTH_CHECK success")
+      logging.debug("health request _BYPASS_HEALTH_CHECK success")
       return
 
     try:
@@ -202,13 +203,13 @@ def _make_app(
   ])
 
 
-async def run(
+async def _run_async(
     http_port: int,
     admin_port: int,
     model_key: str,
     prediction_timeout_seconds: int,
 ):
-  """Run the tornado http prediction server."""
+  """Run the tornado http prediction server using asyncio."""
 
   logging.info("Using Tornado version: %s", str(tornado.version_info))
   webserver_app = _make_app(
@@ -222,3 +223,21 @@ async def run(
   logging.info("Tornado loop started")
   await asyncio.Event().wait()
   logging.info("Tornado server stopped.")
+
+
+def run(
+    http_port: int,
+    admin_port: int,
+    model_key: str,
+    prediction_timeout_seconds: int,
+):
+  """Run the tornado http prediction server blocking wrapper."""
+  loop = asyncio.new_event_loop()
+  asyncio.set_event_loop(loop)
+  loop.run_until_complete(_run_async(
+      http_port,
+      admin_port,
+      model_key,
+      prediction_timeout_seconds
+  ))
+  loop.close()

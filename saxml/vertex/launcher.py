@@ -14,16 +14,17 @@
 """Launcher for SAX Model Server, HTTP and GRPC servers."""
 
 import asyncio
-import concurrent
 import os
 import subprocess
 import sys
+import threading
 import time
 from typing import Sequence
 
 from absl import flags
 from absl import logging
 from saxml.client.python import sax
+from saxml.protobuf import admin_pb2
 from saxml.vertex import constants
 from saxml.vertex import grpc_prediction_server
 from saxml.vertex import http_prediction_server
@@ -65,12 +66,6 @@ _GRPC_PORT = flags.DEFINE_integer(
     name="grpc_port",
     default=14002,
     help="Port for the RPC service.",
-    required=False)
-
-_STUBBY_PORT = flags.DEFINE_integer(
-    name="stubby_port",
-    default=14004,
-    help="Port for the Stubby service.",
     required=False)
 
 _JAX_PROFILER_PORT = flags.DEFINE_integer(
@@ -191,8 +186,20 @@ _PREDICTION_TIMEOUT_SECONDS = flags.DEFINE_integer(
     help="Query timeout constant for SAX model server.",
 )
 
-_PUBLISH_RETRIES = 10
-_PUBLISH_RETRY_DELAY_SECONDS = 10
+_PUBLISH_RETRIES = 20
+_PUBLISH_RETRY_DELAY_SECONDS = 30
+_TPU_WORKER_HOSTNAMES_ENV_VAR = "TPU_WORKER_HOSTNAMES"
+_TPU_WORKER_ID = "TPU_WORKER_ID"
+
+
+def _get_worker_id() -> int:
+  """Returns worker id."""
+  return int(os.getenv(_TPU_WORKER_ID, "0"))
+
+
+def _is_primary() -> bool:
+  """Returns true if container is running on primary node."""
+  return _get_worker_id() == 0
 
 
 def get_admin_config_cmd_list() -> Sequence[str]:
@@ -245,25 +252,45 @@ def _shutdown(return_code: int) -> None:
 
 def configure_admin_server():
   """Run admin_config binary to config SAX admin server."""
-  admin_config_cmd_list = get_admin_config_cmd_list()
-  admin_config_process = subprocess.Popen(admin_config_cmd_list)
-  logging.info("Configuring SAX admin server pid=%d", admin_config_process.pid)
-  exit_code = admin_config_process.wait()
-  if exit_code != 0:
+  if _is_primary():
+    logging.info("Configuring SAX admin server on primary node")
+    admin_config_cmd_list = get_admin_config_cmd_list()
+    admin_config_process = subprocess.Popen(admin_config_cmd_list)
     logging.info(
-        "Configuring SAX admin server failed with exit code: %d.", exit_code
-    )
-    os._exit(exit_code)  # pylint: disable=protected-access
+        "Configuring SAX admin server pid=%d",
+        admin_config_process.pid)
+    exit_code = admin_config_process.wait()
+    if exit_code != 0:
+      logging.info(
+          "Configuring SAX admin server failed with exit code: %d.", exit_code
+      )
+      os._exit(exit_code)  # pylint: disable=protected-access
+    else:
+      logging.info("Successfully configured SAX admin server.")
   else:
-    logging.info("Successfully configured SAX admin server.")
+    tpu_worker_hostnames = os.getenv(_TPU_WORKER_HOSTNAMES_ENV_VAR, "")
+    if not tpu_worker_hostnames:
+      logging.warning("%s is empty.", _TPU_WORKER_HOSTNAMES_ENV_VAR)
+      return
+    tpu_worker_0 = tpu_worker_hostnames.split(",")[0]
+    sax_root = os.getenv("SAX_ROOT", _SAX_ROOT.value)
+    sax_cell_path = sax_root.rstrip("/") + "/" + _SAX_CELL.value.lstrip("/")
+    location = admin_pb2.Location(
+        location=f"{tpu_worker_0}:{_ADMIN_PORT.value}")
+    os.makedirs(sax_cell_path, exist_ok=True)
+    location_file_path = os.path.join(sax_cell_path, "location.proto")
+    logging.info("Manually updating %s to point to primary node %s",
+                 location_file_path, location.location)
+    with open(location_file_path, "wb") as w:
+      w.write(location.SerializeToString())
 
 
 def launch_sax_model_server():
   """Start SAX model server."""
   run_opts = sax_model_server.SAXRunOpts(
+      worker_id=_get_worker_id(),
       admin_port=_ADMIN_PORT.value,
       grpc_port=_GRPC_PORT.value,
-      stubby_port=_STUBBY_PORT.value,
       sax_cell=_SAX_CELL.value,
       sax_model_serving_path=_SAX_SERVING_BINARY_PATH.value,
       platform_chip=_PLATFORM_CHIP.value,
@@ -316,39 +343,56 @@ async def main():
 
   try:
     http_port, grpc_port = _get_prediction_service_ports()
+    http_prediction_thread = None
+    grpc_prediction_thread = None
+    if http_port:
+      # Need to start HTTP server on all nodes before SAX.
+      logging.info("Starting HTTP server at port: %d", http_port)
+      # HTTP server has to be started before SAX server due to:
+      # https://github.com/kubernetes-sigs/lws/issues/85
+      http_prediction_thread = threading.Thread(
+          target=http_prediction_server.run,
+          args=(
+              http_port,
+              _ADMIN_PORT.value,
+              _MODEL_KEY.value,
+              _PREDICTION_TIMEOUT_SECONDS.value,
+          ))
+      http_prediction_thread.start()
+      logging.info("done initializing HTTP server")
+
+    if _is_primary() and grpc_port:
+      grpc_prediction_thread = threading.Thread(
+          target=grpc_prediction_server.run,
+          args=(
+              grpc_port,
+              _MODEL_KEY.value,
+              _PREDICTION_TIMEOUT_SECONDS.value
+          ))
+      grpc_prediction_thread.start()
+      logging.info("done initializing gRPC server")
 
     configure_admin_server()
-    launch_sax_model_server()
+    sax_server = launch_sax_model_server()
 
-    # publish model using SAX client
-    if not publish_model(_MODEL_KEY.value, _MODEL_PATH.value):
-      logging.error("Failed to publish model %s from %s",
-                    _MODEL_KEY.value, _MODEL_PATH.value)
-      os._exit(-1)
+    if _is_primary():
+      # Only publish model using SAX client on primary node.
+      if not publish_model(_MODEL_KEY.value, _MODEL_PATH.value):
+        logging.error("Failed to publish model %s from %s",
+                      _MODEL_KEY.value, _MODEL_PATH.value)
+        os._exit(-1)  # pylint: disable=protected-access
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-      if grpc_port:
-        executor.submit(
-            grpc_prediction_server.run,
-            grpc_port,
-            _MODEL_KEY.value,
-            _PREDICTION_TIMEOUT_SECONDS.value,
-        )
-    if http_port:
-      logging.info("Starting HTTP server at port: %d", http_port)
-      await http_prediction_server.run(
-          http_port,
-          _ADMIN_PORT.value,
-          _MODEL_KEY.value,
-          _PREDICTION_TIMEOUT_SECONDS.value,
-      )
+    sax_server.wait()
+    if http_prediction_thread:
+      http_prediction_thread.join()
+    if grpc_prediction_thread:
+      grpc_prediction_thread.join()
   except Exception as e:  # pylint: disable=broad-except
     logging.exception("Caught exception: %s", e)
     # Need to use os._exit(), instead of sys.exit(), to really exit the
     # launcher and shutdown the whole container because at least one of the
     # launched processes run as non-daemon.
     os._exit(-1)  # pylint: disable=protected-access
-
 
 if __name__ == "__main__":
   flags.FLAGS(sys.argv, known_only=True)

@@ -33,7 +33,6 @@ from tornado import process as tornado_process
 
 _DEFAULT_FLAGS = (
     "--nodeterministic_rng",
-    "--host_ordinal=0",
     "--jax_enable_compilation_cache=false",
     "--alsologtostderr",
 )
@@ -54,9 +53,9 @@ class SAXRunOpts:
   """Options for running SAX model server.
 
   Attributes:
+    worker_id: worker id.
     admin_port: SAX admin server port. Defaults to 10000.
     grpc_port: SAX model server RPC port. Default to 14002.
-    stubby_port: SAX model server stubby port. Default to 14004.
     jax_profiler_port: JAX profiler port.
     sax_cell: SAX cell of the admin server. Default to /sax/ulm.
     sax_model_serving_path: Path to SAX model serving binary.
@@ -64,9 +63,9 @@ class SAXRunOpts:
     platform_topology: topology description.
     sax_extra_args: additional flags for SAX model server.
   """
+  worker_id: int = 0
   admin_port: Optional[int] = 10000
   grpc_port: Optional[int] = 14002
-  stubby_port: Optional[int] = 14004
   jax_profiler_port: Optional[int] = None
   sax_cell: str = "/sax/ulm"
   sax_model_serving_path: Optional[str] = None
@@ -104,12 +103,16 @@ class SAXRunOpts:
     cmd_args = []
     cmd_args += _DEFAULT_FLAGS
     cmd_args += [
+        f"--host_ordinal={self.worker_id}",
         f"--platform_chip={self.platform_chip}",
         f"--platform_topology={self.platform_topology}",
         f"--port={self.grpc_port}",
-        f"--admin_port={self.admin_port}",
         f"--sax_cell={self.sax_cell}",
     ]
+
+    # Only start admin server on worker 0.
+    if self.worker_id == 0:
+      cmd_args.append(f"--admin_port={self.admin_port}")
 
     if self.jax_profiler_port is not None:
       cmd_args.append(
