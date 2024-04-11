@@ -364,6 +364,20 @@ class LLaMA7BTPUv5e4(LLaMA7B):
 
 
 @servable_model_registry.register
+class LLaMA7BTPUv5e8(LLaMA7BTPUv5e4):
+  """LlaMA-2 7B model on TPUv5-8."""
+
+  ICI_MESH_SHAPE = [1, 1, 8]
+
+
+@servable_model_registry.register
+class LLaMA7BTPUv5e16(LLaMA7BTPUv5e4):
+  """LlaMA-2 7B model on TPUv5-16."""
+
+  ICI_MESH_SHAPE = [1, 1, 16]
+
+
+@servable_model_registry.register
 class LLaMA7BContinuousBatchingTPUv5e4(LLaMA7BTPUv5e4):
   """7B model on a v5e4. Test for continuous batching."""
 
@@ -560,6 +574,16 @@ class LLaMA70BInt8TokenizedInputTPUv5e8Stream(
 
   ENABLE_GENERATE = False
   ENABLE_GENERATE_STREAM = True
+
+
+@servable_model_registry.register
+class LLaMA70BFP16TPUv5e16(LLaMA70BFP16TPUv5e):
+  """LlaMA-2 70B model on TPUv5-16."""
+  ICI_MESH_SHAPE = [1, 1, 16]
+
+  @property
+  def test_mode(self) -> bool:
+    return False
 
 
 @servable_model_registry.register
