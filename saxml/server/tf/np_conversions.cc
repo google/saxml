@@ -88,7 +88,7 @@ tensorflow::Status PyObjectToString(PyObject *obj, const char **ptr,
                                         obj->ob_type->tp_name);
   }
 
-  return tensorflow::OkStatus();
+  return absl::OkStatus();
 }
 
 // Iterate over the string array 'array', extract the ptr and len of each string
@@ -112,7 +112,7 @@ tensorflow::Status PyBytesArrayMap(PyArrayObject *array, F f) {
     Py_XDECREF(ptr_owner);
     PyArray_ITER_NEXT(iter.get());
   }
-  return tensorflow::OkStatus();
+  return absl::OkStatus();
 }
 
 tensorflow::Status StringTensorToPyArray(const tensorflow::Tensor &tensor,
@@ -141,7 +141,7 @@ tensorflow::Status StringTensorToPyArray(const tensorflow::Tensor &tensor,
     PyArray_ITER_NEXT(iter.get());
   }
 
-  return tensorflow::OkStatus();
+  return absl::OkStatus();
 }
 
 tensorflow::Status GetPyDescrFromDataType(tensorflow::DataType dtype,
@@ -175,7 +175,7 @@ tensorflow::Status GetPyDescrFromDataType(tensorflow::DataType dtype,
           "Unsupported tf type: ", tensorflow::DataType_Name(dtype));
   }
 
-  return tensorflow::OkStatus();
+  return absl::OkStatus();
 }
 
 tensorflow::Status GetPyDescrFromTensor(const tensorflow::Tensor &tensor,
@@ -224,7 +224,7 @@ tensorflow::Status GetTensorDtypeFromPyArray(
       return tensorflow::errors::Internal("Unsupported numpy type: ",
                                           NumpyTypeName(pyarray_type));
   }
-  return tensorflow::OkStatus();
+  return absl::OkStatus();
 }
 
 inline tensorflow::Status VerifyDtypeIsSupported(
@@ -235,7 +235,7 @@ inline tensorflow::Status VerifyDtypeIsSupported(
         "ndarrays that maps to tensors with dtype ",
         tensorflow::DataType_Name(dtype), " are not yet supported");
   }
-  return tensorflow::OkStatus();
+  return absl::OkStatus();
 }
 
 tensorflow::Status NdArrayToTensor(PyObject *ndarray,
@@ -283,7 +283,7 @@ tensorflow::Status NdArrayToTensor(PyObject *ndarray,
                                              tensorflow::DataTypeString(dtype));
   }
 
-  return tensorflow::OkStatus();
+  return absl::OkStatus();
 }
 
 tensorflow::Status TensorToNdArray(const tensorflow::Tensor &tensor,
@@ -320,7 +320,7 @@ tensorflow::Status TensorToNdArray(const tensorflow::Tensor &tensor,
   }
 
   *out_ndarray = safe_out_ndarray.release();
-  return tensorflow::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace sax
