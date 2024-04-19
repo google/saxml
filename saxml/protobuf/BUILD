@@ -7,6 +7,7 @@ load(
     "cc_stubby_library",
     "go_grpc_library",
     "go_proto_library",
+    "java_stubby_library",
     "jspb_proto_library",
     "kt_jvm_grpc_library",
     "kt_jvm_proto_library",
@@ -25,15 +26,6 @@ package_group(
     name = "sax_rpc_visibility",
     includes = [
         "//saxml:internal",
-    ],
-    packages = [
-        "//cloud/security/ctd/aiassist/saxclient/...",
-        "//java/com/google/contentads/xbid/server/llm/...",
-        "//java/com/google/vr/multimodal/...",
-        "//javatests/com/google/contentads/xbid/server/llm/...",
-        "//javatests/com/google/vr/multimodal/...",
-        "//research/bigpicture/llm_api_use/sax/...",
-        "//vr/multimodal/...",
     ],
 )
 
@@ -566,6 +558,13 @@ go_grpc_library(
     srcs = [":multimodal_proto"],
     extra_deps = [":common_go_proto"],
     deps = [":multimodal_go_proto"],
+)
+
+java_stubby_library(
+    name = "multimodal_java_stubby",
+    srcs = [":multimodal_proto"],
+    visibility = [":sax_rpc_visibility"],
+    deps = [":multimodal_java_proto"],
 )
 
 kt_jvm_proto_library(

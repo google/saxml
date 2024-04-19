@@ -21,6 +21,7 @@ load("@io_bazel_rules_go//go:def.bzl", _go_binary = "go_binary", _go_library = "
 load("@io_bazel_rules_go//proto:def.bzl", _go_grpc_library = "go_grpc_library", _go_proto_library = "go_proto_library")
 load("@pybind11_bazel//:build_defs.bzl", _pybind_extension = "pybind_extension", _pybind_library = "pybind_library")
 load("@rules_cc//cc:defs.bzl", _cc_proto_library = "cc_proto_library")
+load("@rules_java//java:defs.bzl", _java_proto_library = "java_proto_library")
 load("@rules_proto//proto:defs.bzl", _proto_library = "proto_library")
 load("@third_party//:requirements.bzl", "requirement")
 
@@ -45,6 +46,16 @@ def cc_stubby_library(
 
 def cc_grpc_library(name, srcs = [], deps = [], **kwargs):
     _cc_grpc_library(name = name, srcs = srcs, grpc_only = True, deps = deps, **kwargs)
+
+def java_proto_library(name, deps = [], **kwargs):
+    _java_proto_library(name = name, deps = deps, **kwargs)
+
+def java_stubby_library(
+        name,  # @unused
+        srcs = [],  # @unused
+        deps = [],  # @unused
+        **kwargs):  # @unused
+    pass
 
 def py_proto_library(
         name,
