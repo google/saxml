@@ -70,3 +70,24 @@ func (m *MultimodalModel) Score(ctx context.Context, req *mmpb.ScoreRequest, opt
 	}
 	return rpcResp.GetResponse(), nil
 }
+
+// Embed performs embedding for `dataItems` on a multimodal model.
+func (m *MultimodalModel) Embed(ctx context.Context, req *mmpb.EmbedRequest, options ...ModelOptionSetter) (*mmpb.EmbedResponse, error) {
+	opts := NewModelOptions(options...)
+	rpcReq := &mmpb.EmbedRpcRequest{
+		ModelKey:    m.model.modelID,
+		Request:     req,
+		ExtraInputs: opts.ExtraInputs(),
+	}
+
+	var rpcResp *mmpb.EmbedRpcResponse
+	err := m.model.run(ctx, "Embed", func(conn *grpc.ClientConn) error {
+		var embErr error
+		rpcResp, embErr = pbgrpc.NewMultimodalServiceClient(conn).Embed(ctx, rpcReq)
+		return embErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return rpcResp.GetResponse(), nil
+}

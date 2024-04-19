@@ -332,6 +332,19 @@ class MultimodalModel {
                      const ::sax::server::multimodal::ScoreRequest& request,
                      ::sax::server::multimodal::ScoreResponse* response) const;
 
+  // Computes the embedding given the 'EmbedRequest.data_items' using the
+  // multimodal model.
+  //
+  // On success, returns OK and fills in results computed by the model.
+  // Otherwise, returns an error.
+  absl::Status Embed(
+      const ::sax::server::multimodal::EmbedRequest& request,
+      ::sax::server::multimodal::EmbedResponse* response) const;
+  absl::Status Embed(
+      const ModelOptions& options,
+      const ::sax::server::multimodal::EmbedRequest& request,
+      ::sax::server::multimodal::EmbedResponse* response) const;
+
  private:
   explicit MultimodalModel(int64_t model_handle)
       : model_handle_(model_handle) {}

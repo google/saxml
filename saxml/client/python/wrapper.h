@@ -150,6 +150,11 @@ class MultimodalModel {
       const ::sax::server::multimodal::ScoreRequest& request,
       const ModelOptions* options = nullptr) const;
 
+  // Invokes the model to compute embedding given 'EmbedRequest.data_items'.
+  absl::StatusOr<::sax::server::multimodal::EmbedResponse> Embed(
+      const ::sax::server::multimodal::EmbedRequest& request,
+      const ModelOptions* options = nullptr) const;
+
  private:
   explicit MultimodalModel(::sax::client::Model* base,
                            const absl::Status& status);

@@ -657,6 +657,17 @@ func (m *stubMultimodalModelServer) Score(ctx context.Context, in *mmpb.ScoreRpc
 	return res, nil
 }
 
+func (m *stubMultimodalModelServer) Embed(ctx context.Context, in *mmpb.EmbedRpcRequest) (*mmpb.EmbedRpcResponse, error) {
+	res := &mmpb.EmbedRpcResponse{}
+	res.Response = &mmpb.EmbedResponse{}
+	res.Response.Embedding = &mmpb.DoubleEmbedding{}
+	res.Response.Embedding.Values = make([]float64, len(in.GetRequest().GetItems()))
+	for i := range in.GetRequest().GetItems() {
+		res.Response.Embedding.Values[i] = float64(i) * 2
+	}
+	return res, nil
+}
+
 // StartStubModelServer starts a new model server of a given type with stub implementations, which
 // also runs a modelet service.
 // Close the returned channel to close the server.

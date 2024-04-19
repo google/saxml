@@ -26,6 +26,7 @@ class MultimodalMethodName:
   GENERATE = 'mm.generate'
   SCORE = 'mm.score'
   GENERATE_STREAM = 'mm.generate_stream'
+  EMBED = 'mm.embed'
 
 
 class MultimodalService(model_service_base.ModelService):
@@ -36,6 +37,8 @@ class MultimodalService(model_service_base.ModelService):
       return request.request
     if method_name == MultimodalMethodName.SCORE:
       return request.request
+    if method_name == MultimodalMethodName.EMBED:
+      return request.request
     raise NotImplementedError(f'Method {method_name} unimplemented.')
 
   def FillRPCResponse(
@@ -45,6 +48,9 @@ class MultimodalService(model_service_base.ModelService):
       response.response.CopyFrom(method_outputs)
       return
     if method_name == MultimodalMethodName.SCORE:
+      response.response.CopyFrom(method_outputs)
+      return
+    if method_name == MultimodalMethodName.EMBED:
       response.response.CopyFrom(method_outputs)
       return
     raise NotImplementedError(f'Method {method_name} unimplemented.')
@@ -77,5 +83,12 @@ class MultimodalServiceGRPC(
     resp = multimodal_pb2.ScoreRpcResponse()
     await self.EnqueueRequest(
         MultimodalMethodName.SCORE, request.model_key, context, request, resp
+    )
+    return resp
+
+  async def Embed(self, request, context):
+    resp = multimodal_pb2.EmbedRpcResponse()
+    await self.EnqueueRequest(
+        MultimodalMethodName.EMBED, request.model_key, context, request, resp
     )
     return resp

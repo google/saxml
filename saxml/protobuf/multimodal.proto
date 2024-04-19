@@ -27,8 +27,12 @@ message IdList {
   repeated int64 id = 1;
 }
 
-message Embedding {
+message FloatEmbedding {
   repeated float values = 1 [packed = true];
+}
+
+message DoubleEmbedding {
+  repeated double values = 1 [packed = true];
 }
 
 message AudioFloatSamples {
@@ -40,7 +44,7 @@ message DataItem {
     string text = 1;
     bytes image_bytes = 2;
     IdList image_tokens = 3;
-    Embedding image_embedding = 6;
+    FloatEmbedding image_embedding = 6;
     AudioFloatSamples audio_float_samples = 4;
     IdList audio_tokens = 7;
     // 'video' is up to the specific model to interpret. E.g., it can be the
@@ -77,6 +81,14 @@ message GenerateResponse {
   repeated GenerateResult results = 1;  // len(result) == # samples
 }
 
+message EmbedRequest {
+  repeated DataItem items = 1;
+}
+
+message EmbedResponse {
+  DoubleEmbedding embedding = 1;
+}
+
 message ScoreRpcRequest {
   string model_key = 1;
   ScoreRequest request = 2;
@@ -89,6 +101,12 @@ message GenerateRpcRequest {
   .sax.ExtraInputs extra_inputs = 3;
 }
 
+message EmbedRpcRequest {
+  string model_key = 1;
+  EmbedRequest request = 2;
+  .sax.ExtraInputs extra_inputs = 3;
+}
+
 message ScoreRpcResponse {
   ScoreResponse response = 1;
 }
@@ -97,9 +115,15 @@ message GenerateRpcResponse {
   GenerateResponse response = 1;
 }
 
+message EmbedRpcResponse {
+  EmbedResponse response = 1;
+}
+
 service MultimodalService {
   // Returns generated results using the data items in the request.
   rpc Generate(GenerateRpcRequest) returns (GenerateRpcResponse);
   // Returns score results of the suffix items in the request.
   rpc Score(ScoreRpcRequest) returns (ScoreRpcResponse);
+  // Returns an embedding given the data items.
+  rpc Embed(EmbedRpcRequest) returns (EmbedRpcResponse);
 }
