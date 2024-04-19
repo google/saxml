@@ -50,6 +50,90 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
     super().setUp()
     self.tokenizer = create_tokenizer_params().Instantiate()
 
+  def test_decode_tf_tokenize_inputs_text(self):
+    strs = ['Hello world', 'This is a test']
+    max_length = 8
+    ids, labels, prefix_lengths, paddings = (
+        servable_lm_common.decode_tf_tokenize_inputs(
+            strs, self.tokenizer, max_length
+        )
+    )
+    self.assertArraysEqual(
+        ids.numpy(),
+        [[0, 151, 88, 21, 887, 0, 0, 0], [0, 284, 47, 11, 4, 15, 400, 0]],
+    )
+    self.assertArraysEqual(
+        labels.numpy(),
+        [
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+        ],
+    )
+    self.assertArraysEqual(prefix_lengths.numpy(), [5.0, 7.0])
+    self.assertArraysEqual(
+        paddings.numpy(),
+        [
+            [1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+        ],
+    )
+
+  def test_decode_tf_tokenize_inputs_tokens(self):
+    strs = ['4,5', '1,2,3,4']
+    max_length = 8
+    ids, labels, prefix_lengths, paddings = (
+        servable_lm_common.decode_tf_tokenize_inputs(
+            strs, self.tokenizer, max_length, pretokenized_input=[True, True]
+        )
+    )
+    self.assertArraysEqual(
+        ids.numpy(),
+        [[4, 5, 1, 1, 1, 1, 1, 1], [1, 2, 3, 4, 1, 1, 1, 1]],
+    )
+    self.assertArraysEqual(
+        labels.numpy(),
+        [
+            [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+        ],
+    )
+    self.assertArraysEqual(prefix_lengths.numpy(), [2.0, 4.0])
+    self.assertArraysEqual(
+        paddings.numpy(),
+        [
+            [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+        ],
+    )
+
+  def test_decode_tf_tokenize_inputs_text_and_tokens(self):
+    strs = ['Hello world', '1,2,3,4']
+    max_length = 8
+    ids, labels, prefix_lengths, paddings = (
+        servable_lm_common.decode_tf_tokenize_inputs(
+            strs, self.tokenizer, max_length, pretokenized_input=[False, True]
+        )
+    )
+    self.assertArraysEqual(
+        ids.numpy(),
+        [[0, 151, 88, 21, 887, 0, 0, 0], [1, 2, 3, 4, 1, 1, 1, 1]],
+    )
+    self.assertArraysEqual(
+        labels.numpy(),
+        [
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+        ],
+    )
+    self.assertArraysEqual(prefix_lengths.numpy(), [5.0, 4.0])
+    self.assertArraysEqual(
+        paddings.numpy(),
+        [
+            [1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+            [1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+        ],
+    )
+
   @test_utils.parameterized.parameters((True,), (False,))
   def test_decode_post_processing_decoder_only(self, use_wrapper: bool):
     max_length = 8

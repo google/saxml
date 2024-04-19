@@ -47,16 +47,113 @@ class InputShapeInfo(servable_model.InputShapeInfo):
   seq_len: int = -1
 
 
+def _tokenize_and_pad(
+    inputs: tf.Tensor,
+    tokenizer: Any,
+    max_input_seq_len: int,
+    pretokenized_input: pytypes.JTensor,
+):
+  """Tokenize inputs for decoding.
+  
+  Args:
+    inputs: a string tensor of size [B].
+    tokenizer: a tokenizer object.
+    max_input_seq_len: all outputs will be padded to this size.
+    pretokenized_input: A true/false or 1/0 tensor of size B, correspanding to
+      each of the string inputs. A true indicates that the text contains tokens,
+      not text, in the format of "1,5435,5332".
+      
+  Returns:
+    3 Tensors of size [B, max_input_seq_len]. The first one contains the tokens,
+    the second is a mask, and the third is a reverse mask.
+  """
+
+  def _pad(x: tf.Tensor, shape: list[int]) -> tf.Tensor:
+    """Helper function to pad tensor to the desired shape."""
+    pad = shape - tf.minimum(tf.shape(x), shape)
+    zeros = tf.zeros_like(pad)
+    # If dim_i is less than shape[i], pads after contents.
+    paddings = tf.stack([zeros, pad], axis=1)
+    # If dim_i is larger than shape[i], we slice [0:shape[i]] for dim_i.
+    slice_begin = zeros
+    x = tf.pad(x, paddings)
+    x = tf.slice(x, slice_begin, shape)
+
+    return tf.reshape(x, shape)
+
+  def _strings_to_ids_and_pad(data):
+    batch = tf.shape(data)[0]
+    shape = [batch, max_input_seq_len]
+    ids, labels, paddings = tokenizer.StringsToIdsTokenized(
+        data, max_input_seq_len
+    )
+    return _pad(ids, shape), _pad(labels, shape), _pad(paddings, shape)
+
+  @tf.function
+  def _tokenize_and_merge():
+    batch = tf.shape(inputs)[0]
+    ids = tf.zeros([batch, max_input_seq_len], dtype=tf.int32)
+    labels = tf.zeros([batch, max_input_seq_len], dtype=tf.int32)
+    paddings = tf.zeros([batch, max_input_seq_len], dtype=tf.float32)
+    i = tf.constant(0)
+    while i < batch:
+      ids_i, labels_i, paddings_i = tf.cond(
+          tf.equal(tf.cast(tf.gather(pretokenized_input, i), tf.int32), 0),
+          lambda: tokenizer.StringsToIds(
+              tf.gather(inputs, [i]), max_input_seq_len
+          ),
+          lambda: _strings_to_ids_and_pad(tf.gather(inputs, [i])),
+      )
+      ids = tf.tensor_scatter_nd_update(ids, [[i]], ids_i)
+      labels = tf.tensor_scatter_nd_update(
+          labels, [[i]], tf.cast(labels_i, tf.int32)
+      )
+      paddings = tf.tensor_scatter_nd_update(paddings, [[i]], paddings_i)
+      i += 1
+
+    return ids, labels, paddings
+
+  batch = tf.shape(inputs)[0]
+  num_pretokenized_inputs = tf.reduce_sum(
+      tf.cast(pretokenized_input, tf.int32), axis=0
+  )
+  return tf.cond(
+      tf.equal(num_pretokenized_inputs, batch),
+      lambda: _strings_to_ids_and_pad(inputs),
+      lambda: tf.cond(
+          tf.equal(num_pretokenized_inputs, 0),
+          lambda: tokenizer.StringsToIds(inputs, max_input_seq_len),
+          _tokenize_and_merge,
+      ),
+  )
+
+
 def decode_tf_tokenize_inputs(
     texts: tf.Tensor,
     tokenizer: Any,
     max_input_seq_len: int,
     t5_model: bool = False,
+    pretokenized_input: pytypes.JTensor | None = None,
 ) -> Tuple[
     tf.Tensor, Optional[tf.Tensor], Optional[tf.Tensor], Optional[tf.Tensor]
 ]:
   """Tokenize inputs for decoding."""
-  ids, labels, paddings = tokenizer.StringsToIds(texts, max_input_seq_len)
+
+  # If pretokenized_inputis provided, the tokenizer must support
+  # StringsToIdsTokenized. This checks fails during model exporting.
+  if pretokenized_input is not None and not hasattr(
+      tokenizer, 'StringsToIdsTokenized'
+  ):
+    raise ValueError(
+        'pretokenized_input is not supported with the provided tokenizer.'
+    )
+
+  if pretokenized_input is not None:
+    ids, labels, paddings = _tokenize_and_pad(
+        texts, tokenizer, max_input_seq_len, pretokenized_input
+    )
+  else:
+    ids, labels, paddings = tokenizer.StringsToIds(texts, max_input_seq_len)
 
   if t5_model:
     # TODO(wangtao): consider change behavior of tokenizer. Encoder-decoder
