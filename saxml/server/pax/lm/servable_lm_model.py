@@ -911,6 +911,9 @@ class LMDecodeMethod(ServableLMMethod):
             self._tokenizer,
             self._method_hparams.max_input_seq_len,
             self._method_hparams.t5_model,
+            pretokenized_input=(extra_inputs or {}).get(
+                'tokenized_input', None
+            ),
         )
     )
 
