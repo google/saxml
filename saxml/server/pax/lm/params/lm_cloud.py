@@ -218,6 +218,29 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     return task_p
 
 
+class BaseLLaMA3(BaseLLaMA):
+  """Baseclass for LLaMA3 models."""
+
+  VOCABULARY_CLASS = 'LLama3Vocabulary'
+  VOCABULARY_PATH = '/cns/mf-d/home/alekseyv/pax-llama3/vocabs/tokenizer.model'
+  ENABLE_GENERATE_STREAM = False  # Not yet supported for Tiktoken tokenizer.
+
+  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+    task_p = super().task()
+
+    # See rope_theta in:
+    # https://github.com/meta-llama/llama3/blob/main/llama/model.py
+    (task_p
+     .model
+     .lm_tpl
+     .stacked_transformer_tpl
+     .transformer_layer_params_tpl
+     .tr_atten_tpl
+     .rotary_position_emb_tpl
+     .max_timescale) = 500000
+    return task_p
+
+
 @quantization.for_transformer(quantize_on_the_fly=False)
 class BaseLLaMATest(BaseLLaMA):
   """Small BaseLLaMA model for unit tests.
@@ -675,6 +698,41 @@ class LLaMA70BInt8H100x8Fake(LLaMA70BInt8H100x8):
   @property
   def test_mode(self) -> bool:
     return True
+
+
+@servable_model_registry.register
+class LLaMA3FP168Bx4(BaseLLaMA3):
+  """LLama3 8B FP16 on 4 devices."""
+
+  NUM_LAYERS = 32
+  VOCAB_SIZE = 128256
+  DIMS_PER_HEAD = 128
+  NUM_HEADS = 32
+  MODEL_DIMS = 4096
+  HIDDEN_DIMS = 11008
+  ICI_MESH_SHAPE = [1, 1, 4]
+  USE_MQA = True
+  NUM_KV_HEADS = 8
+
+  @property
+  def test_mode(self) -> bool:
+    return False
+
+
+@servable_model_registry.register
+class LLaMA3FP168BTestx4(LLaMA3FP168Bx4):
+  """LLama3 8B FP16 on 4 devices with fake weights."""
+
+  @property
+  def test_mode(self) -> bool:
+    return True
+
+
+@servable_model_registry.register
+class LLaMA3FP168Bx1(BaseLLaMA3):
+  """LLama3 8B FP16 on 1 device."""
+
+  ICI_MESH_SHAPE = [1, 1, 1]
 
 
 # GPT-J/NeoX family

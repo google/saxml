@@ -765,6 +765,8 @@ tfds-nightly==4.8.3.dev202303280045
     #   t5
 threadpoolctl==3.4.0
     # via scikit-learn
+tiktoken==0.6.0
+    # via -r requirements.in
 tinycss2==1.2.1
     # via nbconvert
 tokenizers==0.15.2

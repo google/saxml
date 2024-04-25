@@ -208,6 +208,7 @@ pytype_strict_library(
     name = "vocabularies",
     srcs = ["vocabularies.py"],
     deps = [
+        "//third_party/py/absl-py/logging",
         "//third_party/py/seqio",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
         "//third_party/py/transformers",

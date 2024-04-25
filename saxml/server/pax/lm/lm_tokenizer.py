@@ -90,15 +90,24 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
             '/tmp/vocabulary/' + vocabulary_path.split('/')[-1]
         )
 
-        if not os.path.exists(local_vocabulary_path):
-          os.makedirs(local_vocabulary_path)
+        if tf.io.gfile.isdir(vocabulary_path):
+          if not os.path.exists(local_vocabulary_path):
+            os.makedirs(local_vocabulary_path)
 
-        for filename in tf.io.gfile.listdir(vocabulary_path):
-          src = os.path.join(vocabulary_path, filename)
-          dst = os.path.join(local_vocabulary_path, filename)
-          if not os.path.exists(dst):
-            tf.io.gfile.copy(src, dst, overwrite=False)
+          for filename in tf.io.gfile.listdir(vocabulary_path):
+            src = os.path.join(vocabulary_path, filename)
+            dst = os.path.join(local_vocabulary_path, filename)
+            if not os.path.exists(dst):
+              tf.io.gfile.copy(src, dst, overwrite=False)
+        else:
+          assert tf.io.gfile.exists(vocabulary_path)
+          if not os.path.exists(os.path.dirname(local_vocabulary_path)):
+            os.makedirs(os.path.dirname(local_vocabulary_path))
 
+          tf.io.gfile.copy(
+              vocabulary_path,
+              local_vocabulary_path,
+              overwrite=True)
         vocabulary_path = local_vocabulary_path
 
       self._vocab = vocab_cls(vocabulary_path)

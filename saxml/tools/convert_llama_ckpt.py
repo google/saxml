@@ -58,6 +58,16 @@ MODEL_PARAMS_DICT = {
         'num_gpus': 1,
         'combined_qkv': True,
     },
+    # Llama3 8B model
+    '8b': {
+        'num_layers': 32,
+        'num_heads': 32,
+        'num_kv_heads': 8,
+        'dims_per_head': 128,
+        'vocab': 128256,
+        'num_gpus': 1,
+        'combined_qkv': False,
+    },
     '7b': {
         'num_layers': 32,
         'num_heads': 32,
