@@ -118,7 +118,10 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     return self._vocab
 
   def StringsToIdsTokenized(
-      self, strs: tf.Tensor, max_length: int
+      self,
+      strs: tf.Tensor,
+      max_length: int,
+      prepend_sos_if_needed: bool = False,
   ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
     p = self.hparams
     batch = tf.shape(strs)[0]
@@ -140,10 +143,13 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       labels = labels[:, :max_length]
     else:
       labels = labels[:, -(max_length):]
+
     # Get the shape of each ragged tensor and drop the dimension of the shape.
     padding_indices = max_length - (
         tf.map_fn(tf.squeeze, tf.map_fn(tf.shape, labels).to_tensor())
     )
+    if p.prepend_sos and prepend_sos_if_needed:
+      padding_indices = padding_indices - 1
     # Convert to tensor and pad at the same time.
     lengths = labels.row_lengths()
     to_pad_as_flat_tensor = tf.repeat(
@@ -162,7 +168,15 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
         tf.zeros_like(indices, tf.float32),
         tf.ones_like(indices, tf.float32),
     )
-    return labels, labels, tf.reverse(paddings, axis=[1])
+    if p.prepend_sos and prepend_sos_if_needed:
+      sos_ids = tf.fill(
+          [batch, 1], tf.constant(p.target_sos_id, dtype=tf.int32)
+      )
+      ids = tf.concat([sos_ids, labels], axis=1)
+    else:
+      ids = labels
+
+    return ids, labels, tf.reverse(paddings, axis=[1])
 
   def StringsToIds(
       self, strs: tf.Tensor, max_length: int

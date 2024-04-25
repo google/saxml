@@ -85,7 +85,7 @@ def _tokenize_and_pad(
     batch = tf.shape(data)[0]
     shape = [batch, max_input_seq_len]
     ids, labels, paddings = tokenizer.StringsToIdsTokenized(
-        data, max_input_seq_len
+        data, max_input_seq_len, prepend_sos_if_needed=True
     )
     return _pad(ids, shape), _pad(labels, shape), _pad(paddings, shape)
 
@@ -534,25 +534,44 @@ def tf_tokenize_inputs(
     max_prefix_seq_len: int,
     max_suffix_seq_len: int,
     include_eos: bool,
+    pretokenized_input: pytypes.JTensor | None = None,
 ) -> NestedMap:
   """Tokenize inputs."""
+  if pretokenized_input is not None and not hasattr(
+      tokenizer, 'StringsToIdsTokenized'
+  ):
+    raise ValueError(
+        'pretokenized_input is not supported with the provided tokenizer.'
+    )
+
   seqlen = max_prefix_seq_len + max_suffix_seq_len
   if not max_suffix_seq_len:
     max_suffix_seq_len = max_prefix_seq_len
   output_shape = [None, seqlen]
   prefix_shape = [None, max_prefix_seq_len]
   suffix_shape = [None, max_suffix_seq_len]
-  pfx_ids, pfx_labels, pfx_paddings = tokenizer.StringsToIds(
-      prefixes, max_length=max_prefix_seq_len
-  )
+  if pretokenized_input is not None:
+    pfx_ids, pfx_labels, pfx_paddings = _tokenize_and_pad(
+        prefixes, tokenizer, max_prefix_seq_len, pretokenized_input
+    )
+  else:
+    pfx_ids, pfx_labels, pfx_paddings = tokenizer.StringsToIds(
+        prefixes, max_length=max_prefix_seq_len
+    )
   (pfx_ids, pfx_labels, pfx_paddings) = (
       tf.ensure_shape(pfx_ids, prefix_shape),
       tf.ensure_shape(pfx_labels, prefix_shape),
       tf.ensure_shape(pfx_paddings, prefix_shape),
   )
-  _, sfx_labels, sfx_paddings = tokenizer.StringsToIds(
-      suffixes, max_length=max_suffix_seq_len
-  )
+
+  if pretokenized_input is not None:
+    _, sfx_labels, sfx_paddings = _tokenize_and_pad(
+        suffixes, tokenizer, max_suffix_seq_len, pretokenized_input
+    )
+  else:
+    _, sfx_labels, sfx_paddings = tokenizer.StringsToIds(
+        suffixes, max_length=max_suffix_seq_len
+    )
   (sfx_labels, sfx_paddings) = (
       tf.ensure_shape(sfx_labels, suffix_shape),
       tf.ensure_shape(sfx_paddings, suffix_shape),

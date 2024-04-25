@@ -50,6 +50,97 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
     super().setUp()
     self.tokenizer = create_tokenizer_params().Instantiate()
 
+  @test_utils.parameterized.parameters(
+      (
+          ['Hello world', 'second prefix'],
+          ['suffix', 'suffix two'],
+          [False, False],
+      ),
+      (
+          ['151,88,21,887', '546,68,56,57,25,297'],
+          ['53,57,57,25,297,1', '57,57,25,297,213,1'],
+          [True, True],
+      ),
+      (
+          ['151,88,21,887', 'second prefix'],
+          ['53,57,57,25,297,1', 'suffix two'],
+          [True, False],
+      ),
+  )
+  def test_tf_tokenize_inputs_text(
+      self,
+      prefixes: list[str],
+      suffixes: list[str],
+      pretokenized_input: list[bool],
+  ):
+    max_prefix_seq_len = 8
+    max_suffix_seq_len = 6
+    include_eos = True
+    outputs = servable_lm_common.tf_tokenize_inputs(
+        prefixes,
+        suffixes,
+        self.tokenizer,
+        max_prefix_seq_len,
+        max_suffix_seq_len,
+        include_eos,
+        pretokenized_input,
+    )
+    self.assertArraysEqual(
+        outputs.ids.numpy(),
+        [
+            [0, 151, 88, 21, 887, 53, 57, 57, 25, 297, 0, 0, 0, 0],
+            [0, 546, 68, 56, 57, 25, 297, 57, 57, 25, 297, 213, 0, 0],
+        ],
+    )
+    self.assertArraysEqual(
+        outputs.labels.numpy(),
+        [
+            [151, 88, 21, 887, 53, 57, 57, 25, 297, 1, 0, 0, 0, 0],
+            [546, 68, 56, 57, 25, 297, 57, 57, 25, 297, 213, 1, 0, 0],
+        ],
+    )
+    self.assertArraysEqual(
+        outputs.paddings.numpy(),
+        [
+            [
+                0.0,
+            ]
+            * 10
+            + [1.0] * 4,
+            [
+                0.0,
+            ]
+            * 12
+            + [1.0] * 2,
+        ],
+    )
+    self.assertArraysEqual(
+        outputs.weights.numpy(),
+        [
+            [
+                1.0,
+            ]
+            * 10
+            + [0.0] * 4,
+            [
+                1.0,
+            ]
+            * 12
+            + [0.0] * 2,
+        ],
+    )
+    self.assertArraysEqual(
+        outputs.score_masks.numpy(),
+        [[0.0] * 4 + [1.0] * 6 + [0.0] * 4, [0.0] * 6 + [1.0] * 6 + [0.0] * 2],
+    )
+    self.assertArraysEqual(
+        outputs.inputs_indicator.numpy(),
+        [
+            [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+        ],
+    )
+
   def test_decode_tf_tokenize_inputs_text(self):
     strs = ['Hello world', 'This is a test']
     max_length = 8
@@ -88,21 +179,21 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
     )
     self.assertArraysEqual(
         ids.numpy(),
-        [[4, 5, 1, 1, 1, 1, 1, 1], [1, 2, 3, 4, 1, 1, 1, 1]],
+        [[0, 4, 5, 1, 1, 1, 1, 1], [0, 1, 2, 3, 4, 1, 1, 1]],
     )
     self.assertArraysEqual(
         labels.numpy(),
         [
-            [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-            [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
         ],
     )
-    self.assertArraysEqual(prefix_lengths.numpy(), [2.0, 4.0])
+    self.assertArraysEqual(prefix_lengths.numpy(), [3.0, 5.0])
     self.assertArraysEqual(
         paddings.numpy(),
         [
-            [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            [1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
         ],
     )
 
@@ -116,21 +207,21 @@ class ServableLmCommonTest(tf.test.TestCase, test_utils.TestCase):
     )
     self.assertArraysEqual(
         ids.numpy(),
-        [[0, 151, 88, 21, 887, 0, 0, 0], [1, 2, 3, 4, 1, 1, 1, 1]],
+        [[0, 151, 88, 21, 887, 0, 0, 0], [0, 1, 2, 3, 4, 1, 1, 1]],
     )
     self.assertArraysEqual(
         labels.numpy(),
         [
             [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
-            [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
         ],
     )
-    self.assertArraysEqual(prefix_lengths.numpy(), [5.0, 4.0])
+    self.assertArraysEqual(prefix_lengths.numpy(), [5.0, 5.0])
     self.assertArraysEqual(
         paddings.numpy(),
         [
             [1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
-            [1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
         ],
     )
 
