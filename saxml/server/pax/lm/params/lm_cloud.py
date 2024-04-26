@@ -222,7 +222,7 @@ class BaseLLaMA3(BaseLLaMA):
   """Baseclass for LLaMA3 models."""
 
   VOCABULARY_CLASS = 'LLama3Vocabulary'
-  VOCABULARY_PATH = '/cns/mf-d/home/alekseyv/pax-llama3/vocabs/tokenizer.model'
+  VOCABULARY_PATH = 'gs://cloud-tpu-inference-public/sax-tokenizers/llama/llama3-tokenizer.model'
   ENABLE_GENERATE_STREAM = False  # Not yet supported for Tiktoken tokenizer.
 
   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
@@ -701,8 +701,9 @@ class LLaMA70BInt8H100x8Fake(LLaMA70BInt8H100x8):
 
 
 @servable_model_registry.register
-class LLaMA3FP168Bx4(BaseLLaMA3):
-  """LLama3 8B FP16 on 4 devices."""
+# pylint: disable=invalid-name
+class LLaMA3_8BFP16x4(BaseLLaMA3):
+  """LLama3 8B FP16 partitioned for 4 chips."""
 
   NUM_LAYERS = 32
   VOCAB_SIZE = 128256
@@ -720,8 +721,9 @@ class LLaMA3FP168Bx4(BaseLLaMA3):
 
 
 @servable_model_registry.register
-class LLaMA3FP168BTestx4(LLaMA3FP168Bx4):
-  """LLama3 8B FP16 on 4 devices with fake weights."""
+# pylint: disable=invalid-name
+class LLaMA3_8BFP16Testx4(LLaMA3_8BFP16x4):
+  """LLama3 8B FP16 for 4 chips with fake weights."""
 
   @property
   def test_mode(self) -> bool:
@@ -729,10 +731,37 @@ class LLaMA3FP168BTestx4(LLaMA3FP168Bx4):
 
 
 @servable_model_registry.register
-class LLaMA3FP168Bx1(BaseLLaMA3):
-  """LLama3 8B FP16 on 1 device."""
+# pylint: disable=invalid-name
+class LLaMA3_8BFP16x1(BaseLLaMA3):
+  """LLama3 8B FP16 partitioned for 1 chip."""
 
   ICI_MESH_SHAPE = [1, 1, 1]
+
+
+@servable_model_registry.register
+# pylint: disable=invalid-name
+class LLaMA3_70BFP16x16(BaseLLaMA3):
+  """LLama3 70B FP16 partitioned for 16 chips."""
+
+  NUM_LAYERS = 80
+  VOCAB_SIZE = 32000
+  DIMS_PER_HEAD = 128
+  NUM_HEADS = 64
+  MODEL_DIMS = 8192
+  HIDDEN_DIMS = 28672
+  USE_MQA = True
+  NUM_KV_HEADS = 8
+
+  ICI_MESH_SHAPE = [1, 1, 16]
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
+# pylint: disable=invalid-name
+class LLaMA3_70BInt8LinearOnlyx8(LLaMA3_70BFP16x16):
+  """LLama3 70B with linear layers quantized to Int8 partitioned for 8 chips."""
+
+  ICI_MESH_SHAPE = [1, 1, 8]
 
 
 # GPT-J/NeoX family
