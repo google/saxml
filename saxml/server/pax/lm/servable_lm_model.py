@@ -571,6 +571,7 @@ class LMScoreMethod(ServableLMMethod):
         self._score_params.max_input_seq_len,
         self._score_params.max_suffix_seq_len,
         self._score_params.include_eos_score,
+        pretokenized_input=(extra_inputs or {}).get('tokenized_input', None),
     )
 
     if bucketize_inputs:
@@ -2125,6 +2126,7 @@ class LMGradientMethod(ServableLMMethod):
         self._gradient_params.max_input_seq_len,
         self._gradient_params.max_suffix_seq_len,
         self._gradient_params.include_eos_score,
+        pretokenized_input=(extra_inputs or {}).get('tokenized_input', None),
     )
 
     if bucketize_inputs:
