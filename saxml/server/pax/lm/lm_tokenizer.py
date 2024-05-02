@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import re
 from typing import Any, List, Tuple
 
 from praxis import base_hyperparams
@@ -83,9 +84,10 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       assert self.spm_model is None
       vocab_cls = getattr(vocabularies, self.vocabulary_class)
       vocabulary_path = self.vocabulary_path
-      if vocabulary_path.startswith('gs://'):
-        # Need to copy the vocabulary_path if in GCS to local, since HuggingFace
-        # does not support loading tokenizer from GCS.
+      if re.match('(gs://|/cns|/placer)', vocabulary_path) is not None:
+        # Need to copy the vocabulary_path if in Google file systems to local,
+        # since HuggingFace and Tiktoken do not support loading tokenizer from
+        # GCS or other Google file systems.
         local_vocabulary_path = os.path.join(
             '/tmp/vocabulary/' + vocabulary_path.split('/')[-1]
         )
