@@ -699,7 +699,7 @@ class LMDecodeMethod(ServableLMMethod):
 
       def callback_fn(x):
         assert self.model_state.is_primary_host
-        self.enqueue_stream_output(x)
+        self.enqueue_stream_output(jax.tree.map(np.array, x))
 
       host_callback = functools.partial(
           jax_exp.io_callback,
