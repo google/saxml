@@ -168,6 +168,21 @@ message GetStatusResponse {
   }
 
   repeated ModelWithStatus models = 1;
+
+  message ServerStatus {
+    enum State {
+      UNDEFINED = 0;
+      // The server is usable and ready to serve.
+      ACTIVE = 1;
+      // The server is offline and unusable now, but the job is able to be back
+      // online and become active when needed.
+      DORMANT = 2;
+    }
+    optional State state = 1;
+    // Optionally, human readable explanation for the server state.
+    optional string explanation = 2;
+  }
+  optional ServerStatus server_status = 2;
 }
 
 service Modelet {
