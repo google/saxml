@@ -19,10 +19,9 @@ import functools
 import os
 import pprint
 import threading
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from absl import logging
-from flax import struct as flax_struct
 import jax
 from jax import experimental as jax_exp
 from jax import numpy as jnp
@@ -67,7 +66,7 @@ class StepCounter:
 
 
 @dataclasses.dataclass
-class ServableModelState(flax_struct.PyTreeNode):
+class ServableModelState:
   """A data structure holding the state of a loaded model."""
 
   # Model variables.
@@ -77,19 +76,19 @@ class ServableModelState(flax_struct.PyTreeNode):
 
   # Whether the current host is the primary in a multi-jax-client setup. It is
   # set to True for Pathways.
-  is_primary_host: bool = flax_struct.field(pytree_node=False)
+  is_primary_host: bool
   # Process ID of the primary host.
-  primary_process_id: int = flax_struct.field(pytree_node=False)
+  primary_process_id: int
   # Whether input prefetching to device is needed.
-  input_prefetch: bool = flax_struct.field(pytree_node=False)
+  input_prefetch: bool
   # Whether to precompile device computation during model load.
-  precompile: bool = flax_struct.field(pytree_node=False)
+  precompile: bool
   # Step for the model variables.
-  step: int = flax_struct.field(pytree_node=False)
+  step: int
   # pjit global mesh.
-  global_mesh: jax.sharding.Mesh = flax_struct.field(pytree_node=False)
+  global_mesh: jax.sharding.Mesh
   # Model variables' partition specs.
-  mdl_var_pspecs: PSpecs = flax_struct.field(pytree_node=False)
+  mdl_var_pspecs: PSpecs
 
 
 @dataclasses.dataclass
@@ -133,6 +132,7 @@ class ServableMethod(servable_model.ServableMethod):
       dummy_input_sample: Any,
       enable_auto_sharding: bool = False,
       compiler_options: jax.stages.CompilerOptions | None = None,
+      mutable: bool = False,
   ) -> None:
     # TODO(yuanzx): Need update the docstring.
     # The `compiler options` will be passed to JAX `lowered.compile` during AOT
@@ -146,6 +146,7 @@ class ServableMethod(servable_model.ServableMethod):
     self._local_devices = list(model_state.global_mesh.local_devices)
     self._enable_auto_sharding = enable_auto_sharding
     self._compiler_options = compiler_options
+    self._mutable = mutable
     logging.info(
         'Primary host: %d, Current: %d',
         model_state.primary_process_id,
@@ -171,6 +172,17 @@ class ServableMethod(servable_model.ServableMethod):
   @property
   def callback_device(self) -> jax.Device:
     return self._callback_device
+
+  def filter_mutable_vars(
+      self, mdl_vars: JaxTensors | PSpecs | Shapes
+  ) -> Tuple[JaxTensors | PSpecs | Shapes, JaxTensors | PSpecs | Shapes]:
+    return (), mdl_vars
+
+  def merge_mutable_vars(
+      self, mutable_vars: JaxTensors, immutable_vars: JaxTensors
+  ) -> JaxTensors:
+    assert not mutable_vars
+    return immutable_vars
 
   def get_sorted_input_shapes(self) -> List[InputShapeInfo]:
     result = []
@@ -323,22 +335,14 @@ class ServableMethod(servable_model.ServableMethod):
         # model vars and their shardings. Note that self.model_state is
         # a getter for the underlying self._model_state field (see
         # below).
-        self._model_state = ServableModelState(
-            resharded_mdl_vars,
-            self.model_state.mdl_var_unpadded_shapes,
-            self.model_state.is_primary_host,
-            self.model_state.primary_process_id,
-            self.model_state.input_prefetch,
-            self.model_state.precompile,
-            self.model_state.step,
-            self.model_state.global_mesh,
-            mdl_var_pspecs,
-        )
+        self._model_state.mdl_vars = resharded_mdl_vars
+        self._model_state.mdl_var_pspecs = mdl_var_pspecs
 
     info.device_fn = device_fn
 
-    if self.model_state.precompile:
-      # Compute with dummy to trigger compilation.
+    if self.model_state.precompile and not self._mutable:
+      # Compute with dummy to trigger compilation. Only use this option for
+      # immutable methods to prevent side effects.
       with self.model_state.global_mesh:
         init_dummy_outputs = info.device_fn(
             self.model_state.mdl_vars, info.dummy_inputs
@@ -622,21 +626,42 @@ class ServableMethod(servable_model.ServableMethod):
   ) -> JaxTensors:
     """Invokes the JAX function that implements the device computation."""
 
+  def stateful_jax_func(
+      self,
+      mutable_mdl_vars: JaxTensors,
+      mdl_vars: JaxTensors,
+      prng_key: jnp.ndarray,
+      batched_inputs: JaxTensors,
+      non_batched_inputs: JaxTensors,
+  ) -> JaxTensors:
+    """Invokes the JAX function that implements the device computation."""
+    del mdl_vars, mutable_mdl_vars, prng_key, batched_inputs, non_batched_inputs
+    raise NotImplementedError('stateful_jax_func not implemented')
+
   def _pjit_device_fn(
       self, input_pspecs: PSpecs, batch_size: int, dummy_inputs: DeviceTensors
   ) -> Callable[[DeviceTensors, DeviceTensors], DeviceTensors]:
     """Returns a pjit-ed model function with input handling."""
-    del dummy_inputs
+    mutable_var_pspecs, mdl_var_pspecs = self.filter_mutable_vars(
+        self.model_state.mdl_var_pspecs
+    )
 
-    def _wrapped_fn(mdl_vars, inputs):
+    def _wrapped_fn_stateful(mutable_mdl_vars, mdl_vars, inputs):
       # Remove padding on the vars.
-      mdl_vars = jax.tree_util.tree_map(
-          remove_padding, mdl_vars, self.model_state.mdl_var_unpadded_shapes
+      mutable_var_unpadded_shapes, mdl_var_unpadded_shapes = (
+          self.filter_mutable_vars(self.model_state.mdl_var_unpadded_shapes)
       )
       mdl_vars = jax.tree_util.tree_map(
-          jax.lax.with_sharding_constraint,
-          mdl_vars,
-          self.model_state.mdl_var_pspecs,
+          remove_padding, mdl_vars, mdl_var_unpadded_shapes
+      )
+      mdl_vars = jax.tree_util.tree_map(
+          jax.lax.with_sharding_constraint, mdl_vars, mdl_var_pspecs
+      )
+      mutable_mdl_vars = jax.tree_util.tree_map(
+          remove_padding, mutable_mdl_vars, mutable_var_unpadded_shapes
+      )
+      mutable_mdl_vars = jax.tree_util.tree_map(
+          jax.lax.with_sharding_constraint, mutable_mdl_vars, mutable_var_pspecs
       )
 
       # Only one core has real data, others have zeros. Summing on the
@@ -649,9 +674,18 @@ class ServableMethod(servable_model.ServableMethod):
       inputs = jax.tree_util.tree_map(_replicate, inputs)
       step, prng_key, batched_inputs, non_batched_inputs = inputs
       prng_key = jax.random.fold_in(prng_key, step)
-      outputs = self.jax_func(
-          mdl_vars, prng_key, batched_inputs, non_batched_inputs
-      )
+      if self._mutable:
+        outputs, mutable_mdl_vars = self.stateful_jax_func(
+            mutable_mdl_vars,
+            mdl_vars,
+            prng_key,
+            batched_inputs,
+            non_batched_inputs,
+        )
+      else:
+        outputs = self.jax_func(
+            mdl_vars, prng_key, batched_inputs, non_batched_inputs
+        )
       if self.streamable_output:
         # This is guaranteed to be called after all previous host callbacks as
         # all host callbacks are marked as ordered.
@@ -663,23 +697,51 @@ class ServableMethod(servable_model.ServableMethod):
         )
         # Unused final outputs. Return something to make output_to_host
         # blocking.
-        return jnp.zeros((batch_size,), dtype=jnp.int32)
+        return jnp.zeros((batch_size,), dtype=jnp.int32), mutable_mdl_vars
 
+      return outputs, mutable_mdl_vars
+
+    def _wrapped_fn_stateless(mdl_vars, inputs):
+      outputs, _ = _wrapped_fn_stateful((), mdl_vars, inputs)
       return outputs
 
     # pjit-ed function.
     if self._enable_auto_sharding:
+      assert not self._mutable
       return pjit.pjit(
-          _wrapped_fn,
+          _wrapped_fn_stateless,
           in_shardings=(pjit.AUTO(self.model_state.global_mesh), input_pspecs),
           out_shardings=None,
       )
     else:
-      return pjit.pjit(
-          _wrapped_fn,
-          in_shardings=(self.model_state.mdl_var_pspecs, input_pspecs),
-          out_shardings=None,
-      )
+      if self._mutable:
+        pjitted = pjit.pjit(
+            _wrapped_fn_stateful,
+            in_shardings=(mutable_var_pspecs, mdl_var_pspecs, input_pspecs),
+            out_shardings=(None, mutable_var_pspecs),
+            donate_argnums=0,
+        )
+        if self.model_state.precompile:
+          with self.model_state.global_mesh:
+            pjitted = pjitted.lower(
+                *self.filter_mutable_vars(self.model_state.mdl_vars),
+                dummy_inputs,
+            ).compile()
+        def _wrapped_pjit(mdl_vars, inputs):
+          mutable_vars, immutable_vars = self.filter_mutable_vars(mdl_vars)
+          outputs, mutable_vars = pjitted(mutable_vars, immutable_vars, inputs)
+          self._model_state.mdl_vars = self.merge_mutable_vars(
+              mutable_vars, immutable_vars
+          )
+          return outputs
+
+        return _wrapped_pjit
+      else:
+        return pjit.pjit(
+            _wrapped_fn_stateless,
+            in_shardings=(mdl_var_pspecs, input_pspecs),
+            out_shardings=None,
+        )
 
   def unload(self) -> None:
     """Clears references held by this method."""
