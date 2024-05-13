@@ -50,7 +50,8 @@ class GetStatusTest(absltest.TestCase):
         admin_port=portpicker.pick_unused_port(),
         platform_chip='cpu',
         platform_topology='1',
-        tags=[]
+        is_backend_dormant=lambda: False,
+        tags=[],
     )
     mock_loader = self.enter_context(
         mock.patch.object(self._service, '_loader', autospec=True)
@@ -115,6 +116,35 @@ class GetStatusTest(absltest.TestCase):
     self.assertLen(response.models, 1)
     model = response.models[0]
     self.assertEmpty(model.method_stats)
+
+  def test_report_server_dormant_state(self):
+    mock_is_backend_dormant = self.enter_context(
+        mock.patch.object(self._service, '_is_backend_dormant', autospec=True)
+    )
+    mock_is_backend_dormant.return_value = True
+
+    request = modelet_pb2.GetStatusRequest()
+    response = modelet_pb2.GetStatusResponse()
+
+    self._service.get_status(request, response)
+
+    status = response.server_status
+    self.assertEqual(
+        status.state, modelet_pb2.GetStatusResponse.ServerStatus.DORMANT
+    )
+    self.assertNotEmpty(status.explanation)
+
+  def test_report_server_active_state(self):
+    request = modelet_pb2.GetStatusRequest()
+    response = modelet_pb2.GetStatusResponse()
+
+    self._service.get_status(request, response)
+
+    status = response.server_status
+    self.assertEqual(
+        status.state, modelet_pb2.GetStatusResponse.ServerStatus.ACTIVE
+    )
+    self.assertNotEmpty(status.explanation)
 
 
 if __name__ == '__main__':

@@ -979,6 +979,7 @@ class ModeletService:
       admin_port: Optional[int],
       platform_chip: Optional[str],
       platform_topology: Optional[str],
+      is_backend_dormant: Callable[[], bool],
       tags: Optional[List[str]],
       *args,
       **kwargs,
@@ -988,6 +989,7 @@ class ModeletService:
     self._loader = loader
     self._unload_lock = threading.Lock()
     self._models_being_unloaded = set()
+    self._is_backend_dormant = is_backend_dormant
 
     super().__init__(*args, **kwargs)
     self._batcher.register_method(
@@ -1170,6 +1172,28 @@ class ModeletService:
       resp: modelet_pb2.GetStatusResponse,
   ) -> None:
     """Retrieves the server status."""
+    if not self._is_backend_dormant:
+      resp.server_status.state = (
+          modelet_pb2.GetStatusResponse.ServerStatus.UNDEFINED
+      )
+      resp.server_status.explanation = 'No computation backend found.'
+    else:
+      if self._is_backend_dormant():
+        resp.server_status.state = (
+            modelet_pb2.GetStatusResponse.ServerStatus.DORMANT
+        )
+        resp.server_status.explanation = (
+            'Computation backend is dormant. For example, Pathways suspended'
+            ' client virtual slices due to client being idle for too long.'
+        )
+      else:
+        resp.server_status.state = (
+            modelet_pb2.GetStatusResponse.ServerStatus.ACTIVE
+        )
+        resp.server_status.explanation = (
+            'Computation backend is active and ready for use.'
+        )
+
     model_by_key: dict[str, modelet_pb2.GetStatusResponse.ModelWithStatus] = {}
     for key, status in self._loader.get_status().items():
       model = modelet_pb2.GetStatusResponse.ModelWithStatus(
@@ -1410,7 +1434,10 @@ class ModelServicesRunner:
         admin_port=admin_port,
         platform_chip=platform_chip,
         platform_topology=platform_topology,
-        tags=tags
+        is_backend_dormant=self._spmd_backend.is_backend_dormant
+        if self._spmd_backend is not None
+        else None,
+        tags=tags,
     )
     self._platform_topology = platform_topology
     all_grpc_services = [self._modelet_service]

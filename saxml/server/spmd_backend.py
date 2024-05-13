@@ -44,6 +44,10 @@ class SPMDBackend(abc.ABC):
   ) -> None:
     """Receives via device communication, and calls done in a thread pool."""
 
+  def is_backend_dormant(self) -> bool:
+    """Returns whether the backend is dormant for this host."""
+    return utils.is_pathways_dormant()
+
 
 class SingleHostBackend(SPMDBackend):
   """A trivial SPMDBackend that supports only 1 host."""
