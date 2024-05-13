@@ -564,7 +564,7 @@ class ServableMethod(servable_model.ServableMethod):
       extra_inputs: Optional list of dictionary for {input_key: scalar_value}
         for each example. The keys in different elements of list could be
         different. The element in the list could be an empty dictionary. When it
-        is None, when fill extra_inputs with self.default_extra_inputs.
+        is None, fill extra_inputs with self.default_extra_inputs.
 
     Returns:
       Updated input batch.
