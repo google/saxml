@@ -242,7 +242,7 @@ class ServableMethod(servable_model.ServableMethod):
   ) -> NestedJTensor:
     if self._model.fprop_dtype == jnp.bfloat16:
       # Convert float inputs/vars if fprop dtype is bfloat16.
-      batched_inputs, mdl_vars = jax.tree_map(
+      batched_inputs, mdl_vars = jax.tree.map(
           (lambda x: x.astype(jnp.bfloat16) if x.dtype == jnp.float32 else x),
           (batched_inputs, mdl_vars),
       )
@@ -294,7 +294,7 @@ class ServableMethod(servable_model.ServableMethod):
             return x.astype(jnp.float32)
           return x
 
-        outputs = jax.tree_map(maybe_to_float32, outputs)
+        outputs = jax.tree.map(maybe_to_float32, outputs)
       return self.fetch_output(outputs, batched_inputs)
 
   def unload(self) -> None:
@@ -484,7 +484,7 @@ class ServableModel(servable_model.ServableModel):
             return jax.ShapeDtypeStruct(x.shape, jnp.bfloat16)
           return x
 
-        train_state_global_shapes = jax.tree_map(
+        train_state_global_shapes = jax.tree.map(
             maybe_to_bfloat16_dtype, train_state_global_shapes
         )
 
@@ -538,7 +538,7 @@ class ServableModel(servable_model.ServableModel):
               vars_weight_params, discard_opt_states=discard_opt_states
           )
       ).mdl_vars
-      mdl_var_unpadded_shapes = jax.tree_map(
+      mdl_var_unpadded_shapes = jax.tree.map(
           lambda x: x.shape, mdl_var_unpadded_shapes
       )
 
@@ -567,7 +567,7 @@ class ServableModel(servable_model.ServableModel):
               or model_p.dtype == jnp.bfloat16
           ):
             # Convert float inputs/vars if fprop dtype is bfloat16.
-            mdl_vars_to_quant = jax.tree_map(convert, mdl_vars_to_quant)
+            mdl_vars_to_quant = jax.tree.map(convert, mdl_vars_to_quant)
           k1, k2, prng_keys = jax.random.split(prng_keys, num=3)
           return jax_task.model.apply(
               mdl_vars_to_quant,
@@ -586,7 +586,7 @@ class ServableModel(servable_model.ServableModel):
         )
         new_pspec, _ = pjit_quant_pspec_fn(mdl_vars, prng_key)
         # pylint: disable=g-long-lambda
-        new_pspec = jax.tree_map(
+        new_pspec = jax.tree.map(
             lambda x: x.meta
             if isinstance(x, base_layer.BoxedPartitionSpec)
             else x,
@@ -607,7 +607,7 @@ class ServableModel(servable_model.ServableModel):
               or model_p.dtype == jnp.bfloat16
           ):
             # Convert float inputs/vars if fprop dtype is bfloat16.
-            mdl_vars_to_quant = jax.tree_map(convert, mdl_vars_to_quant)
+            mdl_vars_to_quant = jax.tree.map(convert, mdl_vars_to_quant)
           k1, k2, prng_keys = jax.random.split(prng_keys, num=3)
           return jax_task.model.apply(
               mdl_vars_to_quant,
@@ -631,8 +631,8 @@ class ServableModel(servable_model.ServableModel):
         model = new_jax_task.model
         task_p = new_task_p
         # TODO(jianlijianli): Get unpadded_shapes properly.
-        mdl_var_unpadded_shapes = jax.tree_map(lambda x: x.shape, mdl_vars)
-        mdl_var_unpadded_types = jax.tree_map(lambda x: x.dtype, mdl_vars)
+        mdl_var_unpadded_shapes = jax.tree.map(lambda x: x.shape, mdl_vars)
+        mdl_var_unpadded_types = jax.tree.map(lambda x: x.dtype, mdl_vars)
         logging.info('quantized vars pspec %s', new_pspec)
         logging.info('quantized vars shapes %s', mdl_var_unpadded_shapes)
         logging.info('quantized vars types %s', mdl_var_unpadded_types)

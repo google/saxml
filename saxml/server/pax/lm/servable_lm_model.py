@@ -369,7 +369,7 @@ class ServableLMMethod(servable_model.ServableMethod):
       padded = jnp.pad(x, paddings)
       return padded
 
-    return jax.tree_map(_pad_fn, result)
+    return jax.tree.map(_pad_fn, result)
 
   def post_process_branch_outputs(
       self, outputs: NestedJTensor, branch_key: int

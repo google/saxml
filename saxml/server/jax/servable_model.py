@@ -232,7 +232,7 @@ class ServableMethod(servable_model.ServableMethod):
       return jax.ShapeDtypeStruct(x.shape, dtype)
 
     compiled = step_fn.lower(
-        jax.tree_map(_create_aval, train_state.mdl_vars),
+        jax.tree.map(_create_aval, train_state.mdl_vars),
         inputs_shape_dtype,
     ).compile(compiler_options=compiler_options)
     return compiled
