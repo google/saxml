@@ -586,6 +586,12 @@ jspb_proto_library(
     deps = [":multimodal_proto"],
 )
 
+cc_grpc_library(
+    name = "multimodal_cc_grpc",
+    srcs = [":multimodal_proto"],
+    deps = [":multimodal_cc_proto"],
+)
+
 proto_library(
     name = "internal_proto",
     srcs = ["internal.proto"],
