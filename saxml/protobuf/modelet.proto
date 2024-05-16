@@ -181,6 +181,15 @@ message GetStatusResponse {
     optional State state = 1;
     // Optionally, human readable explanation for the server state.
     optional string explanation = 2;
+
+    message Stats {
+      // The QPS of early rejected requests in the past 10s.
+      // Early rejected requests are requests that are rejected by the server
+      // with "kUnavailable" error before they are processed, e.g., due to
+      // server is dormant.
+      float early_rejection_errors_per_second = 1;
+    }
+    optional Stats stats = 3;
   }
   optional ServerStatus server_status = 2;
 }

@@ -13,12 +13,17 @@
 # limitations under the License.
 """Tests for model_service_base."""
 
+import asyncio
+from typing import Any, Callable
 from unittest import mock
 
 from absl.testing import absltest
+import grpc
 import numpy as np
 import portpicker
 from saxml.protobuf import common_pb2
+from saxml.protobuf import lm_pb2
+from saxml.protobuf import lm_pb2_grpc
 from saxml.protobuf import modelet_pb2
 from saxml.server import model_service_base
 from saxml.server import utils
@@ -46,11 +51,11 @@ class GetStatusTest(absltest.TestCase):
         debug_port=None,
         batcher=model_service_base.PerMethodBatcher(),
         loader=model_service_base.LoadedModelManager(0),
+        bouncer=model_service_base.DormantServerBouncer(lambda: False, False),
         sax_cell='/sax/foo',
         admin_port=portpicker.pick_unused_port(),
         platform_chip='cpu',
         platform_topology='1',
-        is_backend_dormant=lambda: False,
         tags=[],
     )
     mock_loader = self.enter_context(
@@ -118,10 +123,10 @@ class GetStatusTest(absltest.TestCase):
     self.assertEmpty(model.method_stats)
 
   def test_report_server_dormant_state(self):
-    mock_is_backend_dormant = self.enter_context(
-        mock.patch.object(self._service, '_is_backend_dormant', autospec=True)
+    mock_bouncer = self.enter_context(
+        mock.patch.object(self._service, '_bouncer', autospec=True)
     )
-    mock_is_backend_dormant.return_value = True
+    mock_bouncer.is_server_dormant.return_value = True
 
     request = modelet_pb2.GetStatusRequest()
     response = modelet_pb2.GetStatusResponse()
@@ -145,6 +150,182 @@ class GetStatusTest(absltest.TestCase):
         status.state, modelet_pb2.GetStatusResponse.ServerStatus.ACTIVE
     )
     self.assertNotEmpty(status.explanation)
+
+  def test_report_server_early_rejection_state(self):
+    mock_bouncer = self.enter_context(
+        mock.patch.object(self._service, '_bouncer', autospec=True)
+    )
+    mock_bouncer.get_rejected_request_stats.return_value = (
+        utils.RequestStats.Stats(
+            timespan_sec=20,
+            total=400,
+            summ=400,
+            summ2=400,
+            samples=np.array(list(range(400))),
+        )
+    )
+
+    request = modelet_pb2.GetStatusRequest()
+    response = modelet_pb2.GetStatusResponse()
+
+    self._service.get_status(request, response)
+
+    status = response.server_status
+    self.assertEqual(
+        status.state, modelet_pb2.GetStatusResponse.ServerStatus.DORMANT
+    )
+    self.assertEqual(status.stats.early_rejection_errors_per_second, 20)
+
+
+class DormantServerBouncerTest(absltest.TestCase):
+
+  def test_reject_requests_respecting_enabled_flag(self):
+    early_rejection_disabled_bouncer = model_service_base.DormantServerBouncer(
+        lambda: True, False
+    )
+
+    self.assertTrue(early_rejection_disabled_bouncer.is_server_dormant())
+    self.assertFalse(early_rejection_disabled_bouncer.should_reject_request())
+
+  def test_reject_requests_respecting_server_dormant(self):
+    dormant_server_bouncer = model_service_base.DormantServerBouncer(
+        lambda: True, True
+    )
+    self.assertTrue(dormant_server_bouncer.is_server_dormant())
+    self.assertTrue(dormant_server_bouncer.should_reject_request())
+    self.assertEqual(
+        dormant_server_bouncer.get_rejected_request_stats(),
+        utils.RequestStats.Stats(
+            timespan_sec=10.0,
+            total=1,
+            summ=1.0,
+            summ2=1.0,
+            samples=np.array([1]),
+        ),
+    )
+
+  def test_reject_requests_respecting_server_active(self):
+    active_server_bouncer = model_service_base.DormantServerBouncer(
+        lambda: False, True
+    )
+    self.assertFalse(active_server_bouncer.is_server_dormant())
+    self.assertFalse(active_server_bouncer.should_reject_request())
+    self.assertEqual(
+        active_server_bouncer.get_rejected_request_stats().total, 0
+    )
+
+
+class DormantModelServiceTest(absltest.TestCase):
+
+  class FakeModelService(
+      model_service_base.ModelServiceGRPC, lm_pb2_grpc.LMServiceServicer
+  ):
+
+    def ParseMethodRPCRequest(self, method_name: str, request: Any) -> Any:
+      pass
+
+    def FillRPCResponse(
+        self, method_name: str, method_outputs: Any, response: Any
+    ) -> None:
+      pass
+
+    def ServiceName(self) -> str:
+      return 'FakeModelService'
+
+    def AddToServer(self, server: Any) -> None:
+      pass
+
+    async def Generate(self, request, context):
+      resp = lm_pb2.GenerateResponse()
+
+      await self.EnqueueRequest(
+          'lm.generate', request.model_key, context, request, resp
+      )
+      return resp
+
+  def setUp(self):
+    super().setUp()
+    self._service = self.FakeModelService(
+        service_id='fake_model_service',
+        batcher=model_service_base.PerMethodBatcher(),
+        loader=model_service_base.LoadedModelManager(0),
+        bouncer=model_service_base.DormantServerBouncer(lambda: True, True),
+    )
+
+  # A tedious fake of grpc.ServicerContext.
+  class _FakeRPCServerCtx(grpc.ServicerContext):
+
+    def __init__(self):
+      self._code = None
+      self._details = None
+
+    def is_active(self) -> bool:
+      raise NotImplementedError()
+
+    def time_remaining(self) -> float:
+      raise NotImplementedError()
+
+    def cancel(self) -> None:
+      raise NotImplementedError()
+
+    def add_callback(self, callback: Callable[[], None]) -> None:
+      raise NotImplementedError()
+
+    def invocation_metadata(self) -> None:
+      raise NotImplementedError()
+
+    def peer(self) -> str:
+      raise NotImplementedError()
+
+    def peer_identities(self) -> None:
+      raise NotImplementedError()
+
+    def peer_identity_key(self) -> None:
+      raise NotImplementedError()
+
+    def auth_context(self) -> dict[str, list[bytes]]:
+      raise NotImplementedError()
+
+    def send_initial_metadata(self, initial_metadata: Any) -> None:
+      raise NotImplementedError()
+
+    def set_trailing_metadata(self, trailing_metadata: Any) -> None:
+      raise NotImplementedError()
+
+    def trailing_metadata(self) -> None:
+      raise NotImplementedError()
+
+    def abort(self, code: grpc.StatusCode, details: str) -> None:
+      raise NotImplementedError()
+
+    def abort_with_status(self, status: grpc.Status) -> None:
+      raise NotImplementedError()
+
+    def set_code(self, code: grpc.StatusCode) -> None:
+      self._code = code
+
+    def set_details(self, details: str) -> None:
+      self._details = details
+
+    def details(self) -> str:
+      return self._details
+
+    def disable_next_message_compression(self) -> None:
+      raise NotImplementedError()
+
+    def code(self) -> grpc.StatusCode:
+      return self._code
+
+  def test_dormant_server_rejects_model_requests(self):
+    context = self._FakeRPCServerCtx()
+    asyncio.run(
+        self._service.Generate(
+            lm_pb2.GenerateRequest(model_key='anymodel', text='hello world'),
+            context,
+        )
+    )
+    self.assertEqual(context.code(), grpc.StatusCode.UNAVAILABLE)
+    self.assertContainsSubsequence(context.details(), 'dormant')
 
 
 if __name__ == '__main__':

@@ -782,6 +782,39 @@ class LoadedModelManager:
     return self._errors[key]
 
 
+class DormantServerBouncer:
+  """A bouncer policy class for rejecting requests if server is dormant."""
+
+  def __init__(
+      self, is_backend_dormant: Callable[[], bool], enable_early_rejection: bool
+  ):
+    self._lock = threading.Lock()
+    self._rejected_request_stats = utils.RequestStats(
+        timespan_sec=np.float64(10.0)
+    )
+    self._is_backend_dormant = is_backend_dormant
+    self._enable_early_rejection = enable_early_rejection
+
+  def should_reject_request(self) -> bool:
+    if not self._enable_early_rejection:
+      return False
+    if self._is_backend_dormant():
+      with self._lock:
+        # a placeholder value to make `add` method work.
+        self._rejected_request_stats.add(1)
+      return True
+    return False
+
+  def is_server_dormant(self) -> bool:
+    return self._is_backend_dormant()
+
+  def get_rejected_request_stats(self) -> utils.RequestStats.Stats:
+    return self._rejected_request_stats.get()
+
+  def get_rejected_reason(self) -> str:
+    return 'Computation backend is currently dormant, please try other servers.'
+
+
 class ModelService(metaclass=abc.ABCMeta):
   """Model RPC server base class."""
 
@@ -790,11 +823,13 @@ class ModelService(metaclass=abc.ABCMeta):
       service_id: str,
       batcher: PerMethodBatcher,
       loader: LoadedModelManager,
+      bouncer: DormantServerBouncer,
       *args,
       **kwargs,
   ):
     self._batcher = batcher
     self._loader = loader
+    self._bouncer = bouncer
     self._service_id = service_id
     # Forward arguments to other parent classes.
     super().__init__(*args, **kwargs)  # pytype: disable=invalid-directive,wrong-keyword-args
@@ -825,6 +860,10 @@ class ModelService(metaclass=abc.ABCMeta):
       streaming_output: bool,
   ):
     """Enqueues a request to the processing loop."""
+    if self._bouncer.should_reject_request():
+      done(utils.unavailable(self._bouncer.get_rejected_reason()))
+      return
+
     # Request may arrive before the corresponding _load_model() finishes or
     # after an unload. In this case, return NotFound.
     model = self._loader.maybe_get_model(model_key)
@@ -975,11 +1014,11 @@ class ModeletService:
       debug_port: Optional[int],
       batcher: PerMethodBatcher,
       loader: LoadedModelManager,
+      bouncer: DormantServerBouncer,
       sax_cell: Optional[str],
       admin_port: Optional[int],
       platform_chip: Optional[str],
       platform_topology: Optional[str],
-      is_backend_dormant: Callable[[], bool],
       tags: Optional[List[str]],
       *args,
       **kwargs,
@@ -989,7 +1028,7 @@ class ModeletService:
     self._loader = loader
     self._unload_lock = threading.Lock()
     self._models_being_unloaded = set()
-    self._is_backend_dormant = is_backend_dormant
+    self._bouncer = bouncer
 
     super().__init__(*args, **kwargs)
     self._batcher.register_method(
@@ -1172,27 +1211,24 @@ class ModeletService:
       resp: modelet_pb2.GetStatusResponse,
   ) -> None:
     """Retrieves the server status."""
-    if not self._is_backend_dormant:
+    if self._bouncer.is_server_dormant():
       resp.server_status.state = (
-          modelet_pb2.GetStatusResponse.ServerStatus.UNDEFINED
+          modelet_pb2.GetStatusResponse.ServerStatus.DORMANT
       )
-      resp.server_status.explanation = 'No computation backend found.'
+      resp.server_status.explanation = (
+          'Computation backend is dormant. For example, Pathways suspended'
+          ' client virtual slices due to client being idle for too long.'
+      )
     else:
-      if self._is_backend_dormant():
-        resp.server_status.state = (
-            modelet_pb2.GetStatusResponse.ServerStatus.DORMANT
-        )
-        resp.server_status.explanation = (
-            'Computation backend is dormant. For example, Pathways suspended'
-            ' client virtual slices due to client being idle for too long.'
-        )
-      else:
-        resp.server_status.state = (
-            modelet_pb2.GetStatusResponse.ServerStatus.ACTIVE
-        )
-        resp.server_status.explanation = (
-            'Computation backend is active and ready for use.'
-        )
+      resp.server_status.state = (
+          modelet_pb2.GetStatusResponse.ServerStatus.ACTIVE
+      )
+      resp.server_status.explanation = (
+          'Computation backend is active and ready for use.'
+      )
+    resp.server_status.stats.early_rejection_errors_per_second = (
+        self._bouncer.get_rejected_request_stats().rate()
+    )
 
     model_by_key: dict[str, modelet_pb2.GetStatusResponse.ModelWithStatus] = {}
     for key, status in self._loader.get_status().items():
@@ -1352,6 +1388,7 @@ class ModelServicesRunner:
       tags: Optional[List[str]] = None,
       backend: Optional[spmd_backend.SPMDBackend] = None,
       fail_on_error: bool = False,
+      early_reject_on_dormant: bool = False,
   ):
     self._is_primary = is_primary_process
     # If deterministic_prng_seed is provided, all models will use this as the
@@ -1374,6 +1411,11 @@ class ModelServicesRunner:
       self._spmd_backend = spmd_backend.SingleHostBackend()
     else:
       self._spmd_backend = backend
+
+    self._bouncer = DormantServerBouncer(
+        is_backend_dormant=self._spmd_backend.is_backend_dormant,
+        enable_early_rejection=early_reject_on_dormant,
+    )
 
     if self._is_primary:
       # Thread pool for async postprocess on the host.
@@ -1430,13 +1472,11 @@ class ModelServicesRunner:
         debug_port,
         batcher=self._batcher,
         loader=self._loaded_models,
+        bouncer=self._bouncer,
         sax_cell=sax_cell,
         admin_port=admin_port,
         platform_chip=platform_chip,
         platform_topology=platform_topology,
-        is_backend_dormant=self._spmd_backend.is_backend_dormant
-        if self._spmd_backend is not None
-        else None,
         tags=tags,
     )
     self._platform_topology = platform_topology
@@ -1455,6 +1495,7 @@ class ModelServicesRunner:
               service_id=service_id,
               batcher=self._batcher,
               loader=self._loaded_models,
+              bouncer=self._bouncer,
           )
           if issubclass(service_class, ModelServiceGRPC):
             all_grpc_services.append(service)

@@ -304,6 +304,10 @@ def already_exists(errmsg: str) -> Status:
   return Status(grpc.StatusCode.ALREADY_EXISTS, errmsg)
 
 
+def unavailable(errmsg: str) -> Status:
+  return Status(grpc.StatusCode.UNAVAILABLE, errmsg)
+
+
 ClockTime = Callable[[], float]
 
 
@@ -412,11 +416,11 @@ class RequestStats:
       else:
         return np.sqrt(self.summ2 / self.total - np.square(self.mean()))
 
-  def get(self, max_samples: int) -> Stats:
+  def get(self, max_samples: Optional[int] = None) -> Stats:
     """Returns a summarized view of the latency statistics."""
     self._gc(self.clock_time())
     samples = np.array([i.duration_sec for i in self.queue])
-    if len(samples) > max_samples:
+    if max_samples is not None and len(samples) > max_samples:
       samples = np.random.choice(samples, max_samples, replace=False)
     return self.Stats(  # pytype: disable=wrong-arg-types  # numpy-scalars
         timespan_sec=self.timespan_sec,

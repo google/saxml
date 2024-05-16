@@ -95,6 +95,12 @@ _HOST_ORDINAL = flags.DEFINE_integer(
         ' secondary worker loop.'
     ),
 )
+_EARLY_REJECT_ON_DORMANT = flags.DEFINE_bool(
+    'early_reject_on_dormant',
+    False,
+    'If true, reject incoming model service requests early when the model'
+    ' server is dormant.',
+)
 
 
 @flags.multi_flags_validator(
@@ -217,6 +223,7 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
       platform_topology=_PLATFORM_TOPOLOGY.value,
       tags=_TAGS.value,
       backend=spmd_bknd,
+      early_reject_on_dormant=_EARLY_REJECT_ON_DORMANT.value,
   )
   # Start jax.profiler for TensorBoard and profiling in open source.
   if _JAX_PROFILER_PORT.value:
