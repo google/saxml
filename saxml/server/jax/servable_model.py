@@ -124,6 +124,9 @@ class ServableMethod(servable_model.ServableMethod):
   host calls inside jax_func() to guarantee correct ordering.
   """
 
+  # Optional callback after the model state is updated.
+  new_state_callback: Callable[[ServableModelState], None] | None = None
+
   def __init__(
       self,
       method_params: servable_model_params.ServableMethodParams,
@@ -733,6 +736,8 @@ class ServableMethod(servable_model.ServableMethod):
           self._model_state.mdl_vars = self.merge_mutable_vars(
               mutable_vars, immutable_vars
           )
+          if self.new_state_callback:
+            self.new_state_callback(self._model_state)
           return outputs
 
         return _wrapped_pjit
