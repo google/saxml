@@ -180,6 +180,9 @@ message JoinedModelServer {
   map<string, ModelStatus> loaded_models = 4;  // model ID: status
   map<string, string> failure_reasons = 5;     // model ID: error message
 
+  // state
+  bool is_dormant = 11;
+
   // stats
   float errors_per_second = 8;
   float successes_per_second = 9;

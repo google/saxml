@@ -426,6 +426,7 @@ func (m *Mgr) makeJoinedModelServerLocked(addr string, modelet *modeletState) (*
 		DataAddress:          modelet.DataAddr,
 		LastJoinMs:           modelet.LastPing().UnixMilli(),
 		LoadedModels:         statuses,
+		IsDormant:            modelet.LastReportedServerStatus().IsDormant,
 		SuccessesPerSecond:   successesPerSecond,
 		ErrorsPerSecond:      errorsPerSecond,
 		MeanLatencyInSeconds: meanLatencyInSeconds,

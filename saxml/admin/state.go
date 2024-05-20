@@ -122,6 +122,11 @@ type ModelWithStatus struct {
 	Info ModelInfo
 }
 
+// ServerStatus tracks a model server usability state.
+type ServerStatus struct {
+	IsDormant bool
+}
+
 func (m *ModelWithStatus) clone() *ModelWithStatus {
 	return &ModelWithStatus{Model: *m.Model.clone(), Info: m.Info}
 }
@@ -187,6 +192,10 @@ type State struct {
 	// Last successful refresh time.
 	muLastPing sync.Mutex
 	lastPing   time.Time
+
+	// Last reported model server status.
+	muLastReportedStatus sync.Mutex
+	lastReportedStatus   ServerStatus
 
 	// Logger to log events such as publish, unpublish, etc.
 	eventLogger eventlog.Logger
@@ -382,6 +391,10 @@ func (s *State) getStatus(ctx context.Context) (map[naming.ModelFullName]*ModelI
 		}
 		seen[fullName] = &ModelInfo{Status: status, Stats: methodStats}
 	}
+	if serverStatus := res.GetServerStatus(); serverStatus != nil {
+		s.lastReportedStatus.IsDormant =
+			serverStatus.GetState() == mpb.GetStatusResponse_ServerStatus_DORMANT
+	}
 	return seen, nil
 }
 
@@ -473,6 +486,14 @@ func (s *State) LastPing() time.Time {
 	s.muLastPing.Lock()
 	defer s.muLastPing.Unlock()
 	return s.lastPing
+}
+
+// LastReportedServerStatus returns the modelet server status reported by the most recent GetStatus
+// call.
+func (s *State) LastReportedServerStatus() ServerStatus {
+	s.muLastReportedStatus.Lock()
+	defer s.muLastReportedStatus.Unlock()
+	return s.lastReportedStatus
 }
 
 // Start starts background state synchronization with the model server.

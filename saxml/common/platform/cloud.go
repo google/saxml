@@ -111,7 +111,8 @@ var (
 				<th>Chip</th>
 				<th>Topo</th>
 				<th>Lag (s)</th>
-				<th>Status</th>
+				<th>ModelStatus</th>
+				<th>ServerStatus</th>
 			</tr>
 		{{range .ServerTableRows}}
 			<tr>
@@ -119,7 +120,8 @@ var (
 				<td>{{.Chip}}</td>
 				<td>{{.Topo}}</td>
 				<td>{{.Lag}}</td>
-				<td>{{.Status}}</td>
+				<td>{{.ModelStatus}}</td>
+				<td>{{.ServerStatus}}</td>
 			</tr>
 		{{end}}
 		</table>
@@ -133,7 +135,7 @@ type tmplModelTableRow struct {
 }
 
 type tmplServerTableRow struct {
-	Addr, Chip, Topo, Lag, Status string
+	Addr, Chip, Topo, Lag, ModelStatus, ServerStatus string
 }
 
 type tmplData struct {
@@ -572,11 +574,15 @@ func serverTableRows(servers []*pb.JoinedModelServer) []tmplServerTableRow {
 		for model, status := range loaded {
 			statuses = append(statuses, fmt.Sprintf("%s: %s", model, status))
 		}
-		status := "Idle"
+		mstatus := "Idle"
 		if len(statuses) > 0 {
-			status = strings.Join(statuses, ", ")
+			mstatus = strings.Join(statuses, ", ")
 		}
-		items = append(items, tmplServerTableRow{addr, chip, topo, lag, status})
+		sstatus := "Active"
+		if server.GetIsDormant() {
+			sstatus = "Dormant"
+		}
+		items = append(items, tmplServerTableRow{addr, chip, topo, lag, mstatus, sstatus})
 	}
 	return items
 }
