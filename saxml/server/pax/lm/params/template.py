@@ -99,6 +99,8 @@ class CommonServingTemplate:
   GENERATION_USE_GEOMEAN_PROB_SCORE = False
   SCORING_USE_GEOMEAN_PROB_SCORE = False
   SCORING_INCLUDE_EOS_SCORE = False
+  NUM_EXTRA_IDS = 0
+  REVERSE_EXTRA_IDS = True
 
   # Params for continuous batching.
   # Setting NUM_CACHE_SLOTS to 0 disables continuous batching.
@@ -162,6 +164,8 @@ class ServingTemplate(
         eos_padding_and_no_sos=self.EOS_PADDING_AND_NO_SOS,
         vocabulary_class=self.VOCABULARY_CLASS,
         vocabulary_path=self.VOCABULARY_PATH,
+        extra_ids=self.NUM_EXTRA_IDS,
+        reverse_extra_ids=self.REVERSE_EXTRA_IDS,
     )
 
   def score(self) -> Optional[servable_lm_model.ScoreHParams]:

@@ -69,6 +69,8 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
   eos_padding_and_no_sos: bool = False
   vocabulary_class: str = None
   vocabulary_path: str = None
+  extra_ids: int = 0
+  reverse_extra_ids: bool = True
 
   _vocab: vocabularies.Vocabulary = dataclasses.field(init=False, repr=False)
 
@@ -77,7 +79,9 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     if self.vocabulary_class is None:
       assert self.spm_model is not None
       self._vocab = vocabularies.SentencePieceVocabulary(
-          self.hparams.spm_model, 0
+          self.hparams.spm_model,
+          extra_ids=self.extra_ids,
+          reverse_extra_ids=self.reverse_extra_ids,
       )
     else:
       assert self.vocabulary_path is not None
@@ -292,14 +296,12 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       sequences - A vector of shape [batch]. The converted string sequence.
     """
     p = self.hparams
-
     if p.tokenized_output:
       ids_as_string = tf.strings.as_string(ids)
       reduced_ids_as_string = tf.strings.reduce_join(
           ids_as_string, separator=',', axis=-1
       )
       return reduced_ids_as_string
-
     return self._vocab.decode_tf(ids)
 
   def IdToString(self, ids: tf.Tensor) -> tf.Tensor:
