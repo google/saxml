@@ -224,6 +224,8 @@ class BaseLLaMA3(BaseLLaMA):
   VOCABULARY_CLASS = 'LLama3Vocabulary'
   VOCABULARY_PATH = 'gs://cloud-tpu-inference-public/sax-tokenizers/llama/llama3-tokenizer.model'
   ENABLE_GENERATE_STREAM = False  # Not yet supported for Tiktoken tokenizer.
+  SOS_ID = 128000  # <|begin_of_text|> token
+  EOS_ID = 128001  # <|end_of_text|> token
 
   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
     task_p = super().task()
@@ -710,7 +712,7 @@ class LLaMA3_8BFP16x4(BaseLLaMA3):
   DIMS_PER_HEAD = 128
   NUM_HEADS = 32
   MODEL_DIMS = 4096
-  HIDDEN_DIMS = 11008
+  HIDDEN_DIMS = 14336
   ICI_MESH_SHAPE = [1, 1, 4]
   USE_MQA = True
   NUM_KV_HEADS = 8
