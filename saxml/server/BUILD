@@ -164,7 +164,6 @@ pytype_strict_library(
     srcs_version = "PY3",
     deps = [
         ":status",
-        "//learning/pathways/jax:pathways",
         "//third_party/py/grpcio",
         "//third_party/py/jax",
         "//third_party/py/numpy",
