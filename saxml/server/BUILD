@@ -90,6 +90,7 @@ pytype_strict_library(
     name = "servable_model_params",
     srcs = ["servable_model_params.py"],
     srcs_version = "PY3",
+    visibility = ["//visibility:public"],
     deps = [
         ":utils",
         "//third_party/py/absl-py/logging",
