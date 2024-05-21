@@ -265,7 +265,7 @@ jax[tpu] @ git+https://github.com/google/jax
     #   seqio-nightly
 jax-bitempered-loss==0.0.2
     # via praxis
-jaxlib==0.4.26
+jaxlib==0.4.28
     # via
     #   chex
     #   clu
@@ -357,7 +357,7 @@ libclang==18.1.1
     # via tensorflow
 libcst==1.3.1
     # via fiddle
-libtpu-nightly==0.1.dev20240403
+libtpu-nightly==0.1.dev20240508
     # via jax
 lingvo==0.12.7
     # via
@@ -481,7 +481,7 @@ optax==0.2.2
     #   praxis
 optax-shampoo==0.0.6
     # via praxis
-orbax-checkpoint==0.5.9
+orbax-checkpoint==0.5.11
     # via
     #   flax
     #   orbax-export
@@ -872,9 +872,7 @@ tzdata==2024.1
 uri-template==1.3.0
     # via jsonschema
 urllib3==2.2.1
-    # via
-    #   blobfile
-    #   requests
+    # via requests
 wcwidth==0.2.13
     # via prompt-toolkit
 webcolors==1.13

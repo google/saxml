@@ -61,6 +61,8 @@ beautifulsoup4==4.12.3
     # via nbconvert
 bleach==6.1.0
     # via nbconvert
+blobfile==0.2.3
+    # via -r requirements.in
 cachetools==5.3.3
     # via google-auth
 certifi==2024.2.2
@@ -168,16 +170,33 @@ gin-config==0.5.0
     # via
     #   mesh-tensorflow
     #   t5
+google-api-core==2.19.0
+    # via
+    #   google-cloud-core
+    #   google-cloud-storage
 google-auth==2.29.0
     # via
+    #   google-api-core
     #   google-auth-oauthlib
+    #   google-cloud-core
+    #   google-cloud-storage
     #   tensorboard
 google-auth-oauthlib==0.4.6
     # via tensorboard
+google-cloud-core==2.4.1
+    # via google-cloud-storage
+google-cloud-storage==1.44.0
+    # via blobfile
+google-crc32c==1.5.0
+    # via google-resumable-media
 google-pasta==0.2.0
     # via tensorflow
+google-resumable-media==2.7.0
+    # via google-cloud-storage
 googleapis-common-protos==1.63.0
-    # via tensorflow-metadata
+    # via
+    #   google-api-core
+    #   tensorflow-metadata
 graph-compression-google-research==0.0.4
     # via lingvo
 graphviz==0.20.3
@@ -248,7 +267,7 @@ jax[cuda12-pip,tpu] @ git+https://github.com/google/jax
     #   seqio-nightly
 jax-bitempered-loss==0.0.2
     # via praxis
-jaxlib==0.4.26+cuda12.cudnn89
+jaxlib==0.4.28+cuda12.cudnn89
     # via
     #   chex
     #   clu
@@ -340,7 +359,7 @@ libclang==18.1.1
     # via tensorflow
 libcst==1.3.1
     # via fiddle
-libtpu-nightly==0.1.dev20240403
+libtpu-nightly==0.1.dev20240508
     # via jax
 lingvo==0.12.7
     # via
@@ -494,7 +513,7 @@ optax==0.2.2
     #   praxis
 optax-shampoo==0.0.6
     # via praxis
-orbax-checkpoint==0.5.9
+orbax-checkpoint==0.5.11
     # via
     #   flax
     #   orbax-export
@@ -554,13 +573,18 @@ prompt-toolkit==3.0.43
     # via
     #   ipython
     #   jupyter-console
+proto-plus==1.23.0
+    # via google-api-core
 protobuf==3.19.6
     # via
+    #   google-api-core
+    #   google-cloud-storage
     #   googleapis-common-protos
     #   grpcio-reflection
     #   lingvo
     #   orbax-checkpoint
     #   paxml
+    #   proto-plus
     #   seqio
     #   seqio-nightly
     #   tensorboard
@@ -642,9 +666,12 @@ regex==2023.12.25
     # via
     #   nltk
     #   sacrebleu
+    #   tiktoken
     #   transformers
 requests==2.31.0
     # via
+    #   google-api-core
+    #   google-cloud-storage
     #   huggingface-hub
     #   jax
     #   jupyterlab-server
@@ -652,6 +679,7 @@ requests==2.31.0
     #   tensorboard
     #   tensorflow-datasets
     #   tfds-nightly
+    #   tiktoken
     #   transformers
 requests-oauthlib==2.0.0
     # via google-auth-oauthlib
@@ -708,6 +736,7 @@ six==1.16.0
     #   asttokens
     #   astunparse
     #   bleach
+    #   google-cloud-storage
     #   google-pasta
     #   jupyter-http-over-ws
     #   keras-preprocessing
