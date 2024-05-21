@@ -24,17 +24,24 @@ import grpc
 import jax
 import numpy as np
 import numpy.typing as npt
+from saxml.server import status as server_status
 
 from google.protobuf import message
 
 
-@dataclasses.dataclass
-class Status:
-  code: grpc.StatusCode
-  details: str = ''
+Status = server_status.Status
+ok = server_status.ok
+cancelled = server_status.cancelled
+invalid_arg = server_status.invalid_arg
+internal_error = server_status.internal_error
+not_found = server_status.not_found
+permission_denied = server_status.permission_denied
+resource_exhausted = server_status.resource_exhausted
+unimplemented = server_status.unimplemented
+already_exists = server_status.already_exists
+unavailable = server_status.unavailable
 
-  def ok(self) -> bool:
-    return self.code == grpc.StatusCode.OK
+ClockTime = Callable[[], float]
 
 
 class StatusCallback(Protocol):
@@ -266,49 +273,6 @@ class Admissioner:
       while self._count > 0:
         self._cv.wait()
       self._shutdown = True
-
-
-def ok() -> Status:
-  return Status(grpc.StatusCode.OK)
-
-
-def cancelled(errmsg: str = '') -> Status:
-  return Status(grpc.StatusCode.CANCELLED, errmsg)
-
-
-def invalid_arg(errmsg: str) -> Status:
-  return Status(grpc.StatusCode.INVALID_ARGUMENT, errmsg)
-
-
-def internal_error(errmsg: str) -> Status:
-  return Status(grpc.StatusCode.INTERNAL, errmsg)
-
-
-def not_found(errmsg: str) -> Status:
-  return Status(grpc.StatusCode.NOT_FOUND, errmsg)
-
-
-def permission_denied(errmsg: str) -> Status:
-  return Status(grpc.StatusCode.PERMISSION_DENIED, errmsg)
-
-
-def resource_exhausted(errmsg: str) -> Status:
-  return Status(grpc.StatusCode.RESOURCE_EXHAUSTED, errmsg)
-
-
-def unimplemented(errmsg: str) -> Status:
-  return Status(grpc.StatusCode.UNIMPLEMENTED, errmsg)
-
-
-def already_exists(errmsg: str) -> Status:
-  return Status(grpc.StatusCode.ALREADY_EXISTS, errmsg)
-
-
-def unavailable(errmsg: str) -> Status:
-  return Status(grpc.StatusCode.UNAVAILABLE, errmsg)
-
-
-ClockTime = Callable[[], float]
 
 
 class RequestStats:

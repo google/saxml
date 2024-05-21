@@ -151,10 +151,19 @@ pytype_strict_library(
 )
 
 pytype_strict_library(
+    name = "status",
+    srcs = ["status.py"],
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = ["//third_party/py/grpcio"],
+)
+
+pytype_strict_library(
     name = "utils",
     srcs = ["utils.py"],
     srcs_version = "PY3",
     deps = [
+        ":status",
         "//learning/pathways/jax:pathways",
         "//third_party/py/grpcio",
         "//third_party/py/jax",
