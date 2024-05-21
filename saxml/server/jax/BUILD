@@ -53,6 +53,7 @@ pytype_strict_library(
     name = "servable_model",
     srcs = ["servable_model.py"],
     srcs_version = "PY3",
+    visibility = ["//visibility:public"],
     deps = [
         "//saxml/server:servable_model",
         "//saxml/server:servable_model_params",
