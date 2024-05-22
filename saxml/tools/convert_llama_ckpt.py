@@ -40,6 +40,15 @@ from praxis import py_utils
 import torch
 
 MODEL_PARAMS_DICT = {
+    'llama3_70b': {
+        'num_layers': 80,
+        'num_heads': 64,
+        'num_kv_heads': 8,
+        'dims_per_head': 128,
+        'vocab': 128256,
+        'num_gpus': 1,
+        'combined_qkv': False,
+    },
     '70b': {
         'num_layers': 80,
         'num_heads': 64,
@@ -58,8 +67,7 @@ MODEL_PARAMS_DICT = {
         'num_gpus': 1,
         'combined_qkv': True,
     },
-    # Llama3 8B model
-    '8b': {
+    'llama3_8b': {
         'num_layers': 32,
         'num_heads': 32,
         'num_kv_heads': 8,
@@ -100,10 +108,12 @@ def convert(base_model_path, pax_model_path, model_size):
     pytorch_vars[int(ckpt_path.name.split('.', maxsplit=2)[1])] = checkpoint
   pytorch_vars = [pytorch_vars[i] for i in sorted(list(pytorch_vars.keys()))]
 
+  # emb_var is sharded by dim1 for Llama1/2, and dim0 for LLama3
+  emb_var_axis = 1 if pytorch_vars[0]['tok_embeddings.weight'].shape[0] == vocab else 0
   jax_weights = {
       'lm': {
           'embedding_lookup': {
-              'emb_var': np.concatenate([var['tok_embeddings.weight'].type(torch.float16).numpy() for var in pytorch_vars], axis=1)[:vocab,:]
+              'emb_var': np.concatenate([var['tok_embeddings.weight'].type(torch.float16).numpy() for var in pytorch_vars], axis=emb_var_axis)[:vocab,:]
               },
           'softmax': {
               'logits_ffn': {

@@ -226,6 +226,7 @@ class BaseLLaMA3(BaseLLaMA):
   ENABLE_GENERATE_STREAM = False  # Not yet supported for Tiktoken tokenizer.
   SOS_ID = 128000  # <|begin_of_text|> token
   EOS_ID = 128001  # <|end_of_text|> token
+  VOCAB_SIZE = 128256
 
   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
     task_p = super().task()
@@ -708,7 +709,6 @@ class LLaMA3_8BFP16x4(BaseLLaMA3):
   """LLama3 8B FP16 partitioned for 4 chips."""
 
   NUM_LAYERS = 32
-  VOCAB_SIZE = 128256
   DIMS_PER_HEAD = 128
   NUM_HEADS = 32
   MODEL_DIMS = 4096
@@ -755,6 +755,14 @@ class LLaMA3_70BFP16x16(BaseLLaMA3):
   NUM_KV_HEADS = 8
 
   ICI_MESH_SHAPE = [1, 1, 16]
+
+
+@servable_model_registry.register
+# pylint: disable=invalid-name
+class LLaMA3_70BFP16x8(BaseLLaMA3):
+  """LLama3 70B FP16 partitioned for 8 chips."""
+
+  ICI_MESH_SHAPE = [1, 1, 8]
 
 
 @servable_model_registry.register
