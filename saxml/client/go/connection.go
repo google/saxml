@@ -32,7 +32,7 @@ import (
 const (
 	sleepTime     = 5 * time.Second
 	fastPurgeTime = 10 * time.Second
-	purgeTime     = 60 * time.Minute
+	purgeTime     = 24 * time.Hour
 	dialTimeout   = 2 * time.Second
 )
 
