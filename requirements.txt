@@ -481,7 +481,7 @@ optax==0.2.2
     #   praxis
 optax-shampoo==0.0.6
     # via praxis
-orbax-checkpoint==0.5.11
+orbax-checkpoint==0.5.14
     # via
     #   flax
     #   orbax-export
