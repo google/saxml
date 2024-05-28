@@ -415,3 +415,8 @@ def is_backend_dormant() -> bool:
     True if and only if the backend is dormant.
   """
   return False
+
+
+def trigger_backend_resumption() -> None:
+  """Trigger backend resumption if it is suspended."""
+  pass

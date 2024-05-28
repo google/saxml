@@ -48,6 +48,10 @@ class SPMDBackend(abc.ABC):
     """Returns whether the backend is dormant for this host."""
     return utils.is_backend_dormant()
 
+  def wake_up_backend(self) -> None:
+    """Wakes up the backend for this host."""
+    utils.trigger_backend_resumption()
+
 
 class SingleHostBackend(SPMDBackend):
   """A trivial SPMDBackend that supports only 1 host."""
