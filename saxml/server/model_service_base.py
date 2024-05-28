@@ -1875,6 +1875,21 @@ class ModelServicesRunner:
               task.done(utils.ok(), query_cost=tpu_ms)
               done_rpcs += 1
         except Exception as e:  # pylint: disable=broad-except
+          # TODO: b/341321308 - Remove when root cause is identified and fixed.
+          #
+          # Currently, when repeatedly suspend/resume a model using Pathways,
+          # occasionally the model gets into a permanent error state.
+          # While still debugging the root cause, attempt to recover by
+          # restarting the model server.
+          if (
+              'Async transfer object was deleted before transfers completed.'
+              in str(e)
+          ):
+            logging.fatal(
+                'Detected an unrecoverable Pathways error. Cause is unknown.'
+                ' Crashing. See b/341321308. Error %s', e
+            )
+
           if not pre_process_failure:
             self._log_exception(
                 'Postprocessing error. model_key: %s, method: %s, error: %s',
