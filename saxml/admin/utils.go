@@ -24,8 +24,15 @@ import (
 	apb "saxml/protobuf/admin_go_proto_grpc"
 )
 
-// GetServerMemoryCapacity estimates the model server's memory capacity (in bytes).
-func GetServerMemoryCapacity(spec *protobuf.ModelServer) int64 {
+// ServerMemoryInfo describes the memory capabilities of a server.
+type ServerMemoryInfo struct {
+	BytesPerCore int64
+	Cores        int64
+}
+
+// GetServerMemoryInfo estimates the model server's memory capacity (in bytes),
+// and provides the number of accelerator cores on the server.
+func GetServerMemoryInfo(spec *protobuf.ModelServer) ServerMemoryInfo {
 	var memGBPerCore int64
 	switch apb.ModelServer_ChipType(spec.ChipType) {
 	case apb.ModelServer_CHIP_TYPE_UNKNOWN:
@@ -56,88 +63,106 @@ func GetServerMemoryCapacity(spec *protobuf.ModelServer) int64 {
 	default:
 		memGBPerCore = 64 // Assumption
 	}
-	var numCores int64
+	var cores int64
 	switch apb.ModelServer_ChipTopology(spec.ChipTopology) {
 	case apb.ModelServer_CHIP_TOPOLOGY_UNKNOWN:
-		numCores = 1 // Assumption
+		cores = 1 // Assumption
 	case apb.ModelServer_CHIP_TOPOLOGY_1:
-		numCores = 1
+		cores = 1
 	case apb.ModelServer_CHIP_TOPOLOGY_2:
-		numCores = 2
+		cores = 2
 	case apb.ModelServer_CHIP_TOPOLOGY_4:
-		numCores = 4
+		cores = 4
 	case apb.ModelServer_CHIP_TOPOLOGY_8:
-		numCores = 8
+		cores = 8
 	case apb.ModelServer_CHIP_TOPOLOGY_16:
-		numCores = 16
+		cores = 16
 	case apb.ModelServer_CHIP_TOPOLOGY_1X1:
-		numCores = 1
+		cores = 1
 	case apb.ModelServer_CHIP_TOPOLOGY_2X2:
-		numCores = 4
+		cores = 4
 	case apb.ModelServer_CHIP_TOPOLOGY_2X4:
-		numCores = 8
+		cores = 8
 	case apb.ModelServer_CHIP_TOPOLOGY_4X2:
-		numCores = 8
+		cores = 8
 	case apb.ModelServer_CHIP_TOPOLOGY_4X4:
-		numCores = 16
+		cores = 16
 	case apb.ModelServer_CHIP_TOPOLOGY_4X8:
-		numCores = 32
+		cores = 32
 	case apb.ModelServer_CHIP_TOPOLOGY_8X8:
-		numCores = 64
+		cores = 64
 	case apb.ModelServer_CHIP_TOPOLOGY_8X16:
-		numCores = 128
+		cores = 128
 	case apb.ModelServer_CHIP_TOPOLOGY_16X16:
-		numCores = 256
+		cores = 256
 	case apb.ModelServer_CHIP_TOPOLOGY_16X32:
-		numCores = 512
+		cores = 512
 	case apb.ModelServer_CHIP_TOPOLOGY_32X32:
-		numCores = 1024
+		cores = 1024
 	case apb.ModelServer_CHIP_TOPOLOGY_1X1X1:
-		numCores = 1
+		cores = 1
 	case apb.ModelServer_CHIP_TOPOLOGY_1X2X1:
-		numCores = 2
+		cores = 2
 	case apb.ModelServer_CHIP_TOPOLOGY_2X2X1:
-		numCores = 4
+		cores = 4
 	case apb.ModelServer_CHIP_TOPOLOGY_2X2X2:
-		numCores = 8
+		cores = 8
 	case apb.ModelServer_CHIP_TOPOLOGY_2X2X4:
-		numCores = 16
+		cores = 16
 	case apb.ModelServer_CHIP_TOPOLOGY_2X4X4:
-		numCores = 32
+		cores = 32
 	case apb.ModelServer_CHIP_TOPOLOGY_4X4X4:
-		numCores = 64
+		cores = 64
 	case apb.ModelServer_CHIP_TOPOLOGY_4X4X8:
-		numCores = 128
+		cores = 128
 	case apb.ModelServer_CHIP_TOPOLOGY_4X4X16:
-		numCores = 256
+		cores = 256
 	case apb.ModelServer_CHIP_TOPOLOGY_4X8X8:
-		numCores = 256
+		cores = 256
 	case apb.ModelServer_CHIP_TOPOLOGY_8X8X12:
-		numCores = 768
+		cores = 768
 	case apb.ModelServer_CHIP_TOPOLOGY_8X8X8:
-		numCores = 512
+		cores = 512
 	default:
-		numCores = 1 // Assumption
+		cores = 1 // Assumption
 	}
-	return memGBPerCore * numCores * (1 << 30)
+	return ServerMemoryInfo{BytesPerCore: memGBPerCore * (1 << 30), Cores: cores}
 }
 
 // GetMemoryRequired estimates the model's memory usage based on
-// spec.overrided["ram"]. Returns <0 if the estimation is not
+// spec.overrided["ramN"]. Returns nil if the estimation is not
 // feasible.
-func GetMemoryRequired(spec *apb.Model) int64 {
+// Memory usage is given as map[cores]bytesRequired.
+func GetMemoryRequired(spec *apb.Model) map[int64]int64 {
 	// TODO: Maybe define a field in apb.Model. But for now, we expect
 	// a field in the override provides a hint.
-	found, ok := spec.GetOverrides()["ram"]
-	if !ok {
-		return -1
+
+	var bytesPerCores = make(map[int64]int64)
+	for key, value := range spec.GetOverrides() {
+		if !strings.HasPrefix(key, "ram") {
+			continue
+		}
+
+		cores := int64(1)
+		if len(key) > 3 {
+			var err error
+			cores, err = strconv.ParseInt(key[3:], 10, 64)
+			if err != nil {
+				log.Errorf("Failed to parse number of cores from key %s: %v", key, err)
+				continue
+			}
+		}
+
+		bytes, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			log.Errorf("Failed to parse bytes from value %s: %v", value, err)
+			continue
+		}
+
+		bytesPerCores[cores] = bytes
 	}
-	value, err := strconv.ParseInt(found, 10, 64)
-	if err != nil {
-		log.Errorf("Invalid number found in \"ram\": %s", found)
-		return -1
-	}
-	return value
+
+	return bytesPerCores
 }
 
 // GetConstraints extracts constraints from the model specification's overrides.

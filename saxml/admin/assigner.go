@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 
+	log "github.com/golang/glog"
 	"saxml/admin/protobuf"
 	"saxml/admin/utils"
 	"saxml/common/naming"
@@ -34,7 +35,7 @@ type ParamPath string
 
 // ServerInfo contains metadata about a model server.
 type ServerInfo struct {
-	memoryCapacity    int64
+	memoryInfo        utils.ServerMemoryInfo
 	servableModelPath []ParamPath
 	tags              map[string]bool
 	loadedModel       map[naming.ModelFullName]protobuf.ModelStatus
@@ -44,7 +45,7 @@ type ServerInfo struct {
 // server specification.
 func NewServerInfo(serverSpec *protobuf.ModelServer) *ServerInfo {
 	s := &ServerInfo{
-		memoryCapacity:    utils.GetServerMemoryCapacity(serverSpec),
+		memoryInfo:        utils.GetServerMemoryInfo(serverSpec),
 		servableModelPath: []ParamPath{},
 		tags:              make(map[string]bool),
 		loadedModel:       make(map[naming.ModelFullName]protobuf.ModelStatus),
@@ -68,7 +69,7 @@ func (s *ServerInfo) AddLoadedModel(fullName naming.ModelFullName, status protob
 type ModelInfo struct {
 	modelPath      ParamPath
 	neededReplicas int
-	memoryRequired int64
+	memoryRequired map[int64]int64
 	constraints    []string
 }
 
@@ -175,37 +176,59 @@ func (a *Assigner) Assign() {
 		})
 	}
 
+	requiredMemoryForCores := func(reqPerCores map[int64]int64, cores int64) int64 {
+		if reqMem, ok := reqPerCores[cores]; ok {
+			return reqMem
+		}
+
+		// It's expected that `reqPerCores` will always contain an entry for 1 core.
+		// If it *only* contains this single entry,
+		// then that value is used for all servers (which indicates the model doesn't support sharding).
+		// If `reqPerCores` contains more than 1 entry, it's expected to contain entries for any
+		// valid number of cores.
+		if len(reqPerCores) > 1 && cores > 1 {
+			log.Errorf("reqPerCores is missing entry for %d cores: %v", cores, reqPerCores)
+		}
+		if reqMem, ok := reqPerCores[1]; ok {
+			return reqMem
+		}
+		log.Errorf("reqPerCores is missing required entry for 1 core: %v", reqPerCores)
+		return 0
+	}
+
 	// For each model, we compute its memory required.
-	reqMem := make(map[naming.ModelFullName]int64)
+	reqMem := make(map[naming.ModelFullName]map[int64]int64)
 	var modelNames []naming.ModelFullName
 	for name, model := range a.models {
 		modelNames = append(modelNames, name)
-		var required int64 = -1
-		if model.memoryRequired > 0 {
+		var reqPerCores map[int64]int64
+		if len(model.memoryRequired) > 0 {
 			// The model metadata specified the model's memory requirement.
-			required = model.memoryRequired
+			reqPerCores = model.memoryRequired
 		} else if addrs, ok := a.params[model.modelPath]; ok {
 			// Let us assume the model needs to occupy the server with
 			// the most memory.
+			reqPerCores = make(map[int64]int64)
 			for _, addr := range addrs {
 				server := a.servers[addr]
-				if server.memoryCapacity > required {
-					required = server.memoryCapacity
+				prevRequired := reqPerCores[server.memoryInfo.Cores]
+				if server.memoryInfo.BytesPerCore > prevRequired {
+					reqPerCores[server.memoryInfo.Cores] = server.memoryInfo.BytesPerCore
 				}
 			}
 		}
-		if required >= 0 {
-			reqMem[name] = required
+		if len(reqPerCores) > 0 {
+			reqMem[name] = reqPerCores
 		}
 	}
 
 	// Computes how much memory available in each server.
 	availMem := make(map[ServerAddr]int64)
 	for addr, server := range a.servers {
-		avail := server.memoryCapacity
+		avail := server.memoryInfo.BytesPerCore
 		for loaded := range server.loadedModel {
-			if used, ok := reqMem[loaded]; ok {
-				avail -= used
+			if reqPerCores, ok := reqMem[loaded]; ok {
+				avail -= requiredMemoryForCores(reqPerCores, server.memoryInfo.Cores)
 			} else {
 				// If the model does not exist in reqMem, the model is
 				// about to be unloaded.
@@ -217,7 +240,7 @@ func (a *Assigner) Assign() {
 	// The main assignment loop
 	sort.Slice(modelNames, func(i, j int) bool {
 		// Now, we prefer assign "bigger" models first.
-		cmp := reqMem[modelNames[i]] - reqMem[modelNames[j]]
+		cmp := reqMem[modelNames[i]][1] - reqMem[modelNames[j]][1]
 		if cmp != 0 {
 			return cmp > 0
 		}
@@ -241,7 +264,7 @@ func (a *Assigner) Assign() {
 		}
 
 		// Try to find servers which have this much available memory.
-		required := reqMem[name]
+		reqPerCores := reqMem[name]
 
 		// Keeps severs which supports the model in their available
 		// memory's non-increasing order.
@@ -252,10 +275,12 @@ func (a *Assigner) Assign() {
 		candidates := []*serverMemItem{}
 		for _, addr := range a.params[model.modelPath] {
 			avail := availMem[addr]
+			server := a.servers[addr]
+			required := requiredMemoryForCores(reqPerCores, server.memoryInfo.Cores)
 			if required > avail {
 				continue
 			}
-			server := a.servers[addr]
+
 			// All constraints need to be met by tags of the server.
 			constrainsMet := true
 			for _, tag := range model.constraints {
@@ -281,6 +306,8 @@ func (a *Assigner) Assign() {
 		}
 		for _, item := range candidates {
 			a.toLoad = append(a.toLoad, Action{item.addr, name})
+			server := a.servers[item.addr]
+			required := requiredMemoryForCores(reqPerCores, server.memoryInfo.Cores)
 			availMem[item.addr] -= required
 		}
 	}

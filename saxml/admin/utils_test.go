@@ -15,7 +15,10 @@
 package utils
 
 import (
+	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	"saxml/admin/protobuf"
@@ -24,19 +27,21 @@ import (
 
 func TestGetServerMemoryCapacity(t *testing.T) {
 	tests := []struct {
-		chipType   apb.ModelServer_ChipType
-		chipTopo   apb.ModelServer_ChipTopology
-		expectedGB int64
+		chipType      apb.ModelServer_ChipType
+		chipTopo      apb.ModelServer_ChipTopology
+		expectedGB    int64
+		expectedCores int64
 	}{
 		{
 			apb.ModelServer_CHIP_TYPE_TPU_V5I,
 			apb.ModelServer_CHIP_TOPOLOGY_1,
-			16,
+			16, 1,
 		},
 		{
 			apb.ModelServer_CHIP_TYPE_TPU_V5,
 			apb.ModelServer_CHIP_TOPOLOGY_4X4X8,
-			48 * 128,
+			48,
+			128,
 		},
 	}
 	for _, tc := range tests {
@@ -45,31 +50,47 @@ func TestGetServerMemoryCapacity(t *testing.T) {
 				ChipType:     protobuf.ChipType(tc.chipType),
 				ChipTopology: protobuf.ChipTopology(tc.chipTopo),
 			}
-			actual := GetServerMemoryCapacity(&ms)
-			if actual != tc.expectedGB*(1<<30) {
-				t.Errorf("GetServerMemoryCapacity(%v) err got %d, want %d", ms, actual, tc.expectedGB)
+			actual := GetServerMemoryInfo(&ms)
+			if actual.BytesPerCore != tc.expectedGB*(1<<30) || actual.Cores != tc.expectedCores {
+				t.Errorf("GetServerMemoryInfo(%v) err got %d x %d, want %d x %d",
+					ms, actual.BytesPerCore, actual.Cores, tc.expectedGB, tc.expectedCores)
 			}
 		})
 	}
 }
 
+func str(ramPerCores map[int64]int64) string {
+	var cores []int64
+	for k := range ramPerCores {
+		cores = append(cores, k)
+	}
+	sort.Slice(cores, func(i, j int) bool { return cores[i] < cores[j] })
+
+	b := new(strings.Builder)
+	for _, k := range cores {
+		fmt.Fprintf(b, "%d:%d,", k, ramPerCores[k])
+	}
+	return b.String()
+}
+
 func TestGetMemoryRequired(t *testing.T) {
 	tests := []struct {
-		ram      string
-		expected int64
+		ram      map[string]string
+		expected map[int64]int64
 	}{
-		{"", -1},
-		{"12345678", 12345678},
-		{"random blah", -1},
+		{nil, nil},
+		{map[string]string{"ram": "random blah"}, nil},
+		{map[string]string{"ram": "12345678"}, map[int64]int64{1: 12345678}},
+		{map[string]string{"ram": "12345678", "ram8": "5678"}, map[int64]int64{1: 12345678, 8: 5678}},
+		{map[string]string{"ram": "12345678", "ram8": "random blah"}, map[int64]int64{1: 12345678}},
 	}
 	for _, tc := range tests {
 		spec := &apb.Model{}
-		if tc.ram != "" {
-			spec.Overrides = map[string]string{"ram": tc.ram}
-		}
-		actual := GetMemoryRequired(spec)
-		if actual != tc.expected {
-			t.Errorf("GetMemoryRequired(%v) err got %d, want %d", spec, actual, tc.expected)
+		spec.Overrides = tc.ram
+		actual := str(GetMemoryRequired(spec))
+		expected := str(tc.expected)
+		if actual != expected {
+			t.Errorf("GetMemoryRequired(%v) err got %s, want %s", spec, actual, expected)
 		}
 	}
 }

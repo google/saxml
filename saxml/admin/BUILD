@@ -116,6 +116,7 @@ go_library(
         ":utils",
         "//saxml/common:naming",
         "//saxml/protobuf:admin_go_proto_grpc",
+        "@com_github_golang_glog//:go_default_library",
     ],
 )
 
@@ -125,6 +126,7 @@ go_test(
     library = ":assigner",
     deps = [
         ":protobuf",
+        ":utils",
         "//saxml/common:naming",
     ],
 )

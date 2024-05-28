@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"saxml/admin/protobuf"
+	"saxml/admin/utils"
 	"saxml/common/naming"
 )
 
@@ -75,6 +76,7 @@ func report(a *Assigner) string {
 type serverCase struct {
 	addr    string
 	capGB   int64
+	cores   int64
 	params  []string
 	loaded  []string
 	loading []string
@@ -82,8 +84,11 @@ type serverCase struct {
 
 func addServer(t *testing.T, a *Assigner, c *serverCase) {
 	s := &ServerInfo{
-		memoryCapacity: c.capGB << 30,
-		loadedModel:    map[naming.ModelFullName]protobuf.ModelStatus{},
+		memoryInfo: utils.ServerMemoryInfo{
+			BytesPerCore: c.capGB << 30,
+			Cores:        c.cores,
+		},
+		loadedModel: map[naming.ModelFullName]protobuf.ModelStatus{},
 	}
 	for _, p := range c.params {
 		s.servableModelPath = append(s.servableModelPath, ParamPath(p))
@@ -98,17 +103,22 @@ func addServer(t *testing.T, a *Assigner, c *serverCase) {
 }
 
 type modelCase struct {
-	name       string
-	path       string
-	replicas   int
-	requiredGB int64
+	name               string
+	path               string
+	replicas           int
+	requiredGBPerCores map[int64]int64
 }
 
 func addModel(t *testing.T, a *Assigner, c *modelCase) {
 	m := &ModelInfo{
 		modelPath:      ParamPath(c.path),
 		neededReplicas: c.replicas,
-		memoryRequired: c.requiredGB << 30,
+	}
+	if c.requiredGBPerCores != nil {
+		m.memoryRequired = make(map[int64]int64, len(c.requiredGBPerCores))
+		for cores, gb := range c.requiredGBPerCores {
+			m.memoryRequired[cores] = gb << 30
+		}
 	}
 	a.AddModel(naming.NewModelFullNameT(t, "test", c.name), m)
 }
@@ -134,13 +144,13 @@ func TestBasicAssignment(t *testing.T) {
 		{
 			desc: "1 server, n models, clean slate",
 			servers: []serverCase{
-				{"s0", 16, []string{"p0", "p1"}, []string{}, []string{}},
+				{"s0", 16, 1, []string{"p0", "p1"}, []string{}, []string{}},
 			},
 			models: []modelCase{
-				{"m0", "p0", 1, 1},
-				{"m1", "p1", 1, 20},
-				{"m2", "p2", 1, 8},
-				{"m3", "p1", 1, 10},
+				{"m0", "p0", 1, map[int64]int64{1: 1}},
+				{"m1", "p1", 1, map[int64]int64{1: 20}},
+				{"m2", "p2", 1, map[int64]int64{1: 8}},
+				{"m3", "p1", 1, map[int64]int64{1: 10}},
 			},
 			expectedReport: `
 ========
@@ -158,14 +168,14 @@ s0: m3
 		{
 			desc: "n servers, n models, clean slate, no model memory info",
 			servers: []serverCase{
-				{"s0", 16, []string{"p0"}, []string{}, []string{}},
-				{"s1", 16, []string{"p1"}, []string{}, []string{}},
-				{"s2", 16, []string{"p2"}, []string{}, []string{}},
+				{"s0", 16, 1, []string{"p0"}, []string{}, []string{}},
+				{"s1", 16, 1, []string{"p1"}, []string{}, []string{}},
+				{"s2", 16, 1, []string{"p2"}, []string{}, []string{}},
 			},
 			models: []modelCase{
-				{"m0", "p0", 1, -1},
-				{"m1", "p1", 1, -1},
-				{"m2", "p2", 1, -1},
+				{"m0", "p0", 1, nil},
+				{"m1", "p1", 1, nil},
+				{"m2", "p2", 1, nil},
 			},
 			expectedReport: `
 ========
@@ -185,12 +195,12 @@ s2: m2
 		{
 			desc: "n servers, 1 model, clean slate",
 			servers: []serverCase{
-				{"s0", 16, []string{"p0"}, []string{}, []string{}},
-				{"s1", 16, []string{"p0"}, []string{}, []string{}},
-				{"s2", 16, []string{"p0"}, []string{}, []string{}},
+				{"s0", 16, 1, []string{"p0"}, []string{}, []string{}},
+				{"s1", 16, 1, []string{"p0"}, []string{}, []string{}},
+				{"s2", 16, 1, []string{"p0"}, []string{}, []string{}},
 			},
 			models: []modelCase{
-				{"m0", "p0", 5, 4},
+				{"m0", "p0", 5, map[int64]int64{1: 4}},
 			},
 			expectedReport: `
 ========
@@ -208,9 +218,9 @@ s2: m0
 		{
 			desc: "n servers, 1 model, loaded, but unpublished",
 			servers: []serverCase{
-				{"s0", 16, []string{"p0"}, []string{"m0"}, []string{}},
-				{"s1", 16, []string{"p0"}, []string{"m0"}, []string{}},
-				{"s2", 16, []string{"p0"}, []string{"m0"}, []string{}},
+				{"s0", 16, 1, []string{"p0"}, []string{"m0"}, []string{}},
+				{"s1", 16, 1, []string{"p0"}, []string{"m0"}, []string{}},
+				{"s2", 16, 1, []string{"p0"}, []string{"m0"}, []string{}},
 			},
 			models: []modelCase{},
 			expectedReport: `
@@ -228,12 +238,12 @@ ToLoad
 		{
 			desc: "3 servers, 1 model, 1 replica already in loading, need 2 replicas",
 			servers: []serverCase{
-				{"s0", 16, []string{"p0"}, []string{}, []string{}},
-				{"s1", 16, []string{"p0"}, []string{}, []string{"m0"}},
-				{"s2", 16, []string{"p0"}, []string{}, []string{}},
+				{"s0", 16, 1, []string{"p0"}, []string{}, []string{}},
+				{"s1", 16, 1, []string{"p0"}, []string{}, []string{"m0"}},
+				{"s2", 16, 1, []string{"p0"}, []string{}, []string{}},
 			},
 			models: []modelCase{
-				{"m0", "p0", 2, 4},
+				{"m0", "p0", 2, map[int64]int64{1: 4}},
 			},
 			expectedReport: `
 ========
@@ -249,12 +259,12 @@ s0: m0
 		{
 			desc: "3 servers, 1 model, 2 replicas already (1 loading, 1 loaded), only need 1 replica, should unload the loading replica",
 			servers: []serverCase{
-				{"s0", 16, []string{"p0"}, []string{}, []string{}},
-				{"s1", 16, []string{"p0"}, []string{}, []string{"m0"}},
-				{"s2", 16, []string{"p0"}, []string{"m0"}, []string{}},
+				{"s0", 16, 1, []string{"p0"}, []string{}, []string{}},
+				{"s1", 16, 1, []string{"p0"}, []string{}, []string{"m0"}},
+				{"s2", 16, 1, []string{"p0"}, []string{"m0"}, []string{}},
 			},
 			models: []modelCase{
-				{"m0", "p0", 1, 4},
+				{"m0", "p0", 1, map[int64]int64{1: 4}},
 			},
 			expectedReport: `
 ========
@@ -265,6 +275,62 @@ ToUnload
 s1: m0
 ========
 ToLoad
+`,
+		},
+		{
+			desc: "1 server, memory overflow, load largest first",
+			servers: []serverCase{
+				{"s0", 14, 1, []string{"p0"}, []string{}, []string{}},
+			},
+			models: []modelCase{
+				{"m3", "p0", 1, map[int64]int64{1: 1}},
+				{"m2", "p0", 1, map[int64]int64{1: 2}},
+				{"m1", "p0", 1, map[int64]int64{1: 4}},
+				{"m0", "p0", 1, map[int64]int64{1: 8}},
+			},
+			expectedReport: `
+========
+Assignment:
+m0: [s0]
+m1: [s0]
+m2: [s0]
+========
+ToUnload
+========
+ToLoad
+s0: m0
+s0: m1
+s0: m2
+`,
+		},
+		{
+			desc: "1 server with multiple cores",
+			servers: []serverCase{
+				{"s0", 16, 2, []string{"p0"}, []string{}, []string{}},
+			},
+			// Verifies that assigner will use memory requirements for larger number of cores,
+			// otherwise all the models won't fit.
+			models: []modelCase{
+				{"m3", "p0", 1, map[int64]int64{1: 2, 2: 1}},
+				{"m2", "p0", 1, map[int64]int64{1: 4, 2: 2}},
+				{"m1", "p0", 1, map[int64]int64{1: 8, 2: 4}},
+				{"m0", "p0", 1, map[int64]int64{1: 16, 2: 8}},
+			},
+			expectedReport: `
+========
+Assignment:
+m0: [s0]
+m1: [s0]
+m2: [s0]
+m3: [s0]
+========
+ToUnload
+========
+ToLoad
+s0: m0
+s0: m1
+s0: m2
+s0: m3
 `,
 		},
 	}
