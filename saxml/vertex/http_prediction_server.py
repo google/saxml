@@ -41,6 +41,8 @@ _BYPASS_HEALTH_CHECK = flags.DEFINE_bool(
     )
 )
 
+_HEALTH_CHECK_SUCCESS_REPORTED = False
+
 
 class PredictHandler(tornado.web.RequestHandler):
   """HTTP handler for prediction requests."""
@@ -107,14 +109,15 @@ class HealthHandler(tornado.web.RequestHandler):
   """Health handler for SAX."""
 
   # Informs pytype of type info otherwise it will throw attribute error.
-  admin_port: int = ...
+  admin_server_address: str = ...
   model_key: str = ...
 
-  def initialize(self, admin_port: int = 10000, model_key: str = ""):
+  def initialize(self, admin_server_address: str, model_key: str = ""):
     self.model_key = model_key
-    self.admin_port = admin_port
+    self.admin_server_address = admin_server_address
 
   def get(self):
+    global _HEALTH_CHECK_SUCCESS_REPORTED
     logging.debug("got health request")
     # If model loading time takes more than Vertex Prediction timeout,
     # bypass health check handler to return health before model loaded.
@@ -132,7 +135,7 @@ class HealthHandler(tornado.web.RequestHandler):
     try:
       channel_creds = grpc.local_channel_credentials()
       channel = grpc.secure_channel(
-          f"localhost:{self.admin_port}", channel_creds
+          self.admin_server_address, channel_creds
       )
 
       stub = admin_pb2_grpc.AdminStub(channel)
@@ -147,23 +150,27 @@ class HealthHandler(tornado.web.RequestHandler):
       success_response = {"model_status": {"status": "AVAILABLE"}}
       self.write(json.dumps(success_response))
       self.set_status(200)
-      logging.info("health request success")
+      if not _HEALTH_CHECK_SUCCESS_REPORTED:
+        logging.info("health request success")  # log only once
+        _HEALTH_CHECK_SUCCESS_REPORTED = True
+      else:
+        logging.debug("health request success")
       return
 
     except Exception as e:  # pylint: disable=broad-except
-      logging.info("Health Check Failed. Error is: %s", str(e))
+      logging.debug("Health Check Failed. Error is: %s", str(e))
       self.write(json.dumps({"error": str(e)}))
       self.set_status(500)
 
 
 def _make_app(
-    admin_port: int,
+    admin_server_address: str,
     model_key: str,
     prediction_timeout_seconds: int) -> tornado.web.Application:
   """Makes the tornado web application.
 
   Args:
-    admin_port: SAX admin port.
+    admin_server_address: SAX admin address.
     model_key: model key.
     prediction_timeout_seconds: prediction timeout in seconds.
 
@@ -198,14 +205,14 @@ def _make_app(
           or os.getenv("AIP_HEALTH_ROUTE")
           or "/health",
           HealthHandler,
-          dict(admin_port=admin_port, model_key=model_key),
+          dict(admin_server_address=admin_server_address, model_key=model_key),
       ),
   ])
 
 
 async def _run_async(
     http_port: int,
-    admin_port: int,
+    admin_server_address: str,
     model_key: str,
     prediction_timeout_seconds: int,
 ):
@@ -213,7 +220,7 @@ async def _run_async(
 
   logging.info("Using Tornado version: %s", str(tornado.version_info))
   webserver_app = _make_app(
-      admin_port=admin_port,
+      admin_server_address=admin_server_address,
       model_key=model_key,
       prediction_timeout_seconds=prediction_timeout_seconds
   )
@@ -227,7 +234,7 @@ async def _run_async(
 
 def run(
     http_port: int,
-    admin_port: int,
+    admin_server_address: str,
     model_key: str,
     prediction_timeout_seconds: int,
 ):
@@ -236,7 +243,7 @@ def run(
   asyncio.set_event_loop(loop)
   loop.run_until_complete(_run_async(
       http_port,
-      admin_port,
+      admin_server_address,
       model_key,
       prediction_timeout_seconds
   ))

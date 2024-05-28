@@ -202,6 +202,16 @@ def _is_primary() -> bool:
   return _get_worker_id() == 0
 
 
+def _get_admin_server_address() -> str:
+  """Returns admin server address."""
+  tpu_worker_hostnames = os.getenv(_TPU_WORKER_HOSTNAMES_ENV_VAR, "")
+  if _is_primary() or not tpu_worker_hostnames:
+    return f"localhost:{_ADMIN_PORT.value}"
+  else:
+    tpu_worker_0 = tpu_worker_hostnames.split(",")[0]
+    return f"{tpu_worker_0}:{_ADMIN_PORT.value}"
+
+
 def get_admin_config_cmd_list() -> Sequence[str]:
   """return cmd for admin config subprocess."""
   sax_cell = _SAX_CELL.value
@@ -272,11 +282,9 @@ def configure_admin_server():
     if not tpu_worker_hostnames:
       logging.warning("%s is empty.", _TPU_WORKER_HOSTNAMES_ENV_VAR)
       return
-    tpu_worker_0 = tpu_worker_hostnames.split(",")[0]
     sax_root = os.getenv("SAX_ROOT", _SAX_ROOT.value)
     sax_cell_path = sax_root.rstrip("/") + "/" + _SAX_CELL.value.lstrip("/")
-    location = admin_pb2.Location(
-        location=f"{tpu_worker_0}:{_ADMIN_PORT.value}")
+    location = admin_pb2.Location(location=_get_admin_server_address())
     os.makedirs(sax_cell_path, exist_ok=True)
     location_file_path = os.path.join(sax_cell_path, "location.proto")
     logging.info("Manually updating %s to point to primary node %s",
@@ -354,7 +362,7 @@ async def main():
           target=http_prediction_server.run,
           args=(
               http_port,
-              _ADMIN_PORT.value,
+              _get_admin_server_address(),
               _MODEL_KEY.value,
               _PREDICTION_TIMEOUT_SECONDS.value,
           ))
