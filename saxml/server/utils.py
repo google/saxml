@@ -404,22 +404,14 @@ def is_mock_tpu_backend() -> bool:
   return 'MOCK' in str(jax.devices()[0])
 
 
-def _has_pathways_backend() -> bool:
-  try:
-    # pylint: disable-next=g-import-not-at-top
-    from google3.learning.pathways.jax import pathways as pw
+def is_backend_dormant() -> bool:
+  """Checks if the backend is dormant.
 
-    return pw.is_pathways_backend()
-  except ImportError:
-    return False
+  Computation framework supports temporary suspend/resume functionality can
+  override this function so provide a more accurate status signal to admin
+  server for dormant detection.
 
-
-def is_pathways_dormant() -> bool:
-  if not _has_pathways_backend():
-    return False
-
-  # pylint: disable-next=g-import-not-at-top
-  from google3.learning.pathways.jax.ifrt import client as pw_ifrt_client
-
-  # Non-blocking, see http://shortn/_zj8mQ0zozL for details.
-  return not all(pw_ifrt_client.devices_placement_active(jax.devices()))
+  Returns:
+    True if and only if the backend is dormant.
+  """
+  return False

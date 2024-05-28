@@ -46,7 +46,7 @@ class SPMDBackend(abc.ABC):
 
   def is_backend_dormant(self) -> bool:
     """Returns whether the backend is dormant for this host."""
-    return utils.is_pathways_dormant()
+    return utils.is_backend_dormant()
 
 
 class SingleHostBackend(SPMDBackend):
