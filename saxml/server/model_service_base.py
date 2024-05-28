@@ -73,6 +73,9 @@ _SAX_PREFIX = '/sax/'
 # Keep warm for every 2 minutes
 _KEEP_WARM_SECONDS = 120
 
+# Timeout before considering the dormant server not able to wake up.
+_BACKEND_WAKE_UP_TIMEOUT_SECONDS = 3600
+
 # pylint: disable=invalid-name
 
 
@@ -783,17 +786,29 @@ class LoadedModelManager:
 
 
 class DormantServerBouncer:
-  """A bouncer policy class for rejecting requests if server is dormant."""
+  """A bouncer class manages server backend.
+
+  It responsible for:
+    * Managing policy of rejecting requests if server is dormant.
+    * Managing the wake up of server if it is dormant.
+  """
 
   def __init__(
-      self, is_backend_dormant: Callable[[], bool], enable_early_rejection: bool
+      self,
+      is_backend_dormant: Callable[[], bool],
+      wake_up_backend: Callable[[], None],
+      enable_early_rejection: bool,
   ):
     self._lock = threading.Lock()
     self._rejected_request_stats = utils.RequestStats(
         timespan_sec=np.float64(10.0)
     )
     self._is_backend_dormant = is_backend_dormant
+    self._wake_up_backend = wake_up_backend
     self._enable_early_rejection = enable_early_rejection
+    self._waking_lock = threading.Lock()
+    self._pending_wake_up = False
+    self._backend_waker = None
 
   def should_reject_request(self) -> bool:
     if not self._enable_early_rejection:
@@ -813,6 +828,44 @@ class DormantServerBouncer:
 
   def get_rejected_reason(self) -> str:
     return 'Computation backend is currently dormant, please try other servers.'
+
+  def _wait_for_backend_to_wake_up(self) -> None:
+    """Thread that triggers and monitors backend waking up."""
+    self._wake_up_backend()
+    begin_at = time.time()
+    logging.info('Start waiting for backend to wake up.')
+    while self._is_backend_dormant() and time.time() - begin_at < 3600 * 60:
+      time.sleep(3)
+      logging.info('Still waiting for backend to wake up.')
+    with self._waking_lock:
+      self._pending_wake_up = False
+    still_dormant = self._is_backend_dormant()
+    if still_dormant:
+      # Backend cannot be woken up after waiting for 1 hour, give-up and leave
+      # some messages.
+      logging.error(
+          'Timeout waiting for backend to wake up, backend is still dormant.'
+      )
+      return
+    logging.info(
+        'Backend woken up successfully after %s seconds.',
+        time.time() - begin_at,
+    )
+
+  def wake_up_if_dormant(self) -> None:
+    """Kick-off dormant server waking-up procedure if it is dormant."""
+    with self._waking_lock:
+      if not self._is_backend_dormant():
+        return
+      if self._pending_wake_up:
+        return
+      self._pending_wake_up = True
+      self._backend_waker = threading.Thread(
+          target=self._wait_for_backend_to_wake_up,
+          daemon=True,
+          name='model_service_bouncer_wait_for_backend_to_wake_up',
+      )
+      self._backend_waker.start()
 
 
 class ModelService(metaclass=abc.ABCMeta):
@@ -1205,6 +1258,10 @@ class ModeletService:
         MethodKey(MethodName.SAVE), rpc_context, req, resp, done_with_status
     )
 
+  def wake_up(self) -> None:
+    """Wakes up a model server if it is dormant."""
+    self._bouncer.wake_up_if_dormant()
+
   def get_status(
       self,
       req: modelet_pb2.GetStatusRequest,
@@ -1331,6 +1388,11 @@ class ModeletServiceGRPC(ModeletService, modelet_pb2_grpc.ModeletServicer):
     self.get_status(request, resp)
     return resp
 
+  async def WakeUp(self, request, context):
+    resp = modelet_pb2.WakeUpResponse()
+    self.wake_up()
+    return resp
+
 
 class Exporter:
   """Injectable class for implementing exporting of models."""
@@ -1414,6 +1476,7 @@ class ModelServicesRunner:
 
     self._bouncer = DormantServerBouncer(
         is_backend_dormant=self._spmd_backend.is_backend_dormant,
+        wake_up_backend=self._spmd_backend.wake_up_backend,
         enable_early_rejection=early_reject_on_dormant,
     )
 

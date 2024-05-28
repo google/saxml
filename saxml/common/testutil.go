@@ -295,6 +295,10 @@ func (s *stubModeletServer) Save(ctx context.Context, in *mpb.SaveRequest) (*mpb
 	return nil, errors.ErrUnimplemented
 }
 
+func (s *stubModeletServer) WakeUp(ctx context.Context, in *mpb.WakeUpRequest) (*mpb.WakeUpResponse, error) {
+	return nil, errors.ErrUnimplemented
+}
+
 func (s *stubModeletServer) GetStatus(ctx context.Context, in *mpb.GetStatusRequest) (*mpb.GetStatusResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

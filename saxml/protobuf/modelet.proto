@@ -194,6 +194,9 @@ message GetStatusResponse {
   optional ServerStatus server_status = 2;
 }
 
+message WakeUpRequest {}
+message WakeUpResponse {}
+
 service Modelet {
   // Loads a model onto the model server.
   rpc Load(LoadRequest) returns (LoadResponse);
@@ -212,4 +215,7 @@ service Modelet {
 
   // Saves checkpoint of a model.
   rpc Save(SaveRequest) returns (SaveResponse);
+
+  // Wake-up a dormant server.
+  rpc WakeUp(WakeUpRequest) returns (WakeUpResponse);
 }

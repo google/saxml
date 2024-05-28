@@ -51,7 +51,11 @@ class GetStatusTest(absltest.TestCase):
         debug_port=None,
         batcher=model_service_base.PerMethodBatcher(),
         loader=model_service_base.LoadedModelManager(0),
-        bouncer=model_service_base.DormantServerBouncer(lambda: False, False),
+        bouncer=model_service_base.DormantServerBouncer(
+            is_backend_dormant=lambda: False,
+            wake_up_backend=lambda: None,
+            enable_early_rejection=False,
+        ),
         sax_cell='/sax/foo',
         admin_port=portpicker.pick_unused_port(),
         platform_chip='cpu',
@@ -181,7 +185,9 @@ class DormantServerBouncerTest(absltest.TestCase):
 
   def test_reject_requests_respecting_enabled_flag(self):
     early_rejection_disabled_bouncer = model_service_base.DormantServerBouncer(
-        lambda: True, False
+        is_backend_dormant=lambda: True,
+        wake_up_backend=lambda: None,
+        enable_early_rejection=False,
     )
 
     self.assertTrue(early_rejection_disabled_bouncer.is_server_dormant())
@@ -189,7 +195,7 @@ class DormantServerBouncerTest(absltest.TestCase):
 
   def test_reject_requests_respecting_server_dormant(self):
     dormant_server_bouncer = model_service_base.DormantServerBouncer(
-        lambda: True, True
+        lambda: True, lambda: None, True
     )
     self.assertTrue(dormant_server_bouncer.is_server_dormant())
     self.assertTrue(dormant_server_bouncer.should_reject_request())
@@ -206,13 +212,42 @@ class DormantServerBouncerTest(absltest.TestCase):
 
   def test_reject_requests_respecting_server_active(self):
     active_server_bouncer = model_service_base.DormantServerBouncer(
-        lambda: False, True
+        is_backend_dormant=lambda: False,
+        wake_up_backend=lambda: None,
+        enable_early_rejection=True,
     )
     self.assertFalse(active_server_bouncer.is_server_dormant())
     self.assertFalse(active_server_bouncer.should_reject_request())
     self.assertEqual(
         active_server_bouncer.get_rejected_request_stats().total, 0
     )
+
+  def test_bouncer_wakes_up_server(self):
+    is_dormant = True
+
+    def is_backend_dormant() -> bool:
+      nonlocal is_dormant
+      return is_dormant
+
+    bouncer = model_service_base.DormantServerBouncer(
+        is_backend_dormant=is_backend_dormant,
+        wake_up_backend=lambda: asyncio.run(asyncio.sleep(0.5)),
+        enable_early_rejection=True,
+    )
+
+    def simulate_background_server_wake_up() -> None:
+      asyncio.run(asyncio.sleep(3.0))
+      nonlocal is_dormant
+      is_dormant = False
+
+    self.assertTrue(bouncer.is_server_dormant())
+    bouncer.wake_up_if_dormant()
+    self.assertTrue(bouncer._pending_wake_up)
+
+    simulate_background_server_wake_up()
+    bouncer._backend_waker.join()  # Wait for the waking-up settle down.
+    self.assertFalse(bouncer.is_server_dormant())
+    self.assertFalse(bouncer._pending_wake_up)
 
 
 class DormantModelServiceTest(absltest.TestCase):
@@ -249,7 +284,11 @@ class DormantModelServiceTest(absltest.TestCase):
         service_id='fake_model_service',
         batcher=model_service_base.PerMethodBatcher(),
         loader=model_service_base.LoadedModelManager(0),
-        bouncer=model_service_base.DormantServerBouncer(lambda: True, True),
+        bouncer=model_service_base.DormantServerBouncer(
+            is_backend_dormant=lambda: True,
+            wake_up_backend=lambda: None,
+            enable_early_rejection=True,
+        ),
     )
 
   # A tedious fake of grpc.ServicerContext.
