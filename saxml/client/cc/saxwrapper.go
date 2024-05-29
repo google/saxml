@@ -275,11 +275,20 @@ func go_update(idData *C.char, idSize C.int, modelPathData *C.char, modelPathSiz
 	if cancel != nil {
 		defer cancel()
 	}
+
+	publishedModel, err := admin.List(ctx, modelID)
+	if err != nil || publishedModel == nil {
+		*errMsg = C.CString(err.Error())
+		*errCode = C.int(int32(errors.Code(err)))
+		return
+	}
+
 	err = admin.Update(ctx, &apb.Model{
 		ModelId:              modelID,
 		ModelPath:            modelPath,
 		CheckpointPath:       checkpointPath,
 		RequestedNumReplicas: int32(numReplicas),
+		Overrides:            publishedModel.Model.Overrides,
 	})
 	if err != nil {
 		*errMsg = C.CString(err.Error())
