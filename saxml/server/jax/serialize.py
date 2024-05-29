@@ -117,6 +117,7 @@ def deserialize_pjitted_function(
         'step_fn',
         serialized.ir,
         (False,) * num_ins,
+        (backend.platform,),
         in_shardings=in_shardings,
         out_shardings=(rep_sharding,) * num_outs,
         global_in_avals=serialized.flat_global_in_avals,
