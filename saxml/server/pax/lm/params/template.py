@@ -111,6 +111,9 @@ class CommonServingTemplate:
       token_samplers.DefaultNextTokenSampler
   )
 
+  # Prefix string to be prefilled for generate(). Not implemented yet.
+  PRECOMPUTE_KV_CACHE_PREFIX: str | None = None
+
   def input_for_model_init(self) -> py_utils.NestedMap:
     batch_size = self.BATCH_SIZE
     if isinstance(batch_size, (list, tuple)):
@@ -207,6 +210,15 @@ class ServingTemplate(
         else (self.INPUT_SEQ_LEN + max_decode_steps)
     )
 
+    if self.PRECOMPUTE_KV_CACHE_PREFIX is not None:
+      tokenizer = self.serving_tokenizer().Instantiate()
+      ids, _, paddings = tokenizer.StringsToIds(
+          [self.PRECOMPUTE_KV_CACHE_PREFIX], self.INPUT_SEQ_LEN
+      )
+      precompute_kv_cache_prefix_ids = (np.array(ids), np.array(paddings))
+    else:
+      precompute_kv_cache_prefix_ids = None
+
     if self.USE_BEAM_SEARCH:
       generate_hparams = decoder_hparams.BeamSearchHParams(
           fprop_for_prefix=True,
@@ -224,6 +236,7 @@ class ServingTemplate(
           emb_lookup_style=self.EMB_LOOKUP_STYLE,
           early_exit=self.BEAM_SEARCH_EARLY_EXIT,
           use_matmul_beam_shuffle=self.USE_MATMUL_BEAM_SHUFFLE,
+          precompute_kv_cache_prefix_ids=precompute_kv_cache_prefix_ids,
       )
     elif self.NUM_SAMPLES == 1 and self.TOP_K == 1:
       generate_hparams = decoder_hparams.GreedyDecoderHParams(
@@ -235,6 +248,7 @@ class ServingTemplate(
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
           emb_lookup_style=self.EMB_LOOKUP_STYLE,
           num_cache_slots=self.NUM_CACHE_SLOTS,
+          precompute_kv_cache_prefix_ids=precompute_kv_cache_prefix_ids,
       )
     else:
       generate_hparams = decoder_hparams.SampleDecoderHParams(
@@ -258,6 +272,7 @@ class ServingTemplate(
           sort_samples=self.SORT_SAMPLES,
           next_token_sampler_tpl=self.NEXT_TOKEN_SAMPLER_TPL,
           num_cache_slots=self.NUM_CACHE_SLOTS if self.NUM_SAMPLES == 1 else 0,
+          precompute_kv_cache_prefix_ids=precompute_kv_cache_prefix_ids,
       )
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,
@@ -298,6 +313,15 @@ class ServingTemplate(
         else (self.INPUT_SEQ_LEN + max_decode_steps)
     )
 
+    if self.PRECOMPUTE_KV_CACHE_PREFIX is not None:
+      tokenizer = self.serving_tokenizer().Instantiate()
+      ids, _, paddings = tokenizer.StringsToIds(
+          [self.PRECOMPUTE_KV_CACHE_PREFIX], self.INPUT_SEQ_LEN
+      )
+      precompute_kv_cache_prefix_ids = (np.array(ids), np.array(paddings))
+    else:
+      precompute_kv_cache_prefix_ids = None
+
     if self.NUM_SAMPLES == 1 and self.TOP_K == 1 and self.NUM_CACHE_SLOTS > 0:
       generate_hparams = decoder_hparams.GreedyDecoderHParams(
           fprop_for_prefix=self.FPROP_FOR_PREFIX,
@@ -308,6 +332,7 @@ class ServingTemplate(
           decode_loop_mesh_axes_transpose=self.DECODE_MESH_TRANSPOSE,
           emb_lookup_style=self.EMB_LOOKUP_STYLE,
           num_cache_slots=self.NUM_CACHE_SLOTS,
+          precompute_kv_cache_prefix_ids=precompute_kv_cache_prefix_ids,
       )
     else:
       generate_hparams = decoder_hparams.SampleDecoderHParams(
@@ -331,6 +356,7 @@ class ServingTemplate(
           sort_samples=self.SORT_SAMPLES,
           next_token_sampler_tpl=self.NEXT_TOKEN_SAMPLER_TPL,
           num_cache_slots=self.NUM_CACHE_SLOTS if self.NUM_SAMPLES == 1 else 0,
+          precompute_kv_cache_prefix_ids=precompute_kv_cache_prefix_ids,
       )
     return servable_lm_model.DecodeHParams(
         batch_size=self.BATCH_SIZE,

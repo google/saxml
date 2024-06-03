@@ -46,9 +46,11 @@ pytype_strict_library(
 py_strict_test(
     name = "template_test",
     srcs = ["template_test.py"],
+    data = [":test_model"],
     deps = [
         ":lm_cloud",
         ":template",
+        "//third_party/py/absl-py/flags",
         # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
         "//third_party/py/praxis:test_utils",
         "//third_party/py/tensorflow:tensorflow_no_contrib",

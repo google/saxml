@@ -13,10 +13,15 @@
 # limitations under the License.
 """Tests for template."""
 
+import os
+
+from absl import flags
 from praxis import test_utils
 from saxml.server.pax.lm.params import lm_cloud
 from saxml.server.pax.lm.params import template
 import tensorflow as tf
+
+FLAGS = flags.FLAGS
 
 
 @template.make_servable()
@@ -50,6 +55,11 @@ class TestLayerwiseModel(TestModel):
     return task_p
 
 
+@template.make_servable()
+class TestModelPrecomputeKVCache(TestModel):
+  PRECOMPUTE_KV_CACHE_PREFIX = 'This is the system prompt.'
+
+
 class TemplateTest(tf.test.TestCase, test_utils.TestCase):
 
   def test_seqlen(self):
@@ -81,6 +91,21 @@ class TemplateTest(tf.test.TestCase, test_utils.TestCase):
         config.generate_stream().decoder.seqlen,
         TestLayerwiseModel.INPUT_SEQ_LEN + TestLayerwiseModel.MAX_DECODE_STEPS,
     )
+
+  def test_precompute_kv_cache(self):
+    model_cls = TestModelPrecomputeKVCache
+    model_cls.SPM_MODEL = os.path.join(
+        FLAGS.test_srcdir,
+        'google3/third_party/py/saxml/server/pax/lm/params',
+        'test_model.model',
+    )
+    config = model_cls()
+
+    hparams = config.generate()
+    self.assertIsNotNone(hparams.decoder.precompute_kv_cache_prefix_ids)
+
+    ids, paddings = hparams.decoder.precompute_kv_cache_prefix_ids
+    self.assertShapeEqual(ids, paddings)
 
 
 if __name__ == '__main__':
