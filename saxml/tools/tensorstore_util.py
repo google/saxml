@@ -328,7 +328,7 @@ class TensorStoreWriter:
     tf.logging.info("var_name: %s", var_name)
     tf.logging.info("dtype: %s", value.dtype)
     if str(value.dtype) == "bfloat16":
-      # zarr drivier doesn't support '<V2' type
+      # zarr driver doesn't support '<V2' type
       dtype = "bfloat16"
     else:
       dtype = np.dtype(value.dtype).str
@@ -370,7 +370,7 @@ class TensorStoreWriter:
       var_name: variable name.
       value: value in numpy array format.
       stack_id: stack id of the source checkpoint var in destination checkpoint.
-      num_stacks: number of stacks of the checkpont.
+      num_stacks: number of stacks of the checkpoint.
       expert_id: expert id in MoE variable.
       num_experts: number of experts in MoE variable.
     """
@@ -379,7 +379,7 @@ class TensorStoreWriter:
     tf.logging.info("stack_id: %d", stack_id)
     tf.logging.info("dtype: %s", value.dtype)
     if str(value.dtype) == "bfloat16":
-      # zarr drivier doesn't support '<V2' type
+      # zarr driver doesn't support '<V2' type
       dtype = "bfloat16"
     else:
       dtype = np.dtype(value.dtype).str

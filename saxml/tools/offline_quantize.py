@@ -163,7 +163,7 @@ def parse_known_args(argv):
       default='cpu',
       choices=['cpu'],
       help=(
-          'Accelerator for running offline_quantizer. Acclerators have numeric'
+          'Accelerator for running offline_quantizer. Accelerators have numeric'
           ' differences which might lead to different quantized weights.'
       ),
   )
@@ -250,7 +250,7 @@ def run(argv=None, save_main_session=True):
 
     if known_args.accelerator_type != 'cpu':
       quant_fn = quant_fn.with_resource_hints(
-          allowed_accelerator_types=[(known_args.accelerator_typee, 1, 1)]
+          allowed_accelerator_types=[(known_args.accelerator_type, 1, 1)]
       )
     _ = p | beam.Create(actions) | quant_fn
 
