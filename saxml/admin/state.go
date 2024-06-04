@@ -105,6 +105,7 @@ func (m *Model) clone() *Model {
 
 // MethodStats represents a few statistics for a model method reported by a server.
 type MethodStats struct {
+	PendingRequests      int64
 	SuccessesPerSecond   float32
 	ErrorsPerSecond      float32
 	MeanLatencyInSeconds float32
@@ -384,6 +385,7 @@ func (s *State) getStatus(ctx context.Context) (map[naming.ModelFullName]*ModelI
 		methodStats := make(map[string]MethodStats)
 		for _, stats := range model.GetMethodStats() {
 			methodStats[stats.GetMethod()] = MethodStats{
+				PendingRequests:      stats.GetPendingReqs(),
 				SuccessesPerSecond:   stats.GetSuccessesPerSecond(),
 				ErrorsPerSecond:      stats.GetErrorsPerSecond(),
 				MeanLatencyInSeconds: stats.GetMeanLatencyOnSuccessPerSecond(),

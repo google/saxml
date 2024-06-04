@@ -184,6 +184,7 @@ message JoinedModelServer {
   bool is_dormant = 11;
 
   // stats
+  int64 pending_requests = 12;
   float errors_per_second = 8;
   float successes_per_second = 9;
   float mean_latency_in_seconds = 10;

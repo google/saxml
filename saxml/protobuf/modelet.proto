@@ -145,6 +145,9 @@ message GetStatusResponse {
     // The method name.
     string method = 1;
 
+    // THe number of calls on this model/method waiting on the server.
+    int64 pending_reqs = 9;
+
     // The QPS of failed requests in the past minute.
     float errors_per_second = 2;
 

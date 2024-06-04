@@ -403,6 +403,7 @@ func (m *Mgr) GetStatus(ctx context.Context, addr string, full bool) (*mpb.GetSt
 
 func (m *Mgr) makeJoinedModelServerLocked(addr string, modelet *modeletState) (*apb.JoinedModelServer, error) {
 	statuses := map[string]cpb.ModelStatus{}
+	var pendingRequests int64 = 0
 	var successesPerSecond, errorsPerSecond, meanLatencyInSeconds float32 = 0., 0., 0.
 	for fullName, status := range modelet.SeenModels() {
 		s, err := status.Info.Status.ToProto()
@@ -411,6 +412,7 @@ func (m *Mgr) makeJoinedModelServerLocked(addr string, modelet *modeletState) (*
 		}
 		statuses[fullName.ModelFullName()] = s
 		for _, stats := range status.Info.Stats {
+			pendingRequests += stats.PendingRequests
 			successesPerSecond += stats.SuccessesPerSecond
 			errorsPerSecond += stats.ErrorsPerSecond
 			meanLatencyInSeconds += stats.MeanLatencyInSeconds * stats.SuccessesPerSecond
@@ -427,6 +429,7 @@ func (m *Mgr) makeJoinedModelServerLocked(addr string, modelet *modeletState) (*
 		LastJoinMs:           modelet.LastPing().UnixMilli(),
 		LoadedModels:         statuses,
 		IsDormant:            modelet.LastReportedServerStatus().IsDormant,
+		PendingRequests:      pendingRequests,
 		SuccessesPerSecond:   successesPerSecond,
 		ErrorsPerSecond:      errorsPerSecond,
 		MeanLatencyInSeconds: meanLatencyInSeconds,
