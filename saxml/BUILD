@@ -21,4 +21,10 @@ package_group(
 bzl_library(
     name = "saxml_bzl",
     srcs = ["saxml.bzl"],
+    deps = [
+        "//tools/build_defs/go:go_binary_bzl",
+        "//tools/build_defs/go:go_library_bzl",
+        "//tools/build_defs/go:go_proto_library_bzl",
+        "//tools/build_defs/go:go_test_bzl",
+    ],
 )
