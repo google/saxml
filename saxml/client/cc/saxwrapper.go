@@ -368,12 +368,26 @@ func go_wait_for_ready(idData *C.char, idSize C.int, numReplicas C.int, timeout 
 //export go_stats
 func go_stats(idData *C.char, idSize C.int, timeout C.float, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
 	id := C.GoStringN(idData, idSize)
-	admin := saxadmin.Open(id)
+	isModelFullName := naming.ValidateModelFullName(id) == nil
+	var modelID string
+	var admin *saxadmin.Admin
+	if isModelFullName {
+		var err error
+		modelID, admin, err = openAdmin(id)
+		if err != nil {
+			buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+			return
+		}
+	} else {
+		admin = saxadmin.Open(id)
+		modelID = ""
+	}
+
 	ctx, cancel := createContextWithTimeout(timeout)
 	if cancel != nil {
 		defer cancel()
 	}
-	listResp, err := admin.Stats(ctx, "")
+	listResp, err := admin.Stats(ctx, modelID)
 	if err != nil {
 		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
 		return
