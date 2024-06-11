@@ -13,8 +13,12 @@ pybind_extension(
     deps = [
         ":wrapper",
         "//saxml/client/cc:sax",
+        "//saxml/protobuf:audio_cc_proto",
         "//saxml/protobuf:common_cc_proto",
+        "//saxml/protobuf:custom_cc_proto",
+        "//saxml/protobuf:lm_cc_proto",
         "//saxml/protobuf:multimodal_cc_proto",
+        "//saxml/protobuf:vision_cc_proto",
         "@pybind11_abseil//pybind11_abseil:absl_casters",
         "@pybind11_abseil//pybind11_abseil:import_status_module",
         "@pybind11_abseil//pybind11_abseil:status_casters",
