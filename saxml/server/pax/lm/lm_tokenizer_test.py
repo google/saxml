@@ -207,6 +207,26 @@ class LMTokenizerTest(tf.test.TestCase):
     self.assertAllEqual([[151, 88], [887, 50256]], labels)
     self.assertAllEqual([[0.0, 0.0], [0.0, 1.0]], paddings)
 
+  def testTokenizedStringsToIdsFailOnInputTruncation(self):
+    p = _CreateTokenizedParams()
+    p.fail_on_input_truncation = True
+    tokenizer = instantiate(p)
+    max_length = 2
+    strs = tf.ragged.constant(['151,88,21', '887'])
+    with self.assertRaises(ValueError):
+      tokenizer.StringsToIds(strs, max_length)
+
+  def testTokenizedStringsToIdsFailOnInputTruncationSetButNoTruncation(self):
+    p = _CreateTokenizedParams()
+    p.fail_on_input_truncation = True
+    tokenizer = instantiate(p)
+    max_length = 2
+    strs = tf.ragged.constant(['151,88', '887'])
+    ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
+    self.assertAllEqual([[151, 88], [887, 50256]], ids)
+    self.assertAllEqual([[151, 88], [887, 50256]], labels)
+    self.assertAllEqual([[0.0, 0.0], [0.0, 1.0]], paddings)
+
   def testTokenizedStringsToIdsSliceRight(self):
     p = _CreateTokenizedParams()
     p.slice_left = False
