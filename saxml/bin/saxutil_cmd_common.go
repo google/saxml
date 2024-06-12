@@ -36,10 +36,10 @@ var cmdTimeout = flag.Duration(
 
 func writesImagesToDir(images []sax.GeneratedImage, outputDir string, imagePath []string) error {
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
-		os.MkdirAll(outputDir, 0755)
+		os.MkdirAll(outputDir, 0750)
 	}
 	for index, one := range images {
-		err := os.WriteFile(imagePath[index], one.Image, 0644)
+		err := os.WriteFile(imagePath[index], one.Image, 0640)
 		if err != nil {
 			// Won't display image content since images can be big.
 			return fmt.Errorf("writesImagesToDir had %v saving %dth image", err, index)
