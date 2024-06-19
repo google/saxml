@@ -307,6 +307,7 @@ pytype_strict_library(
     name = "model_service_main_lib",
     srcs = ["model_service_main.py"],
     srcs_version = "PY3",
+    visibility = default_visibility + ["//saxml/server:friends"],
     deps = [
         ":model_service_base",
         ":servable_model_registry",
