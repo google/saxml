@@ -36,7 +36,7 @@ from saxml.server.pax.lm.params import template
 class GemmaBase(base_experiment.BaseExperiment):
   """Gemma Transformer LM configuration."""
 
-  SPM_MODEL = 'gs://cloud-tpu-inference-public/sax-tokenizers/gemma/gemma-tokenizer.model'
+  SPM_MODEL = 'gs://cloud-tpu-inference-public/sax-tokenizers/gmini/gmini-tokenizer.model'
   SOS_ID = 2
   EOS_ID = 1
   GENERATE_ONLY = True  # No need to compute loss.

@@ -238,6 +238,5 @@ pytype_strict_library(
         ":layers",
         "//third_party/py/praxis:pax_fiddle",
         "//third_party/py/praxis/layers",
-        "//third_party/py/praxis/layers:multi_query_attention",
     ],
 )

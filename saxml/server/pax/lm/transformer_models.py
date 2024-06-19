@@ -29,7 +29,7 @@ def gemma(
     chunked_one_step_attn_num_seq_split=1,
     chunked_ffn_num_seq_split=1,
 ) -> pax_fiddle.Config[layers.TransformerLm]:
-  """Create a TransformerLm config(template) for Gemma model family.
+  """Create a TransformerLm config(template) for Gmini model family.
 
   Args:
     vocab_size: Size of vocabulary.
@@ -43,7 +43,7 @@ def gemma(
     chunked_ffn_num_seq_split: chunk ff weight computation.
 
   Returns:
-    TransformerLm for Gemma.
+    TransformerLm for Gmini.
   """
   model_p = pax_fiddle.Config(layers.TransformerLm)
   model_p.vocab_size = vocab_size

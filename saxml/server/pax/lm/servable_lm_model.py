@@ -532,7 +532,8 @@ class LMScoreMethod(ServableLMMethod):
     ):
       tf_pre_processed = self.tf_pre_processing(prefixes, suffixes)
       return jax.tree_util.tree_map(np.array, tf_pre_processed)
-    return self._tf_sess_pre_processing(prefixes, suffixes)
+    else:
+      return self._tf_sess_pre_processing(prefixes, suffixes)
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[float]:
     assert isinstance(compute_outputs, pytypes.NpTensor)

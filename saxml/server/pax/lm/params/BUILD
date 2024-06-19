@@ -57,6 +57,46 @@ py_strict_test(
     ],
 )
 
+py_strict_test(
+    name = "gptj_test",
+    timeout = "long",
+    srcs = ["gptj_test.py"],
+    shard_count = 2,
+    deps = [
+        "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/flax:core",
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
+        "//third_party/py/jax",
+        "//third_party/py/numpy",
+        "//third_party/py/praxis:base_layer",
+        "//third_party/py/praxis:pax_fiddle",
+        "//third_party/py/praxis:py_utils",
+        "//third_party/py/praxis:test_utils",
+        "//third_party/py/praxis/layers",
+        "//third_party/py/praxis/layers:activations",
+        "//third_party/py/praxis/layers:attentions",
+        "//saxml/server/pax/lm:layers",
+        "//saxml/server/pax/lm/experimental:layers",
+    ],
+)
+
+py_strict_test(
+    name = "gemma_test",
+    timeout = "long",
+    srcs = ["gemma_test.py"],
+    shard_count = 2,
+    deps = [
+        "//saxml/server/pax/lm:transformer_models",
+        "//third_party/py/absl-py/testing:absltest",
+        "//third_party/py/flax:core",
+        "//third_party/py/gemma:modules",
+        "//third_party/py/gemma:transformer",
+        "//third_party/py/jax",
+        "//third_party/py/numpy",
+        "//third_party/py/praxis:test_utils",
+    ],
+)
+
 pytype_strict_library(
     name = "lm_cloud",
     srcs = ["lm_cloud.py"],
@@ -115,10 +155,10 @@ pytype_strict_library(
     srcs = ["gemma.py"],
     srcs_version = "PY3",
     deps = [
+        ":template",
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax:quantization",
         "//saxml/server/pax/lm:transformer_models",
-        "//saxml/server/pax/lm/params:template",
         "//third_party/py/jax",
         "//third_party/py/numpy",
         "//third_party/py/paxml:base_experiment",
