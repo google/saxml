@@ -106,6 +106,9 @@ message ExportRequest {
   // The RNG seed mode.
   RngSeedMode rng_seed_mode = 5;
 
+  // If true, enable the multi-device execution type for GPU.
+  bool enable_gpu_multi_device_execution = 8;
+
   reserved 2;
 }
 

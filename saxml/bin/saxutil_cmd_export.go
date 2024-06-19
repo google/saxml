@@ -53,9 +53,10 @@ func (s *Signatures) String() string {
 
 // ExportCmd is the command for WatchAddresses. Useful for debugging.
 type ExportCmd struct {
-	rngSeedMode string
-	signatures  Signatures
-	// Internal storage setting
+	rngSeedMode                   string
+	signatures                    Signatures
+	pushToTFHub                   bool
+	enableGPUMultiDeviceExecution bool
 }
 
 // Name returns the name of ExportCmd.
@@ -76,6 +77,7 @@ func (c *ExportCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.rngSeedMode, "rng_seed_mode", "stateful", "RNG seed mode. 'stateful', 'stateless', or 'fixed'.")
 	f.Var(&c.signatures, "signatures", "comma-separated list of signatures to export to. Must equal to the length of Methods to export and ordering.")
 	// Internal storage flag configuration
+	f.BoolVar(&c.enableGPUMultiDeviceExecution, "enable_gpu_multi_device_execution", true, "Whether to enable multi-device execution on GPU.")
 }
 
 // Execute executes ExportCmd.
@@ -95,7 +97,7 @@ func (c *ExportCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	exportPath := f.Args()[2]
-	if err := m.Exporter().Export(ctx, strings.Split(f.Args()[1], ","), exportPath, c.rngSeedMode, c.signatures); err != nil {
+	if err := m.Exporter().Export(ctx, strings.Split(f.Args()[1], ","), exportPath, c.rngSeedMode, c.signatures, c.enableGPUMultiDeviceExecution); err != nil {
 		log.Errorf("Failed to export model: %v", err)
 		return subcommands.ExitFailure
 	}

@@ -31,7 +31,7 @@ type Exporter struct {
 }
 
 // Export exports a method of the model managed by the Exporter.
-func (e *Exporter) Export(ctx context.Context, methodNames []string, exportPath, rngSeedMode string, signatures []string) error {
+func (e *Exporter) Export(ctx context.Context, methodNames []string, exportPath, rngSeedMode string, signatures []string, enableGPUMultiDeviceExecution bool) error {
 	var reqRngSeedMode pb.ExportRequest_RngSeedMode
 	switch strings.ToLower(rngSeedMode) {
 	case "stateless":
@@ -44,12 +44,13 @@ func (e *Exporter) Export(ctx context.Context, methodNames []string, exportPath,
 		return fmt.Errorf("invalid RNG seed mode \"%s\"", rngSeedMode)
 	}
 	req := &pb.ExportRequest{
-		ModelKey:              e.model.modelID,
-		MethodNames:           methodNames,
-		ExportPath:            exportPath,
-		SerializedModelFormat: pb.ExportRequest_TF_SAVEDMODEL_V0,
-		RngSeedMode:           reqRngSeedMode,
-		Signatures:            signatures,
+		ModelKey:                      e.model.modelID,
+		MethodNames:                   methodNames,
+		ExportPath:                    exportPath,
+		SerializedModelFormat:         pb.ExportRequest_TF_SAVEDMODEL_V0,
+		RngSeedMode:                   reqRngSeedMode,
+		Signatures:                    signatures,
+		EnableGpuMultiDeviceExecution: enableGPUMultiDeviceExecution,
 	}
 	export := func(conn *grpc.ClientConn) error {
 		_, err := pbgrpc.NewModeletClient(conn).Export(ctx, req)
