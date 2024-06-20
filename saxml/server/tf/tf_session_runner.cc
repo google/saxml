@@ -75,13 +75,12 @@ absl::Status PybindTFSessionRunner::Initialize(
   session_metadata->set_name(name_);
 
   tensorflow::Session *sess_ptr;
-  absl::Status status =
-      tensorflow::ToAbslStatus(tensorflow::NewSession(options, &sess_ptr));
+  absl::Status status = tensorflow::NewSession(options, &sess_ptr);
   session_ = std::unique_ptr<tensorflow::Session>(sess_ptr);
   if (!status.ok()) {
     return status;
   }
-  return tensorflow::ToAbslStatus(session_->Create(graph));
+  return session_->Create(graph);
 }
 
 absl::StatusOr<std::vector<py::array>> PybindTFSessionRunner::Run(
@@ -102,8 +101,7 @@ absl::StatusOr<std::vector<py::array>> PybindTFSessionRunner::Run(
   input_pairs.reserve(inputs.size());
   for (int i = 0; i < inputs.size(); i++) {
     tensorflow::Tensor t;
-    absl::Status status =
-        tensorflow::ToAbslStatus(NdArrayToTensor(inputs[i].ptr(), &t));
+    absl::Status status = NdArrayToTensor(inputs[i].ptr(), &t);
     if (!status.ok()) {
       return status;
     }
@@ -112,9 +110,9 @@ absl::StatusOr<std::vector<py::array>> PybindTFSessionRunner::Run(
   std::vector<tensorflow::Tensor> outputs;
   {
     py::gil_scoped_release release;
-    absl::Status status = tensorflow::ToAbslStatus(
+    absl::Status status =
         session_->Run(run_options_, input_pairs, fetches, {}, &outputs,
-                      /*run_metadata=*/nullptr));
+                      /*run_metadata=*/nullptr);
     if (!status.ok()) {
       return status;
     }
@@ -123,8 +121,7 @@ absl::StatusOr<std::vector<py::array>> PybindTFSessionRunner::Run(
   out_arrays.reserve(outputs.size());
   for (int i = 0; i < outputs.size(); i++) {
     PyObject *array;
-    absl::Status status =
-        tensorflow::ToAbslStatus(TensorToNdArray(outputs[i], &array));
+    absl::Status status = TensorToNdArray(outputs[i], &array);
     if (!status.ok()) {
       return status;
     }
