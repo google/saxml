@@ -47,11 +47,11 @@ class GemmaTest(test_utils.TestCase):
             hidden_dim=hidden_dims,
             num_kv_heads=num_kv_heads,
             max_cache_length=max_cache_length,
-            logit_softcapping=None,
             use_post_ffw_norm=False,
             use_post_attn_norm=False,
             attention_types=[gemma_modules.AttentionType.GLOBAL]
             * num_layers,
+            final_logit_softcap=None,
         )
     )
 
