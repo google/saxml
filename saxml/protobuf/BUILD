@@ -27,6 +27,7 @@ package_group(
     includes = [
         "//saxml:internal",
     ],
+    packages = ["//knowledge/offline/bulk_inference/..."],
 )
 
 proto_library(
