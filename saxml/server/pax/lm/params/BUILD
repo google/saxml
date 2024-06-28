@@ -3,14 +3,12 @@
 
 load("//saxml:saxml.bzl", "if_cuda", "py_strict_test", "pytype_strict_library")
 
-DEFAULT_VISIBILITY = [
-    "//saxml:internal",
-    "//saxml/server:friends",
-]
-
 package(
     # unused internal package attribute
-    default_visibility = DEFAULT_VISIBILITY,
+    default_visibility = [
+        "//saxml:internal",
+        "//saxml/server:friends",
+    ],
 )
 
 licenses(["notice"])
@@ -25,7 +23,6 @@ pytype_strict_library(
     srcs = ["template.py"],
     data = [":test_model"],
     srcs_version = "PY3",
-    visibility = DEFAULT_VISIBILITY + ["//learning/deepmind/research/imax/text:__pkg__"],
     deps = [
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax/lm:lm_tokenizer",
@@ -157,7 +154,6 @@ pytype_strict_library(
     name = "gemma",
     srcs = ["gemma.py"],
     srcs_version = "PY3",
-    visibility = DEFAULT_VISIBILITY + ["//learning/deepmind/research/imax/text:__pkg__"],
     deps = [
         ":template",
         "//saxml/server:servable_model_registry",

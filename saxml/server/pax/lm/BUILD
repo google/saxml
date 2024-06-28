@@ -2,11 +2,9 @@
 
 load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_library")
 
-DEFAULT_VISIBILITY = ["//saxml:internal"]
-
 package(
     # unused internal package attribute
-    default_visibility = DEFAULT_VISIBILITY,
+    default_visibility = ["//saxml:internal"],
 )
 
 licenses(["notice"])
@@ -236,7 +234,6 @@ py_strict_test(
 pytype_strict_library(
     name = "transformer_models",
     srcs = ["transformer_models.py"],
-    visibility = DEFAULT_VISIBILITY + ["//learning/deepmind/research/imax/text:__pkg__"],
     deps = [
         ":layers",
         "//third_party/py/praxis:pax_fiddle",
