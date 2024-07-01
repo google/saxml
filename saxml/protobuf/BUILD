@@ -27,7 +27,10 @@ package_group(
     includes = [
         "//saxml:internal",
     ],
-    packages = ["//knowledge/offline/bulk_inference/..."],
+    packages = [
+        "//java/com/google/search/next/servers/mars/...",
+        "//knowledge/offline/bulk_inference/...",
+    ],
 )
 
 proto_library(
