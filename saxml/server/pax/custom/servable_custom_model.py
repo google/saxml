@@ -41,7 +41,7 @@ PRNGKey = pytypes.PRNGKey
 NestedMap = py_utils.NestedMap
 InputShapeInfo = servable_model.InputShapeInfo
 HostTensors = servable_model.HostTensors
-ShapesAndDtypes = servable_model.ShapesAndDtypes
+ShapeDType = servable_model.ShapeDType
 
 
 FetchOutputFn = Callable[[NestedJTensor, NestedJTensor], NestedJTensor]
@@ -93,7 +93,7 @@ HandleHostInputWithInputShapeFn = Callable[[HostTensors, Any], HostTensors]
 GetPaddedInputShapeFn = Callable[[Any], Any]
 GetUnpaddedInputShapeFn = Callable[[int, HostTensors], Any]
 DeserializeInputShapeFn = Callable[[str], Any]
-ResizeHostArrayFn = Callable[[np.ndarray, ShapesAndDtypes, Any], HostTensors]
+ResizeHostArrayFn = Callable[[np.ndarray, ShapeDType, Any], HostTensors]
 
 
 class CustomMethodName:
@@ -311,7 +311,7 @@ class ServableCustomMethod(servable_model.ServableMethod):
   def resize_host_array(
       self,
       x: np.ndarray,
-      global_input_shape_dtype: ShapesAndDtypes,
+      global_input_shape_dtype: ShapeDType,
       unpadded_input_shape: InputShapeInfo,
   ) -> HostTensors:
     """Resizes x to the desired shape.

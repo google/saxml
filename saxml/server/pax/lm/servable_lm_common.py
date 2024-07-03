@@ -34,7 +34,7 @@ NestedNpTensor = pytypes.NestedNpTensor
 NestedTfTensor = pytypes.Nested[tf.Tensor]
 NestedNpOrTfTensor = Union[NestedNpTensor, NestedTfTensor]
 HostTensors = servable_model.HostTensors
-ShapesAndDtypes = servable_model.ShapesAndDtypes
+ShapeDType = servable_model.ShapeDType
 TensorSpec = Union[tf.TensorSpec, oex.TensorSpecWithDefault]
 NpOrTfTensor = Union[pytypes.NpTensor, tf.Tensor]
 
@@ -825,7 +825,7 @@ def handle_host_input_with_input_shape(
 
 def resize_host_array(
     x: np.ndarray,
-    global_input_shape_dtype: ShapesAndDtypes,
+    global_input_shape_dtype: ShapeDType,
     unpadded_input_shape: InputShapeInfo,
 ) -> HostTensors:
   """Resize host array to the deired shape.
@@ -838,7 +838,7 @@ def resize_host_array(
   Returns:
     host array after padding or slice of x.
   """
-  global_shape, _ = global_input_shape_dtype
+  global_shape = global_input_shape_dtype.shape
   if unpadded_input_shape.seq_len != -1 and (
       len(x.shape) == 2 or len(x.shape) == 3
   ):

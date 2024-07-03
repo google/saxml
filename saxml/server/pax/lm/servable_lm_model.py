@@ -54,7 +54,7 @@ NestedTfTensor = pytypes.Nested[tf.Tensor]
 NestedNpOrTfTensor = Union[NestedNpTensor, NestedTfTensor]
 LMMethodName = lm_service.LMMethodName
 HostTensors = servable_model.HostTensors
-ShapesAndDtypes = servable_model.ShapesAndDtypes
+ShapeDType = servable_model.ShapeDType
 InputShapeInfo = servable_lm_common.InputShapeInfo
 TensorSpec = servable_lm_common.TensorSpec
 DeviceTensors = Any
@@ -283,7 +283,7 @@ class ServableLMMethod(servable_model.ServableMethod):
   def resize_host_array(
       self,
       x: np.ndarray,
-      global_input_shape_dtype: ShapesAndDtypes,
+      global_input_shape_dtype: ShapeDType,
       unpadded_input_shape: InputShapeInfo,
   ):
     """Resizes x to the desired shape.
@@ -1297,13 +1297,13 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         _get_pspec, batched_host_dummy
     )
 
-    global_inputs_shape_dtype = jax.tree_util.tree_map(
-        lambda x: ((num_cores,) + x.shape, x.dtype), host_dummy
+    global_inputs_shape_dtypes = jax.tree_util.tree_map(
+        lambda x: ShapeDType((num_cores,) + x.shape, x.dtype), host_dummy
     )
 
     self._per_bs_infos[input_shape] = servable_model.MethodInputInfo(
         input_pspecs=input_pspecs,
-        global_inputs_shape_dtype=global_inputs_shape_dtype,
+        global_inputs_shape_dtypes=global_inputs_shape_dtypes,
     )
     info = self._per_bs_infos[input_shape]
     info.batched_input_pspecs = batched_input_psepcs
@@ -1315,6 +1315,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       # initialize kv cache and decode_state
       self.init_decode_cache()
       self.init_decode_state()
+
     # dummy tokens for generate_fn
     tokens = jnp.zeros((self.num_cache_slots,), dtype=jnp.int32)
     self._dummy_tokens_for_generate = (
@@ -1700,7 +1701,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
   def resize_host_array(
       self,
       x: np.ndarray,
-      global_input_shape_dtype: ShapesAndDtypes,
+      global_input_shape_dtype: ShapeDType,
       unpadded_input_shape: InputShapeInfo,
   ):
     return jax_servable_model.ServableMethod.resize_host_array(
@@ -1734,7 +1735,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         return [jax.device_put(zeros, d) for d in self._local_devices]
 
     def jax_arrays_from_buffers(pspec, buffers, shape_dtype):
-      shape, _ = shape_dtype
+      shape = shape_dtype.shape
       return jax.make_array_from_single_device_arrays(
           shape,
           jax.sharding.NamedSharding(self.model_state.global_mesh, pspec),
@@ -1748,8 +1749,10 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         one_core_inputs,
     )
     num_cores = len(self.model_state.global_mesh.devices.flat)
-    global_inputs_shape_dtype = jax.tree_util.tree_map(
-        lambda x: ((num_cores, padded_shape.batch_size) + x.shape[1:], x.dtype),
+    global_inputs_shape_dtypes = jax.tree_util.tree_map(
+        lambda x: ShapeDType(
+            (num_cores, padded_shape.batch_size) + x.shape[1:], x.dtype
+        ),
         one_core_inputs,
     )
 
@@ -1758,7 +1761,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
             self.resize_host_array, unpadded_input_shape=unpadded_shape
         ),
         one_core_inputs,
-        global_inputs_shape_dtype,
+        global_inputs_shape_dtypes,
     )
     dummy_inputs_per_device_buffer = jax.tree_util.tree_map(
         to_buffers, host_inputs
@@ -1767,7 +1770,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         jax_arrays_from_buffers,
         pspecs,
         dummy_inputs_per_device_buffer,
-        global_inputs_shape_dtype,
+        global_inputs_shape_dtypes,
     )
     return dummy_inputs_on_host
 

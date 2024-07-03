@@ -26,6 +26,7 @@ import jax
 from jax import experimental as jax_exp
 from jax import numpy as jnp
 from jax.experimental import pjit
+import jaxtyping as jt
 import numpy as np
 from paxml import host_callback as paxml_hcb
 from praxis import pytypes
@@ -39,10 +40,12 @@ ExtraInput = servable_model_params.ExtraInputs
 HostTensors = Any
 DeviceTensors = Any
 PSpecs = Any
-ShapesAndDtypes = Any
-Shapes = Any
+Shapes = tuple[int, ...]
+DType = np.dtype
+ShapeDType = jax.ShapeDtypeStruct
 JaxTensors = Any
 InputShapeInfo = servable_model.InputShapeInfo
+PyTree = jt.PyTree
 
 
 def remove_padding(x: jnp.ndarray, shape: Sequence[int]) -> jnp.ndarray:
@@ -72,7 +75,7 @@ class ServableModelState:
   # Model variables.
   mdl_vars: DeviceTensors
   # Shapes of model variables without GSPMD padding.
-  mdl_var_unpadded_shapes: Shapes
+  mdl_var_unpadded_shapes: PyTree[Shapes] | None
 
   # Whether the current host is the primary in a multi-jax-client setup. It is
   # set to True for Pathways.
@@ -98,7 +101,7 @@ class MethodInputInfo:
   # Partition specs for the inputs of the device function.
   input_pspecs: PSpecs
   # Global shape and dtype for the inputs of the device function.
-  global_inputs_shape_dtype: ShapesAndDtypes
+  global_inputs_shape_dtypes: PyTree[ShapeDType]
   # Dummy input tensors used for secondary hosts.
   dummy_inputs: Optional[DeviceTensors] = None
   # Dummy input device buffers (on the local devices)
@@ -240,62 +243,21 @@ class ServableMethod(servable_model.ServableMethod):
     ).compile(compiler_options=compiler_options)
     return compiled
 
-  def _register_for_input_shape(self, input_shape: InputShapeInfo) -> None:
-    batched_host_dummy = self.get_dummy_inputs(input_shape)
-    batched_host_dummy = self.update_extra_inputs(
-        batched_host_dummy,
-        input_shape.batch_size,
-        [self.default_extra_inputs] * input_shape.batch_size,
-    )
-
-    def _assert_type(x):
-      assert isinstance(x, np.ndarray) or isinstance(
-          x, jnp.ndarray
-      ), f'Output of pre_processing contained an invalid type: {type(x)}'
-      return x
-
-    dummy_step = np.array(0, dtype=np.int32)
-    dummy_prng_key = jax.random.PRNGKey(0)
-    host_dummy = (
-        dummy_step,
-        dummy_prng_key,
-        batched_host_dummy,
-        self.get_nonbatch_inputs(batched_host_dummy),
-    )
-    host_dummy = jax.tree_util.tree_map(_assert_type, host_dummy)
-
-    def _get_pspec(x):
-      # Add a `cores` dimension.
-      return jax.sharding.PartitionSpec(
-          self.model_state.global_mesh.axis_names, *(None,) * (len(x.shape))
-      )
-
-    input_pspecs = jax.tree_util.tree_map(_get_pspec, host_dummy)
-    num_cores = len(self.model_state.global_mesh.devices.flat)
-
-    global_inputs_shape_dtype = jax.tree_util.tree_map(
-        lambda x: ((num_cores,) + x.shape, x.dtype), host_dummy
-    )
-    global_inputs_shaped_arrays = jax.tree_util.tree_map(
-        lambda x: jax.core.ShapedArray((num_cores,) + x.shape, x.dtype),
-        host_dummy,
-    )
-
-    info = MethodInputInfo(
-        input_pspecs=input_pspecs,
-        global_inputs_shape_dtype=global_inputs_shape_dtype,
-    )
-
-    info.dummy_inputs_per_device_buffers = self._input_to_device_buffers(
-        batched_host_dummy, input_shape, info, is_dummy=True
-    )
-    info.dummy_inputs = self._device_buffers_to_jax_arrays(
-        info.dummy_inputs_per_device_buffers, info
-    )
-
+  def _initialize_device_fn(
+      self, input_shape: InputShapeInfo, info: MethodInputInfo
+  ) -> None:
     # Initialize the device function.
+    input_pspecs = info.input_pspecs
+    global_inputs_shape_dtypes = info.global_inputs_shape_dtypes
+    logging.info('global_inputs_shape_dtypes: %s', global_inputs_shape_dtypes)
+    global_inputs_shaped_arrays = jax.tree_util.tree_map(
+        lambda x: jax.core.ShapedArray(x.shape, x.dtype),
+        global_inputs_shape_dtypes,
+    )
+    dummy_inputs = info.dummy_inputs
+    dummy_inputs_per_device_buffers = info.dummy_inputs_per_device_buffers
     device_fn = self._pjit_device_fn(
-        input_pspecs, input_shape.batch_size, info.dummy_inputs
+        input_pspecs, input_shape.batch_size, dummy_inputs
     )
 
     logging.info(
@@ -341,15 +303,11 @@ class ServableMethod(servable_model.ServableMethod):
         self._model_state.mdl_vars = resharded_mdl_vars
         self._model_state.mdl_var_pspecs = mdl_var_pspecs
 
-    info.device_fn = device_fn
-
     if self.model_state.precompile and not self._mutable:
       # Compute with dummy to trigger compilation. Only use this option for
       # immutable methods to prevent side effects.
       with self.model_state.global_mesh:
-        init_dummy_outputs = info.device_fn(
-            self.model_state.mdl_vars, info.dummy_inputs
-        )
+        init_dummy_outputs = device_fn(self.model_state.mdl_vars, dummy_inputs)
 
       # Only warm up post processing on primary host.
       if self.model_state.is_primary_host:
@@ -368,7 +326,69 @@ class ServableMethod(servable_model.ServableMethod):
           outs = self.output_to_host(init_dummy_outputs, self.batch_size)
           # Warm up post processor.
           self.post_processing(outs)
+    info.device_fn = device_fn
 
+  def _register_for_input_shape(
+      self, input_shape: InputShapeInfo, initialize_device_fn=True
+  ) -> None:
+    batched_host_dummy = self.get_dummy_inputs(input_shape)
+    batched_host_dummy = self.update_extra_inputs(
+        batched_host_dummy,
+        input_shape.batch_size,
+        [self.default_extra_inputs] * input_shape.batch_size,
+    )
+
+    def _assert_type(x):
+      assert isinstance(x, np.ndarray) or isinstance(
+          x, jnp.ndarray
+      ), f'Output of pre_processing contained an invalid type: {type(x)}'
+      return x
+
+    dummy_step = np.array(0, dtype=np.int32)
+    dummy_prng_key = jax.random.PRNGKey(0)
+    host_dummy = (
+        dummy_step,
+        dummy_prng_key,
+        batched_host_dummy,
+        self.get_nonbatch_inputs(batched_host_dummy),
+    )
+    host_dummy = jax.tree_util.tree_map(_assert_type, host_dummy)
+
+    def _get_pspec(x):
+      # Add a `cores` dimension.
+      return jax.sharding.PartitionSpec(
+          self.model_state.global_mesh.axis_names, *(None,) * (len(x.shape))
+      )
+
+    input_pspecs = jax.tree_util.tree_map(_get_pspec, host_dummy)
+    num_cores = len(self.model_state.global_mesh.devices.flat)
+
+    global_inputs_shape_dtypes = jax.tree_util.tree_map(
+        lambda x: ShapeDType((num_cores,) + x.shape, x.dtype), host_dummy
+    )
+
+    dummy_inputs_per_device_buffers = self._input_to_device_buffers(
+        batched_host_dummy,
+        input_shape,
+        global_inputs_shape_dtypes,
+        dummy_inputs_per_device_buffers=None,
+        is_dummy=True,
+    )
+    dummy_inputs = self._device_buffers_to_jax_arrays(
+        dummy_inputs_per_device_buffers,
+        input_pspecs,
+        global_inputs_shape_dtypes,
+    )
+
+    info = MethodInputInfo(
+        input_pspecs=input_pspecs,
+        global_inputs_shape_dtypes=global_inputs_shape_dtypes,
+        dummy_inputs=dummy_inputs,
+        dummy_inputs_per_device_buffers=dummy_inputs_per_device_buffers,
+    )
+
+    if initialize_device_fn:
+      self._initialize_device_fn(input_shape, info)
     self._per_bs_infos[input_shape] = info
 
   @property
@@ -392,7 +412,7 @@ class ServableMethod(servable_model.ServableMethod):
   def resize_host_array(
       self,
       x: np.ndarray,
-      global_input_shape_dtype: ShapesAndDtypes,
+      global_input_shape_dtype: ShapeDType,
       unpadded_input_shape: InputShapeInfo,
   ):
     """Checks the shape of x and resizes to the desired shape.
@@ -405,7 +425,10 @@ class ServableMethod(servable_model.ServableMethod):
     Returns:
       host array after padding or slice of x.
     """
-    global_shape, global_dtype = global_input_shape_dtype
+    global_shape, global_dtype = (
+        global_input_shape_dtype.shape,
+        global_input_shape_dtype.dtype,
+    )
     assert x.dtype == global_dtype, (x.dtype, global_dtype)
     assert x.shape[1:] == global_shape[2:], (x.shape, global_shape)
     b = x.shape[0]
@@ -423,7 +446,8 @@ class ServableMethod(servable_model.ServableMethod):
       self,
       one_core_inputs: HostTensors,
       unpadded_input_shape: InputShapeInfo,
-      info: MethodInputInfo,
+      global_inputs_shape_dtypes: PyTree[ShapeDType],
+      dummy_inputs_per_device_buffers: DeviceTensors | None,
       is_dummy: bool,
   ) -> DeviceTensors:
     step = np.array(self._step.next(), dtype=np.int32)
@@ -433,7 +457,7 @@ class ServableMethod(servable_model.ServableMethod):
         ),
         one_core_inputs,
         # Only the batched inputs.
-        info.global_inputs_shape_dtype[2],
+        global_inputs_shape_dtypes[2],
     )
     host_inputs = (
         step,
@@ -459,7 +483,7 @@ class ServableMethod(servable_model.ServableMethod):
       return jax.tree_util.tree_map(pad_fn, host_inputs)
     else:
       if is_dummy:
-        assert info.dummy_inputs_per_device_buffers is None
+        assert dummy_inputs_per_device_buffers is None
 
         def _to_buffers(x):
           if self.model_state.is_primary_host:
@@ -473,7 +497,7 @@ class ServableMethod(servable_model.ServableMethod):
 
         return jax.tree_util.tree_map(_to_buffers, host_inputs)
       else:
-        assert info.dummy_inputs_per_device_buffers is not None
+        assert dummy_inputs_per_device_buffers is not None
 
         def _update_buffers(x, buffers):
           x = np.expand_dims(x, axis=0)
@@ -482,17 +506,20 @@ class ServableMethod(servable_model.ServableMethod):
           return [jax.device_put(x, self._local_devices[0])] + buffers[1:]
 
         return jax.tree_util.tree_map(
-            _update_buffers, host_inputs, info.dummy_inputs_per_device_buffers
+            _update_buffers, host_inputs, dummy_inputs_per_device_buffers
         )
 
   def _device_buffers_to_jax_arrays(
-      self, buffers: Any, info: MethodInputInfo
+      self,
+      buffers: DeviceTensors,
+      input_pspecs: PSpecs,
+      global_inputs_shape_dtypes: PyTree[ShapeDType],
   ) -> DeviceTensors:
     if not self.model_state.input_prefetch:
       return buffers
 
-    def _to_jax_array(pspec, bufs, shape_dtype):
-      shape, _ = shape_dtype
+    def _to_jax_array(pspec, bufs, shape_dtype: ShapeDType):
+      shape = shape_dtype.shape
       return jax.make_array_from_single_device_arrays(
           shape,
           jax.sharding.NamedSharding(self.model_state.global_mesh, pspec),
@@ -501,9 +528,9 @@ class ServableMethod(servable_model.ServableMethod):
 
     return jax.tree_util.tree_map(
         _to_jax_array,
-        info.input_pspecs,
+        input_pspecs,
         buffers,
-        info.global_inputs_shape_dtype,
+        global_inputs_shape_dtypes,
     )
 
   def input_to_device(
@@ -515,9 +542,15 @@ class ServableMethod(servable_model.ServableMethod):
     """Transfers host inputs to device. Pads incomplete shapes."""
     info = self._per_bs_infos[padded_shape]
     buffers = self._input_to_device_buffers(
-        one_core_inputs, unpadded_shape, info, is_dummy=False
+        one_core_inputs,
+        unpadded_shape,
+        info.global_inputs_shape_dtypes,
+        info.dummy_inputs_per_device_buffers,
+        is_dummy=False,
     )
-    return self._device_buffers_to_jax_arrays(buffers, info)
+    return self._device_buffers_to_jax_arrays(
+        buffers, info.input_pspecs, info.global_inputs_shape_dtypes
+    )
 
   def output_to_host(
       self, output_tensors: DeviceTensors, unpadded_batch_size: int

@@ -31,10 +31,10 @@ ExtraInput = servable_model_params.ExtraInputs
 class InputShapeInfo:
   """Input shape information."""
 
+  batch_size: int = -1
+
   def __str__(self):
     return json.dumps(dataclasses.asdict(self))
-
-  batch_size: int = -1
 
 
 class ServableMethod(abc.ABC):

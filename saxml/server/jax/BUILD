@@ -60,6 +60,7 @@ pytype_strict_library(
         "//third_party/py/absl-py/logging",
         "//third_party/py/jax",
         "//third_party/py/jax:experimental",
+        "//third_party/py/jaxtyping",
         "//third_party/py/numpy",
         "//third_party/py/paxml:host_callback",
         "//third_party/py/praxis:pytypes",
