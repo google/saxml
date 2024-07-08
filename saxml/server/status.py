@@ -26,6 +26,9 @@ class Status:
   def ok(self) -> bool:
     return self.code == grpc.StatusCode.OK
 
+  def status_code(self) -> grpc.StatusCode:
+    return self.code
+
 
 def ok() -> Status:
   return Status(grpc.StatusCode.OK)
