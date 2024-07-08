@@ -35,7 +35,6 @@ from praxis import py_utils
 from praxis import pytypes
 from praxis.layers import multi_query_attention
 from saxml.server.jax import np_tf_sess_wrapper
-from saxml.server.jax import servable_model as jax_servable_model
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
 from saxml.server.pax.lm import lm_tokenizer
@@ -1261,75 +1260,26 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
     self.decode_state = decode_state
 
-  def _register_bs_infos_for_input_shape(self, input_shape):
-    batched_host_dummy = self.get_dummy_inputs(input_shape)
-    batched_host_dummy = self.update_extra_inputs(
-        batched_host_dummy,
-        input_shape.batch_size,
-        [self.default_extra_inputs] * input_shape.batch_size,
-    )
+  def load(self) -> None:
+    assert (
+        len(self.get_sorted_input_shapes()) == 1
+    ), 'Only support single prefill batch size.'
+    for bs in [self.batch_size, self.num_cache_slots]:
+      input_shape = InputShapeInfo(batch_size=bs)
+      logging.info('Initializing for input_shape %s', input_shape)
+      self._register_for_input_shape(input_shape, initialize_device_fn=False)
+    self._compile()
 
-    def _assert_type(x):
-      assert isinstance(x, np.ndarray) or isinstance(
-          x, jnp.ndarray
-      ), f'Output of pre_processing contained an invalid type: {type(x)}'
-      return x
-
-    dummy_step = np.array(0, dtype=np.int32)
-    dummy_prng_key = jax.random.PRNGKey(0)
-    host_dummy = (
-        dummy_step,
-        dummy_prng_key,
-        batched_host_dummy,
-        self.get_nonbatch_inputs(batched_host_dummy),
-    )
-    host_dummy = jax.tree_util.tree_map(_assert_type, host_dummy)
-
-    def _get_pspec(x):
-      # Add a `cores` dimension.
-      return jax.sharding.PartitionSpec(
-          self.model_state.global_mesh.axis_names, *(None,) * (len(x.shape))
-      )
-
-    input_pspecs = jax.tree_util.tree_map(_get_pspec, host_dummy)
-    num_cores = len(self.model_state.global_mesh.devices.flat)
-    batched_input_psepcs = jax.tree_util.tree_map(
-        _get_pspec, batched_host_dummy
-    )
-
-    global_inputs_shape_dtypes = jax.tree_util.tree_map(
-        lambda x: ShapeDType((num_cores,) + x.shape, x.dtype), host_dummy
-    )
-
-    self._per_bs_infos[input_shape] = servable_model.MethodInputInfo(
-        input_pspecs=input_pspecs,
-        global_inputs_shape_dtypes=global_inputs_shape_dtypes,
-    )
-    info = self._per_bs_infos[input_shape]
-    info.batched_input_pspecs = batched_input_psepcs
-
-  def _register_for_input_shape(
-      self, input_shape: servable_model.InputShapeInfo
-  ):
+  def _compile(self):
     with self.model_state.global_mesh:
       # initialize kv cache and decode_state
       self.init_decode_cache()
       self.init_decode_state()
 
-    # dummy tokens for generate_fn
-    tokens = jnp.zeros((self.num_cache_slots,), dtype=jnp.int32)
-    self._dummy_tokens_for_generate = (
-        self.input_to_device_for_continuous_batching(
-            tokens,
-            InputShapeInfo(batch_size=self.num_cache_slots),
-            InputShapeInfo(batch_size=self.num_cache_slots),
-        )
-    )
     # prefill device function
-    prefill_input_shape = InputShapeInfo(input_shape.batch_size)
-    self._register_bs_infos_for_input_shape(prefill_input_shape)
+    prefill_input_shape = InputShapeInfo(self.batch_size)
     self._prefill_device_fn = self._pjit_device_fn_prefill(
-        self._per_bs_infos[prefill_input_shape].batched_input_pspecs
+        self._per_bs_infos[prefill_input_shape].input_pspecs
     )
     self._dummy_input_for_prefill = self.get_dummy_inputs(prefill_input_shape)
     self._dummy_input_for_prefill = self.update_extra_inputs(
@@ -1349,15 +1299,13 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     self._insert_device_fn = self._pjit_device_fn_insert()
 
     # generate device function
-    generate_input_shape = InputShapeInfo(self.num_cache_slots)
-    self._register_bs_infos_for_input_shape(generate_input_shape)
     self._generate_device_fn = self._pjit_device_fn_generate()
 
     # warmup
     if self.model_state.precompile:
       logging.info('start precompile')
       _, _, prefix_state = self.prefill_with_dummy()
-      slot_in_use = list(range(input_shape.batch_size))
+      slot_in_use = list(range(self.num_cache_slots))
       self.insert(prefix_state, slot_in_use)
       self.generate()  # compile w/ left_align_decode_state = False
       self.decode_state.step = jnp.array(
@@ -1522,7 +1470,8 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
 
   # JIT compiled prefill function
   def _pjit_device_fn_prefill(self, batched_input_pspecs):
-    def _wrapped_fn_sample_prefill(mdl_vars, batched_inputs):
+
+    def _wrapped_fn_sample_prefill(mdl_vars, inputs):
       # Only one core has real data, others have zeros. Summing on the
       # leading `cores` dimension can make data replicated.
       def _replicate(x):
@@ -1530,7 +1479,11 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
             jnp.sum(x, axis=0, promote_integers=False), None
         )
 
-      batched_inputs = jax.tree_util.tree_map(_replicate, batched_inputs)
+      inputs = jax.tree_util.tree_map(_replicate, inputs)
+      step, prng_key, batched_inputs, non_batched_inputs = inputs
+      del non_batched_inputs
+
+      prng_key = jax.random.fold_in(prng_key, step)
 
       if self._model.fprop_dtype == jnp.bfloat16:
         # Convert float inputs/vars if fprop dtype is bfloat16.
@@ -1540,7 +1493,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         )
 
       context_p = base_layer.JaxContext.HParams(do_eval=True)
-      k1, k2 = jax.random.split(self._prng_key)
+      k1, k2 = jax.random.split(prng_key)
       with base_layer.JaxContext.new_context(hparams=context_p):
 
         def _model_fn(inputs):
@@ -1704,7 +1657,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       global_input_shape_dtype: ShapeDType,
       unpadded_input_shape: InputShapeInfo,
   ):
-    return jax_servable_model.ServableMethod.resize_host_array(
+    return ServableLMMethod.resize_host_array(
         self, x, global_input_shape_dtype, unpadded_input_shape
     )
 
@@ -1716,63 +1669,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
   ) -> DeviceTensors:
     """Transfers input data to device."""
 
-    # return self.input_to_device(one_core_inputs, unpadded_shape)
-    def to_buffers(x):
-      if self.model_state.is_primary_host:
-        # Add a leading dimension for all-reduce across devices.
-        x = x[np.newaxis, ...]
-        zeros = np.zeros_like(x)
-        # Only the first core on the primary host has the actual input.
-        # The other cores on the primary host have zero inputs.
-        return [
-            jax.device_put(x if i == 0 else zeros, d)
-            for i, d in enumerate(self._local_devices)
-        ]
-      else:
-        # Add a leading dimension for all-reduce across devices.
-        zeros = np.zeros((1,) + x.shape, x.dtype)
-        # All cores on secondary hosts have zero inputs.
-        return [jax.device_put(zeros, d) for d in self._local_devices]
-
-    def jax_arrays_from_buffers(pspec, buffers, shape_dtype):
-      shape = shape_dtype.shape
-      return jax.make_array_from_single_device_arrays(
-          shape,
-          jax.sharding.NamedSharding(self.model_state.global_mesh, pspec),
-          buffers,
-      )
-
-    pspecs = jax.tree_util.tree_map(
-        lambda x: jax.sharding.PartitionSpec(
-            self.model_state.global_mesh.axis_names, *(None,) * (len(x.shape))
-        ),
-        one_core_inputs,
-    )
-    num_cores = len(self.model_state.global_mesh.devices.flat)
-    global_inputs_shape_dtypes = jax.tree_util.tree_map(
-        lambda x: ShapeDType(
-            (num_cores, padded_shape.batch_size) + x.shape[1:], x.dtype
-        ),
-        one_core_inputs,
-    )
-
-    host_inputs = jax.tree_util.tree_map(
-        functools.partial(
-            self.resize_host_array, unpadded_input_shape=unpadded_shape
-        ),
-        one_core_inputs,
-        global_inputs_shape_dtypes,
-    )
-    dummy_inputs_per_device_buffer = jax.tree_util.tree_map(
-        to_buffers, host_inputs
-    )
-    dummy_inputs_on_host = jax.tree_util.tree_map(
-        jax_arrays_from_buffers,
-        pspecs,
-        dummy_inputs_per_device_buffer,
-        global_inputs_shape_dtypes,
-    )
-    return dummy_inputs_on_host
+    return self.input_to_device(one_core_inputs, unpadded_shape, padded_shape)
 
 
 class TextToEmbedding(servable_model.ServableMethod):

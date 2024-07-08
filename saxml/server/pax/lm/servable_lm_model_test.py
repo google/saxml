@@ -403,7 +403,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
         )
     )
     self.assertSequenceEqual(
-        input1.ids.shape,
+        input1[2].ids.shape,
         (
             num_devices,
             method_with_continuous_batching.batch_size,
