@@ -1287,12 +1287,10 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         prefill_input_shape.batch_size,
         [self.default_extra_inputs] * prefill_input_shape.batch_size,
     )
-    self._dummy_input_for_prefill = (
-        self.input_to_device_for_continuous_batching(
-            self._dummy_input_for_prefill,
-            prefill_input_shape,
-            prefill_input_shape,
-        )
+    self._dummy_input_for_prefill = self.input_to_device(
+        self._dummy_input_for_prefill,
+        prefill_input_shape,
+        prefill_input_shape,
     )
 
     # insert device function
@@ -1660,16 +1658,6 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     return ServableLMMethod.resize_host_array(
         self, x, global_input_shape_dtype, unpadded_input_shape
     )
-
-  def input_to_device_for_continuous_batching(
-      self,
-      one_core_inputs: HostTensors,
-      unpadded_shape: InputShapeInfo,
-      padded_shape: InputShapeInfo,
-  ) -> DeviceTensors:
-    """Transfers input data to device."""
-
-    return self.input_to_device(one_core_inputs, unpadded_shape, padded_shape)
 
 
 class TextToEmbedding(servable_model.ServableMethod):

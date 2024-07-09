@@ -372,17 +372,6 @@ class ServableMethod(abc.ABC):
     """Detokenize a batch of sequences into a list of strings."""
     raise NotImplementedError('detokenize not implemented')
 
-  def input_to_device_for_continuous_batching(
-      self,
-      one_core_inputs: HostTensors,
-      unpadded_shape: InputShapeInfo,
-      padded_shape: InputShapeInfo,
-  ) -> DeviceTensors:
-    """Transfers input data to device for either prefill or generate."""
-    raise NotImplementedError(
-        'input_to_device_for_continuous_batching not implemented'
-    )
-
 
 class ServableModel(abc.ABC):
   """Base class for service implementation, backed by a model."""

@@ -1708,7 +1708,6 @@ class ModelServicesRunner:
             method=method,
             method_name=method_name,
             service=service,
-            prefill=False,
         ):
           inputs = method.pre_processing([
               service.ParseMethodRPCRequest(method_name, t.request)
@@ -1724,12 +1723,7 @@ class ModelServicesRunner:
 
           unpadded_shape = method.get_unpadded_shape(len(rpc_tasks), inputs)
           padded_shape = method.get_padded_input_shape(unpadded_shape)
-          if prefill:
-            res = method.input_to_device_for_continuous_batching(
-                inputs, unpadded_shape, padded_shape
-            )
-          else:
-            res = method.input_to_device(inputs, unpadded_shape, padded_shape)
+          res = method.input_to_device(inputs, unpadded_shape, padded_shape)
           return res, padded_shape
 
         method_key = MethodKey(
@@ -1761,9 +1755,7 @@ class ModelServicesRunner:
               model,
               batch_generate_method_key,
               method.batch_size,
-              preprocess_fn=functools.partial(
-                  preprocess_rpc_tasks, prefill=True
-              ),
+              preprocess_fn=preprocess_rpc_tasks,
               max_live_batches=method.max_live_batches,
               batching_wait_secs=method.batching_wait_secs,
           )

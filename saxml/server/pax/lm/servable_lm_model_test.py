@@ -280,7 +280,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
         input1, 1, [{'per_example_max_decode_steps': 1, 'temperature': 1.0}]
     )
     input1 = (
-        method_with_continuous_batching.input_to_device_for_continuous_batching(
+        method_with_continuous_batching.input_to_device(
             input1,
             servable_lm_common.InputShapeInfo(batch_size=1),
             servable_lm_common.InputShapeInfo(
@@ -394,7 +394,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     #   input2 and input3 complete.
     #   There are total 3 prefill calls and 6 generate calls.
     input1 = (
-        method_with_continuous_batching.input_to_device_for_continuous_batching(
+        method_with_continuous_batching.input_to_device(
             input1,
             servable_lm_common.InputShapeInfo(batch_size=1),
             servable_lm_common.InputShapeInfo(
@@ -440,7 +440,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
 
     # Run prefill for input2.
     input2 = (
-        method_with_continuous_batching.input_to_device_for_continuous_batching(
+        method_with_continuous_batching.input_to_device(
             input2,
             servable_lm_common.InputShapeInfo(batch_size=1),
             servable_lm_common.InputShapeInfo(
@@ -479,7 +479,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
 
     # Run prefill for input3.
     input3 = (
-        method_with_continuous_batching.input_to_device_for_continuous_batching(
+        method_with_continuous_batching.input_to_device(
             input3,
             servable_lm_common.InputShapeInfo(batch_size=1),
             servable_lm_common.InputShapeInfo(
