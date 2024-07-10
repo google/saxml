@@ -166,12 +166,14 @@ go_grpc_library(
 
 cc_proto_library(
     name = "modelet_cc_proto",
+    visibility = [":sax_rpc_visibility"],
     deps = [":modelet_proto"],
 )
 
 cc_grpc_library(
     name = "modelet_cc_proto_grpc",
     srcs = [":modelet_proto"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":modelet_cc_proto"],
 )
 
@@ -306,6 +308,7 @@ py_proto_library(
 cc_grpc_library(
     name = "lm_cc_grpc",
     srcs = [":lm_proto"],
+    visibility = [":sax_rpc_visibility"],
     deps = [":lm_cc_proto"],
 )
 
