@@ -225,6 +225,46 @@ class LMTokenizerTest(tf.test.TestCase):
     strs = tokenizer.IdsToStrings(ids)
     self.assertAllEqual([b'151,88,21,0,0', b'887,0,0,0,0'], strs.numpy())
 
+  def testStringsToIdsExceedsMaxLength(self):
+    p = _CreateParams()
+    p.fail_on_input_truncation = True
+    tokenizer = instantiate(p)
+    max_length = 2
+    strs = ['Hello', 'world']
+    with self.assertRaises(tf.errors.InvalidArgumentError):
+      tokenizer.StringsToIds(strs, max_length)
+
+  def testStringsToIdsExceedsMaxLengthButNotFail(self):
+    p = _CreateParams()
+    p.fail_on_input_truncation = False
+    tokenizer = instantiate(p)
+    max_length = 2
+    strs = ['Hello', 'world']
+    ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
+    self.assertAllEqual([[0, 151], [0, 887]], ids)
+    self.assertAllEqual([[151, 1], [887, 1]], labels)
+    self.assertAllEqual([[0.0, 0.0], [0.0, 0.0]], paddings)
+
+  def testTokenizedStringsToIdsExceedsMaxLength(self):
+    p = _CreateTokenizedParams()
+    p.fail_on_input_truncation = True
+    tokenizer = instantiate(p)
+    max_length = 2
+    strs = tf.ragged.constant(['151,88,21', '887'])
+    with self.assertRaises(tf.errors.InvalidArgumentError):
+      tokenizer.StringsToIds(strs, max_length)
+
+  def testTokenizedStringsToIdsExceedsMaxLengthButNotFail(self):
+    p = _CreateTokenizedParams()
+    p.fail_on_input_truncation = True
+    tokenizer = instantiate(p)
+    max_length = 2
+    strs = tf.ragged.constant(['151,88', '887'])
+    ids, labels, paddings = tokenizer.StringsToIds(strs, max_length)
+    self.assertAllEqual([[151, 88], [887, 50256]], ids)
+    self.assertAllEqual([[151, 88], [887, 50256]], labels)
+    self.assertAllEqual([[0.0, 0.0], [0.0, 1.0]], paddings)
+
 
 class GPT2BPELMTokenizerTest(tf.test.TestCase):
 

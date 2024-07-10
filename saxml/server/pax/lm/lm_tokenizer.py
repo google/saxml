@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tokenizer for language models."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -71,6 +72,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
   vocabulary_path: str = None
   extra_ids: int = 0
   reverse_extra_ids: bool = True
+  fail_on_input_truncation: bool = False
 
   _vocab: vocabularies.Vocabulary = dataclasses.field(init=False, repr=False)
 
@@ -111,12 +113,24 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
             os.makedirs(os.path.dirname(local_vocabulary_path))
 
           tf.io.gfile.copy(
-              vocabulary_path,
-              local_vocabulary_path,
-              overwrite=True)
+              vocabulary_path, local_vocabulary_path, overwrite=True
+          )
         vocabulary_path = local_vocabulary_path
 
       self._vocab = vocab_cls(vocabulary_path)
+
+  def _truncate_labels(self, max_length: int, labels: tf.Tensor):
+    p = self.hparams
+
+    if p.fail_on_input_truncation:
+      tf.assert_less(
+          labels.bounding_shape(axis=1, out_type=tf.int32), max_length + 1
+      )
+
+    if p.slice_left:
+      return labels[:, :max_length]
+    else:
+      return labels[:, -(max_length):]
 
   @property
   def Vocabulary(self) -> vocabularies.Vocabulary:
@@ -144,11 +158,9 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
         lambda x: empty_str_tensor if x.shape == [1] and x[0] == b'' else x,  # pylint: disable=g-explicit-bool-comparison
         labels_in_str,
     )
-    labels = tf.strings.to_number(labels_in_str, out_type=tf.int32)
-    if p.slice_left:
-      labels = labels[:, :max_length]
-    else:
-      labels = labels[:, -(max_length):]
+    labels = self._truncate_labels(
+        max_length, tf.strings.to_number(labels_in_str, out_type=tf.int32)
+    )
 
     # Get the shape of each ragged tensor and drop the dimension of the shape.
     padding_indices = max_length - (
@@ -225,10 +237,8 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
       labels = tf.strings.to_number(labels_in_str, out_type=tf.int32)
     else:
       labels = self._vocab.encode_tf(strs)
-    if p.slice_left:
-      labels = labels[:, : max_length - 1]
-    else:
-      labels = labels[:, -(max_length - 1) :]
+
+    labels = self._truncate_labels(max_length - 1, labels)
 
     if p.prepend_sos:
       sos_ids = tf.fill(
@@ -308,8 +318,8 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     """Converts each token ID to a token string.
 
     Args:
-      ids: A tensor of shape [batch, seqlen] and int32 data type.
-        ids[n, i] is the token ID at decoding step i for the n-th sample.
+      ids: A tensor of shape [batch, seqlen] and int32 data type. ids[n, i] is
+        the token ID at decoding step i for the n-th sample.
 
     Returns:
       A tensor of token strings with the same shape as the input ids.

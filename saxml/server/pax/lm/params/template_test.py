@@ -36,6 +36,11 @@ class TestModelMaxSequenceLength(TestModel):
 
 
 @template.make_servable()
+class TestModelFailOnInputTruncation(TestModel):
+  FAIL_ON_INPUT_TRUNCATION = True
+
+
+@template.make_servable()
 class TestLayerwiseModel(TestModel):
 
   def task(self):
@@ -91,6 +96,10 @@ class TemplateTest(tf.test.TestCase, test_utils.TestCase):
         config.generate_stream().decoder.seqlen,
         TestLayerwiseModel.INPUT_SEQ_LEN + TestLayerwiseModel.MAX_DECODE_STEPS,
     )
+
+  def test_fail_on_input_truncation(self):
+    config = TestModelFailOnInputTruncation()
+    self.assertEqual(config.serving_tokenizer().fail_on_input_truncation, True)
 
   def test_precompute_kv_cache(self):
     model_cls = TestModelPrecomputeKVCache

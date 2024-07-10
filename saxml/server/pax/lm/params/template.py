@@ -49,6 +49,7 @@ class CommonServingTemplate:
   BATCH_SIZE = 1
   BATCH_WAIT_SECS = None
   INPUT_SEQ_LEN = 256
+  FAIL_ON_INPUT_TRUNCATION = False
   SUFFIX_SEQ_LEN = 0  # Deprecating this attribute.
   MIN_DECODE_STEPS = 0  # Currently ignored by all but BeamSearchHParams
   MAX_DECODE_STEPS = 32
@@ -169,6 +170,7 @@ class ServingTemplate(
         vocabulary_path=self.VOCABULARY_PATH,
         extra_ids=self.NUM_EXTRA_IDS,
         reverse_extra_ids=self.REVERSE_EXTRA_IDS,
+        fail_on_input_truncation=self.FAIL_ON_INPUT_TRUNCATION,
     )
 
   def score(self) -> Optional[servable_lm_model.ScoreHParams]:
