@@ -45,6 +45,7 @@ var (
 	// Various RPC timeout thresholds.
 	dialTimeout      = time.Second * 10
 	getStatusTimeout = time.Second * 10
+	wakeUpTimeout    = time.Second * 10
 )
 
 // SetOptionsForTesting updates refreshPeriod so that during tests, the state issues more frequent
@@ -123,9 +124,10 @@ type ModelWithStatus struct {
 	Info ModelInfo
 }
 
-// ServerStatus tracks a model server usability state.
+// ServerStatus tracks a model server usability state and early rejection stats.
 type ServerStatus struct {
-	IsDormant bool
+	IsDormant                     bool
+	EarlyRejectionErrorsPerSecond [2]float32 // perserve most recent two values, [0] is the latest.
 }
 
 func (m *ModelWithStatus) clone() *ModelWithStatus {
@@ -138,6 +140,7 @@ const (
 	load actionKind = iota
 	unload
 	update
+	wakeup
 )
 
 func (k actionKind) String() string {
@@ -148,12 +151,14 @@ func (k actionKind) String() string {
 		return "unload"
 	case update:
 		return "update"
+	case wakeup:
+		return "wakeup"
 	default:
 		return "invalid"
 	}
 }
 
-// action represents an administrative method the model server can perform on a model.
+// action represents an administrative method the model server can perform on a model or the server.
 type action struct {
 	kind     actionKind
 	ctx      context.Context
@@ -343,6 +348,13 @@ func (s *State) act(a *action) {
 			s.wanted[a.fullName] = a.model
 			s.mu.Unlock()
 		}
+	case wakeup:
+		log.V(0).Infof("Waking up server %v", s.Addr)
+		ctx, cancel := context.WithTimeout(a.ctx, wakeUpTimeout)
+		defer cancel()
+		if _, err := s.client.WakeUp(ctx, &mpb.WakeUpRequest{}); err != nil {
+			log.WarningContextf(ctx, "Failed to wake up server %v (%v)", s.Addr, err)
+		}
 	default:
 		log.Warningf("Unknown action type %T", a)
 	}
@@ -396,8 +408,18 @@ func (s *State) getStatus(ctx context.Context) (map[naming.ModelFullName]*ModelI
 	if serverStatus := res.GetServerStatus(); serverStatus != nil {
 		s.lastReportedStatus.IsDormant =
 			serverStatus.GetState() == mpb.GetStatusResponse_ServerStatus_DORMANT
+		errorRates := s.lastReportedStatus.EarlyRejectionErrorsPerSecond
+		errorRates[1] = errorRates[0] // [1] always perserves the historical value.
+		errorRates[0] = serverStatus.GetStats().GetEarlyRejectionErrorsPerSecond()
 	}
 	return seen, nil
+}
+
+// WakeUp wakes up a dormant server.
+func (s *State) WakeUp(ctx context.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.queue <- &action{wakeup, ctx, naming.ModelFullName{}, nil, nil}
 }
 
 // initialize sets wanted and seen models of a just created State instance from a running server.

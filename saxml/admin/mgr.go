@@ -30,6 +30,7 @@ import (
 	"saxml/admin/protobuf"
 	"saxml/admin/state"
 	"saxml/admin/validator"
+	"saxml/admin/wakerpolicy"
 	"saxml/common/errors"
 	"saxml/common/eventlog"
 	"saxml/common/naming"
@@ -889,6 +890,23 @@ func (m *Mgr) Refresh(ctx context.Context) {
 	// unpublished before the ComputeAssignment call available for use
 	// again.
 	m.freeUnpublishedNames(pendingUnpublished)
+
+	// Walk though all known model servers, wake up servers based on waking policy to balance the
+	// load within servers in the same cell.
+	wakerPolicy := wakerpolicy.NewWakerPolicy()
+	m.mu.RLock()
+	for addr, state := range m.modelets {
+		wakerPolicy.AddServerStatus(string(addr), state)
+	}
+	m.mu.RUnlock()
+
+	candidates := wakerPolicy.Decide()
+
+	m.mu.RLock()
+	for addr := range candidates {
+		m.modelets[modeletAddr(rune(addr))].WakeUp(ctx)
+	}
+	m.mu.RUnlock()
 }
 
 // Restore restores the manager state from its backing store.

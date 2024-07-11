@@ -69,6 +69,7 @@ go_library(
         ":protobuf",
         ":state",
         ":validator",
+        ":wakerpolicy",
         # unused internal flag dependency,
         "//saxml/common:errors",
         "//saxml/common:eventlog",
@@ -148,5 +149,25 @@ go_test(
     deps = [
         ":protobuf",
         "//saxml/protobuf:admin_go_proto_grpc",
+    ],
+)
+
+go_library(
+    name = "wakerpolicy",
+    srcs = ["waker_policy.go"],
+    deps = [
+        ":state",
+        "//saxml/common:naming",
+    ],
+)
+
+go_test(
+    name = "wakerpolicy_test",
+    srcs = ["waker_policy_test.go"],
+    library = ":wakerpolicy",
+    deps = [
+        ":state",
+        "//saxml/common:naming",
+        "@com_github_google_go_cmp//cmp:go_default_library",
     ],
 )
