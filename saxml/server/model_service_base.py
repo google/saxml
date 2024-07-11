@@ -841,12 +841,15 @@ class DormantServerBouncer:
       self._pending_wake_up = False
     still_dormant = self._is_backend_dormant()
     if still_dormant:
-      # Backend cannot be woken up after waiting for 1 hour, give-up and leave
-      # some messages.
-      logging.error(
-          'Timeout waiting for backend to wake up, backend is still dormant.'
+      # Backend cannot be woken up after waiting for 1 hour, bailout and leave
+      # message for user to start a model server with new backend.
+      logging.fatal(
+          'Abort as backend is still dormant after 1 hour of attempting to'
+          ' wake. This is abnormal and probably suggest a bug or resource'
+          ' exhausted. Please spin-up a model server with new backend instead'
+          ' of waiting for current one back to active, and you may file a bug'
+          ' via go/rightsizer-bug.'
       )
-      return
     logging.info(
         'Backend woken up successfully after %s seconds.',
         time.time() - begin_at,
