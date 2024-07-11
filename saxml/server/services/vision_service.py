@@ -39,27 +39,37 @@ class VisionService(model_service_base.ModelService):
 
   def ParseMethodRPCRequest(self, method_name: str, request: Any) -> Any:
     if method_name == VisionMethodName.CLASSIFY:
-      return {'image_bytes': np.array(request.image_bytes, dtype=object)}
+      return {
+          'image_bytes': np.array(request.image_bytes, dtype=object)
+      }  # dtype=object for zero-copy
     if method_name == VisionMethodName.TEXT_TO_IMAGE:
       return request.text
     if method_name == VisionMethodName.TEXT_AND_IMAGE_TO_IMAGE:
       return {
-          'image_bytes': np.array(request.image_bytes, dtype=object),
+          'image_bytes': np.array(
+              request.image_bytes, dtype=object
+          ),  # dtype=object for zero-copy
           'text': np.array(request.text),
       }
     if method_name == VisionMethodName.EMBED:
-      return {'image_bytes': np.array(request.image_bytes, dtype=object)}
+      return {
+          'image_bytes': np.array(request.image_bytes, dtype=object)
+      }  # dtype=object for zero-copy
     if method_name == VisionMethodName.DETECT:
       boxes = [
           (box.cx, box.cy, box.w, box.h) for box in request.boxes_of_interest]
-      return  {
-          'image_bytes': np.array(request.image_bytes, dtype=object),
+      return {
+          'image_bytes': np.array(
+              request.image_bytes, dtype=object
+          ),  # dtype=object for zero-copy
           'text': np.array(request.text),
           'boxes': np.array(boxes),
       }
     if method_name == VisionMethodName.IMAGE_TO_TEXT:
       return {
-          'image_bytes': np.array(request.image_bytes, dtype=object),
+          'image_bytes': np.array(
+              request.image_bytes, dtype=object
+          ),  # dtype=object for zero-copy
           'text': np.array(request.text),
       }
     if method_name == VisionMethodName.IMAGE_TO_IMAGE:
