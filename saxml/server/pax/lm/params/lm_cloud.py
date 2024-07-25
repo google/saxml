@@ -758,6 +758,32 @@ class LLaMA3_70BFP16x16(BaseLLaMA3):
 
 
 @servable_model_registry.register
+class LLaMA3_405BFP16x64(BaseLLaMA3):
+  """LLama3 405B FP16 partitioned for 64 chips."""
+
+  VOCABULARY_CLASS = 'LLama3Vocabulary'
+  VOCABULARY_PATH = '/cns/mb-d/home/rdzhabarov/llama3/pax_405b/vocabs/tokenizer.model'
+  NUM_LAYERS = 126
+  VOCAB_SIZE = 128256
+  DIMS_PER_HEAD = 128
+  NUM_HEADS = 128
+  MODEL_DIMS = 16384
+  HIDDEN_DIMS = 53248
+  USE_MQA = True
+  NUM_KV_HEADS = 16
+
+  ICI_MESH_SHAPE = [1, 1, 64]
+
+
+@servable_model_registry.register
+@quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
+class LLaMA3_405BLinearOnlyInt8x32(LLaMA3_405BFP16x64):
+  """LLama3 405B int8 linear only layer quantized partitioned for 32 chips."""
+
+  ICI_MESH_SHAPE = [1, 1, 32]
+
+
+@servable_model_registry.register
 # pylint: disable=invalid-name
 class LLaMA3_70BFP16x8(BaseLLaMA3):
   """LLama3 70B FP16 partitioned for 8 chips."""

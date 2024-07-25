@@ -40,6 +40,15 @@ from praxis import py_utils
 import torch
 
 MODEL_PARAMS_DICT = {
+    'llama3_405b': {
+        'num_layers': 126,
+        'num_heads': 128,
+        'num_kv_heads': 16,
+        'dims_per_head': 128,
+        'vocab': 128256,
+        'num_gpus': 1,
+        'combined_qkv': False,
+    },
     'llama3_70b': {
         'num_layers': 80,
         'num_heads': 64,
