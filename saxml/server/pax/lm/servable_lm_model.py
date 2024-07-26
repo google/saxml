@@ -410,9 +410,17 @@ class ServableLMMethod(servable_model.ServableMethod):
     # Do not apply polymorphic seq len to extra inputs.
     if self.default_extra_inputs:
       polymorphic_seq_len_exclusion |= self.default_extra_inputs.keys()
+
     if polymorphic_seq_len_exclusion:
       for key in polymorphic_seq_len_exclusion:
-        shape_patterns[key] = f'{batch_pattern}, ...'
+        # Only override the shape pattern if the key already exists.
+        #
+        # In the upstream configs, `polymorphic_seq_len_exclusion` is usually
+        # set at model level instead of methods level. Without this filtering,
+        # a shape pattern might be added to a method that does not have the
+        # corresponding input.
+        if key in shape_patterns:
+          shape_patterns[key] = f'{batch_pattern}, ...'
 
     return shape_patterns
 
