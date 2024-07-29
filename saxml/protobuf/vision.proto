@@ -180,6 +180,16 @@ message VideoToTextResponse {
   repeated DecodedText texts = 1;
 }
 
+message VideoToTokenRequest {
+  string model_key = 1;
+  repeated bytes image_frames = 2;  // Video composed of multiple image frames.
+  .sax.ExtraInputs extra_inputs = 3;
+}
+
+message VideoToTokenResponse {
+  repeated double tokens = 1;  // quantized or soft tokens.
+}
+
 service VisionService {
   // Returns the score (e.g., log pplx) given the text.
   rpc Classify(ClassifyRequest) returns (ClassifyResponse);
@@ -206,4 +216,7 @@ service VisionService {
 
   // Returns text generation results given video.
   rpc VideoToText(VideoToTextRequest) returns (VideoToTextResponse);
+
+  // Returns video tokens results given video.
+  rpc VideoToToken(VideoToTokenRequest) returns (VideoToTokenResponse);
 }

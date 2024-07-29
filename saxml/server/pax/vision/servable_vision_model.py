@@ -172,6 +172,21 @@ class VideoToTextHParams(servable_model_params.ServableMethodParams):
   model_method_name: Optional[str] = None
 
 
+@dataclasses.dataclass
+class VideoToTokenHParams(servable_model_params.ServableMethodParams):
+  """HParameters for VideoToToken method.
+
+  Attributes:
+    image_preprocessor: Pre-processing function to convert a single frame
+      image_bytes into image tensor.  Required.
+    model_method_name: The name of the method to call to return tokens from an
+      input image.  Required.
+  """
+
+  image_preprocessor: Optional[Callable[[str], tf.Tensor]] = None
+  model_method_name: Optional[str] = None
+
+
 class VisionModelParamsBase(servable_model_params.ServableModelParams):
   """Base Vision Model params.
 
@@ -217,6 +232,9 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
     video_to_text_params = self.video_to_text()
     if video_to_text_params is not None:
       methods[VisionMethodName.VIDEO_TO_TEXT] = video_to_text_params
+    video_to_token_params = self.video_to_token()
+    if video_to_token_params is not None:
+      methods[VisionMethodName.VIDEO_TO_TOKEN] = video_to_token_params
     # pylint: enable=assignment-from-none
     return methods
 
@@ -248,6 +266,9 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
     return None
 
   def video_to_text(self) -> Optional[VideoToTextHParams]:
+    return None
+
+  def video_to_token(self) -> Optional[VideoToTokenHParams]:
     return None
 
   def create_model(self, primary_process_id: int) -> 'VisionModel':
@@ -835,6 +856,69 @@ class VideoBytesToText(ImageBytesToText):
     return image_data
 
 
+class VideoToToken(servable_model.ServableMethod):
+  """Method for implementing video tokenization."""
+
+  def __init__(
+      self,
+      model,
+      model_fn_name: str,
+      model_state,
+      method_hparams: VideoToTokenHParams,
+      prng_key,
+      dummy_input_sample: Any,
+      model_config: Any,
+  ):
+    self._model_config = model_config
+    if method_hparams.image_preprocessor is None:
+      raise ValueError(
+          'image_preprocessor method must be defined in VideoToTokenHParams'
+      )
+    self._cluster = copy.deepcopy(cluster_factory.Current())
+    self._cluster.params.do_eval = True
+    with self._cluster:
+      self._image_preprocessor = method_hparams.image_preprocessor
+
+    super().__init__(
+        model,
+        model_fn_name,
+        model_state,
+        method_hparams,
+        prng_key,
+        dummy_input_sample,
+    )
+
+  @classmethod
+  def service_id(cls) -> str:
+    return vision_service.SERVICE_ID
+
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
+    """Fetches useful output tensors from the model function outputs."""
+    return NestedMap(tokens=model_fn_outputs[0])
+
+  def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
+    """Preprocesses an unpadded batch of data into host numpy arrays."""
+    batched_video_tensors = []
+    for inp in raw_inputs:
+      video_tensors = []
+      for image_frame in inp['image_frames']:
+        image_tensor = self._image_preprocessor(image_frame)
+        video_tensors.append(image_tensor.numpy())
+      video_tensors = np.stack(video_tensors)
+      batched_video_tensors.append(video_tensors)
+    return NestedMap(images=np.stack(batched_video_tensors))
+
+  def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
+    """Postprocesses the output numpy arrays to final host output."""
+    # Take output ids and convert back to strings using tokenizer.
+    tokens = compute_outputs['tokens']  # [batch, ...]
+    if tokens.dtype not in [np.float32, np.float64]:
+      tokens = tokens.astype(np.float32)
+    return list(tokens)
+
+
 class VisionModel(servable_model.ServableModel):
   """Model for vision tasks."""
 
@@ -953,6 +1037,24 @@ class VisionModel(servable_model.ServableModel):
           'text': 'dummy',
       }
       return VideoBytesToText(
+          model,
+          method_params.model_method_name,
+          model_state,
+          method_params,
+          prng_key=prng_key,
+          dummy_input_sample=dummy_input,
+          model_config=self.model_config,
+      )
+    elif method == VisionMethodName.VIDEO_TO_TOKEN:
+      assert isinstance(method_params, VideoToTokenHParams)
+      if method_params.model_method_name is None:
+        raise ValueError(
+            'Must specify `model_method_name` in VideoToTokenHParams.'
+        )
+      # TODO(huangyp): Use model-specific dummy input.
+      image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
+      dummy_input = {'image_frames': [image_bytes]}
+      return VideoToToken(
           model,
           method_params.model_method_name,
           model_state,

@@ -32,6 +32,7 @@ class VisionMethodName:
   IMAGE_TO_TEXT = 'vm.image_to_text'
   IMAGE_TO_IMAGE = 'vm.image_to_image'
   VIDEO_TO_TEXT = 'vm.video_to_text'
+  VIDEO_TO_TOKEN = 'vm.video_to_token'
 
 
 class VisionService(model_service_base.ModelService):
@@ -80,6 +81,10 @@ class VisionService(model_service_base.ModelService):
       return {
           'image_frames': list(request.image_frames),
           'text': np.array(request.text),
+      }
+    if method_name == VisionMethodName.VIDEO_TO_TOKEN:
+      return {
+          'image_frames': list(request.image_frames),
       }
     raise NotImplementedError(f'Method {method_name} unimplemented.')
 
@@ -162,6 +167,11 @@ class VisionService(model_service_base.ModelService):
       texts, scores = method_outputs
       for text, score in zip(texts, scores):
         response.texts.append(vision_pb2.DecodedText(text=text, score=score))
+      return
+    if method_name == VisionMethodName.VIDEO_TO_TOKEN:
+      tokens = method_outputs
+      for token in tokens:
+        response.tokens.append(token)
       return
     raise NotImplementedError(f'Method {method_name} unimplemented.')
 
@@ -249,6 +259,17 @@ class VisionServiceGRPC(
     resp = vision_pb2.VideoToTextResponse()
     await self.EnqueueRequest(
         VisionMethodName.VIDEO_TO_TEXT,
+        request.model_key,
+        context,
+        request,
+        resp,
+    )
+    return resp
+
+  async def VideoToToken(self, request, context):
+    resp = vision_pb2.VideoToTokenResponse()
+    await self.EnqueueRequest(
+        VisionMethodName.VIDEO_TO_TOKEN,
         request.model_key,
         context,
         request,
