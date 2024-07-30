@@ -68,7 +68,8 @@ func (m *Model) run(ctx context.Context, methodName string, callMethod func(conn
 	makeQuery := func() error {
 		modelServerConn, err := m.connectionFactory.GetOrCreate(ctx)
 		if err == nil {
-			err = callMethod(modelServerConn)
+			err = callMethod(modelServerConn.Client())
+			modelServerConn.Release()
 		} else if errors.IsNotFound(err) {
 			// If the model does not exist anymore, no point to retry.
 			err = backoff.Permanent(err)

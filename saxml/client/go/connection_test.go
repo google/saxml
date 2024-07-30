@@ -55,12 +55,13 @@ func TestConnection(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Creating connection for address %s failed with %v\n", addresses[j], err)
 			}
+			defer conn.Release()
 			req := &pb.ScoreRequest{
 				ModelKey: "m1",
 				Suffix:   []string{"abc"},
 				Prefix:   "xyz",
 			}
-			modelServer := pbgrpc.NewLMServiceClient(conn)
+			modelServer := pbgrpc.NewLMServiceClient(conn.Client())
 			res, err := modelServer.Score(context.Background(), req)
 			if err != nil {
 				t.Fatalf("Unable to Score() against address %s due to %v\n", addresses[j], err)
@@ -108,7 +109,8 @@ func TestBrokenConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Creating connection for address %s failed with %v\n", addr, err)
 	}
-	defer conn.Close()
+	defer conn.Client().Close()
+	defer conn.Release()
 
 	// Shut down the model server.
 	close(closer)
@@ -119,9 +121,10 @@ func TestBrokenConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Getting connection for address %s failed with %v\n", addr, err)
 	}
+	defer conn.Release()
 
 	// Attempting to use the connection should return an Unavailable error.
-	_, err = pbgrpc.NewLMServiceClient(conn).Score(ctx, &pb.ScoreRequest{})
+	_, err = pbgrpc.NewLMServiceClient(conn.Client()).Score(ctx, &pb.ScoreRequest{})
 	want := codes.Unavailable
 	if got := saxerrors.Code(err); got != want {
 		t.Errorf("Expect error code %v, got %v", want, got)
