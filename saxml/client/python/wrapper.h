@@ -232,6 +232,13 @@ class VisionModel {
       const std::vector<absl::string_view>& image_frames,
       absl::string_view text = "", const ModelOptions* options = nullptr) const;
 
+  // VideoToToken produces a list of tokens given 'image_frames'.
+  //
+  // Returns a vector of tokens.
+  absl::StatusOr<std::vector<double>> VideoToToken(
+      const std::vector<absl::string_view>& image_frames,
+      const ModelOptions* options = nullptr) const;
+
  private:
   explicit VisionModel(::sax::client::Model* base, const absl::Status& status);
   ::sax::client::Model* base_ = nullptr;

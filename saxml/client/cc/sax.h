@@ -510,6 +510,12 @@ class VisionModel {
                            absl::string_view text,
                            std::vector<ScoredText>* result) const;
 
+  absl::Status VideoToToken(const std::vector<absl::string_view>& image_frames,
+                            std::vector<double>* tokens) const;
+  absl::Status VideoToToken(const ModelOptions& options,
+                            const std::vector<absl::string_view>& image_frames,
+                            std::vector<double>* tokens) const;
+
  private:
   explicit VisionModel(int64_t model_handle) : model_handle_(model_handle) {}
   friend class Model;

@@ -55,6 +55,7 @@ using ::sax::server::vision::ImageToTextResponse;
 using ::sax::server::vision::TextAndImageToImageResponse;
 using ::sax::server::vision::TextToImageResponse;
 using ::sax::server::vision::VideoToTextResponse;
+using ::sax::server::vision::VideoToTokenResponse;
 using VmEmbedResponse = ::sax::server::vision::EmbedResponse;
 using AsrResponse = ::sax::server::audio::AsrResponse;
 
@@ -909,6 +910,51 @@ absl::Status VisionModel::VideoToText(
   }
   for (const auto& res : output.texts()) {
     result->push_back(ScoredText{res.text(), res.score()});
+  }
+  return absl::OkStatus();
+}
+
+absl::Status VisionModel::VideoToToken(
+    const std::vector<absl::string_view>& image_frames,
+    std::vector<double>* tokens) const {
+  return VisionModel::VideoToToken(ModelOptions(), image_frames, tokens);
+}
+
+absl::Status VisionModel::VideoToToken(
+    const ModelOptions& options,
+    const std::vector<absl::string_view>& image_frames,
+    std::vector<double>* tokens) const {
+  ExtraInputs extra;
+  options.ToProto(&extra);
+  std::string extraStr = "";
+  extra.SerializeToString(&extraStr);
+
+  char* outputStr = nullptr;
+  int outputSize = 0;
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  std::vector<int> frame_sizes;
+  std::vector<char*> frame_buffers;
+  for (const auto& frame : image_frames) {
+    frame_sizes.push_back(frame.size());
+    frame_buffers.push_back(const_cast<char*>(frame.data()));
+  }
+  go_vm_video_to_token(model_handle_, options.GetTimeout(),
+                       const_cast<char**>(frame_buffers.data()),
+                       const_cast<int*>(frame_sizes.data()),
+                       image_frames.size(), const_cast<char*>(extraStr.data()),
+                       extraStr.size(), &outputStr, &outputSize, &errMsgStr,
+                       &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+  VideoToTokenResponse output;
+  if (outputStr != nullptr) {
+    output.ParseFromArray(outputStr, outputSize);
+    free(outputStr);
+  }
+  for (const auto& token : output.tokens()) {
+    tokens->push_back(token);
   }
   return absl::OkStatus();
 }

@@ -514,6 +514,22 @@ VisionModel::VideoToText(const std::vector<absl::string_view>& image_frames,
   return result;
 }
 
+absl::StatusOr<std::vector<double>> VisionModel::VideoToToken(
+    const std::vector<absl::string_view>& image_frames,
+    const ModelOptions* options) const {
+  if (!status_.ok()) return status_;
+  std::vector<double> result;
+  {
+    pybind11::gil_scoped_release release;
+    if (options == nullptr) {
+      RETURN_IF_ERROR(model_->VideoToToken(image_frames, &result));
+    } else {
+      RETURN_IF_ERROR(model_->VideoToToken(*options, image_frames, &result));
+    }
+  }
+  return result;
+}
+
 Model::Model(absl::string_view id, const Options* options) {
   status_ = ::sax::client::Model::Open(id, options, &base_);
 }

@@ -358,3 +358,26 @@ func (v *VisionModel) VideoToText(ctx context.Context, imageFrames [][]byte, tex
 	res := extractVideoToTextResponse(resp)
 	return res, nil
 }
+
+// VideoToToken performs tokenization for multiple image frames against a vision model.
+// Specifically:
+// - 'tokens' is a list of token with type float64.
+func (v *VisionModel) VideoToToken(ctx context.Context, imageFrames [][]byte, options ...ModelOptionSetter) ([]float64, error) {
+	opts := NewModelOptions(options...)
+	req := &pb.VideoToTokenRequest{
+		ModelKey:    v.model.modelID,
+		ImageFrames: imageFrames,
+		ExtraInputs: opts.ExtraInputs(),
+	}
+
+	var resp *pb.VideoToTokenResponse
+	err := v.model.run(ctx, "VideoToToken", func(conn *grpc.ClientConn) error {
+		var videoToTokenErr error
+		resp, videoToTokenErr = pbgrpc.NewVisionServiceClient(conn).VideoToToken(ctx, req)
+		return videoToTokenErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetTokens(), nil
+}

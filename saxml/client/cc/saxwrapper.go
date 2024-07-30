@@ -1231,6 +1231,58 @@ func go_vm_video_to_text(ptr C.long, timeout C.float, imageFramesData **C.char,
 	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
 }
 
+//export go_vm_video_to_token
+func go_vm_video_to_token(ptr C.long, timeout C.float, imageFramesData **C.char,
+	perFrameSizes *C.int,
+	numFrames C.int,
+	optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+	vm := rcgo.Handle(ptr).Value().(*sax.VisionModel)
+	if vm == nil {
+		// This is not expected.
+		log.Fatalf("video_to_token() called on nil vision model.")
+	}
+
+	optionsByte := C.GoBytes(unsafe.Pointer(optionsData), optionsSize)
+	options := &cpb.ExtraInputs{}
+	if err := proto.Unmarshal(optionsByte, options); err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+	imageFrames := [][]byte{}
+	framePtrStart := unsafe.Pointer(imageFramesData)
+	frameSizesPtrStart := unsafe.Pointer(perFrameSizes)
+	framePtrSize := unsafe.Sizeof(*imageFramesData)
+	frameSizesPtrSize := unsafe.Sizeof(*perFrameSizes)
+	for i := 0; i < int(numFrames); i++ {
+		framePtr := uintptr(framePtrStart) + uintptr(i)*(framePtrSize)
+		frameSizePtr := uintptr(frameSizesPtrStart) + uintptr(i)*(frameSizesPtrSize)
+		frameSize := *((*C.int)(unsafe.Pointer(frameSizePtr)))
+		frame := *((**C.char)(unsafe.Pointer(framePtr)))
+		frameBytes := C.GoBytes(unsafe.Pointer(frame), frameSize)
+		imageFrames = append(imageFrames, frameBytes)
+	}
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	res, err := vm.VideoToToken(ctx, imageFrames, protoOptionToSetter(options)...)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+
+	ret := &vmpb.VideoToTokenResponse{
+		Tokens: res,
+	}
+	content, err := proto.Marshal(ret)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
+}
+
 //export go_custom
 func go_custom(ptr C.long, timeout C.float, requestData unsafe.Pointer, requestSize C.int, methodNameData *C.char, methodNameSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
 	custom := rcgo.Handle(ptr).Value().(*sax.CustomModel)
