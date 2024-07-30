@@ -60,7 +60,6 @@ char const *NumpyTypeName(int numpy_type) {
     TYPE_CASE(NPY_DATETIME);
     TYPE_CASE(NPY_TIMEDELTA);
     TYPE_CASE(NPY_HALF);
-    TYPE_CASE(NPY_NTYPES);
     TYPE_CASE(NPY_NOTYPE);
     TYPE_CASE(NPY_USERDEF);
 
@@ -132,8 +131,8 @@ tensorflow::Status StringTensorToPyArray(const tensorflow::Tensor &tensor,
           " of a TF_STRING tensor to a numpy ndarray");
     }
 
-    if (PyArray_SETITEM(dst, PyArray_ITER_DATA(iter.get()), py_string.get()) !=
-        0) {
+    if (PyArray_SETITEM(dst, static_cast<char *>(PyArray_ITER_DATA(iter.get())),
+                        py_string.get()) != 0) {
       return tensorflow::errors::Internal("Error settings element #", i,
                                           " in the numpy ndarray");
     }
@@ -171,8 +170,8 @@ tensorflow::Status GetPyDescrFromDataType(tensorflow::DataType dtype,
 #undef TF_DTYPE_TO_PY_ARRAY_TYPE_CASE
 
     default:
-      return tensorflow::errors::Internal(
-          "Unsupported tf type: ", tensorflow::DataType_Name(dtype));
+      return tensorflow::errors::Internal("Unsupported tf type: ",
+                                          tensorflow::DataType_Name(dtype));
   }
 
   return absl::OkStatus();
