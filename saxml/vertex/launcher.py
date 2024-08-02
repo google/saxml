@@ -257,7 +257,9 @@ def publish_model(model_key: str, model_path: str):
 def _shutdown(return_code: int) -> None:
   logging.info("subprocess exit with return code: %d", -return_code)
   # Stop tornado ioloop once SAX model server stoped.
-  tornado.ioloop.IOLoop.current().stop()
+  loop = tornado.ioloop.IOLoop.current()
+  if loop:
+    loop.stop()
 
 
 def configure_admin_server():
