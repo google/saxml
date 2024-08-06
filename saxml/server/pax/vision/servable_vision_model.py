@@ -878,7 +878,7 @@ class VideoToToken(servable_model.ServableMethod):
     self._cluster.params.do_eval = True
     with self._cluster:
       self._image_preprocessor = method_hparams.image_preprocessor
-
+    # TODO(huangyp): Enables bucketization of multiple possible frames
     super().__init__(
         model,
         model_fn_name,
@@ -900,20 +900,21 @@ class VideoToToken(servable_model.ServableMethod):
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
-    batched_video_tensors = []
-    for inp in raw_inputs:
-      video_tensors = []
-      for image_frame in inp['image_frames']:
-        image_tensor = self._image_preprocessor(image_frame)
-        video_tensors.append(image_tensor.numpy())
-      video_tensors = np.stack(video_tensors)
-      batched_video_tensors.append(video_tensors)
-    return NestedMap(images=np.stack(batched_video_tensors))
+    with self._cluster:
+      batched_video_tensors = []
+      for inp in raw_inputs:
+        video_tensors = []
+        for image_frame in inp['image_frames']:
+          image_tensor = self._image_preprocessor(image_frame)
+          video_tensors.append(image_tensor.numpy())
+        video_tensors = np.stack(video_tensors)
+        batched_video_tensors.append(video_tensors)
+      return NestedMap(images=np.stack(batched_video_tensors))
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
-    # Take output ids and convert back to strings using tokenizer.
-    tokens = compute_outputs['tokens']  # [batch, ...]
+    # Take output ids and convert them to float dtype.
+    tokens = compute_outputs['tokens']  # [batch, t, h, w]
     if tokens.dtype not in [np.float32, np.float64]:
       tokens = tokens.astype(np.float32)
     return list(tokens)

@@ -169,9 +169,15 @@ class VisionService(model_service_base.ModelService):
         response.texts.append(vision_pb2.DecodedText(text=text, score=score))
       return
     if method_name == VisionMethodName.VIDEO_TO_TOKEN:
-      tokens = method_outputs
-      for token in tokens:
-        response.tokens.append(token)
+      # Reshape tokens from [T, H, W] -> [-1]
+      tokens = method_outputs.reshape(-1)
+      if tokens.dtype in [np.float32, np.float64]:
+        response.tokens.extend(list(tokens))
+      else:
+        raise NotImplementedError(
+            'VIDEO_TO_TOKEN does not support returned '
+            f'tokens of type {tokens.dtype}.'
+        )
       return
     raise NotImplementedError(f'Method {method_name} unimplemented.')
 
