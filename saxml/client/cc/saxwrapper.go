@@ -1283,6 +1283,53 @@ func go_vm_video_to_token(ptr C.long, timeout C.float, imageFramesData **C.char,
 	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
 }
 
+//export go_vm_token_to_video
+func go_vm_token_to_video(ptr C.long, timeout C.float, tokensData **C.char, tokensSize C.int,
+	optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int,
+	errMsg **C.char, errCode *C.int) {
+	vm := rcgo.Handle(ptr).Value().(*sax.VisionModel)
+	if vm == nil {
+		// This is not expected.
+		log.Fatalf("token_to_video() called on nil vision model.")
+	}
+	optionsByte := C.GoBytes(unsafe.Pointer(optionsData), optionsSize)
+	options := &cpb.ExtraInputs{}
+	if err := proto.Unmarshal(optionsByte, options); err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+
+	tokens := make([]float64, tokensSize)
+	tokenDataPtrStart := unsafe.Pointer(tokensData)
+	for i := 0; i < int(tokensSize); i++ {
+		tokenDataPtr := uintptr(tokenDataPtrStart) + uintptr(i)*unsafe.Sizeof("float64")
+		token := *((*float64)(unsafe.Pointer(tokenDataPtr)))
+		tokens[i] = token
+	}
+
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+	res, err := vm.TokenToVideo(ctx, tokens, protoOptionToSetter(options)...)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+
+	ret := &vmpb.TokenToVideoResponse{}
+	for _, imageBytes := range res {
+		ret.ImageFrames = append(ret.GetImageFrames(), imageBytes)
+	}
+	content, err := proto.Marshal(ret)
+	if err != nil {
+		buildReturnValues(outData, outSize, errMsg, errCode, nil, err)
+		return
+	}
+	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
+
+}
+
 //export go_custom
 func go_custom(ptr C.long, timeout C.float, requestData unsafe.Pointer, requestSize C.int, methodNameData *C.char, methodNameSize C.int, optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
 	custom := rcgo.Handle(ptr).Value().(*sax.CustomModel)

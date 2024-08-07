@@ -54,6 +54,7 @@ using ::sax::server::vision::ImageToImageResponse;
 using ::sax::server::vision::ImageToTextResponse;
 using ::sax::server::vision::TextAndImageToImageResponse;
 using ::sax::server::vision::TextToImageResponse;
+using ::sax::server::vision::TokenToVideoResponse;
 using ::sax::server::vision::VideoToTextResponse;
 using ::sax::server::vision::VideoToTokenResponse;
 using VmEmbedResponse = ::sax::server::vision::EmbedResponse;
@@ -955,6 +956,48 @@ absl::Status VisionModel::VideoToToken(
   }
   for (const auto& token : output.tokens()) {
     tokens->push_back(token);
+  }
+  return absl::OkStatus();
+}
+
+absl::Status VisionModel::TokenToVideo(
+    const std::vector<double>& tokens,
+    std::vector<absl::string_view>* image_frames) const {
+  return VisionModel::TokenToVideo(ModelOptions(), tokens, image_frames);
+}
+
+absl::Status VisionModel::TokenToVideo(
+    const ModelOptions& options, const std::vector<double>& tokens,
+    std::vector<absl::string_view>* image_frames) const {
+  ExtraInputs extra;
+  options.ToProto(&extra);
+  std::string extraStr = "";
+  extra.SerializeToString(&extraStr);
+
+  char* outputStr = nullptr;
+  int outputSize = 0;
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  std::vector<char*> token_buffers;
+  for (const auto& token : tokens) {
+    token_buffers.push_back(
+        const_cast<char*>(reinterpret_cast<const char*>(&token)));
+  }
+  go_vm_token_to_video(model_handle_, options.GetTimeout(),
+                       const_cast<char**>(token_buffers.data()), tokens.size(),
+                       const_cast<char*>(extraStr.data()), extraStr.size(),
+                       &outputStr, &outputSize, &errMsgStr, &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+  TokenToVideoResponse output;
+  if (outputStr != nullptr) {
+    output.ParseFromArray(outputStr, outputSize);
+    free(outputStr);
+  }
+  image_frames->reserve(output.image_frames_size());
+  for (const auto& frame : output.image_frames()) {
+    image_frames->push_back(frame);
   }
   return absl::OkStatus();
 }

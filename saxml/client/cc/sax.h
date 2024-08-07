@@ -516,6 +516,17 @@ class VisionModel {
                             const std::vector<absl::string_view>& image_frames,
                             std::vector<double>* tokens) const;
 
+  // TokenToVideo produces a video (a list of image frames) in bytes given a
+  // list of 'tokens' in type double.
+  //
+  // On success, returns OK and fills in image frames computed by
+  // the model.  Otherwise, returns an error.
+  absl::Status TokenToVideo(const std::vector<double>& tokens,
+                            std::vector<absl::string_view>* image_frames) const;
+  absl::Status TokenToVideo(const ModelOptions& options,
+                            const std::vector<double>& tokens,
+                            std::vector<absl::string_view>* image_frames) const;
+
  private:
   explicit VisionModel(int64_t model_handle) : model_handle_(model_handle) {}
   friend class Model;

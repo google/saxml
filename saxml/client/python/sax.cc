@@ -243,7 +243,16 @@ PYBIND11_MODULE(sax, m) {
               -> absl::StatusOr<std::vector<double>> {
             return vm.VideoToToken(image_frames, options);
           },
-          py::arg("image_frames"), py::arg("options") = nullptr);
+          py::arg("image_frames"), py::arg("options") = nullptr)
+      .def(
+          "TokenToVideo",
+          [](sax::client::pybind::VisionModel& vm,
+             const std::vector<double>& tokens,
+             const sax::client::ModelOptions* options)
+              -> absl::StatusOr<std::vector<pybind11::bytes>> {
+            return vm.TokenToVideo(tokens, options);
+          },
+          py::arg("tokens"), py::arg("options") = nullptr);
 
   py::class_<sax::client::pybind::Model>(m, "Model")
       .def(py::init<absl::string_view, const sax::client::Options*>())

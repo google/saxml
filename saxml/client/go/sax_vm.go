@@ -381,3 +381,28 @@ func (v *VisionModel) VideoToToken(ctx context.Context, imageFrames [][]byte, op
 	}
 	return resp.GetTokens(), nil
 }
+
+// TokenToVideo performs de-tokenization for a list of tokens against a vision model.
+// Specifically:
+// - 'tokens' is a list of token with type float64.
+// Return:
+// - 'imageFrames' is a list of bytes where each element is a serialized image frame.
+func (v *VisionModel) TokenToVideo(ctx context.Context, tokens []float64, options ...ModelOptionSetter) ([][]byte, error) {
+	opts := NewModelOptions(options...)
+	req := &pb.TokenToVideoRequest{
+		ModelKey:    v.model.modelID,
+		Tokens:      tokens,
+		ExtraInputs: opts.ExtraInputs(),
+	}
+
+	var resp *pb.TokenToVideoResponse
+	err := v.model.run(ctx, "TokenToVideo", func(conn *grpc.ClientConn) error {
+		var tokenToVideoErr error
+		resp, tokenToVideoErr = pbgrpc.NewVisionServiceClient(conn).TokenToVideo(ctx, req)
+		return tokenToVideoErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetImageFrames(), nil
+}

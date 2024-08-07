@@ -239,6 +239,13 @@ class VisionModel {
       const std::vector<absl::string_view>& image_frames,
       const ModelOptions* options = nullptr) const;
 
+  // TokenToVideo produces a list of image frames given a list of 'tokens'.
+  //
+  // Returns a vector of image frames with each frame being bytes.
+  absl::StatusOr<std::vector<pybind11::bytes>> TokenToVideo(
+      const std::vector<double>& tokens,
+      const ModelOptions* options = nullptr) const;
+
  private:
   explicit VisionModel(::sax::client::Model* base, const absl::Status& status);
   ::sax::client::Model* base_ = nullptr;

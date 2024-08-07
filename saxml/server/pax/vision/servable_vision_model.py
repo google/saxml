@@ -187,6 +187,23 @@ class VideoToTokenHParams(servable_model_params.ServableMethodParams):
   model_method_name: Optional[str] = None
 
 
+@dataclasses.dataclass
+class TokenToVideoHParams(servable_model_params.ServableMethodParams):
+  """HParameters for TokenToVideo method.
+
+  Attributes:
+    image_postprocessor: Post-processing function to convert a single frame
+      image tensor into image_bytes.  Required.
+    model_method_name: The name of the method to call to return video from
+      tokens.  Required.
+    num_tokens_per_frame: The number of tokens per frame.
+  """
+
+  image_postprocessor: Optional[Callable[[tf.Tensor], str]] = None
+  model_method_name: Optional[str] = None
+  num_tokens_per_frame: int = 256
+
+
 class VisionModelParamsBase(servable_model_params.ServableModelParams):
   """Base Vision Model params.
 
@@ -235,6 +252,9 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
     video_to_token_params = self.video_to_token()
     if video_to_token_params is not None:
       methods[VisionMethodName.VIDEO_TO_TOKEN] = video_to_token_params
+    token_to_video_params = self.token_to_video()
+    if token_to_video_params is not None:
+      methods[VisionMethodName.TOKEN_TO_VIDEO] = token_to_video_params
     # pylint: enable=assignment-from-none
     return methods
 
@@ -269,6 +289,9 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
     return None
 
   def video_to_token(self) -> Optional[VideoToTokenHParams]:
+    return None
+
+  def token_to_video(self) -> Optional[TokenToVideoHParams]:
     return None
 
   def create_model(self, primary_process_id: int) -> 'VisionModel':
@@ -916,8 +939,75 @@ class VideoToToken(servable_model.ServableMethod):
     # Take output ids and convert them to float dtype.
     tokens = compute_outputs['tokens']  # [batch, t, h, w]
     if tokens.dtype not in [np.float32, np.float64]:
-      tokens = tokens.astype(np.float32)
+      tokens = tokens.astype(np.float64)
     return list(tokens)
+
+
+class TokenToVideo(servable_model.ServableMethod):
+  """Method for implementing token->video detokenization."""
+
+  def __init__(
+      self,
+      model,
+      model_fn_name: str,
+      model_state,
+      method_hparams: TokenToVideoHParams,
+      prng_key,
+      dummy_input_sample: Any,
+      model_config: Any,
+  ):
+    self._model_config = model_config
+    if method_hparams.image_postprocessor is None:
+      raise ValueError(
+          'image_postprocessor method must be defined in TokenToVideoHParams'
+      )
+    self._cluster = copy.deepcopy(cluster_factory.Current())
+    self._cluster.params.do_eval = True
+    with self._cluster:
+      self._image_postprocessor = method_hparams.image_postprocessor
+
+    super().__init__(
+        model,
+        model_fn_name,
+        model_state,
+        method_hparams,
+        prng_key,
+        dummy_input_sample,
+    )
+
+  @classmethod
+  def service_id(cls) -> str:
+    return vision_service.SERVICE_ID
+
+  def fetch_output(
+      self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
+  ) -> NestedJTensor:
+    """Fetches useful output tensors from the model function outputs."""
+    return NestedMap(video=model_fn_outputs[0])
+
+  def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
+    """Preprocesses an unpadded batch of data into host numpy arrays."""
+    with self._cluster:
+      batched_tokens = []
+      for inp in raw_inputs:
+        batched_tokens.append(
+            np.array(inp['tokens'], dtype=np.float64).reshape(-1)
+        )
+    return NestedMap(tokens=np.stack(batched_tokens))
+
+  def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
+    """Postprocesses the output numpy arrays to final host output."""
+    with self._cluster:
+      videos = compute_outputs['video']  # [batch, t, h, w, c]
+      batched_video_bytes = []
+      for video in videos:
+        video_bytes: list[str] = []
+        for image_frame in video:
+          # [h, w, c] -> string
+          image_bytes = self._image_postprocessor(image_frame)
+          video_bytes.append(image_bytes)
+        batched_video_bytes.append(video_bytes)
+      return batched_video_bytes
 
 
 class VisionModel(servable_model.ServableModel):
@@ -1056,6 +1146,22 @@ class VisionModel(servable_model.ServableModel):
       image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
       dummy_input = {'image_frames': [image_bytes]}
       return VideoToToken(
+          model,
+          method_params.model_method_name,
+          model_state,
+          method_params,
+          prng_key=prng_key,
+          dummy_input_sample=dummy_input,
+          model_config=self.model_config,
+      )
+    elif method == VisionMethodName.TOKEN_TO_VIDEO:
+      assert isinstance(method_params, TokenToVideoHParams)
+      if method_params.model_method_name is None:
+        raise ValueError(
+            'Must specify `model_method_name` in TokenToVideoHParams.'
+        )
+      dummy_input = {'tokens': np.arange(method_params.num_tokens_per_frame)}
+      return TokenToVideo(
           model,
           method_params.model_method_name,
           model_state,

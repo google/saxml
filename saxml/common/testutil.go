@@ -605,6 +605,18 @@ func (s *stubVisionModelServer) VideoToToken(ctx context.Context, in *vmpb.Video
 	}, nil
 }
 
+func (s *stubVisionModelServer) TokenToVideo(ctx context.Context, in *vmpb.TokenToVideoRequest) (*vmpb.TokenToVideoResponse, error) {
+	value := len(in.GetTokens())
+	return &vmpb.TokenToVideoResponse{
+		ImageFrames: [][]byte{
+			[]byte("frame_0"),
+			[]byte("frame_1"),
+			[]byte("frame_2"),
+			[]byte("frame_" + strconv.Itoa(int(value))),
+		},
+	}, nil
+}
+
 type stubAudioModelServer struct{}
 
 func (s *stubAudioModelServer) Recognize(ctx context.Context, in *ampb.AsrRequest) (*ampb.AsrResponse, error) {
