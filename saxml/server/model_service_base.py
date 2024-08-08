@@ -946,20 +946,10 @@ class ModelService(metaclass=abc.ABCMeta):
       logging.error('Method %s does not support streaming output.', method)
       return
 
-    # Only lm.generate supports continuous batching.
     if method_obj.continuous_batching:
-      if method in ['lm.generate', 'lm.generate_stream']:
-        batcher_item_key = MethodKey(
-            MethodName.BATCHED_LM_GENERATE, method, self._service_id, model_key
-        )
-      else:
-        done(
-            utils.invalid_arg(
-                f'Method {method} does not support continuous batching.'
-            )
-        )
-        logging.error('Method %s does not support continuous batching.', method)
-        return
+      batcher_item_key = MethodKey(
+          MethodName.BATCHED_LM_GENERATE, method, self._service_id, model_key
+      )
     else:
       batcher_item_key = MethodKey(
           MethodName.MODEL, method, self._service_id, model_key
@@ -1747,7 +1737,10 @@ class ModelServicesRunner:
         if method.continuous_batching:
           # Currently, only lm.generate and lm.generate_stream supports
           # continuous batching.
-          if method_name not in ['lm.generate', 'lm.generate_stream']:
+          if method.service_id() != 'custom' and method_name not in [
+              'lm.generate',
+              'lm.generate_stream',
+          ]:
             raise ValueError(
                 f'Continuous batching is not supported for {method_name}'
             )
@@ -2245,7 +2238,7 @@ class ModelServicesRunner:
               state.model_key,
               state.model_method,
               ','.join([str(s) for s in slots]),
-              skip_host_sync=True,
+              skip_host_sync=False,
           )
 
           assert request.preprocessed_inputs is not None
@@ -2357,7 +2350,7 @@ class ModelServicesRunner:
               MethodName.GENERATE,
               state.model_key,
               state.model_method,
-              skip_host_sync=True,
+              skip_host_sync=False,
           )
           current_result = method_obj.generate()
           current_mask = state.slots_in_use.copy()
@@ -2416,10 +2409,18 @@ class ModelServicesRunner:
     def _postprocess():
       # If any of the sequences in the batch is done, return the response
       # and reset the cache slot.
-      output_strings = state.method.detokenize(sequences)
+      if state.method.service_id() == 'custom':
+        method_outputs = state.method.post_processing(
+            {'tokens': sequences, 'scores': scores}
+        )
+      else:
+        method_outputs = state.method.detokenize(sequences)
 
       for idx, slot in enumerate(np.flatnonzero(done)):
-        outputs = [output_strings[idx]], [scores[idx]]
+        if state.method.service_id() == 'custom':
+          outputs = method_outputs[idx]
+        else:
+          outputs = [method_outputs[idx]], [scores[idx]]
         if state.method.streamable_output:
           # send response back to generate_stream
           resp = copy.deepcopy(state.rpc_tasks[slot].response)
