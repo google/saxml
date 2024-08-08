@@ -108,9 +108,9 @@ class ModelOptions {
 class AudioModel {
  public:
   AudioModel(const AudioModel&) = delete;
-  AudioModel(AudioModel&&) = default;
+  AudioModel(AudioModel&&) = delete;
   AudioModel& operator=(const AudioModel&) = delete;
-  AudioModel& operator=(AudioModel&&) = default;
+  AudioModel& operator=(AudioModel&&) = delete;
   ~AudioModel();
 
   // Recognize produces text and scores given the audio input.
@@ -130,7 +130,7 @@ class AudioModel {
  private:
   explicit AudioModel(int64_t model_handle) : model_handle_(model_handle) {}
   friend class Model;
-  int64_t model_handle_;
+  const int64_t model_handle_;
 };
 
 // CustomModel provides common custom model API against a given model in
@@ -157,9 +157,9 @@ class AudioModel {
 class CustomModel {
  public:
   CustomModel(const CustomModel&) = delete;
-  CustomModel(CustomModel&&) = default;
+  CustomModel(CustomModel&&) = delete;
   CustomModel& operator=(const CustomModel&) = delete;
-  CustomModel& operator=(CustomModel&&) = default;
+  CustomModel& operator=(CustomModel&&) = delete;
   ~CustomModel();
 
   // Custom model with string to string custom call.
@@ -174,7 +174,7 @@ class CustomModel {
  private:
   explicit CustomModel(int64_t model_handle) : model_handle_(model_handle) {}
   friend class Model;
-  int64_t model_handle_;
+  const int64_t model_handle_;
 };
 
 // LanguageModel provides common language model API against a given model in
@@ -201,9 +201,9 @@ class CustomModel {
 class LanguageModel {
  public:
   LanguageModel(const LanguageModel&) = delete;
-  LanguageModel(LanguageModel&&) = default;
+  LanguageModel(LanguageModel&&) = delete;
   LanguageModel& operator=(const LanguageModel&) = delete;
-  LanguageModel& operator=(LanguageModel&&) = default;
+  LanguageModel& operator=(LanguageModel&&) = delete;
   ~LanguageModel();
 
   // Scores the given 'prefix' and `suffix` using the language model.
@@ -237,7 +237,7 @@ class LanguageModel {
   // either successfully or due to error, indicated by the returned status.
   //
   // When the callback is invoked, `last` indicates if this is the last call.
-  // `items` is valid iif `last` is false. The callback is called only when
+  // `items` is valid iff `last` is false. The callback is called only when
   // no error is encountered.
   //
   // Example:
@@ -297,15 +297,15 @@ class LanguageModel {
  private:
   explicit LanguageModel(int64_t model_handle) : model_handle_(model_handle) {}
   friend class Model;
-  int64_t model_handle_;
+  const int64_t model_handle_;
 };
 
 class MultimodalModel {
  public:
   MultimodalModel(const MultimodalModel&) = delete;
-  MultimodalModel(MultimodalModel&&) = default;
+  MultimodalModel(MultimodalModel&&) = delete;
   MultimodalModel& operator=(const MultimodalModel&) = delete;
-  MultimodalModel& operator=(MultimodalModel&&) = default;
+  MultimodalModel& operator=(MultimodalModel&&) = delete;
   ~MultimodalModel();
 
   // Samples the model and produces results given the
@@ -349,7 +349,7 @@ class MultimodalModel {
   explicit MultimodalModel(int64_t model_handle)
       : model_handle_(model_handle) {}
   friend class Model;
-  int64_t model_handle_;
+  const int64_t model_handle_;
 };
 
 // VisionModel provides common vision model API against a given model in
@@ -376,9 +376,9 @@ class MultimodalModel {
 class VisionModel {
  public:
   VisionModel(const VisionModel&) = delete;
-  VisionModel(VisionModel&&) = default;
+  VisionModel(VisionModel&&) = delete;
   VisionModel& operator=(const VisionModel&) = delete;
-  VisionModel& operator=(VisionModel&&) = default;
+  VisionModel& operator=(VisionModel&&) = delete;
   ~VisionModel();
 
   // Classify produces text and scores given the input image.
@@ -530,7 +530,7 @@ class VisionModel {
  private:
   explicit VisionModel(int64_t model_handle) : model_handle_(model_handle) {}
   friend class Model;
-  int64_t model_handle_;
+  const int64_t model_handle_;
 };
 
 class Model {
