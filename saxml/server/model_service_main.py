@@ -22,7 +22,6 @@ from absl import logging
 import grpc
 import jax
 from jax.experimental.compilation_cache import compilation_cache
-from saxml.client.python import sax
 from saxml.protobuf import modelet_pb2
 from saxml.protobuf import modelet_pb2_grpc
 from saxml.server import model_service_base
@@ -125,11 +124,6 @@ def _load_static_model(
   logging.info(
       'Loading key %s, model %s, checkpoint %s.', model_key, model, checkpoint
   )
-  # Get overrides that might have been provided via 'saxutil publish' and apply
-  # them.
-  overrides = sax.ListDetail(model_key).overrides
-  logging.info('Got overrides: %s', overrides)
-
   if channel_creds is None:
     channel = grpc.insecure_channel(f'localhost:{port}')
   else:
@@ -138,8 +132,7 @@ def _load_static_model(
     grpc.channel_ready_future(channel).result(timeout=10)
     stub = modelet_pb2_grpc.ModeletStub(channel)
     req = modelet_pb2.LoadRequest(
-        model_key=model_key, model_path=model, checkpoint_path=checkpoint,
-        overrides=overrides,
+        model_key=model_key, model_path=model, checkpoint_path=checkpoint
     )
     try:
       stub.Load(req)
