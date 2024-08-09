@@ -312,6 +312,9 @@ pytype_strict_library(
         ":model_service_base",
         ":servable_model_registry",
         ":spmd_backend",
+        "//saxml/client/python:sax",
+        "//saxml/protobuf:admin_py_pb2",
+        "//saxml/protobuf:admin_py_pb2_grpc",
         "//saxml/protobuf:modelet_py_pb2",
         "//saxml/protobuf:modelet_py_pb2_grpc",
         "//saxml/server/jax:jax_spmd_backend",
@@ -321,6 +324,7 @@ pytype_strict_library(
         "//third_party/py/grpcio",
         "//third_party/py/jax",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
+        "@pybind11_abseil//pybind11_abseil:status",
     ],
 )
 
