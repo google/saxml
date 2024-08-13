@@ -199,7 +199,7 @@ class TokenToVideoHParams(servable_model_params.ServableMethodParams):
     num_tokens_per_frame: The number of tokens per frame.
   """
 
-  image_postprocessor: Optional[Callable[[tf.Tensor], str]] = None
+  image_postprocessor: Optional[Callable[[tf.Tensor], bytes]] = None
   model_method_name: Optional[str] = None
   num_tokens_per_frame: int = 256
 
@@ -1001,9 +1001,9 @@ class TokenToVideo(servable_model.ServableMethod):
       videos = compute_outputs['video']  # [batch, t, h, w, c]
       batched_video_bytes = []
       for video in videos:
-        video_bytes: list[str] = []
+        video_bytes: list[bytes] = []
         for image_frame in video:
-          # [h, w, c] -> string
+          # [h, w, c] -> bytes
           image_bytes = self._image_postprocessor(image_frame)
           video_bytes.append(image_bytes)
         batched_video_bytes.append(video_bytes)
@@ -1143,7 +1143,7 @@ class VisionModel(servable_model.ServableModel):
             'Must specify `model_method_name` in VideoToTokenHParams.'
         )
       # TODO(huangyp): Use model-specific dummy input.
-      image_bytes = tf.image.encode_jpeg(np.ones((256, 256, 3), dtype=np.uint8))
+      image_bytes = tf.image.encode_png(np.ones((256, 256, 3), dtype=np.uint8))
       dummy_input = {'image_frames': [image_bytes]}
       return VideoToToken(
           model,
