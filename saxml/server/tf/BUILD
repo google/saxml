@@ -130,7 +130,6 @@ cc_library(
         "@third_party_numpy//:site-packages/numpy/core/include/numpy/npy_endian.h",
         "@third_party_numpy//:site-packages/numpy/core/include/numpy/npy_interrupt.h",
         "@third_party_numpy//:site-packages/numpy/core/include/numpy/numpyconfig.h",
-        "@third_party_numpy//:site-packages/numpy/core/include/numpy/old_defines.h",
         "@third_party_numpy//:site-packages/numpy/core/include/numpy/utils.h",
     ],
     strip_include_prefix = "/site-packages/numpy/core/include",
