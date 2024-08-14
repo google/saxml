@@ -59,6 +59,8 @@ func (q queryRetrier) Do(ctx context.Context, query Closure, retriable IsRetriab
 	opts := backoff.NewExponentialBackOff()
 	// Fast initial retries.
 	opts.InitialInterval = 10 * time.Millisecond
+	// Max retry interval.
+	opts.MaxInterval = 20 * time.Second
 	// Because the retry loop still respects ctx's deadline, we want
 	// the loop retries as many times as necessary.
 	opts.MaxElapsedTime = 0
