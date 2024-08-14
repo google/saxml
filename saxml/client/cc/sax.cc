@@ -979,6 +979,7 @@ absl::Status VisionModel::TokenToVideo(
   char* errMsgStr = nullptr;
   int errCode = 0;
   std::vector<char*> token_buffers;
+  token_buffers.reserve(tokens.size());
   for (const auto& token : tokens) {
     token_buffers.push_back(
         const_cast<char*>(reinterpret_cast<const char*>(&token)));
