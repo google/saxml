@@ -22,16 +22,12 @@ from absl import logging
 import grpc
 import jax
 from jax.experimental.compilation_cache import compilation_cache
-from saxml.client.python import sax
 from saxml.protobuf import modelet_pb2
 from saxml.protobuf import modelet_pb2_grpc
 from saxml.server import model_service_base
 from saxml.server import servable_model_registry
 from saxml.server import spmd_backend
 import tensorflow as tf
-
-from google3.third_party.pybind11_abseil import status as absl_status
-
 
 _SAX_CELL = flags.DEFINE_string(
     'sax_cell',
@@ -123,23 +119,11 @@ def _load_static_model(
     model_key: str,
     checkpoint: str,
     channel_creds: Optional[grpc.ChannelCredentials],
-    sax_cell: Optional[str],
 ) -> None:
   """Loads statically specified model to a started service."""
   logging.info(
       'Loading key %s, model %s, checkpoint %s.', model_key, model, checkpoint
   )
-  # Get overrides that might have been provided via 'saxutil publish' and apply
-  # them.
-  overrides = {}
-  if sax_cell:
-    try:
-      overrides = sax.ListDetail(model_key).overrides
-      logging.info('Got overrides: %s', overrides)
-    except absl_status.StatusNotOk as e:
-      logging.warning(
-          "Could not get model details, not applying overrides: '%s'", e
-      )
   if channel_creds is None:
     channel = grpc.insecure_channel(f'localhost:{port}')
   else:
@@ -148,8 +132,7 @@ def _load_static_model(
     grpc.channel_ready_future(channel).result(timeout=10)
     stub = modelet_pb2_grpc.ModeletStub(channel)
     req = modelet_pb2.LoadRequest(
-        model_key=model_key, model_path=model, checkpoint_path=checkpoint,
-        overrides=overrides,
+        model_key=model_key, model_path=model, checkpoint_path=checkpoint
     )
     try:
       stub.Load(req)
@@ -252,8 +235,7 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
       for model, key, ckpt in zip(
           _MODELS.value, _MODEL_KEYS.value, _CHECKPOINTS.value
       ):
-        _load_static_model(_PORT.value, model, key, ckpt, channel_creds,
-                           _SAX_CELL.value)
+        _load_static_model(_PORT.value, model, key, ckpt, channel_creds)
       runner.on_initial_models_load_completion()
     runner.wait()
   finally:
