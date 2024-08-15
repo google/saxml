@@ -207,6 +207,11 @@ py_strict_test(
 pytype_strict_library(
     name = "vocabularies",
     srcs = ["vocabularies.py"],
+    visibility = [
+        "//cloud/ai/nl/llm/shared/llama3_tokenizer/python:__subpackages__",
+        "//saxml:internal",
+        "//saxml/server:friends",
+    ],
     deps = [
         "//third_party/py/absl-py/logging",
         "//third_party/py/blobfile",
