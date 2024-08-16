@@ -1284,7 +1284,7 @@ func go_vm_video_to_token(ptr C.long, timeout C.float, imageFramesData **C.char,
 }
 
 //export go_vm_token_to_video
-func go_vm_token_to_video(ptr C.long, timeout C.float, tokensData **C.char, tokensSize C.int,
+func go_vm_token_to_video(ptr C.long, timeout C.float, tokensData *C.double, tokensSize C.int,
 	optionsData *C.char, optionsSize C.int, outData **C.char, outSize *C.int,
 	errMsg **C.char, errCode *C.int) {
 	vm := rcgo.Handle(ptr).Value().(*sax.VisionModel)
@@ -1299,13 +1299,8 @@ func go_vm_token_to_video(ptr C.long, timeout C.float, tokensData **C.char, toke
 		return
 	}
 
-	tokens := make([]float64, tokensSize)
-	tokenDataPtrStart := unsafe.Pointer(tokensData)
-	for i := 0; i < int(tokensSize); i++ {
-		tokenDataPtr := uintptr(tokenDataPtrStart) + uintptr(i)*unsafe.Sizeof("float64")
-		token := *((*float64)(unsafe.Pointer(tokenDataPtr)))
-		tokens[i] = token
-	}
+	tokensPtr := unsafe.Pointer(tokensData)
+	tokens := unsafe.Slice((*float64)(tokensPtr), tokensSize)
 
 	ctx, cancel := createContextWithTimeout(timeout)
 	if cancel != nil {

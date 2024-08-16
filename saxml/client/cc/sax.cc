@@ -962,13 +962,13 @@ absl::Status VisionModel::VideoToToken(
 
 absl::Status VisionModel::TokenToVideo(
     const std::vector<double>& tokens,
-    std::vector<absl::string_view>* image_frames) const {
+    std::vector<std::string>* image_frames) const {
   return VisionModel::TokenToVideo(ModelOptions(), tokens, image_frames);
 }
 
 absl::Status VisionModel::TokenToVideo(
     const ModelOptions& options, const std::vector<double>& tokens,
-    std::vector<absl::string_view>* image_frames) const {
+    std::vector<std::string>* image_frames) const {
   ExtraInputs extra;
   options.ToProto(&extra);
   std::string extraStr = "";
@@ -978,14 +978,8 @@ absl::Status VisionModel::TokenToVideo(
   int outputSize = 0;
   char* errMsgStr = nullptr;
   int errCode = 0;
-  std::vector<char*> token_buffers;
-  token_buffers.reserve(tokens.size());
-  for (const auto& token : tokens) {
-    token_buffers.push_back(
-        const_cast<char*>(reinterpret_cast<const char*>(&token)));
-  }
   go_vm_token_to_video(model_handle_, options.GetTimeout(),
-                       const_cast<char**>(token_buffers.data()), tokens.size(),
+                       const_cast<double*>(tokens.data()), tokens.size(),
                        const_cast<char*>(extraStr.data()), extraStr.size(),
                        &outputStr, &outputSize, &errMsgStr, &errCode);
   if (errCode != 0) {

@@ -533,7 +533,7 @@ absl::StatusOr<std::vector<double>> VisionModel::VideoToToken(
 absl::StatusOr<std::vector<pybind11::bytes>> VisionModel::TokenToVideo(
     const std::vector<double>& tokens, const ModelOptions* options) const {
   if (!status_.ok()) return status_;
-  std::vector<absl::string_view> videos;
+  std::vector<std::string> videos;
   {
     pybind11::gil_scoped_release release;
     if (options == nullptr) {
@@ -544,7 +544,7 @@ absl::StatusOr<std::vector<pybind11::bytes>> VisionModel::TokenToVideo(
   }
   std::vector<pybind11::bytes> result;
   result.reserve(videos.size());
-  for (auto video : videos) {
+  for (const std::string& video : videos) {
     result.push_back(pybind11::bytes(std::move(video)));
   }
   return result;
