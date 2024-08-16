@@ -35,7 +35,10 @@ pytype_strict_library(
     name = "multimodal_service",
     srcs = ["multimodal_service.py"],
     srcs_version = "PY3",
-    visibility = ["//saxml:internal"],
+    visibility = [
+        "//ads/adsml/heinzelmaennchen:__subpackages__",
+        "//saxml:internal",
+    ],
     deps = [
         "//saxml/protobuf:multimodal_py_pb2",
         "//saxml/protobuf:multimodal_py_pb2_grpc",
