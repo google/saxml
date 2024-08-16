@@ -22,6 +22,7 @@ licenses(["notice"])
 package_group(
     name = "friends",
     packages = [
+        "//ads/adsml/heinzelmaennchen/...",
         "//learning/bulk_inference/jax_on_beam/...",
         "//waymo/planner/...",  # //waymo/... is siloed.
         "//waymo/research/...",  # //waymo/... is siloed.
