@@ -313,7 +313,6 @@ pytype_strict_library(
         ":model_service_base",
         ":servable_model_registry",
         ":spmd_backend",
-        "//pyglib/flags/contrib:json_flag",
         "//saxml/protobuf:modelet_py_pb2",
         "//saxml/protobuf:modelet_py_pb2_grpc",
         "//saxml/server/jax:jax_spmd_backend",
