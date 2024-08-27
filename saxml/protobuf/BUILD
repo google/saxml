@@ -22,6 +22,10 @@ package(
     default_visibility = ["//saxml:internal"],
 )
 
+# Please do not expand this visibility without consulting with the sax-dev@ and zhifengc@ first.
+# In general, talking to  sax servers through raw rpcs directly are unreliable,
+# insecure, and lacks data governance support. That model should only be used for debugging.
+# Applications should use the provided client libraries instead.
 package_group(
     name = "sax_rpc_visibility",
     includes = [
