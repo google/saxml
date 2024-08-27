@@ -408,7 +408,7 @@ func (s *State) getStatus(ctx context.Context) (map[naming.ModelFullName]*ModelI
 	if serverStatus := res.GetServerStatus(); serverStatus != nil {
 		s.lastReportedStatus.IsDormant =
 			serverStatus.GetState() == mpb.GetStatusResponse_ServerStatus_DORMANT
-		errorRates := s.lastReportedStatus.EarlyRejectionErrorsPerSecond
+		errorRates := &s.lastReportedStatus.EarlyRejectionErrorsPerSecond
 		errorRates[1] = errorRates[0] // [1] always perserves the historical value.
 		errorRates[0] = serverStatus.GetStats().GetEarlyRejectionErrorsPerSecond()
 	}

@@ -18,6 +18,7 @@ package wakerpolicy
 import (
 	"fmt"
 
+	log "github.com/golang/glog"
 	"saxml/admin/state"
 	"saxml/common/naming"
 )
@@ -105,6 +106,7 @@ func (w *WakerPolicy) Decide() []string {
 			logMsg += fmt.Sprintf("Decision: %v as seeing avg_error_rate_delta: %v, active_server_count: %v",
 				shouldWakeUp, averageErrorRateChange, activeServersCount)
 		}
+		log.V(1).Infof(logMsg)
 	}
 	servers := []string{}
 	for cand := range candidates {

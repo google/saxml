@@ -903,8 +903,9 @@ func (m *Mgr) Refresh(ctx context.Context) {
 	candidates := wakerPolicy.Decide()
 
 	m.mu.RLock()
-	for addr := range candidates {
-		m.modelets[modeletAddr(rune(addr))].WakeUp(ctx)
+	for _, addr := range candidates {
+		log.InfoContextf(ctx, "Waking up server %v", addr)
+		m.modelets[modeletAddr(addr)].WakeUp(ctx)
 	}
 	m.mu.RUnlock()
 }

@@ -158,6 +158,7 @@ go_library(
     deps = [
         ":state",
         "//saxml/common:naming",
+        "@com_github_golang_glog//:go_default_library",
     ],
 )
 
