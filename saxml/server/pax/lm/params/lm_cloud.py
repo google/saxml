@@ -244,6 +244,17 @@ class BaseLLaMA3(BaseLLaMA):
     return task_p
 
 
+class BaseLLaMA31(BaseLLaMA3):
+  """Base class for LLaMA3.1 models."""
+
+  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+    task_p = super().task()
+    task_p.model.lm_tpl.stacked_transformer_tpl.transformer_layer_params_tpl.tr_atten_tpl.rotary_position_emb_tpl.use_scale = (
+        True
+    )
+    return task_p
+
+
 @quantization.for_transformer(quantize_on_the_fly=False)
 class BaseLLaMATest(BaseLLaMA):
   """Small BaseLLaMA model for unit tests.
@@ -758,7 +769,7 @@ class LLaMA3_70BFP16x16(BaseLLaMA3):
 
 
 @servable_model_registry.register
-class LLaMA3_405BFP16x64(BaseLLaMA3):
+class LLaMA31_405BFP16x64(BaseLLaMA31):
   """LLama3 405B FP16 partitioned for 64 chips."""
 
   VOCABULARY_CLASS = 'LLama3Vocabulary'
@@ -777,7 +788,7 @@ class LLaMA3_405BFP16x64(BaseLLaMA3):
 
 @servable_model_registry.register
 @quantization.for_transformer(quantize_on_the_fly=False, linear_only=True)
-class LLaMA3_405BLinearOnlyInt8x32(LLaMA3_405BFP16x64):
+class LLaMA31_405BLinearOnlyInt8x32(LLaMA31_405BFP16x64):
   """LLama3 405B int8 linear only layer quantized partitioned for 32 chips."""
 
   ICI_MESH_SHAPE = [1, 1, 32]

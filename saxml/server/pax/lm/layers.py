@@ -48,6 +48,41 @@ def reduce_last_dim_for_quantization(t: JTensor) -> tuple[JTensor, JTensor]:
 class LLaMARotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
   """LLaMA variant of ROPE where inputs are split in a different way."""
 
+  # LLaMA3.1 ROPE scaling, see the original pytorch implementation
+  # https://github.com/meta-llama/llama-models/blob/301ca3a2b3b10e94ddcd1fdd2c57e52f812e1cac/models/llama3/reference_impl/model.py#L45C5-L45C18
+  use_scale: bool = False
+
+  def _apply_scaling_factor(self, freq):
+    scale_factor = 8
+    low_freq_factor = 1
+    high_freq_factor = 4
+    old_context_len = 8192  # original llama3 length
+
+    low_freq_wavelen = old_context_len / low_freq_factor
+    high_freq_wavelen = old_context_len / high_freq_factor
+    wavelen = 2 * jnp.pi / freq
+
+    def lower_wavelen(freq):
+      return freq
+
+    def bigger_or_equal_wavelen(freq):
+      def bigger_wavelen(freq):
+        return freq / scale_factor
+
+      def equal_wavelen(freq):
+        smooth = (old_context_len / wavelen - low_freq_factor) / (
+            high_freq_factor - low_freq_factor
+        )
+        return (1 - smooth) * freq / scale_factor + smooth * freq
+
+      bigger_wavelen_cond = wavelen > low_freq_wavelen
+      return jax.lax.cond(
+          bigger_wavelen_cond, bigger_wavelen, equal_wavelen, freq)
+
+    lower_wavelen_cond = wavelen < high_freq_wavelen
+    return jax.lax.cond(
+        lower_wavelen_cond, lower_wavelen, bigger_or_equal_wavelen, freq)
+
   def __call__(
       self,  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       inputs: JTensor,
@@ -94,16 +129,22 @@ class LLaMARotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
     half_embedding_dim = self.embedding_dims // 2
     fraction = 2 * jnp.arange(0, half_embedding_dim) / self.embedding_dims
     fraction = jnp.repeat(fraction, 2)
+
     timescale = (
         self.min_timescale
         * (self.max_timescale / self.min_timescale) ** fraction
     )
+
+    if self.use_scale:
+      timescale = jax.vmap(self._apply_scaling_factor)(timescale)
+
     if position is None:
       seq_length = inputs.shape[1]
       position = jnp.arange(seq_length, dtype=jnp.float32)[jnp.newaxis, :]
     position = position[:, :, jnp.newaxis, jnp.newaxis]
     timescale = timescale[jnp.newaxis, jnp.newaxis, jnp.newaxis, :]
     sinusoid_inp = position / timescale
+
     sin = jnp.sin(sinusoid_inp)
     cos = jnp.cos(sinusoid_inp)
     sign = jnp.sign(
