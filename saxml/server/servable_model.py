@@ -313,6 +313,10 @@ class ServableMethod(abc.ABC):
   def num_cache_slots(self) -> int:
     raise NotImplementedError('num_cache_slots not implemented')
 
+  def num_cache_slots_for_request(self, req: Any) -> int:
+    del req
+    return 1
+
   @property
   def max_decode_steps(self) -> int:
     raise NotImplementedError('max_decode_steps not implemented')
@@ -344,6 +348,21 @@ class ServableMethod(abc.ABC):
       cache: Prefilled KV cache.
     """
     raise NotImplementedError('prefill_with_dummy not implemented')
+
+  def resample_initial_tokens(
+      self, cache: DeviceTensors
+  ) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:
+    """Resamples the initial tokens from prefill with different randomness.
+
+    Args:
+      cache: Original prefilled KV state.
+
+    Returns:
+      scores: Log probability [B] of sampled next tokens.
+      token: Next token [B] of the prompt, sampled by model's default sampler.
+      cache: Updated KV state.
+    """
+    raise NotImplementedError('resample_initial_tokens not implemented')
 
   def insert(
       self, prefix_state: DeviceTensors, slot: int | Sequence[int]

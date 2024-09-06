@@ -96,8 +96,11 @@ class RpcQueueTask:
   rpc: Optional[RPCContext]
   request: Optional[message.Message]
   response: Optional[message.Message]
+  release_device_resource: Optional[Callable[[], None]]
   done: Optional[StatusCallback]
   tc: Optional[TracerPrintCallback]
+  # Any additional data.
+  aux: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
 def traceprint_all(rpc_tasks: Sequence[RpcQueueTask], msg: str):
@@ -119,8 +122,10 @@ class RpcQueue:
       rpc: Optional[RPCContext],
       request: Optional[message.Message],
       response: Optional[message.Message],
+      release_device_resource: Optional[Callable[[], None]],
       done: Optional[StatusCallback],
       tc: Optional[TracerPrintCallback] = None,
+      aux: Optional[dict[str, Any]] = None,
   ):
     """Called from RPC handler to schedule a task for processing.
 
@@ -128,10 +133,23 @@ class RpcQueue:
       rpc: the rpc object.
       request: request protocol message
       response: response protocol message
+      release_device_resource: callback for releasing device resource to control
+        the maximum live batches.
       done: A callback when the rpc handling is done.
       tc: optional TracerPrintCallback object.
+      aux: any additional data.
     """
-    self._queue.put(RpcQueueTask(rpc, request, response, done, tc))
+    self._queue.put(
+        RpcQueueTask(
+            rpc,
+            request,
+            response,
+            release_device_resource,
+            done,
+            tc,
+            aux=aux,
+        )
+    )
 
   def take_batch(self, batch_size: int) -> List[RpcQueueTask]:
     """Returns up to batch_size RpcQueueTask objects from the queue.
@@ -239,29 +257,30 @@ class Admissioner:
     self._active = True
     self._shutdown = False
 
-  def acquire(self, blocking: bool = True) -> Tuple[bool, bool]:
+  def acquire(self, blocking: bool = True, count: int = 1) -> Tuple[bool, bool]:
     """Acquires resource.
 
     Args:
       blocking: whether the invocation is blocking.
+      count: number of resources to acquire.
 
     Returns:
       A tuple of 2 bools. The first indicates if it's successful, and the second
       indicates if the resource is still active.
     """
     with self._cv:
-      while self._count >= self._limit:
+      while self._count + count > self._limit:
         if not blocking:
           return False, self._active
         self._cv.wait()
       if not self._active:
         return False, False
-      self._count += 1
+      self._count += count
       return True, True
 
-  def release(self):
+  def release(self, count: int = 1):
     with self._cv:
-      self._count -= 1
+      self._count -= count
       self._cv.notify_all()
 
   def is_shutdown(self):
