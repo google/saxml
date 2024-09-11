@@ -120,26 +120,11 @@ func (a *Admin) getAdminClient(ctx context.Context) (pbgrpc.AdminClient, error) 
 	return a.client, nil
 }
 
-func (a *Admin) poison() {
-	a.mu.Lock()
-	conn := a.conn
-	a.conn = nil
-	a.client = nil
-	a.mu.Unlock()
-
-	if conn != nil {
-		conn.Close()
-	}
-}
-
 func (a *Admin) retry(ctx context.Context, callback func(client pbgrpc.AdminClient) error) error {
 	action := func() error {
 		client, err := a.getAdminClient(ctx)
 		if err == nil {
 			err = callback(client)
-		}
-		if errors.AdminShouldPoison(err) {
-			a.poison()
 		}
 		return err
 	}
