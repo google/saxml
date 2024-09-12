@@ -20,11 +20,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/maphash"
+	"strings"
 	"sync"
 	"time"
 
 	log "github.com/golang/glog"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 	"saxml/common/addr"
 	"saxml/common/errors"
 	"saxml/common/platform/env"
@@ -120,11 +123,33 @@ func (a *Admin) getAdminClient(ctx context.Context) (pbgrpc.AdminClient, error) 
 	return a.client, nil
 }
 
+func (a *Admin) poison() {
+	a.mu.Lock()
+	conn := a.conn
+	a.conn = nil
+	a.client = nil
+	a.mu.Unlock()
+
+	if conn != nil {
+		conn.Close()
+	}
+}
+
 func (a *Admin) retry(ctx context.Context, callback func(client pbgrpc.AdminClient) error) error {
 	action := func() error {
 		client, err := a.getAdminClient(ctx)
 		if err == nil {
 			err = callback(client)
+		}
+		if errors.AdminShouldPoison(err) {
+			a.poison()
+		}
+		// After poison(), RPCs active on the old connection will fail with
+		// "Canceled desc = grpc: the client connection is closing". Translate it to
+		// Unavailable so that the RPC will retry.
+		if status.Code(err) == codes.Canceled &&
+			strings.Contains(err.Error(), "client connection is closing") {
+			err = fmt.Errorf("Admin connection is poisoned: %w", errors.ErrUnavailable)
 		}
 		return err
 	}
