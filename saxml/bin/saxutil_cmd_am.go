@@ -16,6 +16,7 @@ package saxcommand
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 
@@ -48,7 +49,7 @@ func (*RecognizeCmd) Usage() string {
 
 // SetFlags sets flags for AudioToTextCmd.
 func (c *RecognizeCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "Extra arguments for Recognize().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for Recognize(),"+ExtraInputsHelp)
 }
 
 // Execute executes AudioToTextCmd.
@@ -56,6 +57,11 @@ func (c *RecognizeCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any
 	if len(f.Args()) != 2 {
 		log.Errorf("Provide model and audio path.")
 		return subcommands.ExitUsageError
+	}
+	extra, err := ExtraInputs(c.extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse extra inputs: %v", err)
+		return subcommands.ExitFailure
 	}
 
 	m, err := sax.Open(f.Args()[0])
@@ -69,7 +75,7 @@ func (c *RecognizeCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any
 	filePath := f.Args()[1]
 	var contents []byte
 	contents = readFile(filePath)
-	results, err := am.Recognize(ctx, contents, ExtraInputs(c.extra)...)
+	results, err := am.Recognize(ctx, contents, extra...)
 	if err != nil {
 		log.Errorf("Failed to transrbie audio (%s) due to %v", filePath, err)
 		return subcommands.ExitFailure

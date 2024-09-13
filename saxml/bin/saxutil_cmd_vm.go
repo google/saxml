@@ -53,7 +53,7 @@ func (*ClassifyCmd) Usage() string {
 
 // SetFlags sets flags for ClassifyCmd.
 func (c *ClassifyCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "Extra arguments for Classify().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for Classify(),"+ExtraInputsHelp)
 }
 
 // Execute executes ClassifyCmd.
@@ -61,6 +61,11 @@ func (c *ClassifyCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 	if len(f.Args()) != 2 {
 		log.Errorf("Provide model and image path for classify")
 		return subcommands.ExitUsageError
+	}
+	extra, err := ExtraInputs(c.extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse extra inputs: %v", err)
+		return subcommands.ExitFailure
 	}
 
 	m, err := sax.Open(f.Args()[0])
@@ -79,7 +84,7 @@ func (c *ClassifyCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		contents = readFile(imagePath)
 	}
 
-	results, err := vm.Classify(ctx, contents, ExtraInputs(c.extra)...)
+	results, err := vm.Classify(ctx, contents, extra...)
 	if err != nil {
 		log.Errorf("Failed to classify image (%s) due to %v", imagePath, err)
 		return subcommands.ExitFailure
@@ -131,7 +136,7 @@ func (*TextToImageCmd) Usage() string {
 
 // SetFlags sets flags for TextToImageCmd.
 func (c *TextToImageCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "Extra arguments for TextToImage().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for TextToImage(),"+ExtraInputsHelp)
 }
 
 // Execute executes TextToImageCmd.
@@ -139,6 +144,11 @@ func (c *TextToImageCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...a
 	if len(f.Args()) != 3 {
 		log.Errorf("Provide model ID, text and output directory for text_to_image.")
 		return subcommands.ExitUsageError
+	}
+	extra, err := ExtraInputs(c.extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse extra inputs: %v", err)
+		return subcommands.ExitFailure
 	}
 
 	m, err := sax.Open(f.Args()[0])
@@ -151,7 +161,7 @@ func (c *TextToImageCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...a
 	defer cancel()
 	text := f.Args()[1]
 
-	results, err := vm.TextToImage(ctx, text, ExtraInputs(c.extra)...)
+	results, err := vm.TextToImage(ctx, text, extra...)
 	if err != nil {
 		log.Errorf("Failed to generate images for (%s) due to [%v].", text, err)
 		return subcommands.ExitFailure
@@ -214,7 +224,7 @@ func (*EmbedImageCmd) Usage() string {
 
 // SetFlags sets flags for EmbedImageCmd.
 func (c *EmbedImageCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "Extra arguments for Embed().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for Embed(),"+ExtraInputsHelp)
 }
 
 // Execute executes EmbedImageCmd.
@@ -222,6 +232,11 @@ func (c *EmbedImageCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...an
 	if len(f.Args()) != 2 {
 		log.Errorf("Provide model and image path for embed")
 		return subcommands.ExitUsageError
+	}
+	extra, err := ExtraInputs(c.extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse extra inputs: %v", err)
+		return subcommands.ExitFailure
 	}
 
 	m, err := sax.Open(f.Args()[0])
@@ -240,7 +255,7 @@ func (c *EmbedImageCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...an
 		contents = readFile(imagePath)
 	}
 
-	results, err := vm.Embed(ctx, contents, ExtraInputs(c.extra)...)
+	results, err := vm.Embed(ctx, contents, extra...)
 	if err != nil {
 		log.Errorf("Failed to embed image (%s) due to %v", imagePath, err)
 		return subcommands.ExitFailure
@@ -286,7 +301,7 @@ func (*DetectCmd) Usage() string {
 
 // SetFlags sets flags for DetectCmd.
 func (c *DetectCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "Extra arguments for Detect().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for Detect(),"+ExtraInputsHelp)
 }
 
 // Execute executes DetectCmd.
@@ -294,6 +309,11 @@ func (c *DetectCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	if len(f.Args()) < 2 {
 		log.Errorf("Provide model and image path for detect")
 		return subcommands.ExitUsageError
+	}
+	extra, err := ExtraInputs(c.extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse extra inputs: %v", err)
+		return subcommands.ExitFailure
 	}
 
 	m, err := sax.Open(f.Args()[0])
@@ -315,7 +335,7 @@ func (c *DetectCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	text := f.Args()[2:]
 	// Placeholder boxes for command line API. Boxes input not supported at the moment.
 	var boxes = []sax.BoundingBox{}
-	results, err := vm.Detect(ctx, contents, text, boxes, ExtraInputs(c.extra)...)
+	results, err := vm.Detect(ctx, contents, text, boxes, extra...)
 	if err != nil {
 		log.Errorf("Failed to detect objects in image (%s) due to %v", imagePath, err)
 		return subcommands.ExitFailure

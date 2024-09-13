@@ -26,7 +26,11 @@ import (
 	"flag"
 	log "github.com/golang/glog"
 	"saxml/client/go/sax"
+	"saxml/common/errors"
 )
+
+// ExtraInputsHelp is a help message for the "-extra" flag.
+const ExtraInputsHelp = `, in format "key0:value0,key1:value1,...". For example "temperature:0.2,nlayers:32".`
 
 var cmdTimeout = flag.Duration(
 	"sax_timeout",
@@ -92,14 +96,16 @@ func formatFloat(val float64) string {
 }
 
 // ExtraInputs creates a list of options setters from a string in the form of "a:0.5,b:1.2,c:'/foo/bar'".
-func ExtraInputs(extra string) []sax.ModelOptionSetter {
+func ExtraInputs(extra string) ([]sax.ModelOptionSetter, error) {
+	if extra == "" {
+		return nil, nil
+	}
 	extraFields := strings.Split(extra, ",")
 	options := []sax.ModelOptionSetter{}
 	for _, option := range extraFields {
 		kv := strings.Split(option, ":")
 		if len(kv) != 2 {
-			log.V(1).Infof("Cannot get k-v pair by splitting %s with ':'\n", option)
-			continue
+			return nil, fmt.Errorf("key-value pair for an extra input must be separated by ':', but found '%s': %w", extra, errors.ErrInvalidArgument)
 		}
 
 		key, val := kv[0], kv[1]
@@ -122,5 +128,5 @@ func ExtraInputs(extra string) []sax.ModelOptionSetter {
 		options = append(options, sax.WithExtraInputString(key, val))
 	}
 	log.V(1).Infof("options %v", options)
-	return options
+	return options, nil
 }

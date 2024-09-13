@@ -58,6 +58,7 @@ go_library(
         "//saxml/common:addr",
         "//saxml/common:cell",
         "//saxml/common:config",
+        "//saxml/common:errors",
         "//saxml/common:naming",
         "//saxml/common:watchable",
         "//saxml/common/platform:env",

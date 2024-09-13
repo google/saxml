@@ -67,7 +67,7 @@ Usage: saxutil lm.generate [-n=<N>] [-stream] [-terse] [-extra=<extra>] <ModelID
 
 // SetFlags sets the flags for GenerateCmd.
 func (c *GenerateCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "extra arguments for Generate().")
+	f.StringVar(&c.extra, "extra", "", "extra arguments for Generate()"+ExtraInputsHelp)
 	f.StringVar(&c.proxy, "proxy", "", "SAX Proxy address, e.g., sax.server.lm.lmservice-prod.blade.gslb.googleprod.com")
 	f.BoolVar(&c.stream, "stream", false, "stream responses")
 	f.BoolVar(&c.terse, "terse", false, "print generated texts one line per result, descending by score")
@@ -75,7 +75,12 @@ func (c *GenerateCmd) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *GenerateCmd) streamingGenerate(ctx context.Context, query string, lm *sax.LanguageModel) subcommands.ExitStatus {
-	chanStreamResults := lm.GenerateStream(ctx, query, ExtraInputs(c.extra)...)
+	extra, err := ExtraInputs(c.extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse extra inputs: %v", err)
+		return subcommands.ExitFailure
+	}
+	chanStreamResults := lm.GenerateStream(ctx, query, extra...)
 	var accumulatedResults []string
 	var allScores [][]float64
 	var lastScore [][]float64
@@ -177,6 +182,12 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		query = string(readStdin())
 	}
 
+	extra, err := ExtraInputs(c.extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse extra inputs: %v", err)
+		return subcommands.ExitFailure
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
@@ -194,7 +205,7 @@ func (c *GenerateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 	}
 
 	// Non-streaming generate.
-	generates, err := lm.Generate(ctx, query, ExtraInputs(c.extra)...)
+	generates, err := lm.Generate(ctx, query, extra...)
 	if err != nil {
 		log.Errorf("Failed to generate query: %v", err)
 		return subcommands.ExitFailure
@@ -246,7 +257,7 @@ func (*ScoreCmd) Usage() string {
 
 // SetFlags sets flags for ScoreCmd.
 func (c *ScoreCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "extra arguments for Score().")
+	f.StringVar(&c.extra, "extra", "", "extra arguments for Score()"+ExtraInputsHelp)
 	f.StringVar(&c.proxy, "proxy", "", "SAX Proxy address, e.g., sax.server.lm.lmservice-prod.blade.gslb.googleprod.com")
 }
 
@@ -272,7 +283,14 @@ func (c *ScoreCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 	defer cancel()
 
 	suffixes := f.Args()[2:]
-	logPs, err := lm.Score(ctx, f.Args()[1], suffixes, ExtraInputs(c.extra)...)
+
+	extra, err := ExtraInputs(c.extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse extra inputs: %v", err)
+		return subcommands.ExitFailure
+	}
+
+	logPs, err := lm.Score(ctx, f.Args()[1], suffixes, extra...)
 	if err != nil {
 		log.Errorf("Failed to score prefix/suffix: %v", err)
 		return subcommands.ExitFailure
@@ -312,7 +330,7 @@ func (*EmbedTextCmd) Usage() string {
 
 // SetFlags sets flags for EmbedTextCmd.
 func (c *EmbedTextCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "Extra arguments for Embed().")
+	f.StringVar(&c.extra, "extra", "", "Extra arguments for Embed()"+ExtraInputsHelp)
 	f.StringVar(&c.proxy, "proxy", "", "Sax Proxy address, e.g., sax.server.lm.lmservice-prod.blade.gslb.googleprod.com")
 }
 
@@ -333,7 +351,12 @@ func (c *EmbedTextCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any
 	defer cancel()
 	text := f.Args()[1]
 
-	results, err := lm.Embed(ctx, text, ExtraInputs(c.extra)...)
+	extra, err := ExtraInputs(c.extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse extra inputs: %v", err)
+		return subcommands.ExitFailure
+	}
+	results, err := lm.Embed(ctx, text, extra...)
 	if err != nil {
 		log.Errorf("Failed to embed text (%s) due to %v", text, err)
 		return subcommands.ExitFailure
@@ -370,7 +393,7 @@ func (*GradientCmd) Usage() string {
 
 // SetFlags sets flags for ScoreCmd.
 func (c *GradientCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.extra, "extra", "", "extra arguments for Gradient().")
+	f.StringVar(&c.extra, "extra", "", "extra arguments for Gradient()"+ExtraInputsHelp)
 	f.StringVar(&c.proxy, "proxy", "", "SAX Proxy address, e.g., sax.server.lm.lmservice-prod.blade.gslb.googleprod.com")
 }
 
@@ -391,11 +414,15 @@ func (c *GradientCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		log.Errorf("Failed to create language model: %v", err)
 		return subcommands.ExitFailure
 	}
-
+	extra, err := ExtraInputs(c.extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse extra inputs: %v", err)
+		return subcommands.ExitFailure
+	}
 	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
-	scores, gradients, err := lm.Gradient(ctx, f.Args()[1], f.Args()[2], ExtraInputs(c.extra)...)
+	scores, gradients, err := lm.Gradient(ctx, f.Args()[1], f.Args()[2], extra...)
 	if err != nil {
 		log.Errorf("Failed to get the gradient of prefix/suffix: %v", err)
 		return subcommands.ExitFailure
