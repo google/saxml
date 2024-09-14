@@ -134,7 +134,7 @@ func (m *Mgr) Publish(specs *apb.Model) error {
 		return fmt.Errorf("model %s already exists: %w", fullName, errors.ErrAlreadyExists)
 	}
 	if _, ok := m.pendingUnpublished[fullName]; ok {
-		return fmt.Errorf("model %s is being unpublished, please retry later: %w", fullName, errors.ErrAlreadyExists)
+		return fmt.Errorf("model %s is being unpublished, please retry later: %w", fullName, errors.ErrUnavailable)
 	}
 	log.Infof("Published with overrides: %v", specs.GetOverrides())
 
