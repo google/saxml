@@ -64,7 +64,16 @@ class QuantizationConfigsGPTJ(QuantizationConfigs):
       'self_attention.combined_qkv.w': ([1], factor, 1, -1),
       'self_attention.post.w': ([1, 2], factor, 0, -1),
   }
+class QuantizationConfigsGPT5B(QuantizationConfigs):
+  """Quantization config for GPT5B model."""
 
+  factor = 1.0
+  configs = {
+      'ff_layer.ffn_layer1.linear.w': ([0, 1], factor, 0, -1),
+      'ff_layer.ffn_layer2.linear.w': ([0, 1], factor, 0, -1),
+      'self_attention.combined_qkv.w': ([0, 1, 2, 3], factor, 1, -1),
+      'self_attention.post.w': ([0, 1, 2], factor, 0, -1),
+  }
 
 class QuantizationConfigsGPTJStacked(QuantizationConfigs):
   """Quantization config for GPTJ model."""
