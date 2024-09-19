@@ -270,6 +270,12 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
 
 def main(argv: Sequence[str]) -> None:
   del argv
+  if '_import_modules' in globals():
+    # pytype: disable=name-error
+    # pylint: disable=undefined-variable
+    _import_modules()
+    # pylint: enable=undefined-variable
+    # pytype: enable=name-error
   # TODO(sax-dev): Add secure channel for OSS.
   run(None)
 

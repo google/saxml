@@ -57,6 +57,7 @@ def create_binary(
         # Unused internal paropts
         # Unused internal exec_properties
         tags = tags,
+        delayed_import = True,
         **kwargs
     )
 
