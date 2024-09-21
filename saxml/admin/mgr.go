@@ -84,6 +84,12 @@ type modelState struct {
 // modeletState synchronizes state with the model server.
 type modeletState = state.State
 
+// modelStats contains usage statistics for a model.
+type modelStats struct {
+	SuccessesPerSecond   float32
+	MeanLatencyInSeconds float32
+}
+
 // Store represents the backing store of the admin server state.
 type Store interface {
 	Read(ctx context.Context) (*apb.State, error)
@@ -257,19 +263,25 @@ func (m *Mgr) ListAll() []*apb.PublishedModel {
 
 // GetStatsPerModel returns a map from model fullnames to model's
 // stats (ops/second) aggregated over servers specified by 'addrs'.
-func (m *Mgr) GetStatsPerModel(addrs map[string]bool) map[naming.ModelFullName]float32 {
+func (m *Mgr) GetStatsPerModel(addrs map[string]bool) map[naming.ModelFullName]modelStats {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	ret := make(map[naming.ModelFullName]float32)
+	ret := make(map[naming.ModelFullName]modelStats)
 	for addr, modelet := range m.modelets {
 		if _, ok := addrs[string(addr)]; ok {
 			for fullName, seenModel := range modelet.SeenModels() {
-				var rate float32 = 0
+				var combinedStats = ret[fullName]
+				combinedStats.MeanLatencyInSeconds *= combinedStats.SuccessesPerSecond
 				for _, stats := range seenModel.Info.Stats {
-					rate = rate + stats.SuccessesPerSecond
+					combinedStats.SuccessesPerSecond += stats.SuccessesPerSecond
+					combinedStats.MeanLatencyInSeconds += stats.MeanLatencyInSeconds * stats.SuccessesPerSecond
 				}
-				ret[fullName] = ret[fullName] + rate
+
+				if combinedStats.SuccessesPerSecond != 0 {
+					combinedStats.MeanLatencyInSeconds /= combinedStats.SuccessesPerSecond
+				}
+				ret[fullName] = combinedStats
 			}
 		}
 	}

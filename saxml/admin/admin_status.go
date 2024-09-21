@@ -44,11 +44,12 @@ func (s *Server) createModelInfos(models []*apb.PublishedModel, servers []*apb.J
 	modelStats := s.Mgr.GetStatsPerModel(addrs)
 	var ret []*env.ModelInfo
 	for _, m := range models {
-		var rate float32
+		var rate, latency float32
 		if name, err := naming.NewModelFullName(m.GetModel().GetModelId()); err == nil {
-			rate = modelStats[name]
+			rate = modelStats[name].SuccessesPerSecond
+			latency = modelStats[name].MeanLatencyInSeconds
 		}
-		ret = append(ret, &env.ModelInfo{Model: m, SuccessesPerSecond: rate})
+		ret = append(ret, &env.ModelInfo{Model: m, SuccessesPerSecond: rate, SuccessMeanLatencyInSeconds: latency})
 	}
 	return ret
 }

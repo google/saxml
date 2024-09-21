@@ -45,7 +45,8 @@ type ModelInfo struct {
 	Model *pb.PublishedModel
 
 	// Stats
-	SuccessesPerSecond float32
+	SuccessesPerSecond          float32
+	SuccessMeanLatencyInSeconds float32
 }
 
 // StatusPageData contains data needed for generating a server status page.
