@@ -2450,9 +2450,15 @@ class ModelServicesRunner:
 
           state.scores += scores * prev_mask
           state.steps += prev_mask
-          done = done * prev_mask
-
           done = np.logical_or(done, state.steps >= state.max_decode_steps)
+          done = np.logical_or(
+              done,
+              [
+                  t.rpc.should_cancel() if t and t.rpc else False
+                  for t in state.rpc_tasks
+              ],
+          )
+          done = np.logical_and(done, prev_mask)
 
           if np.any(done):
             # Detokenize and send RPC in another thread for done slots
@@ -2499,6 +2505,11 @@ class ModelServicesRunner:
         rpc_task.aux['finished_results'].append((sequences[idx], scores[idx]))
         if rpc_task.aux['slot_count'] > len(rpc_task.aux['finished_results']):
           assert not state.method.streamable_output
+          continue
+        if rpc_task.rpc and rpc_task.rpc.should_cancel():
+          logging.info('request cancelled.')
+          rpc_task.done(utils.cancelled())
+          state.rpc_tasks[slot] = None
           continue
         # [num_samples, ...]
         seqs = np.stack(
