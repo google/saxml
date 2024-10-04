@@ -86,7 +86,6 @@ proto_library(
 
 py_proto_library(
     name = "prediction_service_py_pb2",
-    api_version = 2,
     extra_deps = [
         "//saxml/protobuf:common_py_pb2",
         "//saxml/protobuf:lm_py_pb2",

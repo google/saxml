@@ -57,7 +57,6 @@ cc_proto_library(
 
 py_proto_library(
     name = "common_py_pb2",
-    api_version = 2,
     visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )
@@ -82,7 +81,6 @@ proto_library(
 
 py_proto_library(
     name = "test_py_pb2",
-    api_version = 2,
     extra_deps = [":common_py_pb2"],
     deps = [":test_proto"],
 )
@@ -135,7 +133,6 @@ cc_grpc_library(
 
 py_proto_library(
     name = "admin_py_pb2",
-    api_version = 2,
     extra_deps = [":common_py_pb2"],
     visibility = [":sax_rpc_visibility"],
     deps = [":admin_proto"],
@@ -183,7 +180,6 @@ cc_grpc_library(
 
 py_proto_library(
     name = "modelet_py_pb2",
-    api_version = 2,
     extra_deps = [":common_py_pb2"],
     deps = [":modelet_proto"],
 )
@@ -225,7 +221,6 @@ cc_stubby_library(
 
 py_proto_library(
     name = "custom_py_pb2",
-    api_version = 2,
     extra_deps = [":common_py_pb2"],
     visibility = ["//visibility:public"],
     deps = [":custom_proto"],
@@ -303,7 +298,6 @@ cc_stubby_library(
 
 py_proto_library(
     name = "lm_py_pb2",
-    api_version = 2,
     extra_deps = [":common_py_pb2"],
     visibility = ["//visibility:public"],
     deps = [":lm_proto"],
@@ -393,7 +387,6 @@ cc_stubby_library(
 
 py_proto_library(
     name = "audio_py_pb2",
-    api_version = 2,
     extra_deps = [":common_py_pb2"],
     visibility = ["//visibility:public"],
     deps = [":audio_proto"],
@@ -469,7 +462,6 @@ cc_stubby_library(
 
 py_proto_library(
     name = "vision_py_pb2",
-    api_version = 2,
     extra_deps = [":common_py_pb2"],
     visibility = ["//visibility:public"],
     deps = [":vision_proto"],
@@ -545,7 +537,6 @@ cc_stubby_library(
 
 py_proto_library(
     name = "multimodal_py_pb2",
-    api_version = 2,
     extra_deps = [":common_py_pb2"],
     visibility = ["//visibility:public"],
     deps = [":multimodal_proto"],
@@ -611,7 +602,6 @@ proto_library(
 
 py_proto_library(
     name = "internal_py_pb2",
-    api_version = 2,
     deps = [":internal_proto"],
 )
 
