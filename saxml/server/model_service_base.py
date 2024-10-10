@@ -2367,12 +2367,12 @@ class ModelServicesRunner:
 
     n_tasks = len(slots)
     assert n_tasks == len(request_rpcs)
+    for i, slot in enumerate(slots):
+      state.rpc_tasks[slot] = request_rpcs[i]
 
-    def _postprocess():
-      for i, slot in enumerate(slots):
-        state.rpc_tasks[slot] = request_rpcs[i]
+    if state.method.streamable_output:
 
-      if state.method.streamable_output:
+      def _postprocess():
         nonlocal tokens
         nonlocal scores
 
@@ -2401,7 +2401,7 @@ class ModelServicesRunner:
                 'Error occurred: %s, error: %s', state.model_key, e
             )
 
-    state.post_process_pool.run(_postprocess)
+      state.post_process_pool.run(_postprocess)
 
   def _run_generation_loop(
       self,
@@ -2493,15 +2493,21 @@ class ModelServicesRunner:
     """Runs the post-generate processing on a dedicated thread."""
     if state.method.streamable_output:
       sequences = sequences[:, 1:]
+    rpc_tasks = list(state.rpc_tasks)
+    slots = np.flatnonzero(done)
+    for slot in slots:
+      rpc_task = rpc_tasks[slot]
+      assert rpc_task is not None
+      rpc_task.release_device_resource()
+      state.rpc_tasks[slot] = None
 
     def _postprocess():
       # If any of the sequences in the batch is done, return the response
       # and reset the cache slot.
 
-      for idx, slot in enumerate(np.flatnonzero(done)):
-        rpc_task = state.rpc_tasks[slot]
-        assert isinstance(rpc_task, utils.RpcQueueTask)
-        rpc_task.release_device_resource()
+      for idx, slot in enumerate(slots):
+        rpc_task = rpc_tasks[slot]
+        assert rpc_task is not None
         rpc_task.aux['finished_results'].append((sequences[idx], scores[idx]))
         if rpc_task.aux['slot_count'] > len(rpc_task.aux['finished_results']):
           assert not state.method.streamable_output
@@ -2509,7 +2515,6 @@ class ModelServicesRunner:
         if rpc_task.rpc and rpc_task.rpc.should_cancel():
           logging.info('request cancelled.')
           rpc_task.done(utils.cancelled())
-          state.rpc_tasks[slot] = None
           continue
         # [num_samples, ...]
         seqs = np.stack(
@@ -2545,7 +2550,6 @@ class ModelServicesRunner:
             self._log_exception(
                 'Error occurred: %s, error: %s', state.model_key, e
             )
-          state.rpc_tasks[slot] = None
         else:
           # send response back to generate
           self._model_services[state.service_id].FillRPCResponse(
@@ -2557,7 +2561,6 @@ class ModelServicesRunner:
             self._log_exception(
                 'Error occurred: %s, error: %s', state.model_key, e
             )
-          state.rpc_tasks[slot] = None
 
     state.post_process_pool.run(_postprocess)
 
