@@ -26,7 +26,7 @@ from saxml.server.spmd_backend import SPMDBackend
 
 JTensor = jnp.ndarray
 NpTensor = np.ndarray
-_MESSAGE_BUF_LEN = 2048
+_MESSAGE_BUF_LEN = 8192
 
 
 def _encode_str_to_tensor(message: str) -> NpTensor:
