@@ -2017,22 +2017,23 @@ class ModelServicesRunner:
             try:
               # Generate a seed for the model and pass to secondary hosts.
               prng_seed = self._generate_rng_seed()
-              self._inform_secondary_hosts(
-                  batch.method.name,
-                  model_key,
-                  request.model_path,
-                  request.checkpoint_path,
-                  json.dumps({k: v for k, v in request.overrides.items()}),
-                  str(prng_seed),
-              )
-              self._load_model(
-                  model_key,
-                  request.model_path,
-                  request.checkpoint_path,
-                  dict(request.acls.items),
-                  dict(request.overrides),
-                  prng_seed,
-              )
+              with self._device_compute_mutex:
+                self._inform_secondary_hosts(
+                    batch.method.name,
+                    model_key,
+                    request.model_path,
+                    request.checkpoint_path,
+                    json.dumps({k: v for k, v in request.overrides.items()}),
+                    str(prng_seed),
+                )
+                self._load_model(
+                    model_key,
+                    request.model_path,
+                    request.checkpoint_path,
+                    dict(request.acls.items),
+                    dict(request.overrides),
+                    prng_seed,
+                )
               task.release_device_resource()
               task.done(utils.ok())
             except ValueError as e:
@@ -2069,8 +2070,9 @@ class ModelServicesRunner:
             try:
               if not model_key:
                 raise ValueError('model_key is not specified.')
-              self._inform_secondary_hosts(batch.method.name, model_key)
-              self._loaded_models.unload(model_key)
+              with self._device_compute_mutex:
+                self._inform_secondary_hosts(batch.method.name, model_key)
+                self._loaded_models.unload(model_key)
               task.release_device_resource()
               task.done(utils.ok())
             except ValueError as e:
@@ -2102,8 +2104,9 @@ class ModelServicesRunner:
               # being informed. Thus we crash the server to avoid hanging if
               # there is any exception.
               try:
-                self._inform_secondary_hosts(batch.method.name, *export_args)
-                exporter.export_model(*export_args)
+                with self._device_compute_mutex:
+                  self._inform_secondary_hosts(batch.method.name, *export_args)
+                  exporter.export_model(*export_args)
               except Exception as e:  # pylint: disable=broad-except
                 self._worker_thread_exception = e
                 break
@@ -2130,10 +2133,13 @@ class ModelServicesRunner:
             task = batch.rpc_tasks[0]
             request = typing.cast(modelet_pb2.SaveRequest, task.request)
             try:
-              self._inform_secondary_hosts(
-                  batch.method.name, request.model_key, request.checkpoint_path
-              )
-              self._save_model(request.model_key, request.checkpoint_path)
+              with self._device_compute_mutex:
+                self._inform_secondary_hosts(
+                    batch.method.name,
+                    request.model_key,
+                    request.checkpoint_path,
+                )
+                self._save_model(request.model_key, request.checkpoint_path)
               task.release_device_resource()
               task.done(utils.ok())
             except ValueError as e:
@@ -2158,63 +2164,68 @@ class ModelServicesRunner:
         case MethodName.TERMINATE:
           with batch:
             assert batch.method.model_key is None
-            self._inform_secondary_hosts(batch.method.name)
+            with self._device_compute_mutex:
+              self._inform_secondary_hosts(batch.method.name)
             break
         case MethodName.KEEP_DEVICES_WARM:
           with batch:
-            self._inform_secondary_hosts(batch.method.name)
+            with self._device_compute_mutex:
+              self._inform_secondary_hosts(batch.method.name)
         case MethodName.MODEL:
           # Model methods hosts are simply invoking a device program with
           # pre-processed inputs, so we do not expect any known exception here.
           # An exception must be from low-level software/hardware stack and we
           # crash the job.
           try:
-            self._inform_secondary_hosts(
-                batch.method.name,
-                batch.method.model_key,
-                batch.method.model_method,
-                str(batch.unpadded_shape),
-                str(batch.padded_shape),
-                skip_host_sync=batch.skip_host_sync,
-            )
-            model = self._loaded_models.get_model(batch.method.model_key)
-            batch.wait_for_ready()
+            with self._device_compute_mutex:
+              self._inform_secondary_hosts(
+                  batch.method.name,
+                  batch.method.model_key,
+                  batch.method.model_method,
+                  str(batch.unpadded_shape),
+                  str(batch.padded_shape),
+                  skip_host_sync=batch.skip_host_sync,
+              )
+              model = self._loaded_models.get_model(batch.method.model_key)
+              batch.wait_for_ready()
 
-            method_obj = model.method(batch.method.model_method)
-            enable_token_streaming = method_obj.streamable_output
-            streaming_done = (
-                utils.Notification() if enable_token_streaming else None
-            )
-            if batch.input_tensors is None:
-              # Failed preprosessing. Since we have already informed secondary
-              # hosts, we need to compute on tensors.
-              if self._spmd_backend.spmd_host_count() > 1:
-                # JAX dispatches device_compute synchronously to XLA:GPU. Hence
-                # _postprocess_stream_async must start before device_compute,
-                # otherwise device_compute may block the consumption of
-                # streaming queue until it finishes.
+              method_obj = model.method(batch.method.model_method)
+              enable_token_streaming = method_obj.streamable_output
+              streaming_done = (
+                  utils.Notification() if enable_token_streaming else None
+              )
+              if batch.input_tensors is None:
+                # Failed preprosessing. Since we have already informed secondary
+                # hosts, we need to compute on tensors.
+                if self._spmd_backend.spmd_host_count() > 1:
+                  # JAX dispatches device_compute synchronously to XLA:GPU. So
+                  # _postprocess_stream_async must start before device_compute,
+                  # otherwise device_compute may block the consumption of
+                  # streaming queue until it finishes.
+                  if enable_token_streaming:
+                    self._postprocess_stream_async(model, batch, streaming_done)
+                  assert batch.unpadded_shape is not None
+                  assert batch.padded_shape is None
+                  padded_shape = method_obj.get_padded_input_shape(
+                      batch.unpadded_shape
+                  )
+                  result = method_obj.device_compute_with_dummy_data(
+                      padded_shape
+                  )
+                else:
+                  # Skip device compute if there is no secondary host.
+                  result = None
+              else:
+                # Successful pre-processing. Compute on device using the padded
+                # shape picked by pre-processing.
                 if enable_token_streaming:
                   self._postprocess_stream_async(model, batch, streaming_done)
-                assert batch.unpadded_shape is not None
-                assert batch.padded_shape is None
-                padded_shape = method_obj.get_padded_input_shape(
-                    batch.unpadded_shape
+                assert batch.unpadded_shape is None
+                assert batch.padded_shape is not None
+                result = method_obj.device_compute(
+                    input_batch=batch.input_tensors,
+                    padded_shape=batch.padded_shape,
                 )
-                result = method_obj.device_compute_with_dummy_data(padded_shape)
-              else:
-                # Skip device compute if there is no secondary host.
-                result = None
-            else:
-              # Successful pre-processing. Compute on device using the padded
-              # shape picked by pre-processing.
-              if enable_token_streaming:
-                self._postprocess_stream_async(model, batch, streaming_done)
-              assert batch.unpadded_shape is None
-              assert batch.padded_shape is not None
-              result = method_obj.device_compute(
-                  input_batch=batch.input_tensors,
-                  padded_shape=batch.padded_shape,
-              )
             if result is None:
               batch.finish()
             else:
