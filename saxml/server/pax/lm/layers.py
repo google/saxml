@@ -136,7 +136,7 @@ class LLaMARotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
     )
 
     if self.use_scale:
-      timescale = jax.vmap(self._apply_scaling_factor)(timescale)
+      timescale = 1.0  / jax.vmap(self._apply_scaling_factor)(1.0 / timescale)
 
     if position is None:
       seq_length = inputs.shape[1]
@@ -147,9 +147,8 @@ class LLaMARotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
 
     sin = jnp.sin(sinusoid_inp)
     cos = jnp.cos(sinusoid_inp)
-    sign = jnp.sign(
-        jnp.mod(jnp.arange(self.embedding_dims, dtype=jnp.int32), 2) - 0.5
-    )  # [-1, 1, -1, 1, ...]
+    # Apply alternating sign [-1, 1, -1, 1, ...]
+    sign = jnp.tile(jnp.array([-1, 1]), self.embedding_dims // 2)
     outputs = inputs * cos + inputs_shifted * sin * sign
     if self.cast_as_fprop_dtype:
       outputs = outputs.astype(self.fprop_dtype)
