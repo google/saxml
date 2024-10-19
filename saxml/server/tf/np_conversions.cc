@@ -68,8 +68,8 @@ char const *NumpyTypeName(int numpy_type) {
   }
 }
 
-tensorflow::Status PyObjectToString(PyObject *obj, const char **ptr,
-                                    Py_ssize_t *len, PyObject **ptr_owner) {
+absl::Status PyObjectToString(PyObject *obj, const char **ptr, Py_ssize_t *len,
+                              PyObject **ptr_owner) {
   *ptr_owner = nullptr;
   if (PyBytes_Check(obj)) {
     char *buf;
@@ -93,7 +93,7 @@ tensorflow::Status PyObjectToString(PyObject *obj, const char **ptr,
 // Iterate over the string array 'array', extract the ptr and len of each string
 // element and call f(ptr, len).
 template <typename F>
-tensorflow::Status PyBytesArrayMap(PyArrayObject *array, F f) {
+absl::Status PyBytesArrayMap(PyArrayObject *array, F f) {
   auto iter = make_safe(PyArray_IterNew(reinterpret_cast<PyObject *>(array)));
 
   while (PyArray_ITER_NOTDONE(iter.get())) {
@@ -114,8 +114,8 @@ tensorflow::Status PyBytesArrayMap(PyArrayObject *array, F f) {
   return absl::OkStatus();
 }
 
-tensorflow::Status StringTensorToPyArray(const tensorflow::Tensor &tensor,
-                                         PyArrayObject *dst) {
+absl::Status StringTensorToPyArray(const tensorflow::Tensor &tensor,
+                                   PyArrayObject *dst) {
   DCHECK_EQ(tensor.dtype(), tensorflow::DT_STRING);
 
   auto iter = make_safe(PyArray_IterNew(reinterpret_cast<PyObject *>(dst)));
@@ -143,8 +143,8 @@ tensorflow::Status StringTensorToPyArray(const tensorflow::Tensor &tensor,
   return absl::OkStatus();
 }
 
-tensorflow::Status GetPyDescrFromDataType(tensorflow::DataType dtype,
-                                          PyArray_Descr **out_descr) {
+absl::Status GetPyDescrFromDataType(tensorflow::DataType dtype,
+                                    PyArray_Descr **out_descr) {
   switch (dtype) {
 #define TF_TO_PY_ARRAY_TYPE_CASE(TF_DTYPE, PY_ARRAY_TYPE) \
   case TF_DTYPE:                                          \
@@ -177,13 +177,13 @@ tensorflow::Status GetPyDescrFromDataType(tensorflow::DataType dtype,
   return absl::OkStatus();
 }
 
-tensorflow::Status GetPyDescrFromTensor(const tensorflow::Tensor &tensor,
-                                        PyArray_Descr **out_descr) {
+absl::Status GetPyDescrFromTensor(const tensorflow::Tensor &tensor,
+                                  PyArray_Descr **out_descr) {
   return GetPyDescrFromDataType(tensor.dtype(), out_descr);
 }
 
-tensorflow::Status GetTensorDtypeFromPyArray(
-    PyArrayObject *array, tensorflow::DataType *out_tf_datatype) {
+absl::Status GetTensorDtypeFromPyArray(PyArrayObject *array,
+                                       tensorflow::DataType *out_tf_datatype) {
   int pyarray_type = PyArray_TYPE(array);
   switch (pyarray_type) {
 #define NP_TO_TF_DTYPE_CASE(NP_DTYPE, TF_DTYPE) \
@@ -226,8 +226,7 @@ tensorflow::Status GetTensorDtypeFromPyArray(
   return absl::OkStatus();
 }
 
-inline tensorflow::Status VerifyDtypeIsSupported(
-    const tensorflow::DataType &dtype) {
+inline absl::Status VerifyDtypeIsSupported(const tensorflow::DataType &dtype) {
   if (!tensorflow::DataTypeCanUseMemcpy(dtype) &&
       dtype != tensorflow::DT_STRING) {
     return tensorflow::errors::Unimplemented(
@@ -237,8 +236,8 @@ inline tensorflow::Status VerifyDtypeIsSupported(
   return absl::OkStatus();
 }
 
-tensorflow::Status NdArrayToTensor(PyObject *ndarray,
-                                   tensorflow::Tensor *out_tensor) {
+absl::Status NdArrayToTensor(PyObject *ndarray,
+                             tensorflow::Tensor *out_tensor) {
   DCHECK(out_tensor != nullptr);
   auto array_safe = make_safe(PyArray_FromAny(
       /*op=*/ndarray,
@@ -285,8 +284,8 @@ tensorflow::Status NdArrayToTensor(PyObject *ndarray,
   return absl::OkStatus();
 }
 
-tensorflow::Status TensorToNdArray(const tensorflow::Tensor &tensor,
-                                   PyObject **out_ndarray) {
+absl::Status TensorToNdArray(const tensorflow::Tensor &tensor,
+                             PyObject **out_ndarray) {
   TF_RETURN_IF_ERROR(VerifyDtypeIsSupported(tensor.dtype()));
 
   // Extract the numpy type and dimensions.
