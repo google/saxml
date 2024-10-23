@@ -88,7 +88,9 @@ go_library(
     srcs = ["admin.go"],
     deps = [
         "//saxml/common:addr",
+        "//saxml/common:config",
         "//saxml/common:errors",
+        "//saxml/common:naming",
         "//saxml/common:retrier",
         "//saxml/common:skiplist",
         "//saxml/common:watchable",

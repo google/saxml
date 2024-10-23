@@ -29,7 +29,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"saxml/common/addr"
+	"saxml/common/config"
 	"saxml/common/errors"
+	"saxml/common/naming"
 	"saxml/common/platform/env"
 	"saxml/common/retrier"
 	"saxml/common/skiplist"
@@ -245,6 +247,24 @@ func (a *Admin) Stats(ctx context.Context, modelID string) (*pb.StatsResponse, e
 		return nil, err
 	}
 	return res, nil
+}
+
+// GetSaxCellACL returns the ACL for the sax cell.
+func (a *Admin) GetSaxCellACL(ctx context.Context, saxCell string) (string, error) {
+	_, err := naming.NewCellFullName(saxCell)
+	if err != nil {
+		log.ErrorContextf(ctx, "Invalid sax cell: %v", err)
+		return "", err
+	}
+
+	cfg, err := config.Load(ctx, saxCell)
+	if err != nil {
+		log.ErrorContextf(ctx, "Failed to load config: %v", err)
+		return "", err
+	}
+	log.InfoContextf(ctx, "Current config definition:\n%v", cfg)
+
+	return cfg.GetAdminAcl(), nil
 }
 
 // addrReplica maintains a set of server addresses for a model.
