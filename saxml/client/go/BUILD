@@ -87,6 +87,7 @@ go_library(
     name = "saxadmin",
     srcs = ["admin.go"],
     deps = [
+        "//saxml/admin:validator",
         "//saxml/common:addr",
         "//saxml/common:config",
         "//saxml/common:errors",
@@ -101,6 +102,7 @@ go_library(
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
+        "@org_golang_google_protobuf//proto",
     ],
 )
 

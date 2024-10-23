@@ -28,6 +28,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"saxml/admin/validator"
 	"saxml/common/addr"
 	"saxml/common/config"
 	"saxml/common/errors"
@@ -265,6 +267,36 @@ func (a *Admin) GetSaxCellACL(ctx context.Context, saxCell string) (string, erro
 	log.InfoContextf(ctx, "Current config definition:\n%v", cfg)
 
 	return cfg.GetAdminAcl(), nil
+}
+
+// SetSaxCellACL sets the ACL for the sax cell.
+func (a *Admin) SetSaxCellACL(ctx context.Context, saxCell string, acl string) error {
+	_, err := naming.NewCellFullName(saxCell)
+	if err != nil {
+		log.ErrorContextf(ctx, "Invalid sax cell: %v", err)
+		return err
+	}
+
+	cfg, err := config.Load(ctx, saxCell)
+	if err != nil {
+		log.ErrorContextf(ctx, "Failed to load config: %v", err)
+		return err
+	}
+	log.InfoContextf(ctx, "Current config definition:\n%v", cfg)
+
+	change := proto.Clone(cfg).(*pb.Config)
+	change.AdminAcl = acl
+	log.InfoContextf(ctx, "Updated config definition:\n%v", change)
+
+	if err := validator.ValidateConfigUpdate(cfg, change); err != nil {
+		log.ErrorContextf(ctx, "Invalid config update: %v", err)
+		return err
+	}
+	if err := config.Save(ctx, change, saxCell, acl); err != nil {
+		log.ErrorContextf(ctx, "Failed to save config: %v", err)
+		return err
+	}
+	return nil
 }
 
 // addrReplica maintains a set of server addresses for a model.
