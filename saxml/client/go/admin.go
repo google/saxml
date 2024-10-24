@@ -252,13 +252,7 @@ func (a *Admin) Stats(ctx context.Context, modelID string) (*pb.StatsResponse, e
 }
 
 // GetSaxCellACL returns the ACL for the sax cell.
-func (a *Admin) GetSaxCellACL(ctx context.Context, saxCell string) (string, error) {
-	_, err := naming.NewCellFullName(saxCell)
-	if err != nil {
-		log.ErrorContextf(ctx, "Invalid sax cell: %v", err)
-		return "", err
-	}
-
+func (a *Admin) getSaxCellACL(ctx context.Context, saxCell string) (string, error) {
 	cfg, err := config.Load(ctx, saxCell)
 	if err != nil {
 		log.ErrorContextf(ctx, "Failed to load config: %v", err)
@@ -300,13 +294,7 @@ func (a *Admin) SetSaxCellACL(ctx context.Context, saxCell string, acl string) e
 }
 
 // GetSaxModelACL returns the ACL for the sax model.
-func (a *Admin) GetSaxModelACL(ctx context.Context, modelName string) (string, error) {
-	_, err := naming.NewModelFullName(modelName)
-	if err != nil {
-		log.ErrorContextf(ctx, "Invalid model: %v", err)
-		return "", err
-	}
-
+func (a *Admin) getSaxModelACL(ctx context.Context, modelName string) (string, error) {
 	// Read the current model definition in proto.
 	publishedModel, err := a.List(ctx, modelName)
 	if err != nil || publishedModel == nil {
@@ -345,6 +333,19 @@ func (a *Admin) SetSaxModelACL(ctx context.Context, modelName string, acl string
 		return err
 	}
 	return nil
+}
+
+// GetACL returns the ACL for the sax cell or model.
+func (a *Admin) GetACL(ctx context.Context, cellOrModelName string) (string, error) {
+	if _, err := naming.NewCellFullName(cellOrModelName); err == nil {
+		return a.getSaxCellACL(ctx, cellOrModelName)
+	}
+
+	if _, err := naming.NewModelFullName(cellOrModelName); err == nil {
+		return a.getSaxModelACL(ctx, cellOrModelName)
+	}
+
+	return "", fmt.Errorf("Invalid cell or model ID: %s", cellOrModelName)
 }
 
 // addrReplica maintains a set of server addresses for a model.
