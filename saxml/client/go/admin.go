@@ -299,6 +299,25 @@ func (a *Admin) SetSaxCellACL(ctx context.Context, saxCell string, acl string) e
 	return nil
 }
 
+func (a *Admin) GetSaxModelACL(ctx context.Context, modelName string) (string, error) {
+	_, err := naming.NewModelFullName(modelName)
+	if err != nil {
+		log.ErrorContextf(ctx, "Invalid model: %v", err)
+		return "", err
+	}
+
+	// Read the current model definition in proto.
+	publishedModel, err := a.List(ctx, modelName)
+	if err != nil || publishedModel == nil {
+		log.ErrorContextf(ctx, "Failed to list model: %v", err)
+		return "", err
+	}
+	model := publishedModel.GetModel()
+	log.InfoContextf(ctx, "Current model definition:\n%v", model)
+
+	return model.GetAdminAcl(), nil
+}
+
 // addrReplica maintains a set of server addresses for a model.
 type addrReplica struct {
 	modelID  string
