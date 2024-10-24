@@ -93,6 +93,7 @@ func ExportedFlags() []string {
 type stubAdminServer struct {
 	saxCell        string
 	modelAddresses *watchable.Watchable
+	model          *apb.PublishedModel
 }
 
 func (s *stubAdminServer) Publish(ctx context.Context, in *apb.PublishRequest) (*apb.PublishResponse, error) {
@@ -100,6 +101,7 @@ func (s *stubAdminServer) Publish(ctx context.Context, in *apb.PublishRequest) (
 }
 
 func (s *stubAdminServer) Update(ctx context.Context, in *apb.UpdateRequest) (*apb.UpdateResponse, error) {
+	s.model.Model = in.GetModel()
 	return &apb.UpdateResponse{}, nil
 }
 
@@ -121,19 +123,22 @@ func (s *stubAdminServer) List(ctx context.Context, in *apb.ListRequest) (*apb.L
 	if fullName.CellFullName() != s.saxCell {
 		return nil, fmt.Errorf("Want %v, got %v: %w", s.saxCell, fullName.CellFullName(), errors.ErrInvalidArgument)
 	}
-	out := &apb.ListResponse{
-		PublishedModels: []*apb.PublishedModel{
-			&apb.PublishedModel{
-				Model: &apb.Model{
-					ModelId:              in.GetModelId(),
-					ModelPath:            "/sax/models/xyz",
-					CheckpointPath:       "/tmp/abc",
-					RequestedNumReplicas: 1,
-					Overrides:            map[string]string{"foo": "bar"},
-				},
-				ModeletAddresses: []string{addresses[0]},
+
+	if s.model == nil {
+		s.model = &apb.PublishedModel{
+			Model: &apb.Model{
+				ModelId:              in.GetModelId(),
+				ModelPath:            "/sax/models/xyz",
+				CheckpointPath:       "/tmp/abc",
+				RequestedNumReplicas: 1,
+				Overrides:            map[string]string{"foo": "bar"},
 			},
-		},
+			ModeletAddresses: []string{addresses[0]},
+		}
+	}
+
+	out := &apb.ListResponse{
+		PublishedModels: []*apb.PublishedModel{s.model},
 	}
 	return out, nil
 }
