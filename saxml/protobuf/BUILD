@@ -194,7 +194,6 @@ proto_library(
     name = "custom_proto",
     srcs = ["custom.proto"],
     has_services = True,
-    use_java_stubby_library = True,
     visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )
@@ -269,7 +268,6 @@ proto_library(
     name = "lm_proto",
     srcs = ["lm.proto"],
     has_services = True,
-    use_java_stubby_library = True,
     visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )
@@ -361,7 +359,6 @@ proto_library(
     name = "audio_proto",
     srcs = ["audio.proto"],
     has_services = True,
-    use_java_stubby_library = True,
     visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )
@@ -435,7 +432,6 @@ proto_library(
     name = "vision_proto",
     srcs = ["vision.proto"],
     has_services = True,
-    use_java_stubby_library = True,
     visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )
@@ -510,7 +506,6 @@ proto_library(
     name = "multimodal_proto",
     srcs = ["multimodal.proto"],
     has_services = True,
-    use_java_stubby_library = True,
     visibility = ["//visibility:public"],
     deps = [":common_proto"],
 )
