@@ -264,7 +264,7 @@ func (a *Admin) getSaxCellACL(ctx context.Context, saxCell string) (string, erro
 }
 
 // SetSaxCellACL sets the ACL for the sax cell.
-func (a *Admin) SetSaxCellACL(ctx context.Context, saxCell string, acl string) error {
+func (a *Admin) setSaxCellACL(ctx context.Context, saxCell string, acl string) error {
 	_, err := naming.NewCellFullName(saxCell)
 	if err != nil {
 		log.ErrorContextf(ctx, "Invalid sax cell: %v", err)
@@ -308,7 +308,7 @@ func (a *Admin) getSaxModelACL(ctx context.Context, modelName string) (string, e
 }
 
 // SetSaxModelACL sets the ACL for the sax model.
-func (a *Admin) SetSaxModelACL(ctx context.Context, modelName string, acl string) error {
+func (a *Admin) setSaxModelACL(ctx context.Context, modelName string, acl string) error {
 	_, err := naming.NewModelFullName(modelName)
 	if err != nil {
 		log.ErrorContextf(ctx, "Invalid model: %v", err)
@@ -346,6 +346,19 @@ func (a *Admin) GetACL(ctx context.Context, cellOrModelName string) (string, err
 	}
 
 	return "", fmt.Errorf("Invalid cell or model ID: %s", cellOrModelName)
+}
+
+// SetACL sets the ACL for the sax cell or model.
+func (a *Admin) SetACL(ctx context.Context, cellOrModelName string, acl string) error {
+	if _, err := naming.NewCellFullName(cellOrModelName); err == nil {
+		return a.setSaxCellACL(ctx, cellOrModelName, acl)
+	}
+
+	if _, err := naming.NewModelFullName(cellOrModelName); err == nil {
+		return a.setSaxModelACL(ctx, cellOrModelName, acl)
+	}
+
+	return fmt.Errorf("Invalid cell or model ID: %s", cellOrModelName)
 }
 
 // addrReplica maintains a set of server addresses for a model.
