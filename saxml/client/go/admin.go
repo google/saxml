@@ -265,12 +265,6 @@ func (a *Admin) getSaxCellACL(ctx context.Context, saxCell string) (string, erro
 
 // SetSaxCellACL sets the ACL for the sax cell.
 func (a *Admin) setSaxCellACL(ctx context.Context, saxCell string, acl string) error {
-	_, err := naming.NewCellFullName(saxCell)
-	if err != nil {
-		log.ErrorContextf(ctx, "Invalid sax cell: %v", err)
-		return err
-	}
-
 	cfg, err := config.Load(ctx, saxCell)
 	if err != nil {
 		log.ErrorContextf(ctx, "Failed to load config: %v", err)
@@ -309,12 +303,6 @@ func (a *Admin) getSaxModelACL(ctx context.Context, modelName string) (string, e
 
 // SetSaxModelACL sets the ACL for the sax model.
 func (a *Admin) setSaxModelACL(ctx context.Context, modelName string, acl string) error {
-	_, err := naming.NewModelFullName(modelName)
-	if err != nil {
-		log.ErrorContextf(ctx, "Invalid model: %v", err)
-		return err
-	}
-
 	// Read the current model definition in proto.
 	publishedModel, err := a.List(ctx, modelName)
 	if err != nil || publishedModel == nil {
@@ -333,6 +321,26 @@ func (a *Admin) setSaxModelACL(ctx context.Context, modelName string, acl string
 		return err
 	}
 	return nil
+}
+
+// GetSaxModelDataMethodACLs returns the ACLs for all the sax model's data methods.
+func (a *Admin) GetSaxModelDataMethodACLs(ctx context.Context, modelName string) (map[string]string, error) {
+	if _, err := naming.NewModelFullName(modelName); err != nil {
+		log.ErrorContextf(ctx, "Invalid model: %v", err)
+		return nil, err
+	}
+
+	// Read the current model definition in proto.
+	publishedModel, err := a.List(ctx, modelName)
+	if err != nil || publishedModel == nil {
+		log.ErrorContextf(ctx, "Failed to list model: %v", err)
+		return nil, err
+	}
+	model := publishedModel.GetModel()
+	log.InfoContextf(ctx, "Current model definition:\n%v", model)
+
+	// Get model data method ACLs.
+	return model.GetAcls().GetItems(), nil
 }
 
 // GetACL returns the ACL for the sax cell or model.
