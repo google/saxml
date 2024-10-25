@@ -41,6 +41,7 @@ import (
 
 	pb "saxml/protobuf/admin_go_proto_grpc"
 	pbgrpc "saxml/protobuf/admin_go_proto_grpc"
+	cpb "saxml/protobuf/common_go_proto"
 )
 
 const (
@@ -341,6 +342,47 @@ func (a *Admin) GetSaxModelDataMethodACLs(ctx context.Context, modelName string)
 
 	// Get model data method ACLs.
 	return model.GetAcls().GetItems(), nil
+}
+
+// SetSaxModelDataMethodACL sets the ACL for a sax model's data method.
+func (a *Admin) SetSaxModelDataMethodACL(ctx context.Context, modelName string, method string, acl string) error {
+	if _, err := naming.NewModelFullName(modelName); err != nil {
+		log.ErrorContextf(ctx, "Invalid model: %v", err)
+		return err
+	}
+
+	// Read the current model definition in proto.
+	publishedModel, err := a.List(ctx, modelName)
+	if err != nil || publishedModel == nil {
+		log.ErrorContextf(ctx, "Failed to list model: %v", err)
+		return err
+	}
+	model := publishedModel.GetModel()
+	log.InfoContextf(ctx, "Current model definition:\n%v", model)
+
+	// Set model data method ACLs.
+	acls := model.GetAcls()
+	if acls == nil {
+		acls = &cpb.AccessControlLists{}
+		model.Acls = acls
+	}
+	items := acls.GetItems()
+	if items == nil {
+		items = make(map[string]string)
+		acls.Items = items
+	}
+	if acl == "" {
+		delete(items, method)
+	} else {
+		items[method] = acl
+	}
+
+	log.InfoContextf(ctx, "Updated model definition:\n%v", model)
+	if err := a.Update(ctx, model); err != nil {
+		log.ErrorContextf(ctx, "Failed to update model: %v", err)
+		return err
+	}
+	return nil
 }
 
 // GetACL returns the ACL for the sax cell or model.

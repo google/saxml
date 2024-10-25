@@ -98,6 +98,7 @@ go_library(
         "//saxml/common/platform:env",
         "//saxml/protobuf:admin_go_proto_grpc",
         # unused internal admin gRPC dependency,
+        "//saxml/protobuf:common_go_proto",
         "@com_github_golang_glog//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
