@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +30,7 @@ import (
 	"flag"
 	log "github.com/golang/glog"
 	// Internal storage imports
+	"google3/third_party/golang/go_exp/maps/maps"
 	"google.golang.org/protobuf/proto"
 	"github.com/google/subcommands"
 	"github.com/olekukonko/tablewriter"
@@ -731,8 +733,11 @@ func (c *GetACLCmd) handleSaxModel(ctx context.Context, modelFullName naming.Mod
 	}
 	method := args[1]
 	if method == "all" {
-		for k, v := range items {
-			fmt.Printf("%s: %s\n", k, v)
+		// Sort the keys of the map.
+		keys := maps.Keys(items)
+		slices.Sort(keys)
+		for _, k := range keys {
+			fmt.Printf("%s: %s\n", k, items[k])
 		}
 	} else {
 		acl, ok := items[method]
