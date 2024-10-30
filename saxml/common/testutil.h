@@ -39,6 +39,9 @@ std::string ExportLocalTestClusterFlags();
 // Stops and cleans up a running Sax testing environment.
 void StopLocalTestCluster(const std::string& sax_cell);
 
+// Sets the ACL names for testing.
+void SetTestACLNames();
+
 }  // namespace sax
 
 #endif  // SAXML_COMMON_TESTUTIL_H_

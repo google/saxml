@@ -43,4 +43,6 @@ void StopLocalTestCluster(const std::string& sax_cell) {
                               sax_cell.size());
 }
 
+void SetTestACLNames() { sax_set_test_acl_names(); }
+
 }  // namespace sax

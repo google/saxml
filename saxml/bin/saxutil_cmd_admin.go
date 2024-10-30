@@ -652,6 +652,7 @@ func (c *GetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 
 	// Get model data method ACLs.
 	acls, err := admin.GetSaxModelDataMethodACLs(ctx, name)
+	items := acls.GetItems()
 	if err != nil {
 		log.ErrorContextf(ctx, "Failed to get ACL: %v", err)
 		return subcommands.ExitFailure
@@ -663,13 +664,14 @@ func (c *GetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	method := f.Arg(1)
 	if method == "all" {
 		// Sort the keys of the map.
-		keys := maps.Keys(acls)
+		keys := maps.Keys(items)
 		slices.Sort(keys)
+
 		for _, k := range keys {
-			fmt.Printf("%s: %s\n", k, acls[k])
+			fmt.Printf("%s: %s\n", k, items[k])
 		}
 	} else {
-		acl, ok := acls[method]
+		acl, ok := items[method]
 		if !ok {
 			fmt.Println("No ACLs set for method.")
 		} else {

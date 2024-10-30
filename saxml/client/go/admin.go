@@ -325,7 +325,7 @@ func (a *Admin) setSaxModelACL(ctx context.Context, modelName string, acl string
 }
 
 // GetSaxModelDataMethodACLs returns the ACLs for all the sax model's data methods.
-func (a *Admin) GetSaxModelDataMethodACLs(ctx context.Context, modelName string) (map[string]string, error) {
+func (a *Admin) GetSaxModelDataMethodACLs(ctx context.Context, modelName string) (*cpb.AccessControlLists, error) {
 	if _, err := naming.NewModelFullName(modelName); err != nil {
 		log.ErrorContextf(ctx, "Invalid model: %v", err)
 		return nil, err
@@ -341,7 +341,7 @@ func (a *Admin) GetSaxModelDataMethodACLs(ctx context.Context, modelName string)
 	log.InfoContextf(ctx, "Current model definition:\n%v", model)
 
 	// Get model data method ACLs.
-	return model.GetAcls().GetItems(), nil
+	return model.GetAcls(), nil
 }
 
 // SetSaxModelDataMethodACL sets the ACL for a sax model's data method.

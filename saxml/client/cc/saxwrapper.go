@@ -400,6 +400,107 @@ func go_stats(idData *C.char, idSize C.int, timeout C.float, outData **C.char, o
 	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
 }
 
+//export go_get_acl
+func go_get_acl(nameData *C.char, nameSize C.int, timeout C.float, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+	name := C.GoStringN(nameData, nameSize)
+	saxCell, _, err := naming.SaxCell(name)
+	if err != nil {
+		buildReturnError(errMsg, errCode, err)
+		return
+	}
+
+	admin := saxadmin.Open(saxCell)
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	acl, err := admin.GetACL(ctx, name)
+	if err != nil {
+		buildReturnError(errMsg, errCode, err)
+		return
+	}
+
+	*outData = C.CString(acl)
+	*outSize = C.int(len(acl))
+}
+
+//export go_get_sax_model_data_method_acls
+func go_get_sax_model_data_method_acls(nameData *C.char, nameSize C.int, timeout C.float, outData **C.char, outSize *C.int, errMsg **C.char, errCode *C.int) {
+	name := C.GoStringN(nameData, nameSize)
+	saxCell, _, err := naming.SaxCell(name)
+	if err != nil {
+		buildReturnError(errMsg, errCode, err)
+		return
+	}
+
+	admin := saxadmin.Open(saxCell)
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	acls, err := admin.GetSaxModelDataMethodACLs(ctx, name)
+	if err != nil {
+		buildReturnError(errMsg, errCode, err)
+		return
+	}
+
+	content, err := proto.Marshal(acls)
+	if err != nil {
+		buildReturnError(errMsg, errCode, err)
+		return
+	}
+	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
+}
+
+//export go_set_acl
+func go_set_acl(nameData *C.char, nameSize C.int, aclData *C.char, aclSize C.int, timeout C.float, errMsg **C.char, errCode *C.int) {
+	name := C.GoStringN(nameData, nameSize)
+	saxCell, _, err := naming.SaxCell(name)
+	if err != nil {
+		buildReturnError(errMsg, errCode, err)
+		return
+	}
+
+	admin := saxadmin.Open(saxCell)
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	acl := C.GoStringN(aclData, aclSize)
+	err = admin.SetACL(ctx, name, acl)
+	if err != nil {
+		buildReturnError(errMsg, errCode, err)
+		return
+	}
+}
+
+//export go_set_sax_model_data_method_acl
+func go_set_sax_model_data_method_acl(nameData *C.char, nameSize C.int, methodData *C.char, methodSize C.int, aclData *C.char, aclSize C.int, timeout C.float, errMsg **C.char, errCode *C.int) {
+	name := C.GoStringN(nameData, nameSize)
+	saxCell, _, err := naming.SaxCell(name)
+	if err != nil {
+		buildReturnError(errMsg, errCode, err)
+		return
+	}
+
+	admin := saxadmin.Open(saxCell)
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	method := C.GoStringN(methodData, methodSize)
+	acl := C.GoStringN(aclData, aclSize)
+	err = admin.SetSaxModelDataMethodACL(ctx, name, method, acl)
+	if err != nil {
+		buildReturnError(errMsg, errCode, err)
+		return
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Audio model methods
 //////////////////////////////////////////////////////////////////////////

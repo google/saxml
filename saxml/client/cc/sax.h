@@ -645,6 +645,29 @@ absl::Status Stats(absl::string_view id,
 absl::Status Stats(const AdminOptions& options, absl::string_view id,
                    std::vector<ModelServerTypeStat>* stats);
 
+// Gets ACL of a cell or a model or a model data method.
+//
+// On success, returns OK; Otherwise, returns an error.
+absl::Status GetACL(const AdminOptions& options,
+                   absl::string_view cell_or_model_id,
+                   absl::string_view method_id,
+                   std::string* acl);
+
+// Gets all ACLs of a model data method.
+//
+// On success, returns OK; Otherwise, returns an error.
+absl::Status GetACL(
+    const AdminOptions& options, absl::string_view model_id,
+    sax::AccessControlLists* acls);
+
+// Sets ACL of a cell or a model or a modal data method.
+//
+// On success, returns OK; Otherwise, returns an error.
+absl::Status SetACL(const AdminOptions& options,
+                    absl::string_view cell_or_model_id,
+                    absl::string_view method_id,
+                    absl::string_view acl);
+
 }  // namespace client
 }  // namespace sax
 #endif  // SAXML_CLIENT_CC_SAX_H_

@@ -1255,5 +1255,87 @@ absl::Status Stats(const AdminOptions& options, absl::string_view id,
   return absl::OkStatus();
 }
 
+absl::Status GetACL(const AdminOptions& options,
+                    absl::string_view cell_or_model_id,
+                    absl::string_view method_id,
+                    std::string* acl) {
+  char* outputStr = nullptr;
+  int outputSize = 0;
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  if (!method_id.empty()) {
+    go_get_sax_model_data_method_acls(
+        const_cast<char*>(cell_or_model_id.data()), cell_or_model_id.size(),
+        options.timeout, &outputStr, &outputSize, &errMsgStr, &errCode);
+
+    if (errCode != 0) {
+      return CreateErrorAndFree(errCode, errMsgStr);
+    }
+
+    sax::AccessControlLists acls;
+    acls.ParseFromArray(outputStr, outputSize);
+    if (acls.items().contains(method_id)) {
+      *acl = acls.items().at(method_id);
+    } else {
+      *acl = "";
+    }
+    free(outputStr);
+  } else {
+    go_get_acl(const_cast<char*>(cell_or_model_id.data()),
+               cell_or_model_id.size(), options.timeout, &outputStr,
+               &outputSize, &errMsgStr, &errCode);
+
+    if (errCode != 0) {
+      return CreateErrorAndFree(errCode, errMsgStr);
+    }
+
+    *acl = outputStr;
+    free(outputStr);
+  }
+  return absl::OkStatus();
+}
+
+absl::Status GetACL(
+    const AdminOptions& options, absl::string_view cell_or_model_id,
+    sax::AccessControlLists* acls) {
+  char* outputStr = nullptr;
+  int outputSize = 0;
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  go_get_sax_model_data_method_acls(
+      const_cast<char*>(cell_or_model_id.data()), cell_or_model_id.size(),
+      options.timeout, &outputStr, &outputSize, &errMsgStr, &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+
+  acls->ParseFromArray(outputStr, outputSize);
+  free(outputStr);
+  return absl::OkStatus();
+}
+
+absl::Status SetACL(const AdminOptions& options,
+                    absl::string_view cell_or_model_id,
+                    absl::string_view method_id,
+                    absl::string_view acl) {
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  if (!method_id.empty()) {
+    go_set_sax_model_data_method_acl(
+        const_cast<char*>(cell_or_model_id.data()), cell_or_model_id.size(),
+        const_cast<char*>(method_id.data()), method_id.size(),
+        const_cast<char*>(acl.data()), acl.size(), options.timeout,
+        &errMsgStr, &errCode);
+  } else {
+    go_set_acl(const_cast<char*>(cell_or_model_id.data()),
+               cell_or_model_id.size(), const_cast<char*>(acl.data()),
+               acl.size(), options.timeout, &errMsgStr, &errCode);
+  }
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace client
 }  // namespace sax

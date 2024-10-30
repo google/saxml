@@ -119,4 +119,9 @@ func sax_stop_local_test_cluster(saxCellStr *C.char, saxCellSize C.int) {
 	stopLocalTestCluster(saxCell)
 }
 
+//export sax_set_test_acl_names
+func sax_set_test_acl_names() {
+	testutil.SetTestACLNames()
+}
+
 func main() {}
