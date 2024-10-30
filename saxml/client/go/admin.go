@@ -679,6 +679,7 @@ func (o *openedAdmin) Get(saxCell string) *Admin {
 var adminCache *openedAdmin = &openedAdmin{admins: make(map[string]*Admin)}
 
 // Open returns an admin interface for users to query system state, such as listing all models.
+// TODO(jwtan): Check if the cell exists.
 func Open(saxCell string) *Admin {
 	return adminCache.Get(saxCell)
 }

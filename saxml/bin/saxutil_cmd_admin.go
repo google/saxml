@@ -34,7 +34,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"github.com/google/subcommands"
 	"github.com/olekukonko/tablewriter"
-	"saxml/admin/validator"
 	"saxml/client/go/saxadmin"
 	"saxml/common/addr"
 	"saxml/common/cell"
@@ -44,7 +43,6 @@ import (
 	"saxml/common/watchable"
 
 	apb "saxml/protobuf/admin_go_proto_grpc"
-	cpb "saxml/protobuf/common_go_proto"
 )
 
 // CreateCmd creates a new Sax cell.
@@ -558,102 +556,60 @@ func (*SetACLCmd) Usage() string {
 // SetFlags sets flags for SetACLCmd.
 func (c *SetACLCmd) SetFlags(f *flag.FlagSet) {}
 
-func (c *SetACLCmd) handleSaxCell(ctx context.Context, cellFullName naming.CellFullName, args []string) subcommands.ExitStatus {
-	saxCell := cellFullName.CellFullName()
-	cfg, err := config.Load(ctx, saxCell)
+func saxCellFromAnyName(ctx context.Context, name string) (string, bool, error) {
+	isCell := true
+	var saxCell string
+	cellFullName, err := naming.NewCellFullName(name)
 	if err != nil {
-		log.Errorf("Failed to load config: %v", err)
-		return subcommands.ExitFailure
+		modelFullName, err := naming.NewModelFullName(name)
+		if err != nil {
+			log.ErrorContextf(ctx, "Invalid cell or model ID: %s", name)
+			return "", false, err
+		}
+		saxCell = modelFullName.CellFullName()
+		isCell = false
+		return saxCell, isCell, nil
 	}
-	log.Infof("Current config definition:\n%v", cfg)
 
-	adminACL := args[1]
-	change := proto.Clone(cfg).(*apb.Config)
-	change.AdminAcl = adminACL
-	log.Infof("Updated config definition:\n%v", change)
-
-	if err := validator.ValidateConfigUpdate(cfg, change); err != nil {
-		log.Errorf("Invalid config update: %v", err)
-		return subcommands.ExitFailure
-	}
-	if err := config.Save(ctx, change, saxCell, adminACL); err != nil {
-		log.Errorf("Failed to save config: %v", err)
-		return subcommands.ExitFailure
-	}
-	return subcommands.ExitSuccess
+	saxCell = cellFullName.CellFullName()
+	return saxCell, isCell, nil
 }
 
-func (c *SetACLCmd) handleSaxModel(ctx context.Context, modelFullName naming.ModelFullName, args []string) subcommands.ExitStatus {
-	admin := saxadmin.Open(modelFullName.CellFullName())
+// Execute executes SetACLCmd.
+func (c *SetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
+	if len(f.Args()) != 2 && len(f.Args()) != 3 {
+		log.ErrorContextf(ctx, "Provide a cell or model ID, optionally a model method, and an ACL.")
+		return subcommands.ExitUsageError
+	}
+	name := f.Arg(0)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
+	defer cancel()
 
-	// Read the current model definition in proto.
-	publishedModel, err := admin.List(ctx, modelFullName.ModelFullName())
-	if err != nil || publishedModel == nil {
-		log.Errorf("Failed to list model: %v", err)
+	saxCell, _, err := saxCellFromAnyName(ctx, name)
+	if err != nil {
 		return subcommands.ExitFailure
 	}
-	model := publishedModel.GetModel()
-	log.Infof("Current model definition:\n%v", model)
 
-	// Set model admin method ACLs.
-	if len(args) == 2 {
-		model.AdminAcl = args[1]
-
-		log.Infof("Updated model definition:\n%v", model)
-		if err := admin.Update(ctx, model); err != nil {
-			log.Errorf("Failed to update model: %v", err)
+	admin := saxadmin.Open(saxCell)
+	if len(f.Args()) == 2 {
+		acl := f.Arg(1)
+		err := admin.SetACL(ctx, name, acl)
+		if err != nil {
+			log.ErrorContextf(ctx, "Failed to set ACL: %v", err)
 			return subcommands.ExitFailure
 		}
 		return subcommands.ExitSuccess
 	}
 
 	// Set model data method ACLs.
-	acls := model.GetAcls()
-	if acls == nil {
-		acls = &cpb.AccessControlLists{}
-		model.Acls = acls
-	}
-	items := acls.GetItems()
-	if items == nil {
-		items = make(map[string]string)
-		acls.Items = items
-	}
-	method := args[1]
-	aclname := args[2]
-	if aclname == "" {
-		delete(items, method)
-	} else {
-		items[method] = aclname
-	}
-
-	log.Infof("Updated model definition:\n%v", model)
-	if err := admin.Update(ctx, model); err != nil {
-		log.Errorf("Failed to update model: %v", err)
+	method := f.Arg(1)
+	acl := f.Arg(2)
+	err = admin.SetSaxModelDataMethodACL(ctx, name, method, acl)
+	if err != nil {
+		log.ErrorContextf(ctx, "Failed to set ACL: %v", err)
 		return subcommands.ExitFailure
 	}
 	return subcommands.ExitSuccess
-}
-
-// Execute executes SetACLCmd.
-func (c *SetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
-	if len(f.Args()) != 2 && len(f.Args()) != 3 {
-		log.Errorf("Provide a cell or model ID, optionally a model method, and an ACL.")
-		return subcommands.ExitUsageError
-	}
-	arg0 := f.Arg(0)
-	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
-	defer cancel()
-
-	if cellFullName, err := naming.NewCellFullName(arg0); err == nil {
-		return c.handleSaxCell(ctx, cellFullName, f.Args())
-	}
-
-	if modelFullName, err := naming.NewModelFullName(arg0); err == nil {
-		return c.handleSaxModel(ctx, modelFullName, f.Args())
-	}
-
-	log.Errorf("Invalid cell or model ID: %s", arg0)
-	return subcommands.ExitFailure
 }
 
 // GetACLCmd is the command for GetACL.
@@ -680,39 +636,32 @@ func (*GetACLCmd) Usage() string {
 // SetFlags sets flags for GetACLCmd.
 func (c *GetACLCmd) SetFlags(f *flag.FlagSet) {}
 
-func (c *GetACLCmd) handleSaxCell(ctx context.Context, cellFullName naming.CellFullName, args []string) subcommands.ExitStatus {
-	saxCell := cellFullName.CellFullName()
-	cfg, err := config.Load(ctx, saxCell)
+// Execute executes GetACLCmd.
+func (c *GetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
+	if len(f.Args()) != 1 && len(f.Args()) != 2 {
+		log.ErrorContextf(ctx, "Provide a cell or model ID, and optionally a method.")
+		return subcommands.ExitUsageError
+	}
+	name := f.Arg(0)
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
+	defer cancel()
+
+	saxCell, isCell, err := saxCellFromAnyName(ctx, name)
 	if err != nil {
-		log.Errorf("Failed to load config: %v", err)
 		return subcommands.ExitFailure
 	}
-	log.Infof("Current config definition:\n%v", cfg)
 
-	if cfg.GetAdminAcl() == "" {
-		fmt.Println("No admin ACLs set for cell.")
-	} else {
-		fmt.Println(cfg.GetAdminAcl())
-	}
-	return subcommands.ExitSuccess
-}
+	admin := saxadmin.Open(saxCell)
+	if len(f.Args()) == 1 {
+		acl, err := admin.GetACL(ctx, name)
+		if err != nil {
+			log.ErrorContextf(ctx, "Failed to get ACL: %v", err)
+			return subcommands.ExitFailure
+		}
 
-func (c *GetACLCmd) handleSaxModel(ctx context.Context, modelFullName naming.ModelFullName, args []string) subcommands.ExitStatus {
-	admin := saxadmin.Open(modelFullName.CellFullName())
-
-	// Read the current model definition in proto.
-	publishedModel, err := admin.List(ctx, modelFullName.ModelFullName())
-	if err != nil || publishedModel == nil {
-		log.Errorf("Failed to list model: %v", err)
-		return subcommands.ExitFailure
-	}
-	model := publishedModel.GetModel()
-	log.Infof("Current model definition:\n%v", model)
-
-	// Get model admin method ACLs.
-	if len(args) == 1 {
-		acl := model.GetAdminAcl()
-		if acl == "" {
+		if acl == "" && isCell {
+			fmt.Println("No admin ACLs set for cell.")
+		} else if acl == "" && !isCell {
 			fmt.Println("No admin ACLs set for model.")
 		} else {
 			fmt.Println(acl)
@@ -721,26 +670,25 @@ func (c *GetACLCmd) handleSaxModel(ctx context.Context, modelFullName naming.Mod
 	}
 
 	// Get model data method ACLs.
-	acls := model.GetAcls()
+	acls, err := admin.GetSaxModelDataMethodACLs(ctx, name)
+	if err != nil {
+		log.ErrorContextf(ctx, "Failed to get ACL: %v", err)
+		return subcommands.ExitFailure
+	}
 	if acls == nil {
 		fmt.Println("No ACLs set for model.")
 		return subcommands.ExitSuccess
 	}
-	items := acls.GetItems()
-	if items == nil {
-		fmt.Println("No ACLs set for model.")
-		return subcommands.ExitSuccess
-	}
-	method := args[1]
+	method := f.Arg(1)
 	if method == "all" {
 		// Sort the keys of the map.
-		keys := maps.Keys(items)
+		keys := maps.Keys(acls)
 		slices.Sort(keys)
 		for _, k := range keys {
-			fmt.Printf("%s: %s\n", k, items[k])
+			fmt.Printf("%s: %s\n", k, acls[k])
 		}
 	} else {
-		acl, ok := items[method]
+		acl, ok := acls[method]
 		if !ok {
 			fmt.Println("No ACLs set for method.")
 		} else {
@@ -748,28 +696,6 @@ func (c *GetACLCmd) handleSaxModel(ctx context.Context, modelFullName naming.Mod
 		}
 	}
 	return subcommands.ExitSuccess
-}
-
-// Execute executes GetACLCmd.
-func (c *GetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
-	if len(f.Args()) != 1 && len(f.Args()) != 2 {
-		log.Errorf("Provide a cell or model ID, and optionally a method.")
-		return subcommands.ExitUsageError
-	}
-	arg0 := f.Arg(0)
-	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
-	defer cancel()
-
-	if cellFullName, err := naming.NewCellFullName(arg0); err == nil {
-		return c.handleSaxCell(ctx, cellFullName, f.Args())
-	}
-
-	if modelFullName, err := naming.NewModelFullName(arg0); err == nil {
-		return c.handleSaxModel(ctx, modelFullName, f.Args())
-	}
-
-	log.Errorf("Invalid cell or model ID: %s", arg0)
-	return subcommands.ExitFailure
 }
 
 // WatchCmd is the command for WatchAddresses. Useful for debugging.

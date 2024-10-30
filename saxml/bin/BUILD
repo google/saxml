@@ -52,7 +52,6 @@ go_library(
     deps = [
         # unused internal flag dependency,
         # Internal storage dependencies,
-        "//saxml/admin:validator",
         "//saxml/client/go:sax",
         "//saxml/client/go:saxadmin",
         "//saxml/common:addr",
@@ -63,7 +62,6 @@ go_library(
         "//saxml/common:watchable",
         "//saxml/common/platform:env",
         "//saxml/protobuf:admin_go_proto_grpc",
-        "//saxml/protobuf:common_go_proto",
         "//third_party/golang/go_exp/maps",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_google_subcommands//:go_default_library",
