@@ -33,6 +33,7 @@ go_test(
     srcs = ["validator_test.go"],
     deps = [
         ":validator",
+        "//saxml/common:testutil",
         "//saxml/common/platform:env",
         "//saxml/common/platform:register",
         "//saxml/protobuf:admin_go_proto_grpc",

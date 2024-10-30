@@ -909,3 +909,11 @@ func (c *Cluster) Start(ctx context.Context, t *testing.T) {
 func NewCluster(saxCell string) *Cluster {
 	return &Cluster{saxCell: saxCell, numberModelets: 1}
 }
+
+// SetTestACLNames sets the ACL names for testing.
+func SetTestACLNames() {
+	env.Get().SetTestACLNames(map[string][]string{
+		env.Get().RequiredACLNamePrefixList()[0] + "sax-dev": []string{"userA", "userB"},
+		env.Get().RequiredACLNamePrefixList()[0] + "all":     nil,
+	})
+}

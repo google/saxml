@@ -23,6 +23,7 @@ import (
 	"saxml/admin/validator"
 	"saxml/common/platform/env"
 	_ "saxml/common/platform/register" // registers a platform
+	"saxml/common/testutil"
 
 	apb "saxml/protobuf/admin_go_proto_grpc"
 	cpb "saxml/protobuf/common_go_proto"
@@ -408,9 +409,6 @@ func TestValidateJoinRequest(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	env.Get().SetTestACLNames(map[string][]string{
-		env.Get().RequiredACLNamePrefixList()[0] + "sax-dev": []string{"userA", "userB"},
-		env.Get().RequiredACLNamePrefixList()[0] + "all":     nil,
-	})
+	testutil.SetTestACLNames()
 	os.Exit(m.Run())
 }
