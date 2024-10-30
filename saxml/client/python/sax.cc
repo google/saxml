@@ -318,4 +318,11 @@ PYBIND11_MODULE(sax, m) {
 
   m.def("WaitForReady", &sax::client::pybind::WaitForReady, py::arg("id"),
         py::arg("num_replicas"), py::arg("options") = nullptr);
+
+  m.def("GetACL", &sax::client::pybind::GetACL, py::arg("cell_or_model_id"),
+        py::arg("method_id") = "", py::arg("options") = nullptr);
+
+  m.def("SetACL", &sax::client::pybind::SetACL, py::arg("cell_or_model_id"),
+        py::arg("acl"), py::arg("method_id") = "",
+        py::arg("options") = nullptr);
 }

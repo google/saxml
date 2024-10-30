@@ -37,6 +37,7 @@ PYBIND11_MODULE(testutil, m) {
       "Export flags needed by other processes to access this test environment");
   m.def("StopLocalTestCluster", &StopLocalTestCluster,
         "Stop and clean up a Sax test environment", pybind11::arg("sax_cell"));
+  m.def("SetTestACLNames", &SetTestACLNames, "Set the ACL names for testing");
 }
 
 }  // namespace sax

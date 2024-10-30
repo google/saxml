@@ -24,10 +24,13 @@
 #include <optional>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "saxml/client/cc/sax.h"
@@ -304,6 +307,16 @@ absl::Status WaitForReady(absl::string_view id, int num_replicas,
 
 absl::StatusOr<std::vector<::sax::client::ModelServerTypeStat>> Stats(
     absl::string_view id, const AdminOptions* options = nullptr);
+
+absl::StatusOr<
+    std::variant<std::string, std::unordered_map<std::string, std::string>>>
+GetACL(absl::string_view cell_or_model_id, absl::string_view method_id = "",
+       const AdminOptions* options = nullptr);
+
+absl::Status SetACL(absl::string_view cell_or_model_id,
+                    absl::string_view acl,
+                    absl::string_view method_id = "",
+                    const AdminOptions* options = nullptr);
 
 }  // namespace pybind
 }  // namespace client

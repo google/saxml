@@ -19,10 +19,14 @@
 #include <optional>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "saxml/client/cc/sax.h"
 #include "saxml/protobuf/multimodal.pb.h"
 #include "pybind11/gil.h"
@@ -34,6 +38,9 @@ namespace client {
 namespace pybind {
 
 namespace {
+
+const char* kAllMethods = "all";
+
 #define RETURN_IF_ERROR(s) \
   {                        \
     auto c = (s);          \
@@ -669,6 +676,46 @@ absl::StatusOr<std::vector<::sax::client::ModelServerTypeStat>> Stats(
     RETURN_IF_ERROR(::sax::client::Stats(*options, id, &stats));
   }
   return stats;
+}
+
+absl::StatusOr<
+    std::variant<std::string, std::unordered_map<std::string, std::string>>>
+GetACL(absl::string_view cell_or_model_id, absl::string_view method_id,
+       const AdminOptions* options) {
+  pybind11::gil_scoped_release release;
+  std::string acl;
+  if (options == nullptr) {
+    if (method_id == kAllMethods) {
+      sax::AccessControlLists acls;
+      RETURN_IF_ERROR(::sax::client::GetACL(AdminOptions(), cell_or_model_id,
+                                             &acls));
+      return std::unordered_map<std::string, std::string>(acls.items().begin(),
+                                                          acls.items().end());
+    }
+    RETURN_IF_ERROR(::sax::client::GetACL(AdminOptions(), cell_or_model_id,
+                                           method_id, &acl));
+  } else {
+    if (method_id == kAllMethods) {
+      sax::AccessControlLists acls;
+      RETURN_IF_ERROR(::sax::client::GetACL(*options, cell_or_model_id, &acls));
+      return std::unordered_map<std::string, std::string>(acls.items().begin(),
+                                                          acls.items().end());
+    }
+    RETURN_IF_ERROR(::sax::client::GetACL(*options, cell_or_model_id,
+                                           method_id, &acl));
+  }
+  return acl;
+}
+
+absl::Status SetACL(absl::string_view cell_or_model_id, absl::string_view acl,
+                    absl::string_view method_id, const AdminOptions* options) {
+  pybind11::gil_scoped_release release;
+  if (options == nullptr) {
+    return ::sax::client::SetACL(AdminOptions(), cell_or_model_id, method_id,
+                                 acl);
+  } else {
+    return ::sax::client::SetACL(*options, cell_or_model_id, method_id, acl);
+  }
 }
 
 }  // namespace pybind
