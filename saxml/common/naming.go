@@ -226,3 +226,22 @@ func ModelFullNameToNameForDebugging(fullName string) string {
 	}
 	return model
 }
+
+// SaxCell returns the SAX cell full name and a boolean indicating whether the input name is a cell full name or a model full name.
+func SaxCell(name string) (string, bool, error) {
+	isCell := true
+	var saxCell string
+	cellFullName, err := NewCellFullName(name)
+	if err != nil {
+		modelFullName, err := NewModelFullName(name)
+		if err != nil {
+			return saxCell, isCell, err
+		}
+		saxCell = modelFullName.CellFullName()
+		isCell = false
+	} else {
+		saxCell = cellFullName.CellFullName()
+	}
+
+	return saxCell, isCell, nil
+}

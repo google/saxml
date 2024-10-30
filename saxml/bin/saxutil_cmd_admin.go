@@ -556,25 +556,6 @@ func (*SetACLCmd) Usage() string {
 // SetFlags sets flags for SetACLCmd.
 func (c *SetACLCmd) SetFlags(f *flag.FlagSet) {}
 
-func saxCellFromAnyName(ctx context.Context, name string) (string, bool, error) {
-	isCell := true
-	var saxCell string
-	cellFullName, err := naming.NewCellFullName(name)
-	if err != nil {
-		modelFullName, err := naming.NewModelFullName(name)
-		if err != nil {
-			log.ErrorContextf(ctx, "Invalid cell or model ID: %s", name)
-			return "", false, err
-		}
-		saxCell = modelFullName.CellFullName()
-		isCell = false
-		return saxCell, isCell, nil
-	}
-
-	saxCell = cellFullName.CellFullName()
-	return saxCell, isCell, nil
-}
-
 // Execute executes SetACLCmd.
 func (c *SetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) != 2 && len(f.Args()) != 3 {
@@ -585,7 +566,7 @@ func (c *SetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
-	saxCell, _, err := saxCellFromAnyName(ctx, name)
+	saxCell, _, err := naming.SaxCell(name)
 	if err != nil {
 		return subcommands.ExitFailure
 	}
@@ -646,7 +627,7 @@ func (c *GetACLCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 
-	saxCell, isCell, err := saxCellFromAnyName(ctx, name)
+	saxCell, isCell, err := naming.SaxCell(name)
 	if err != nil {
 		return subcommands.ExitFailure
 	}

@@ -117,3 +117,26 @@ func TestSaxCellToCell(t *testing.T) {
 		t.Errorf("SaxCellToCell(%v) no error, want an error", saxCell)
 	}
 }
+
+func TestGetSaxCell(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      string
+		outCell string
+		isCell  bool
+		isValid bool
+	}{
+		{"Invalid", "foo", "", true, false},
+		{"Cell", "/sax/foo", "/sax/foo", true, true},
+		{"Model", "/sax/foo/bar", "/sax/foo", false, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			outCell, isCell, err := SaxCell(test.in)
+			testPassed := (outCell == test.outCell && isCell == test.isCell && (err == nil) == test.isValid)
+			if !testPassed {
+				t.Errorf("SaxCell(%v) = %v, %v, %v, want %v, %v, %v", test.in, outCell, isCell, err, test.outCell, test.isCell, test.isValid)
+			}
+		})
+	}
+}
