@@ -302,6 +302,8 @@ class ContinuousBatchingState:
   decoded_tokens: Int[Array, 'B T']
   # Sum of log probabilities across prefilled and decoded tokens.
   scores: Float[Array, 'B']
+  # Per-token log probabilities.
+  per_token_scores: Float[Array, 'B T']
   # Number of steps decoded.
   steps: Int[Array, 'B']
   # Whether each cache slot is being used (1) or unused (0).
@@ -360,6 +362,7 @@ class ContinuousBatchingState:
         (num_cache_slots, max_decode_step), dtype=np.int32
     )
     self.scores = np.zeros((num_cache_slots,))
+    self.per_token_scores = np.zeros((num_cache_slots, max_decode_step))
     self.steps = np.zeros((num_cache_slots,), dtype=np.int32)
     self.slots_in_use = np.zeros((num_cache_slots,), dtype=np.int32)
 
@@ -2347,6 +2350,7 @@ class ModelServicesRunner:
         all_slots = tuple(all_slots)
         state.decoded_tokens[all_slots, 0] = host_tokens
         state.scores[all_slots, ...] = host_scores
+        state.per_token_scores[all_slots, 0] = host_scores
 
         self._run_post_prefill_async(
             state,
@@ -2460,6 +2464,9 @@ class ModelServicesRunner:
           ] = tokens
 
           state.scores += scores * prev_mask
+          state.per_token_scores[
+              np.arange(state.num_cache_slots), state.steps
+          ] = (scores * prev_mask)
           state.steps += prev_mask
           done = np.logical_or(done, state.steps >= state.max_decode_steps)
           done = np.logical_or(
@@ -2477,11 +2484,13 @@ class ModelServicesRunner:
                 state,
                 copy.deepcopy(state.decoded_tokens[done]),
                 copy.deepcopy(state.scores[done]),
+                copy.deepcopy(state.per_token_scores[done]),
                 done,
             )
             # Reset the cache slot state.
             state.decoded_tokens[done] = 0
             state.scores[done] = 0.0
+            state.per_token_scores[done] = 0.0
             state.steps[done] = 0
             state.slots_in_use[done] = 0
 
@@ -2499,7 +2508,12 @@ class ModelServicesRunner:
         state.generate_step_time.add(time.time() - start_ts)
 
   def _run_post_generate_async(
-      self, state: ContinuousBatchingState, sequences, scores, done
+      self,
+      state: ContinuousBatchingState,
+      sequences,
+      scores,
+      per_token_scores,
+      done,
   ):
     """Runs the post-generate processing on a dedicated thread."""
     if state.method.streamable_output:
@@ -2519,7 +2533,9 @@ class ModelServicesRunner:
       for idx, slot in enumerate(slots):
         rpc_task = rpc_tasks[slot]
         assert rpc_task is not None
-        rpc_task.aux['finished_results'].append((sequences[idx], scores[idx]))
+        rpc_task.aux['finished_results'].append(
+            (sequences[idx], scores[idx], per_token_scores[idx])
+        )
         if rpc_task.aux['slot_count'] > len(rpc_task.aux['finished_results']):
           assert not state.method.streamable_output
           continue
@@ -2529,15 +2545,19 @@ class ModelServicesRunner:
           continue
         # [num_samples, ...]
         seqs = np.stack(
-            [x for x, _ in rpc_task.aux['finished_results']], axis=0
+            [x for x, _, _ in rpc_task.aux['finished_results']], axis=0
         )
         scrs = np.stack(
-            [x for _, x in rpc_task.aux['finished_results']], axis=0
+            [x for _, x, _ in rpc_task.aux['finished_results']], axis=0
+        )
+        pt_scrs = np.stack(
+            [x for _, _, x in rpc_task.aux['finished_results']], axis=0
         )
         if state.method.service_id() == 'custom':
           outputs = state.method.post_processing({
               'tokens': np.expand_dims(seqs, 0),  # [batch1, num_samples, ...]
               'scores': np.expand_dims(scrs, 0),
+              'per_token_scores': np.expand_dims(pt_scrs, 0),
           })[0]
         else:
           outputs = state.method.detokenize(seqs), scrs
