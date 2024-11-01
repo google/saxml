@@ -48,6 +48,8 @@ func GetServerMemoryInfo(spec *protobuf.ModelServer) ServerMemoryInfo {
    // some unhandled cases
 	case apb.ModelServer_CHIP_TYPE_TPU_V5E:
 		memGBPerCore = 16
+	case apb.ModelServer_CHIP_TYPE_TPU_V6I:
+		memGBPerCore = 32
 	case apb.ModelServer_CHIP_TYPE_GPU_P100:
 		memGBPerCore = 16
 	case apb.ModelServer_CHIP_TYPE_GPU_V100:
