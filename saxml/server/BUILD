@@ -23,6 +23,7 @@ package_group(
     name = "friends",
     packages = [
         "//ads/adsml/heinzelmaennchen/...",
+        "//cloud/ai/platform/prediction/oss_lm/...",
         "//learning/bulk_inference/jax_on_beam/...",
         "//waymo/planner/...",  # //waymo/... is siloed.
         "//waymo/research/...",  # //waymo/... is siloed.
