@@ -20,8 +20,6 @@ package sax.server.audio;
 
 import "saxml/protobuf/common.proto";
 
-// unused internal Java option
-
 message AsrRequest {
   enum AudioFormat {
     UNSPECIFIED = 0;

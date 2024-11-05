@@ -20,8 +20,6 @@ package sax.server.lm;
 
 import "saxml/protobuf/common.proto";
 
-// unused internal Java option
-
 // Usage:
 //
 //   score_req = ScoreRequest(model_key="lm1t",

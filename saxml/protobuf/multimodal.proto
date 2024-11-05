@@ -21,7 +21,6 @@ package sax.server.multimodal;
 import "saxml/protobuf/common.proto";
 
 option java_package = "com.google.saxml";
-// unused internal Java option
 
 message IdList {
   repeated int64 id = 1;
