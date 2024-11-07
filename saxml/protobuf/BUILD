@@ -260,7 +260,7 @@ kt_jvm_proto_library(
 kt_jvm_stubby_library(
     name = "custom_kt_stubby",
     srcs = [":custom_proto"],
-    visibility = [":sax_rpc_visibility"],
+    visibility = ["//visibility:private"],
     deps = [":custom_kt_proto"],
 )
 
@@ -424,7 +424,7 @@ kt_jvm_proto_library(
 kt_jvm_stubby_library(
     name = "audio_kt_stubby",
     srcs = [":audio_proto"],
-    visibility = [":sax_rpc_visibility"],
+    visibility = ["//visibility:private"],
     deps = [":audio_kt_proto"],
 )
 
