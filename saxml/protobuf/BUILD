@@ -32,6 +32,7 @@ package_group(
         "//saxml:internal",
     ],
     packages = [
+        "//java/com/google/gsa/boq/speakr/...",
         "//java/com/google/search/next/servers/mars/...",
         "//knowledge/offline/bulk_inference/...",
     ],
