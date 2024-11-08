@@ -364,7 +364,7 @@ class DormantModelServiceTest(absltest.TestCase):
         )
     )
     self.assertEqual(context.code(), grpc.StatusCode.UNAVAILABLE)
-    self.assertContainsSubsequence(context.details(), 'dormant')
+    self.assertIn('dormant', context.details())
 
 
 if __name__ == '__main__':
