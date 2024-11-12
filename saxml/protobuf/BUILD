@@ -34,6 +34,7 @@ package_group(
     packages = [
         "//java/com/google/gsa/boq/speakr/...",
         "//java/com/google/search/next/servers/mars/...",
+        "//javatests/com/google/gsa/boq/speakr/...",
         "//knowledge/offline/bulk_inference/...",
     ],
 )
