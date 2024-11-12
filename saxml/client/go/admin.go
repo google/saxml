@@ -50,7 +50,7 @@ const (
 	timeout = 10 * time.Second
 	// Remember the fact a model is unpublished for this much time
 	// before asking the admin server again.
-	delayForgetModel = 10 * time.Minute
+	delayForgetModel = 30 * time.Second
 	// Inserts these many points into the consistent hash ring for
 	// each server address.
 	numVirtualReplicas = 8
