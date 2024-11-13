@@ -209,6 +209,12 @@ class ServableMethod(servable_model.ServableMethod):
         [self._dummy_input_sample] * input_shape.batch_size
     )
 
+  def get_device_dummy_inputs(
+      self, padded_shape: InputShapeInfo
+  ) -> DeviceTensors:
+    """Returns dummy inputs on device for a padded shape."""
+    return self._per_bs_infos[padded_shape].dummy_inputs
+
   def _jax_aot_compile(
       self,
       step_fn: Any,
@@ -674,6 +680,26 @@ class ServableMethod(servable_model.ServableMethod):
     del mdl_vars, mutable_mdl_vars, prng_key, batched_inputs, non_batched_inputs
     raise NotImplementedError('stateful_jax_func not implemented')
 
+  def reshard_per_core_batched_inputs_in_jit(
+      self, batched_inputs: DeviceTensors
+  ) -> DeviceTensors:
+    """Reshards per core inputs to match what (stateful_)jax_func expects."""
+    return self.replicate_inputs_across_cores(batched_inputs)
+
+  def replicate_inputs_across_cores(
+      self, inputs: DeviceTensors
+  ) -> DeviceTensors:
+    """Replicates per core inputs to match what (stateful_)jax_func expects."""
+
+    # Only one core has real data, others have zeros. Summing on the
+    # leading `cores` dimension can make data replicated.
+    def _replicate_across_cores(x):
+      return jax.lax.with_sharding_constraint(
+          jnp.sum(x, axis=0, promote_integers=False), None
+      )
+
+    return jax.tree_util.tree_map(_replicate_across_cores, inputs)
+
   def _pjit_device_fn(
       self, input_pspecs: PSpecs, batch_size: int, dummy_inputs: DeviceTensors
   ) -> Callable[[DeviceTensors, DeviceTensors], DeviceTensors]:
@@ -700,15 +726,13 @@ class ServableMethod(servable_model.ServableMethod):
           jax.lax.with_sharding_constraint, mutable_mdl_vars, mutable_var_pspecs
       )
 
-      # Only one core has real data, others have zeros. Summing on the
-      # leading `cores` dimension can make data replicated.
-      def _replicate(x):
-        return jax.lax.with_sharding_constraint(
-            jnp.sum(x, axis=0, promote_integers=False), None
-        )
-
-      inputs = jax.tree_util.tree_map(_replicate, inputs)
       step, prng_key, batched_inputs, non_batched_inputs = inputs
+      step, prng_key, non_batched_inputs = self.replicate_inputs_across_cores(
+          (step, prng_key, non_batched_inputs)
+      )
+      batched_inputs = self.reshard_per_core_batched_inputs_in_jit(
+          batched_inputs
+      )
       prng_key = jax.random.fold_in(prng_key, step)
       if self._mutable:
         outputs, mutable_mdl_vars = self.stateful_jax_func(
