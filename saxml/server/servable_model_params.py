@@ -117,6 +117,8 @@ class ServableModelParams(abc.ABC):
     """Returns an optional custom registration name for the model."""
     return None
 
+  # TODO(jwtan): Make this a classmethod as most of the config attributes are
+  # class attributes.
   def apply_model_overrides(self, overrides: Dict[str, Any]) -> None:
     """Applies model config overrides received from Publish.
 
