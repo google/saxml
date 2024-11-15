@@ -105,6 +105,8 @@ type Env interface {
 	// DirExists checks the existence of a directory.
 	DirExists(ctx context.Context, path string) (bool, error)
 
+	// GetUser returns the user name.
+	GetUser() string
 	// CheckACLs returns nil iff the given principal passes an ACL check.
 	CheckACLs(principal string, acls []string) error
 	// ValidateACLName returns nil iff the given aclname is valid and exists.

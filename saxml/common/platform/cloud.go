@@ -420,6 +420,11 @@ func (e *Env) DirExists(ctx context.Context, path string) (bool, error) {
 	return false, err
 }
 
+// GetUser returns the user name.
+func (e *Env) GetUser() string {
+	return "unknown"
+}
+
 // CheckACLs returns nil iff the given principal passes an ACL check.
 func (e *Env) CheckACLs(principal string, acls []string) error {
 	for _, acl := range acls {

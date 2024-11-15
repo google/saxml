@@ -67,19 +67,30 @@ func (c *CreateCmd) SetFlags(f *flag.FlagSet) {}
 // Execute executes CreateCmd.
 func (c *CreateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) != 3 {
-		log.Errorf("Provide a Sax cell name (e.g. /sax/bar), a file system path for persistence (e.g. gs://bucket/path), and an admin ACL string.")
+		log.ErrorContextf(ctx, "Provide a Sax cell name (e.g. /sax/bar), a file system path for persistence (e.g. gs://bucket/path), and an admin ACL string.")
 		return subcommands.ExitUsageError
 	}
 	saxCell := f.Args()[0]
 	fsRoot := f.Args()[1]
 	adminACL := f.Args()[2]
 	if adminACL == "" {
-		log.Errorf("Provide a non-empty admin ACL string.")
+		log.ErrorContextf(ctx, "Provide a non-empty admin ACL string.")
 		return subcommands.ExitFailure
 	}
 
 	if err := cell.Exists(ctx, saxCell); err == nil {
 		log.Errorf("Sax cell %s already exists.", saxCell)
+		return subcommands.ExitFailure
+	}
+
+	if err := env.Get().ValidateACLName(adminACL); err != nil {
+		log.ErrorContextf(ctx, "Invalid ACL: %v", err)
+		return subcommands.ExitFailure
+	}
+
+	user := env.Get().GetUser()
+	if err := env.Get().CheckACLs(user, []string{adminACL}); err != nil {
+		log.ErrorContextf(ctx, "user %s is not a member of writeACL (%s)", user, adminACL)
 		return subcommands.ExitFailure
 	}
 
