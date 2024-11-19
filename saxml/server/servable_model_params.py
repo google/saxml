@@ -14,6 +14,7 @@
 """Base classes for servable model and method config classes."""
 
 import abc
+import copy
 import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -117,9 +118,10 @@ class ServableModelParams(abc.ABC):
     """Returns an optional custom registration name for the model."""
     return None
 
-  # TODO(jwtan): Make this a classmethod as most of the config attributes are
-  # class attributes.
-  def apply_model_overrides(self, overrides: Dict[str, Any]) -> None:
+  @classmethod
+  def apply_model_overrides(
+      cls, overrides: Dict[str, Any]
+  ) -> type['ServableModelParams']:
     """Applies model config overrides received from Publish.
 
     The default handling of overrides is as follows:
@@ -132,21 +134,29 @@ class ServableModelParams(abc.ABC):
 
     Args:
         overrides: Model config key-value pairs supplied by the Publish command.
+
+    Returns:
+        A new ServableMethodParams instance with overrides applied.
     """
+    new_cls = copy.deepcopy(cls)
     for k, v_raw in overrides.items():
-      if not hasattr(self, k):
-        logging.warning("Can't override %s because it's not set on %s", k, self)
+      if not hasattr(new_cls, k):
+        logging.warning(
+            "Can't override %s because it's not set on %s", k, new_cls
+        )
         continue
       try:
         v = json.loads(v_raw)
       except Exception as e:  # pylint: disable=broad-exception-caught
         logging.warning('Not a valid json value: %s %s', v_raw, e)
         continue
-      cur_v = getattr(self, k)
+      cur_v = getattr(new_cls, k)
       if v is not None and cur_v is not None and type(v) != type(cur_v):  # pylint: disable=unidiomatic-typecheck
         raise ValueError(
             'Mismatched type of override: original: %s; override: %s'
             % (cur_v, v)
         )
-      setattr(self, k, v)
-      logging.info('Set override %s to %s on %s', k, v, self)
+      setattr(new_cls, k, v)
+      logging.info('Set override %s to %s on %s', k, v, new_cls)
+
+    return new_cls

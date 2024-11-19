@@ -742,8 +742,8 @@ class LoadedModelManager:
       if not issubclass(model_class, servable_model_params.ServableModelParams):
         raise ValueError(f'{model_path} is not a ServableModelParams')
       # pytype: disable=not-instantiable
+      model_class = model_class.apply_model_overrides(overrides)
       params = model_class()
-      params.apply_model_overrides(overrides)
       loaded = params.load(key, ckpt_path, self._primary_process_id, prng_key)
       # pytype: enable=not-instantiable
       loaded.set_acls(acls)

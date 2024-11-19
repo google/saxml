@@ -22,7 +22,7 @@ class ServableModelParamsTest(absltest.TestCase):
   def setUp(self):
     super().setUp()
     servable_model_params.ServableModelParams.__abstractmethods__ = set()
-    self.params = servable_model_params.ServableModelParams()
+    self.params = servable_model_params.ServableModelParams
 
   def test_overrides(self):
     params = self.params
@@ -30,7 +30,7 @@ class ServableModelParamsTest(absltest.TestCase):
     params.STR_KEY = "hi there"
     params.LIST_KEY = [128, 256]
     params.ANOTHER_LIST_KEY = [1, 2]
-    params.apply_model_overrides(dict(
+    params = params.apply_model_overrides(dict(
         INT_KEY="100",
         STR_KEY="\"foo\"",
         LIST_KEY="[55, 65, 75]",
@@ -43,7 +43,7 @@ class ServableModelParamsTest(absltest.TestCase):
   def test_skip_on_missing_field(self):
     params = self.params
     params.INT_KEY = 42
-    params.apply_model_overrides(dict(ANOTHER_INT_KEY="100",))
+    params = params.apply_model_overrides(dict(ANOTHER_INT_KEY="100",))
     self.assertEqual(params.INT_KEY, 42)
 
   def test_exception_on_different_type(self):
