@@ -210,7 +210,6 @@ pytype_strict_library(
     visibility = [
         "//cloud/ai/nl/llm/shared/llama3_tokenizer/python:__subpackages__",
         "//saxml:internal",
-        "//saxml/server:friends",
     ],
     deps = [
         "//third_party/py/absl-py/logging",
