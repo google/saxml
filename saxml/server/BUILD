@@ -95,6 +95,7 @@ pytype_strict_library(
     visibility = ["//visibility:public"],
     deps = [
         ":utils",
+        "//saxml/protobuf:admin_py_pb2",
         "//third_party/py/absl-py/logging",
         "//third_party/py/numpy",
     ],

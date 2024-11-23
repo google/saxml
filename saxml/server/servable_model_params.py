@@ -14,16 +14,18 @@
 """Base classes for servable model and method config classes."""
 
 import abc
-import copy
 import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from absl import logging
 import numpy as np
+from saxml.protobuf import admin_pb2
 from saxml.server import utils
 
 
 ExtraInputs = Dict[str, Union[float, List[float], str]]  # from common.proto
+ChipType = admin_pb2.ModelServer.ChipType
+ChipTopology = admin_pb2.ModelServer.ChipTopology
 
 
 class ServableMethodParams(abc.ABC):
@@ -91,11 +93,31 @@ class ServableModelParams(abc.ABC):
     platform using one of the supported device mesh shapes.
     """
 
+  # pylint: disable=unused-argument
   @classmethod
   def check_serving_platform(cls) -> utils.Status:
     """Returns OK if the current platform supports this model."""
     status, _ = cls.get_supported_device_mesh()
     return status
+
+  # pylint: disable=unused-argument
+  @classmethod
+  def can_serve_on(
+      cls,
+      platform: ChipType,
+      topology: ChipTopology,
+  ) -> utils.Status:
+    """Checks if the model can be served on the given platform and topology."""
+    return cls.check_serving_platform()
+
+  @classmethod
+  def adapt_serving_platform(
+      cls,
+      platform: admin_pb2.ModelServer.ChipType,
+      topology: admin_pb2.ModelServer.ChipTopology
+  ) -> type['ServableModelParams']:
+    """Change the model config to adapt to the serving platform."""
+    return cls
 
   @abc.abstractmethod
   def load(
@@ -138,11 +160,14 @@ class ServableModelParams(abc.ABC):
     Returns:
         A new ServableMethodParams instance with overrides applied.
     """
-    new_cls = copy.deepcopy(cls)
+
+    class NewClass(cls):
+      pass
+
     for k, v_raw in overrides.items():
-      if not hasattr(new_cls, k):
+      if not hasattr(NewClass, k):
         logging.warning(
-            "Can't override %s because it's not set on %s", k, new_cls
+            "Can't override %s because it's not set on %s", k, cls
         )
         continue
       try:
@@ -150,13 +175,13 @@ class ServableModelParams(abc.ABC):
       except Exception as e:  # pylint: disable=broad-exception-caught
         logging.warning('Not a valid json value: %s %s', v_raw, e)
         continue
-      cur_v = getattr(new_cls, k)
+      cur_v = getattr(NewClass, k)
       if v is not None and cur_v is not None and type(v) != type(cur_v):  # pylint: disable=unidiomatic-typecheck
         raise ValueError(
             'Mismatched type of override: original: %s; override: %s'
             % (cur_v, v)
         )
-      setattr(new_cls, k, v)
-      logging.info('Set override %s to %s on %s', k, v, new_cls)
+      setattr(NewClass, k, v)
+      logging.info('Set override %s to %s on %s', k, v, cls)
 
-    return new_cls
+    return NewClass

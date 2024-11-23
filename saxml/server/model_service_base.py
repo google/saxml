@@ -687,7 +687,12 @@ class PerMethodBatcher:
 class LoadedModelManager:
   """A data structure that holds all loaded models."""
 
-  def __init__(self, primary_process_id: int):
+  def __init__(
+      self,
+      primary_process_id: int,
+      platform_chip: Optional[str] = None,
+      platform_topology: Optional[str] = None
+    ):
     # Indexed by key.
     # LOADED items have matching items in _models.
     # FAILED items have matching items in _errors.
@@ -699,6 +704,9 @@ class LoadedModelManager:
     # Indexed by key.
     self._errors = {}
     self._primary_process_id = primary_process_id
+
+    self._platform_chip = proto_util.to_chip_type(platform_chip)
+    self._platform_topology = proto_util.to_chip_topology(platform_topology)
 
   def load(
       self,
@@ -743,6 +751,8 @@ class LoadedModelManager:
         raise ValueError(f'{model_path} is not a ServableModelParams')
       # pytype: disable=not-instantiable
       model_class = model_class.apply_model_overrides(overrides)
+      model_class = model_class.adapt_serving_platform(
+          self._platform_chip, self._platform_topology)
       params = model_class()
       loaded = params.load(key, ckpt_path, self._primary_process_id, prng_key)
       # pytype: enable=not-instantiable
@@ -1156,7 +1166,7 @@ class ModeletService:
       for k, v in servable_model_registry.get_all().items():
         if not issubclass(v, servable_model_params.ServableModelParams):
           continue
-        status = v.check_serving_platform()
+        status = v.can_serve_on(self._platform_chip, self._platform_topology)
         if not status.ok():
           logging.info('Skipping unsupported model %s, %s', k, status.details)
           continue
@@ -1562,7 +1572,10 @@ class ModelServicesRunner:
           name='model_service_runner_secondary_worker',
       )
 
-    self._loaded_models = LoadedModelManager(primary_host)
+    self._loaded_models = LoadedModelManager(
+        primary_host,
+        platform_chip=platform_chip,
+        platform_topology=platform_topology)
     self._batcher.register_method(
         None, MethodKey(MethodName.TERMINATE), batch_size=1, max_live_batches=1
     )
