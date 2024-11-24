@@ -17,6 +17,7 @@ load(
     "py_proto_library",
     "rpc_endpoint_interface",
 )
+load("//third_party/protobuf/bazel:java_proto_library.bzl", "java_proto_library")
 
 package(
     default_visibility = ["//saxml:internal"],
