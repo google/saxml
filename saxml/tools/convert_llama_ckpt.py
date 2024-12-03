@@ -103,6 +103,15 @@ MODEL_PARAMS_DICT = {
         'num_gpus': 1,
         'combined_qkv': True,
     },
+    'llama3_1b': {
+        'num_layers': 16,
+        'num_heads': 32,
+        'num_kv_heads': 8,
+        'dims_per_head': 64,
+        'vocab': 128256,
+        'num_gpus': 1,
+        'combined_qkv': False,
+    },
 }
 
 
