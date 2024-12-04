@@ -39,6 +39,7 @@ py_strict_test(
 pybind_extension(
     name = "tf_session_runner",
     srcs = ["tf_session_runner.cc"],
+    import_test = False,
     deps = [
         ":np_conversions",
         ":sentencepiece",
