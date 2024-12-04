@@ -69,9 +69,10 @@ class UnionModelParams(
   def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     raise NotImplementedError('should not be called')
 
-  def apply_model_overrides(self, overrides: Dict[str, Any]) -> None:
+  @classmethod
+  def apply_model_overrides(cls, overrides: Dict[str, Any]) -> None:
     """Delays the model overrides until child creation."""
-    self.overrides = overrides
+    cls.overrides = overrides
 
 
 class UnionModel(servable_model.ServableModel):
