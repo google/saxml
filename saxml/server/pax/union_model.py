@@ -27,6 +27,7 @@ from praxis import py_utils
 from praxis import pytypes
 from saxml.server.pax import servable_model
 from saxml.server.pax import servable_model_params
+from typing_extensions import override
 
 PRNGKey = pytypes.PRNGKey
 NestedMap = py_utils.NestedMap
@@ -69,10 +70,14 @@ class UnionModelParams(
   def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     raise NotImplementedError('should not be called')
 
+  @override
   @classmethod
-  def apply_model_overrides(cls, overrides: Dict[str, Any]) -> None:
+  def apply_model_overrides(
+      cls, overrides: Dict[str, Any]
+  ) -> type['UnionModelParams']:
     """Delays the model overrides until child creation."""
     cls.overrides = overrides
+    return cls
 
 
 class UnionModel(servable_model.ServableModel):
