@@ -25,8 +25,10 @@ package_group(
         "//ads/adsml/heinzelmaennchen/...",
         "//cloud/ai/platform/prediction/oss_lm/...",
         "//learning/bulk_inference/jax_on_beam/...",
-        "//waymo/planner/...",  # //waymo/... is siloed.
-        "//waymo/research/...",  # //waymo/... is siloed.
+        # //waymo/... is siloed.
+        "//waymo/ml/...",
+        "//waymo/planner/...",
+        "//waymo/research/...",
         "//wireless/android/apps/pixel/agent/ml/serving/sax/...",
     ],
 )
