@@ -106,8 +106,8 @@ class UnionModel(servable_model.ServableModel):
       raise ValueError('No children in UnionModelParams')
     self._models = []
     for child in children:
+      child = child.apply_model_overrides(union_config.overrides)
       child_inst = child()
-      child_inst.apply_model_overrides(union_config.overrides)
       self._models.append(child_inst.create_model(self.primary_process_id))
     return self._models[0].load_state(checkpoint_path, prng_key, precompile)
 
