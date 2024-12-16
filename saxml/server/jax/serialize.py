@@ -133,6 +133,7 @@ def deserialize_pjitted_function(
         kept_var_idx=set(range(num_ins)),
         backend=backend,
         device_assignment=devices,
+        num_devices=len(devices),
         committed=True,
         in_layouts=(None,) * len(serialized.flat_global_in_avals),
         out_layouts=(None,) * len(serialized.flat_global_out_avals),
