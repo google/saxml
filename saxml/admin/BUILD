@@ -51,6 +51,7 @@ go_library(
         "//saxml/common:errors",
         "//saxml/common:eventlog",
         "//saxml/common:naming",
+        "//saxml/common:queue",
         "//saxml/common:waitable",
         "//saxml/common/platform:env",
         "//saxml/protobuf:admin_go_proto_grpc",

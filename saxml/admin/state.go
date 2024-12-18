@@ -29,6 +29,7 @@ import (
 	"saxml/common/eventlog"
 	"saxml/common/naming"
 	"saxml/common/platform/env"
+	"saxml/common/queue"
 	"saxml/common/waitable"
 
 	apb "saxml/protobuf/admin_go_proto_grpc"
@@ -188,8 +189,7 @@ type State struct {
 	wanted map[naming.ModelFullName]*Model
 
 	// Requested actions that haven't been sent to the server yet but already reflected in wanted.
-	queue     chan *action
-	queueStop chan bool
+	queue *queue.T[*action]
 
 	// Ticker for calling refresh periodically.
 	ticker     *time.Ticker
@@ -244,11 +244,11 @@ func (s *State) Load(ctx context.Context, fullName naming.ModelFullName, spec *a
 		}
 	}
 
-	log.V(2).Infof("Loading model %v with %v", fullName, spec)
+	log.V(2).InfoContextf(ctx, "Loading model %v with %v", fullName, spec)
 	model := newModel(spec)
 	s.wanted[fullName] = model
-	log.Infof("Enqueuing action %v of model %v on state %p, queue size %d", load, fullName, s, len(s.queue))
-	s.queue <- &action{load, ctx, fullName, model.clone(), waiter}
+	log.InfoContextf(ctx, "Enqueuing action %v of model %v on state %p, queue size %d", load, fullName, s, s.queue.Size())
+	s.queue.Put(&action{load, ctx, fullName, model.clone(), waiter})
 	return nil
 }
 
@@ -262,8 +262,8 @@ func (s *State) Update(fullName naming.ModelFullName, spec *apb.Model) error {
 	}
 	model := newModel(spec)
 	s.wanted[fullName] = model
-	log.Infof("Enqueuing action %v of model %v on state %p, queue size %d", update, fullName, s, len(s.queue))
-	s.queue <- &action{update, context.Background(), fullName, model.clone(), nil}
+	log.Infof("Enqueuing action %v of model %v on state %p, queue size %d", update, fullName, s, s.queue.Size())
+	s.queue.Put(&action{update, context.Background(), fullName, model.clone(), nil})
 	return nil
 }
 
@@ -274,10 +274,10 @@ func (s *State) Unload(ctx context.Context, fullName naming.ModelFullName, waite
 
 	for existing, model := range s.wanted {
 		if existing == fullName {
-			log.V(2).Infof("Unloading model %v", fullName)
+			log.V(2).InfoContextf(ctx, "Unloading model %v", fullName)
 			delete(s.wanted, fullName)
-			log.Infof("Enqueuing action %v of model %v on state %p, queue size %d", unload, fullName, s, len(s.queue))
-			s.queue <- &action{unload, ctx, fullName, model, waiter}
+			log.InfoContextf(ctx, "Enqueuing action %v of model %v on state %p, queue size %d", unload, fullName, s, s.queue.Size())
+			s.queue.Put(&action{unload, ctx, fullName, model, waiter})
 			return nil
 		}
 	}
@@ -419,7 +419,7 @@ func (s *State) getStatus(ctx context.Context) (map[naming.ModelFullName]*ModelI
 func (s *State) WakeUp(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.queue <- &action{wakeup, ctx, naming.ModelFullName{}, nil, nil}
+	s.queue.Put(&action{wakeup, ctx, naming.ModelFullName{}, nil, nil})
 }
 
 // initialize sets wanted and seen models of a just created State instance from a running server.
@@ -432,7 +432,7 @@ func (s *State) initialize(ctx context.Context, modelFinder ModelFinder) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	log.V(3).Infof("The server sees %v", seen)
+	log.V(3).InfoContextf(ctx, "The server sees %v", seen)
 
 	for fullName, info := range seen {
 		status := info.Status
@@ -446,7 +446,7 @@ func (s *State) initialize(ctx context.Context, modelFinder ModelFinder) error {
 		if status == protobuf.Loading || status == protobuf.Loaded || status == protobuf.Failed {
 			s.wanted[fullName] = model
 			// Possibly need to update the model metadata such as ACLs.
-			s.queue <- &action{update, context.Background(), fullName, model.clone(), nil}
+			s.queue.Put(&action{update, context.Background(), fullName, model.clone(), nil})
 		}
 		s.seen[fullName] = &ModelWithStatus{Model: *model, Info: *info}
 	}
@@ -534,19 +534,16 @@ func (s *State) Start(ctx context.Context, modelFinder ModelFinder) error {
 
 	// Start a goroutine that drains the action queue, stopping when s.Close is called.
 	log.Info("Starting a queue that drains pending model server actions")
-	// Golang channels need to allocate memory upfront, so use a large but reasonable capacity.
-	s.queue = make(chan *action, 1<<20)
-	s.queueStop = make(chan bool)
+	s.queue = queue.New[*action]()
 	go func() {
 		for {
-			select {
-			case <-s.queueStop:
-				close(s.queueStop)
+			a := s.queue.Get()
+			if a == nil {
+				// Shutdown
 				return
-			case a := <-s.queue:
-				log.Infof("Taking action %v of model %v on state %p, queue size %d", a.kind, a.fullName, s, len(s.queue))
-				s.act(a)
 			}
+			log.Infof("Taking action %v of model %v on state %p, queue size %d", a.kind, a.fullName, s, s.queue.Size())
+			s.act(a)
 		}
 	}()
 
@@ -581,9 +578,7 @@ func (s *State) Start(ctx context.Context, modelFinder ModelFinder) error {
 
 // Close stops synchronization and closes the connection to the model server.
 func (s *State) Close() {
-	// Don't close the channel here, to prevent the goroutine from seeing an empty action.
-	s.queueStop <- true
-	<-s.queueStop
+	s.queue.Put(nil)
 
 	s.ticker.Stop()
 	s.tickerStop <- true

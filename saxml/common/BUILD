@@ -320,3 +320,14 @@ go_test(
     srcs = ["skiplist_test.go"],
     library = ":skiplist",
 )
+
+go_library(
+    name = "queue",
+    srcs = ["queue.go"],
+)
+
+go_test(
+    name = "queue_test",
+    srcs = ["queue_test.go"],
+    library = ":queue",
+)
