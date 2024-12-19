@@ -217,7 +217,7 @@ cc_proto_library(
 cc_stubby_library(
     name = "custom_cc_stubby",
     srcs = [":custom_proto"],
-    visibility = [":sax_rpc_visibility"],
+    visibility = ["//visibility:private"],
     deps = [":custom_cc_proto"],
 )
 
