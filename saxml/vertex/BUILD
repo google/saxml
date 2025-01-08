@@ -22,7 +22,7 @@ pytype_strict_binary(
         "//third_party/py/absl-py/flags",
         "//third_party/py/absl-py/logging",
         "//third_party/py/grpcio",
-        "//third_party/py/tornado:tornado_vnext",
+        "//third_party/py/tornado",
     ],
 )
 
@@ -44,7 +44,7 @@ pytype_strict_library(
         "//third_party/py/absl-py/flags",
         "//third_party/py/absl-py/logging",
         "//third_party/py/grpcio",
-        "//third_party/py/tornado:tornado_vnext",
+        "//third_party/py/tornado",
     ],
 )
 
@@ -70,7 +70,7 @@ pytype_strict_library(
         "//third_party/py/absl-py/flags",
         "//third_party/py/absl-py/logging",
         "//third_party/py/grpcio",
-        "//third_party/py/tornado:tornado_vnext",
+        "//third_party/py/tornado",
     ],
 )
 
@@ -121,7 +121,7 @@ pytype_strict_library(
     deps = [
         ":constants",
         "//third_party/py/absl-py/logging",
-        "//third_party/py/tornado:tornado_vnext",
+        "//third_party/py/tornado",
     ],
 )
 
