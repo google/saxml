@@ -559,9 +559,11 @@ class Model {
   VisionModel* VM();
 
   // Create a CustomModel instance. User takes ownership of the resulting
-  // object. The lifetime of CUstomModel is independent of Model.
+  // object. The lifetime of CustomModel is independent of Model.
   CustomModel* CM();
 
+  // Create a MultimodalModel instance. User takes ownership of the resulting
+  // object. The lifetime of MultimodalModel is independent of Model.
   MultimodalModel* MM();
 
  private:
