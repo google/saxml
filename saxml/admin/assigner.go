@@ -163,6 +163,9 @@ func (a *Assigner) Assign() {
 			}
 		}
 	}
+	if len(a.toUnload) > 0 {
+		log.Infof("ToUnload %v", a.toUnload)
+	}
 
 	// Sort the assignments so that loaded models come first in the
 	// list.  Since we unload starting at the end of the list, this
@@ -310,6 +313,9 @@ func (a *Assigner) Assign() {
 			required := requiredMemoryForCores(reqPerCores, server.memoryInfo.Cores)
 			availMem[item.addr] -= required
 		}
+	}
+	if len(a.toLoad) > 0 {
+		log.Infof("ToLoad %v", a.toLoad)
 	}
 
 	// Compute the new assignment.
