@@ -1119,6 +1119,7 @@ class ModeletService:
       platform_chip: Optional[str],
       platform_topology: Optional[str],
       tags: Optional[List[str]],
+      keep_loaded_model: bool = False,
       *args,
       **kwargs,
   ):
@@ -1181,6 +1182,7 @@ class ModeletService:
     self._debug_addr = (
         '' if debug_port is None else ipaddr.Join(ipaddr.MyIPAddr(), debug_port)
     )
+    self._keep_loaded_model = keep_loaded_model
 
   def model_services(self) -> Dict[str, ModelService]:
     return self._services
@@ -1233,6 +1235,9 @@ class ModeletService:
     if not req.model_key:
       done_with_status(utils.invalid_arg('model_key is not specified.'))
       return
+    if self._keep_loaded_model:
+      done_with_status(utils.unavailable('modelet doesn\'t support updates'))
+      return
     self._loader.update(req.model_key, dict(req.acls.items))
     done_with_status(utils.ok())
 
@@ -1246,6 +1251,9 @@ class ModeletService:
     """Unloads a model."""
     if not req.model_key:
       done_with_status(utils.invalid_arg('model_key is not specified.'))
+      return
+    if self._keep_loaded_model:
+      done_with_status(utils.unavailable('modelet doesn\'t support unloads'))
       return
     with self._unload_lock:
       if req.model_key in self._models_being_unloaded:
@@ -1497,6 +1505,7 @@ class ModelServicesRunner:
       backend: Optional[spmd_backend.SPMDBackend] = None,
       fail_on_error: bool = False,
       early_reject_on_dormant: bool = False,
+      keep_loaded_model: bool = False,
   ):
     self._is_primary = is_primary_process
     # If deterministic_prng_seed is provided, all models will use this as the
@@ -1590,6 +1599,7 @@ class ModelServicesRunner:
         platform_chip=platform_chip,
         platform_topology=platform_topology,
         tags=tags,
+        keep_loaded_model=keep_loaded_model,
     )
     self._platform_topology = platform_topology
     all_grpc_services = [self._modelet_service]

@@ -237,6 +237,7 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
       tags=_TAGS.value,
       backend=spmd_bknd,
       early_reject_on_dormant=_EARLY_REJECT_ON_DORMANT.value,
+      keep_loaded_model=len(_MODELS.value) > 0,  # pylint: disable=g-explicit-length-test
   )
   # Start jax.profiler for TensorBoard and profiling in open source.
   if _JAX_PROFILER_PORT.value:
