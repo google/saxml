@@ -20,6 +20,7 @@ import copy
 import dataclasses
 import enum
 import functools
+import gc
 import json
 import queue
 import threading
@@ -691,7 +692,8 @@ class LoadedModelManager:
       self,
       primary_process_id: int,
       platform_chip: Optional[str] = None,
-      platform_topology: Optional[str] = None
+      platform_topology: Optional[str] = None,
+      gc_freeze_loaded_models: bool = False,
     ):
     # Indexed by key.
     # LOADED items have matching items in _models.
@@ -707,6 +709,7 @@ class LoadedModelManager:
 
     self._platform_chip = proto_util.to_chip_type(platform_chip)
     self._platform_topology = proto_util.to_chip_topology(platform_topology)
+    self._gc_freeze_loaded_models = gc_freeze_loaded_models
 
   def load(
       self,
@@ -763,6 +766,10 @@ class LoadedModelManager:
       # response when requested.
       self._errors[key] = str(e)
       raise
+    finally:
+      if self._gc_freeze_loaded_models:
+        gc.collect()
+        gc.freeze()
 
     if register_methods_callback is not None:
       register_methods_callback(loaded)
@@ -809,6 +816,12 @@ class LoadedModelManager:
     del self._status[key]
     del self._model_metadata[key]
     del self._models[key]
+    if self._gc_freeze_loaded_models:
+      # After we unload the model, we unfreeze and collect the garbage. Then we
+      # freeze again to avoid future garbage collection touching other models.
+      gc.unfreeze()
+      gc.collect()
+      gc.freeze()
 
   def contains(self, key: str) -> bool:
     return key in self._status
@@ -1512,6 +1525,7 @@ class ModelServicesRunner:
       fail_on_error: bool = False,
       early_reject_on_dormant: bool = False,
       keep_loaded_model: bool = False,
+      gc_freeze_loaded_models: bool = False,
   ):
     self._is_primary = is_primary_process
     # If deterministic_prng_seed is provided, all models will use this as the
@@ -1590,7 +1604,8 @@ class ModelServicesRunner:
     self._loaded_models = LoadedModelManager(
         primary_host,
         platform_chip=platform_chip,
-        platform_topology=platform_topology)
+        platform_topology=platform_topology,
+        gc_freeze_loaded_models=gc_freeze_loaded_models)
     self._batcher.register_method(
         None, MethodKey(MethodName.TERMINATE), batch_size=1, max_live_batches=1
     )
