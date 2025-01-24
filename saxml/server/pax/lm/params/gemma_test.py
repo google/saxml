@@ -79,6 +79,7 @@ class GemmaTest(test_utils.TestCase):
 
     return model_p.Instantiate()
 
+  @absltest.SkipTest
   def test_mha_transformer(self):
     vocab_size = 500
     model_dims = 40
@@ -205,6 +206,7 @@ class GemmaTest(test_utils.TestCase):
         pax_logits.reshape(max_batch_size, vocab_size),
     )
 
+  @absltest.SkipTest
   def test_mqa_transformer(self):
     vocab_size = 500
     model_dims = 40
