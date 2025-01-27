@@ -1181,8 +1181,11 @@ class ModeletService:
       self._sax_cell = sax_cell
       self._admin_port = admin_port
 
+    # Do not populate loadable models if keep_loaded_model is set, meaning the
+    # modelet is already statically configured. This will guarantee that the
+    # admin server will not ask to load a new model.
     self._loadable_model_paths = []
-    if self._sax_cell is not None:
+    if not keep_loaded_model and self._sax_cell is not None:
       for k, v in servable_model_registry.get_all().items():
         if not issubclass(v, servable_model_params.ServableModelParams):
           continue
