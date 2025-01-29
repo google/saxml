@@ -15,7 +15,6 @@ licenses(["notice"])
 pytype_strict_library(
     name = "all_imports",
     srcs = ["all_imports.py"],
-    srcs_version = "PY3",
     tags = ["keep_dep"],
     deps = [
         "//saxml/server:servable_model_registry",
@@ -27,7 +26,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "branch_selection",
     srcs = ["branch_selection.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         "//third_party/py/numpy",
@@ -38,8 +36,6 @@ pytype_strict_library(
 py_strict_test(
     name = "branch_selection_test",
     srcs = ["branch_selection_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     visibility = ["//saxml:internal"],
     deps = [
         ":branch_selection",
@@ -51,7 +47,6 @@ py_strict_test(
 pytype_strict_library(
     name = "servable_model_params",
     srcs = ["servable_model_params.py"],
-    srcs_version = "PY3",
     deps = [
         "//saxml/server:servable_model_params",
         "//saxml/server:utils",
@@ -69,7 +64,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "servable_model",
     srcs = ["servable_model.py"],
-    srcs_version = "PY3",
     deps = [
         ":branch_selection",
         ":servable_model_params",
@@ -131,7 +125,6 @@ py_strict_test(
 pytype_strict_library(
     name = "union_model",
     srcs = ["union_model.py"],
-    srcs_version = "PY3",
     deps = [
         ":servable_model",
         ":servable_model_params",

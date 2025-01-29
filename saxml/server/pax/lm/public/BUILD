@@ -12,7 +12,6 @@ licenses(["notice"])
 pytype_strict_library(
     name = "common",
     srcs = ["common.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         "//saxml/server/pax/lm:lm_tokenizer",

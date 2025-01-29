@@ -12,7 +12,6 @@ licenses(["notice"])
 pytype_strict_library(
     name = "all_imports",
     srcs = ["all_imports.py"],
-    srcs_version = "PY3",
     tags = ["keep_dep"],
     visibility = [
         "//learning/grp/managed_models:__subpackages__",
@@ -30,7 +29,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "lm_tokenizer",
     srcs = ["lm_tokenizer.py"],
-    srcs_version = "PY3",
     visibility = [
         "//saxml:internal",
         "//saxml/server:friends",
@@ -48,8 +46,6 @@ py_strict_test(
     data = [
         "//saxml/server/pax/lm/test_data",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":lm_tokenizer",
         "//third_party/py/absl-py/flags",
@@ -63,7 +59,6 @@ py_strict_test(
 pytype_strict_library(
     name = "servable_lm_common",
     srcs = ["servable_lm_common.py"],
-    srcs_version = "PY3",
     visibility = [
         "//saxml:internal",
         "//saxml/server:friends",
@@ -86,8 +81,6 @@ py_strict_test(
     data = [
         "//saxml/server/pax/lm/test_data",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":lm_tokenizer",
         ":servable_lm_common",
@@ -106,7 +99,6 @@ py_strict_test(
 pytype_strict_library(
     name = "servable_lm_model",
     srcs = ["servable_lm_model.py"],
-    srcs_version = "PY3",
     visibility = [
         "//saxml:internal",
         "//saxml/server:friends",
@@ -142,8 +134,6 @@ py_strict_test(
     data = [
         "//saxml/server/pax/lm/test_data",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     tags = [
         "requires-net:external",
     ],

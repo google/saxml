@@ -43,7 +43,6 @@ bzl_library(
 pytype_strict_library(
     name = "all_imports",
     srcs = ["all_imports.py"],
-    srcs_version = "PY3",
     tags = ["keep_dep"],
     visibility = default_visibility + ["//saxml/server:friends"],
     deps = [
@@ -61,13 +60,11 @@ create_server_binary(
 pytype_strict_library(
     name = "acl",
     srcs = ["acl.py"],
-    srcs_version = "PY3",
 )
 
 pytype_strict_library(
     name = "multi_host_sync",
     srcs = ["multi_host_sync.py"],
-    srcs_version = "PY3",
     deps = [
         ":spmd_backend",
         ":utils",
@@ -81,8 +78,6 @@ pytype_strict_library(
 py_strict_test(
     name = "multi_host_sync_test",
     srcs = ["multi_host_sync_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":multi_host_sync",
         "//third_party/py/absl-py/testing:absltest",
@@ -93,7 +88,6 @@ py_strict_test(
 pytype_strict_library(
     name = "servable_model_params",
     srcs = ["servable_model_params.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         ":utils",
@@ -116,7 +110,6 @@ py_strict_test(
 pytype_strict_library(
     name = "servable_model_registry",
     srcs = ["servable_model_registry.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         ":servable_model_params",
@@ -126,8 +119,6 @@ pytype_strict_library(
 py_strict_test(
     name = "servable_model_registry_test",
     srcs = ["servable_model_registry_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":all_imports",
         ":servable_model_registry",
@@ -139,7 +130,6 @@ py_strict_test(
 pytype_strict_library(
     name = "servable_model",
     srcs = ["servable_model.py"],
-    srcs_version = "PY3",
     deps = [
         ":servable_model_params",
         "//third_party/py/numpy",
@@ -149,7 +139,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "spmd_backend",
     srcs = ["spmd_backend.py"],
-    srcs_version = "PY3",
     deps = [
         ":utils",
     ],
@@ -158,7 +147,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "status",
     srcs = ["status.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = ["//third_party/py/grpcio"],
 )
@@ -166,7 +154,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "utils",
     srcs = ["utils.py"],
-    srcs_version = "PY3",
     deps = [
         ":status",
         "//third_party/py/grpcio",
@@ -179,8 +166,6 @@ pytype_strict_library(
 py_strict_test(
     name = "utils_test",
     srcs = ["utils_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":utils",
         "//third_party/py/absl-py/testing:absltest",
@@ -192,7 +177,6 @@ py_strict_test(
 pytype_strict_library(
     name = "validate",
     srcs = ["validate.py"],
-    srcs_version = "PY3",
     deps = [
         ":utils",
         "@com_google_protobuf//:protobuf_python",
@@ -202,8 +186,6 @@ pytype_strict_library(
 py_strict_test(
     name = "validate_test",
     srcs = ["validate_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":validate",
         "//third_party/py/grpcio",
@@ -216,15 +198,12 @@ py_strict_test(
 pytype_strict_library(
     name = "proto_util",
     srcs = ["proto_util.py"],
-    srcs_version = "PY3",
     deps = ["//saxml/protobuf:admin_py_pb2"],
 )
 
 py_strict_test(
     name = "proto_util_test",
     srcs = ["proto_util_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":proto_util",
         "//third_party/py/absl-py/testing:absltest",
@@ -237,13 +216,11 @@ py_strict_test(
 pytype_strict_library(
     name = "ipaddr",
     srcs = ["ipaddr.py"],
-    srcs_version = "PY3",
 )
 
 pytype_strict_library(
     name = "model_service_base",
     srcs = ["model_service_base.py"],
-    srcs_version = "PY3",
     deps = [
         ":acl",
         ":ipaddr",
@@ -311,7 +288,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "model_service_main_lib",
     srcs = ["model_service_main.py"],
-    srcs_version = "PY3",
     visibility = default_visibility + ["//saxml/server:friends"],
     deps = [
         ":model_service_base",
@@ -340,8 +316,6 @@ exports_files(
 pytype_strict_binary(
     name = "model_service_main",
     srcs = ["model_service_main.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":model_service_main_lib",
     ],

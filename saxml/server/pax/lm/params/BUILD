@@ -22,7 +22,6 @@ pytype_strict_library(
     name = "template",
     srcs = ["template.py"],
     data = [":test_model"],
-    srcs_version = "PY3",
     deps = [
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax/lm:lm_tokenizer",
@@ -100,7 +99,6 @@ py_strict_test(
 pytype_strict_library(
     name = "lm_cloud",
     srcs = ["lm_cloud.py"],
-    srcs_version = "PY3",
     deps = [
         ":template",
         "//saxml/server:servable_model_registry",
@@ -153,7 +151,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "gemma",
     srcs = ["gemma.py"],
-    srcs_version = "PY3",
     deps = [
         ":template",
         "//saxml/server:servable_model_registry",

@@ -11,7 +11,6 @@ package(
 pytype_strict_library(
     name = "servable_custom_model",
     srcs = ["servable_custom_model.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         "//saxml/server/pax:servable_model",
@@ -28,8 +27,6 @@ pytype_strict_library(
 py_strict_test(
     name = "servable_custom_model_test",
     srcs = ["servable_custom_model_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":servable_custom_model",
         "//third_party/py/absl-py/logging",

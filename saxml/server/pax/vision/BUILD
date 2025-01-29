@@ -18,7 +18,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "servable_vision_model",
     srcs = ["servable_vision_model.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         "//saxml/server/pax:servable_model",

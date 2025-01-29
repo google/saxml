@@ -11,7 +11,6 @@ package(
 pytype_strict_library(
     name = "resnet",
     srcs = ["resnet.py"],
-    srcs_version = "PY3",
     deps = [
         "//saxml/server:servable_model_registry",
         "//saxml/server/pax/vision:imagenet_metadata",

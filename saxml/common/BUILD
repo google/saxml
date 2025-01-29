@@ -144,7 +144,6 @@ pytype_strict_library(
     name = "location_py",
     srcs = ["location.py"],
     pybind_deps = [":pybind_location"],
-    srcs_version = "PY3",
 )
 
 py_strict_test(
@@ -152,8 +151,6 @@ py_strict_test(
     srcs = ["location_test.py"],
     main = "location_test.py",
     pybind_deps = ["//saxml/common/python:testutil"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":location_py",
         "//third_party/py/grpcio",

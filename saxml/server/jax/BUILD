@@ -11,7 +11,6 @@ package(
 pytype_strict_library(
     name = "jax_spmd_backend",
     srcs = ["jax_spmd_backend.py"],
-    srcs_version = "PY3",
     deps = [
         "//saxml/server:spmd_backend",
         "//saxml/server:utils",
@@ -25,7 +24,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "serialize",
     srcs = ["serialize.py"],
-    srcs_version = "PY3",
     visibility = [
         "//saxml:internal",
     ],
@@ -37,8 +35,6 @@ pytype_strict_library(
 py_strict_test(
     name = "serialize_test",
     srcs = ["serialize_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     tags = ["manual"],
     deps = [
         ":serialize",
@@ -52,7 +48,6 @@ py_strict_test(
 pytype_strict_library(
     name = "servable_model",
     srcs = ["servable_model.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         "//saxml/server:servable_model",
@@ -70,7 +65,6 @@ pytype_strict_library(
 pytype_strict_library(
     name = "np_tf_sess_wrapper",
     srcs = ["np_tf_sess_wrapper.py"],
-    srcs_version = "PY3",
     deps = [
         "//saxml/server/tf:np_tf_sess_wrapper",
         "//third_party/py/jax",

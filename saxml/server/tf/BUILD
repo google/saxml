@@ -14,7 +14,6 @@ pytype_strict_library(
     name = "np_tf_sess_wrapper",
     srcs = ["np_tf_sess_wrapper.py"],
     pybind_deps = [":tf_session_runner"],
-    srcs_version = "PY3",
     deps = [
         "//third_party/py/absl-py/logging",
         "//third_party/py/numpy",
@@ -25,8 +24,6 @@ pytype_strict_library(
 py_strict_test(
     name = "np_tf_sess_wrapper_test",
     srcs = ["np_tf_sess_wrapper_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":np_tf_sess_wrapper",
         "//third_party/py/absl-py/testing:absltest",

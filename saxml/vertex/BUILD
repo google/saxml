@@ -10,7 +10,6 @@ load(
 pytype_strict_binary(
     name = "launcher",
     srcs = ["launcher.py"],
-    srcs_version = "PY3",
     deps = [
         ":constants",
         ":grpc_prediction_server",
@@ -33,7 +32,6 @@ pytype_strict_library(
     pybind_deps = [
         "//saxml/client/python:sax",
     ],
-    srcs_version = "PY3",
     deps = [
         ":constants",
         ":grpc_prediction_server",
@@ -60,7 +58,6 @@ pytype_strict_library(
     pybind_deps = [
         "//saxml/client/python:sax",
     ],
-    srcs_version = "PY3",
     deps = [
         ":constants",
         ":sax_model_server",
@@ -105,7 +102,6 @@ pytype_strict_library(
     pybind_deps = [
         "//saxml/client/python:sax",
     ],
-    srcs_version = "PY3",
     deps = [
         ":constants",
         ":prediction_service_py_pb2",
