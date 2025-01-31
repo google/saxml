@@ -1138,7 +1138,7 @@ class ModeletService:
       platform_chip: Optional[str],
       platform_topology: Optional[str],
       tags: Optional[List[str]],
-      keep_loaded_model: bool = False,
+      keep_statically_loaded_models: bool = False,
       *args,
       **kwargs,
   ):
@@ -1181,11 +1181,11 @@ class ModeletService:
       self._sax_cell = sax_cell
       self._admin_port = admin_port
 
-    # Do not populate loadable models if keep_loaded_model is set, meaning the
-    # modelet is already statically configured. This will guarantee that the
-    # admin server will not ask to load a new model.
+    # Do not populate loadable models if keep_statically_loaded_models is set,
+    # meaning the modelet is already statically configured. This will guarantee
+    # that the admin server will not ask to load a new model.
     self._loadable_model_paths = []
-    if not keep_loaded_model and self._sax_cell is not None:
+    if not keep_statically_loaded_models and self._sax_cell is not None:
       for k, v in servable_model_registry.get_all().items():
         if not issubclass(v, servable_model_params.ServableModelParams):
           continue
@@ -1204,7 +1204,7 @@ class ModeletService:
     self._debug_addr = (
         '' if debug_port is None else ipaddr.Join(ipaddr.MyIPAddr(), debug_port)
     )
-    self._keep_loaded_model = keep_loaded_model
+    self._keep_statically_loaded_models = keep_statically_loaded_models
 
   def model_services(self) -> Dict[str, ModelService]:
     return self._services
@@ -1257,7 +1257,7 @@ class ModeletService:
     if not req.model_key:
       done_with_status(utils.invalid_arg('model_key is not specified.'))
       return
-    if self._keep_loaded_model:
+    if self._keep_statically_loaded_models:
       done_with_status(utils.unavailable('modelet doesn\'t support updates'))
       return
     self._loader.update(req.model_key, dict(req.acls.items))
@@ -1274,7 +1274,7 @@ class ModeletService:
     if not req.model_key:
       done_with_status(utils.invalid_arg('model_key is not specified.'))
       return
-    if self._keep_loaded_model:
+    if self._keep_statically_loaded_models:
       done_with_status(utils.unavailable('modelet doesn\'t support unloads'))
       return
     with self._unload_lock:
@@ -1527,7 +1527,7 @@ class ModelServicesRunner:
       backend: Optional[spmd_backend.SPMDBackend] = None,
       fail_on_error: bool = False,
       early_reject_on_dormant: bool = False,
-      keep_loaded_model: bool = False,
+      keep_statically_loaded_models: bool = False,
       gc_freeze_loaded_models: bool = False,
   ):
     self._is_primary = is_primary_process
@@ -1623,7 +1623,7 @@ class ModelServicesRunner:
         platform_chip=platform_chip,
         platform_topology=platform_topology,
         tags=tags,
-        keep_loaded_model=keep_loaded_model,
+        keep_statically_loaded_models=keep_statically_loaded_models,
     )
     self._platform_topology = platform_topology
     all_grpc_services = [self._modelet_service]

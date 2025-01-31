@@ -105,6 +105,13 @@ _EARLY_REJECT_ON_DORMANT = flags.DEFINE_bool(
     'If true, reject incoming model service requests early when the model'
     ' server is dormant.',
 )
+_KEEP_STATICALLY_LOADED_MODELS = flags.DEFINE_bool(
+    'keep_statically_loaded_models',
+    False,
+    'If true, the server will keep statically configured models specified in'
+    ' --model_keys and decline admin server requests to load new models or'
+    ' update existing models. Must be used in conjunction with --model_keys.',
+)
 
 
 @flags.multi_flags_validator(
@@ -212,6 +219,10 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
     servable_model_registry.MODEL_FILTER_REGEX = re.compile(
         _MODEL_FILTER_REGEX.value
     )
+  if _KEEP_STATICALLY_LOADED_MODELS.value and not _MODEL_KEYS.value:
+    assert _MODEL_KEYS.value, (
+        '--keep_statically_loaded_models requires --model_keys to be set.'
+    )
   set_up()
   if _HOST_ORDINAL.value is None:
     is_primary = jax.process_index() == 0
@@ -237,7 +248,7 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
       tags=_TAGS.value,
       backend=spmd_bknd,
       early_reject_on_dormant=_EARLY_REJECT_ON_DORMANT.value,
-      keep_loaded_model=len(_MODELS.value) > 0,  # pylint: disable=g-explicit-length-test
+      keep_statically_loaded_models=_KEEP_STATICALLY_LOADED_MODELS.value,
   )
   # Start jax.profiler for TensorBoard and profiling in open source.
   if _JAX_PROFILER_PORT.value:
