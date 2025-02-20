@@ -80,8 +80,13 @@ def to_chip_topology(
       '4x4x8': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_4X4X8,
       '4x4x16': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_4X4X16,
       '4x8x8': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_4X8X8,
-      '8x8x12': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_8X8X12,
+      '4x8x16': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_4X8X16,
+      '4x16x16': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_4X16X16,
+      '4x16x32': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_4X16X32,
       '8x8x8': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_8X8X8,
+      '8x8x12': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_8X8X12,
+      '8x8x16': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_8X8X16,
+      '8x16x16': admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_8X16X16,
   }
   return topology_map.get(topology, default)
 

@@ -14,6 +14,8 @@
 
 // Protobuf definitions for the Sax admin service. This API is experimental.
 
+// LINT: LEGACY_NAMES
+
 syntax = "proto3";
 
 package sax;
@@ -135,10 +137,6 @@ message ModelServer {
     CHIP_TOPOLOGY_4X8 = 4;
     CHIP_TOPOLOGY_8X8 = 5;
     CHIP_TOPOLOGY_8X16 = 6;
-    CHIP_TOPOLOGY_8X16X16 = 29;
-    CHIP_TOPOLOGY_4X16X32 = 30;
-    CHIP_TOPOLOGY_4X16X16 = 31;
-    CHIP_TOPOLOGY_8X8X16 = 32;
     CHIP_TOPOLOGY_16X16 = 7;
     CHIP_TOPOLOGY_16X32 = 8;
     CHIP_TOPOLOGY_32X32 = 9;
@@ -152,8 +150,13 @@ message ModelServer {
     CHIP_TOPOLOGY_4X4X8 = 17;
     CHIP_TOPOLOGY_4X4X16 = 18;
     CHIP_TOPOLOGY_4X8X8 = 19;
-    CHIP_TOPOLOGY_8X8X12 = 20;
+    CHIP_TOPOLOGY_4X8X16 = 33;
+    CHIP_TOPOLOGY_4X16X16 = 31;
+    CHIP_TOPOLOGY_4X16X32 = 30;
     CHIP_TOPOLOGY_8X8X8 = 27;
+    CHIP_TOPOLOGY_8X8X12 = 20;
+    CHIP_TOPOLOGY_8X8X16 = 32;
+    CHIP_TOPOLOGY_8X16X16 = 29;
   }
   ChipTopology chip_topology = 2;
 
