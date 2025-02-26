@@ -83,14 +83,14 @@ func (c *ExportCmd) SetFlags(f *flag.FlagSet) {
 // Execute executes ExportCmd.
 func (c *ExportCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) != 3 {
-		log.Errorf("Provide a model ID, a method name and a CNS path.")
+		log.ErrorContextf(ctx, "Provide a model ID, a method name and a CNS path.")
 		return subcommands.ExitUsageError
 	}
 
 	modelName := f.Args()[0]
 	m, err := sax.Open(modelName)
 	if err != nil {
-		log.Errorf("Failed to open model: %v", err)
+		log.ErrorContextf(ctx, "Failed to open model: %v", err)
 		return subcommands.ExitFailure
 	}
 
@@ -98,7 +98,7 @@ func (c *ExportCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	defer cancel()
 	exportPath := f.Args()[2]
 	if err := m.Exporter().Export(ctx, strings.Split(f.Args()[1], ","), exportPath, c.rngSeedMode, c.signatures, c.enableGPUMultiDeviceExecution); err != nil {
-		log.Errorf("Failed to export model: %v", err)
+		log.ErrorContextf(ctx, "Failed to export model: %v", err)
 		return subcommands.ExitFailure
 	}
 

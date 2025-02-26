@@ -79,7 +79,7 @@ func (c *CreateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	}
 
 	if err := cell.Exists(ctx, saxCell); err == nil {
-		log.Errorf("Sax cell %s already exists.", saxCell)
+		log.ErrorContextf(ctx, "Sax cell %s already exists.", saxCell)
 		return subcommands.ExitFailure
 	}
 
@@ -96,30 +96,30 @@ func (c *CreateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 
 	// adminACL is set as the write ACL on the created cell subdirectory.
 	if err := cell.Create(ctx, saxCell, adminACL); err != nil {
-		log.Errorf("Failed to create Sax cell %s: %v", saxCell, err)
+		log.ErrorContextf(ctx, "Failed to create Sax cell %s: %v", saxCell, err)
 		return subcommands.ExitFailure
 	}
 	// adminACL is set as the write ACL and the AdminAcl field content of config.proto.
 	if err := config.Create(ctx, saxCell, fsRoot, adminACL); err != nil {
-		log.Errorf("Failed to create config %s: %v", saxCell, err)
+		log.ErrorContextf(ctx, "Failed to create config %s: %v", saxCell, err)
 		return subcommands.ExitFailure
 	}
 	// Write a dummy message to location.proto for users who never ran an admin cell in a newly
 	// created cell. adminACL is set as the write ACL on location.proto.
 	path, err := cell.Path(ctx, saxCell)
 	if err != nil {
-		log.Errorf("Failed to get path for Sax cell %s: %v", saxCell, err)
+		log.ErrorContextf(ctx, "Failed to get path for Sax cell %s: %v", saxCell, err)
 		return subcommands.ExitFailure
 	}
 	fname := filepath.Join(path, addr.LocationFile)
 	location := &apb.Location{Location: addr.LocationFileInitialContent}
 	content, err := proto.Marshal(location)
 	if err != nil {
-		log.Errorf("Failed to marshal location: %v", err)
+		log.ErrorContextf(ctx, "Failed to marshal location: %v", err)
 		return subcommands.ExitFailure
 	}
 	if err := env.Get().WriteFile(ctx, fname, adminACL, content); err != nil {
-		log.Errorf("Failed to write location file: %v", err)
+		log.ErrorContextf(ctx, "Failed to write location file: %v", err)
 		return subcommands.ExitFailure
 	}
 
@@ -148,7 +148,7 @@ func (c *DeleteCmd) SetFlags(f *flag.FlagSet) {}
 // Execute executes DeleteCmd.
 func (c *DeleteCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) != 1 {
-		log.Errorf("Provide a Sax cell name (e.g. /sax/bar).")
+		log.ErrorContextf(ctx, "Provide a Sax cell name (e.g. /sax/bar).")
 		return subcommands.ExitUsageError
 	}
 	saxCell := f.Args()[0]
@@ -157,22 +157,22 @@ func (c *DeleteCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	var input string
 	_, err := fmt.Scanln(&input)
 	if err != nil {
-		log.Errorf("Failed to read input: %v", err)
+		log.ErrorContextf(ctx, "Failed to read input: %v", err)
 		return subcommands.ExitFailure
 	}
 	input = strings.ToLower(input)
 	if input != "y" && input != "yes" {
-		log.Error("Deletion canceled")
+		log.ErrorContext(ctx, "Deletion canceled")
 		return subcommands.ExitFailure
 	}
 
 	if err := cell.Exists(ctx, saxCell); err != nil {
-		log.Errorf("Sax cell %s does not exist: %v.", saxCell, err)
+		log.ErrorContextf(ctx, "Sax cell %s does not exist: %v.", saxCell, err)
 		return subcommands.ExitFailure
 	}
 
 	if err := cell.Delete(ctx, saxCell); err != nil {
-		log.Errorf("Failed to delete Sax cell %s: %v", saxCell, err)
+		log.ErrorContextf(ctx, "Failed to delete Sax cell %s: %v", saxCell, err)
 		return subcommands.ExitFailure
 	}
 
@@ -267,7 +267,7 @@ func (c *ListCmd) SetFlags(f *flag.FlagSet) {
 func (c *ListCmd) handleSax(ctx context.Context) subcommands.ExitStatus {
 	cells, err := cell.ListAll(ctx)
 	if err != nil {
-		log.Errorf("Failed to list all cells: %v", err)
+		log.ErrorContextf(ctx, "Failed to list all cells: %v", err)
 		return subcommands.ExitFailure
 	}
 	sort.Strings(cells)
@@ -285,7 +285,7 @@ func (c *ListCmd) handleSaxCell(ctx context.Context, cellFullName naming.CellFul
 
 	listResp, err := admin.ListAll(ctx)
 	if err != nil {
-		log.Errorf("Failed to list models: %v", err)
+		log.ErrorContextf(ctx, "Failed to list models: %v", err)
 		return subcommands.ExitFailure
 	}
 	models := listResp.GetPublishedModels()
@@ -301,7 +301,7 @@ func (c *ListCmd) handleSaxCell(ctx context.Context, cellFullName naming.CellFul
 
 func (c *ListCmd) handleSaxModel(ctx context.Context, modelFullName naming.ModelFullName) subcommands.ExitStatus {
 	if !c.modelDetails && !c.methodAcls {
-		log.Errorf("You need to specify one of --%v or --%v for this command to print anything!", detailsFlag, aclsFlag)
+		log.ErrorContextf(ctx, "You need to specify one of --%v or --%v for this command to print anything!", detailsFlag, aclsFlag)
 		return subcommands.ExitFailure
 	}
 
@@ -309,7 +309,7 @@ func (c *ListCmd) handleSaxModel(ctx context.Context, modelFullName naming.Model
 
 	publishedModel, err := admin.List(ctx, modelFullName.ModelFullName())
 	if err != nil || publishedModel == nil {
-		log.Errorf("Failed to list model: %v", err)
+		log.ErrorContextf(ctx, "Failed to list model: %v", err)
 		return subcommands.ExitFailure
 	}
 	model := publishedModel.GetModel()
@@ -345,7 +345,7 @@ func (c *ListCmd) handleSaxModel(ctx context.Context, modelFullName naming.Model
 // Execute executes ListCmd.
 func (c *ListCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) != 1 {
-		log.Errorf("Provide /sax, /sax/<cell>, or /sax/<cell>/<model>")
+		log.ErrorContextf(ctx, "Provide /sax, /sax/<cell>, or /sax/<cell>/<model>")
 		return subcommands.ExitUsageError
 	}
 	arg0 := f.Arg(0)
@@ -364,7 +364,7 @@ func (c *ListCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) sub
 		return c.handleSaxModel(ctx, modelFullName)
 	}
 
-	log.Errorf("Invalid model ID %s:", arg0)
+	log.ErrorContextf(ctx, "Invalid model ID %s:", arg0)
 	return subcommands.ExitFailure
 }
 
@@ -396,19 +396,19 @@ func (c *PublishCmd) SetFlags(f *flag.FlagSet) {
 // Execute executes PublishCmd.
 func (c *PublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) < 4 {
-		log.Errorf("Provide model ID, model path, checkpoint path, and number of replicas, followed by any number of key=val overrides")
+		log.ErrorContextf(ctx, "Provide model ID, model path, checkpoint path, and number of replicas, followed by any number of key=val overrides")
 		return subcommands.ExitUsageError
 	}
 	modelID, err := naming.NewModelFullName(f.Args()[0])
 	if err != nil {
-		log.Errorf("Invalid model ID %s, should be /sax/<cell>/<model>: %v", f.Args()[0], err)
+		log.ErrorContextf(ctx, "Invalid model ID %s, should be /sax/<cell>/<model>: %v", f.Args()[0], err)
 		return subcommands.ExitFailure
 	}
 	modelPath := f.Args()[1]
 	ckptPath := f.Args()[2]
 	numReplicas, err := strconv.Atoi(f.Args()[3])
 	if err != nil {
-		log.Errorf("Provide number of replicas: %v", err)
+		log.ErrorContextf(ctx, "Provide number of replicas: %v", err)
 		return subcommands.ExitUsageError
 	}
 
@@ -419,7 +419,7 @@ func (c *PublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) 
 	for _, item := range f.Args()[4:] {
 		key, val, found := strings.Cut(item, "=")
 		if !found {
-			log.Errorf("Overrides should be of the form key=val")
+			log.ErrorContextf(ctx, "Overrides should be of the form key=val")
 			return subcommands.ExitUsageError
 		}
 		overrides[key] = val
@@ -430,7 +430,7 @@ func (c *PublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) 
 	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	if err := admin.Publish(ctx, modelID.ModelFullName(), modelPath, ckptPath, numReplicas, overrides); err != nil {
-		log.Errorf("Failed to publish model: %v", err)
+		log.ErrorContextf(ctx, "Failed to publish model: %v", err)
 		return subcommands.ExitFailure
 	}
 
@@ -459,12 +459,12 @@ func (c *UnpublishCmd) SetFlags(f *flag.FlagSet) {}
 // Execute executes UnpublishCmd.
 func (c *UnpublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) != 1 {
-		log.Errorf("Provide a single model ID")
+		log.ErrorContextf(ctx, "Provide a single model ID")
 		return subcommands.ExitUsageError
 	}
 	modelID, err := naming.NewModelFullName(f.Args()[0])
 	if err != nil {
-		log.Errorf("Invalid model ID %s, should be /sax/<cell>/<model>: %v", f.Args()[0], err)
+		log.ErrorContextf(ctx, "Invalid model ID %s, should be /sax/<cell>/<model>: %v", f.Args()[0], err)
 		return subcommands.ExitFailure
 	}
 
@@ -473,7 +473,7 @@ func (c *UnpublishCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any
 	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	if err := admin.Unpublish(ctx, modelID.ModelFullName()); err != nil {
-		log.Errorf("Failed to unpublish model: %v", err)
+		log.ErrorContextf(ctx, "Failed to unpublish model: %v", err)
 		return subcommands.ExitFailure
 	}
 
@@ -506,12 +506,12 @@ func (c *UpdateCmd) SetFlags(f *flag.FlagSet) {
 // Execute executes UpdateCmd.
 func (c *UpdateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) != 1 {
-		log.Errorf("Provide a model ID.")
+		log.ErrorContextf(ctx, "Provide a model ID.")
 		return subcommands.ExitUsageError
 	}
 	modelID, err := naming.NewModelFullName(f.Args()[0])
 	if err != nil {
-		log.Errorf("Invalid model ID %s, should be /sax/<cell>/<model>: %v", f.Args()[0], err)
+		log.ErrorContextf(ctx, "Invalid model ID %s, should be /sax/<cell>/<model>: %v", f.Args()[0], err)
 		return subcommands.ExitFailure
 	}
 
@@ -520,23 +520,23 @@ func (c *UpdateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	// Read the current model definition in proto.
 	publishedModel, err := admin.List(ctx, modelID.ModelFullName())
 	if err != nil || publishedModel == nil {
-		log.Errorf("Failed to list model: %v", err)
+		log.ErrorContextf(ctx, "Failed to list model: %v", err)
 		return subcommands.ExitFailure
 	}
 	model := publishedModel.GetModel()
-	log.Infof("Current model definition:\n%v", model)
+	log.InfoContextf(ctx, "Current model definition:\n%v", model)
 
 	if c.numReplicas < 0 {
-		log.Errorf("Num replicas must be non-negative.")
+		log.ErrorContextf(ctx, "Num replicas must be non-negative.")
 		return subcommands.ExitFailure
 	}
 	model.RequestedNumReplicas = int32(c.numReplicas)
-	log.Infof("Updated model definition:\n%v", model)
+	log.InfoContextf(ctx, "Updated model definition:\n%v", model)
 
 	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
 	if err := admin.Update(ctx, model); err != nil {
-		log.Errorf("Failed to update model: %v", err)
+		log.ErrorContextf(ctx, "Failed to update model: %v", err)
 		return subcommands.ExitFailure
 	}
 
@@ -714,12 +714,12 @@ func (c *WatchCmd) SetFlags(f *flag.FlagSet) {}
 // Execute executes WatchCmd.
 func (c *WatchCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	if len(f.Args()) != 1 {
-		log.Errorf("Provide a model ID.")
+		log.ErrorContextf(ctx, "Provide a model ID.")
 		return subcommands.ExitUsageError
 	}
 	modelID, err := naming.NewModelFullName(f.Args()[0])
 	if err != nil {
-		log.Errorf("Invalid model ID %s, should be /sax/<cell>/<model>: %v", f.Args()[0], err)
+		log.ErrorContextf(ctx, "Invalid model ID %s, should be /sax/<cell>/<model>: %v", f.Args()[0], err)
 		return subcommands.ExitFailure
 	}
 
@@ -730,7 +730,7 @@ func (c *WatchCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 	for {
 		wr := <-ch
 		if wr.Err != nil {
-			log.Errorf("WatchAddresses(%v) error: %v", modelID.ModelFullName(), wr.Err)
+			log.ErrorContextf(ctx, "WatchAddresses(%v) error: %v", modelID.ModelFullName(), wr.Err)
 			return subcommands.ExitFailure
 		}
 		if wr.Result.Data != nil {
@@ -748,7 +748,7 @@ func (c *WatchCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 			case watchable.Del:
 				fmt.Printf("- %v\n", m.Val)
 			default:
-				log.Warningf("Unexpected Kind: %v", m.Kind)
+				log.WarningContextf(ctx, "Unexpected Kind: %v", m.Kind)
 			}
 		}
 	}
