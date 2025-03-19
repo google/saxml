@@ -17,6 +17,7 @@ from typing import Optional, Sequence, Union
 
 from praxis import layers
 from praxis import pax_fiddle
+from praxis.layers import checkpoint_policy
 from praxis.layers import multi_query_attention
 from saxml.server.pax.lm import layers as sax_layers
 
@@ -38,6 +39,9 @@ def gemma(
     sliding_window_sizes: Optional[Union[int, Sequence[Optional[int]]]] = None,
     chunked_one_step_attn_num_seq_split=1,
     chunked_ffn_num_seq_split=1,
+    remat_checkpoint_policy: Optional[
+        checkpoint_policy.AutodiffCheckpointType
+    ] = None,
 ) -> pax_fiddle.Config[layers.TransformerLm]:
   """Create a TransformerLm config(template) for Gmini model family.
 
@@ -59,6 +63,8 @@ def gemma(
     sliding_window_sizes: Sliding window sizes for local attention.
     chunked_one_step_attn_num_seq_split: split attention computation in chunks.
     chunked_ffn_num_seq_split: chunk ff weight computation.
+    remat_checkpoint_policy: Remat checkpoint policy for the model, if None, no
+      remat is used.
 
   Returns:
     TransformerLm for Gmini.
@@ -89,6 +95,9 @@ def gemma(
   stacked_transformer_tpl.num_layers = num_layers
   stacked_transformer_tpl.num_heads = num_heads
   stacked_transformer_tpl.dim_per_head = dim_per_head
+  if remat_checkpoint_policy:
+    stacked_transformer_tpl.remat = True
+    stacked_transformer_tpl.checkpoint_policy = remat_checkpoint_policy
   if sliding_window_sizes is not None:
     stacked_transformer_tpl.local_window_size = sliding_window_sizes
   transformer_layer_p = pax_fiddle.Config(layers.Transformer)
@@ -125,7 +134,7 @@ def gemma(
   # FeedForward
   transformer_layer_p.tr_fflayer_tpl = pax_fiddle.Config(
       sax_layers.TransformerFeedForwardWithSeqSplit,
-      chunked_ffn_num_seq_split=chunked_ffn_num_seq_split
+      chunked_ffn_num_seq_split=chunked_ffn_num_seq_split,
   )
   transformer_layer_p.tr_fflayer_tpl.ln_tpl = ln_tpl.clone()
   transformer_layer_p.tr_fflayer_tpl.has_bias = False
