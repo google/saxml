@@ -16,8 +16,8 @@
 from absl.testing import absltest
 from flax import linen as nn
 from flax.core import frozen_dict
-from gemma import modules as gemma_modules
-from gemma import transformer as gemma_transformer
+from gemma.deprecated import modules as gemma_modules
+from gemma.deprecated import transformer as gemma_transformer
 from jax import numpy as jnp
 import numpy as np
 from praxis import test_utils
