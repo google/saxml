@@ -753,3 +753,59 @@ func (c *WatchCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 		}
 	}
 }
+
+// UpdateCheckpointCmd sends an UpdateLoaded command for only the checkpoint path.
+type UpdateCheckpointCmd struct {
+}
+
+// Name returns the name of UpdateCheckpointCmd.
+func (*UpdateCheckpointCmd) Name() string { return "update_checkpoint" }
+
+// Synopsis returns the synopsis of UpdateCheckpointCmd.
+func (*UpdateCheckpointCmd) Synopsis() string { return "Update a model's checkpoint path." }
+
+// Usage returns the full usage of UpdateCheckpointCmd.
+func (*UpdateCheckpointCmd) Usage() string {
+	return `update_checkpoint_path <model ID> <checkpoint path>:
+	Update a model's checkpoint path.
+`
+}
+
+// SetFlags sets flags for UpdateCheckpointCmd.
+func (c *UpdateCheckpointCmd) SetFlags(f *flag.FlagSet) {
+}
+
+// Execute executes UpdateCheckpointCmd.
+func (c *UpdateCheckpointCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
+	if len(f.Args()) != 2 {
+		log.ErrorContextf(ctx, "Provide model path and checkpoint path.")
+		return subcommands.ExitUsageError
+	}
+	modelID, err := naming.NewModelFullName(f.Args()[0])
+	if err != nil {
+		log.ErrorContextf(ctx, "Invalid model ID %s, should be /sax/<cell>/<model>: %v", f.Args()[0], err)
+		return subcommands.ExitFailure
+	}
+
+	admin := saxadmin.Open(modelID.CellFullName())
+
+	publishedModel, err := admin.List(ctx, modelID.ModelFullName())
+	if err != nil || publishedModel == nil {
+		log.ErrorContextf(ctx, "Failed to list model: %v", err)
+		return subcommands.ExitFailure
+	}
+	model := publishedModel.GetModel()
+	log.InfoContextf(ctx, "Current model definition:\n%v", model)
+
+	model.CheckpointPath = f.Args()[1]
+	log.InfoContextf(ctx, "Updated model definition:\n%v", model)
+
+	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
+	defer cancel()
+	if err := admin.Update(ctx, model); err != nil {
+		log.ErrorContextf(ctx, "Failed to update model: %v", err)
+		return subcommands.ExitFailure
+	}
+
+	return subcommands.ExitSuccess
+}

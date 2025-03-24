@@ -47,6 +47,7 @@ func main() {
 	subcommands.Register(&saxcommand.SetACLCmd{}, "")
 	subcommands.Register(&saxcommand.UnpublishCmd{}, "")
 	subcommands.Register(&saxcommand.WatchCmd{}, "")
+	subcommands.Register(&saxcommand.UpdateCheckpointCmd{}, "")
 
 	// export commands.
 	subcommands.Register(&saxcommand.ExportCmd{}, "")
@@ -71,7 +72,7 @@ func main() {
 	go http.ListenAndServe(fmt.Sprintf(":%d", port), nil) // to get /rpcz, etc. for debugging RPCs
 	status := subcommands.Execute(ctx)
 	if status == subcommands.ExitFailure {
-		log.Errorf(`
+		log.ErrorContextf(ctx, `
 Hint:
 * If the command failed with 'deadline exceeded', consider using a timeout longer than the default 60s (e.g., saxutil --sax_timeout=600s).
 * saxutil starts an http server on :8080. You can open http://localhost:8080/rpcz for debugging.
