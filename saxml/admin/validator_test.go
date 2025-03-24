@@ -355,7 +355,7 @@ func TestCheckModelUpdate(t *testing.T) {
 			"model checkpoint changed",
 			validModel(),
 			validModel().withCheckpointPath("google3.learning.multipod.sax.lm.params.ulm2.Base"),
-			cmpopts.AnyError,
+			nil,
 		},
 		{
 			"num replicas changed",

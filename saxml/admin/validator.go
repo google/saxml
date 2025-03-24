@@ -117,7 +117,7 @@ func ValidateModelProto(model *pb.Model, saxCell string) error {
 			return err
 		}
 	}
-	if model.GetAcls() != nil && model.GetAcls().GetItems() != nil {
+	if model.GetAcls().GetItems() != nil {
 		for method, aclname := range model.GetAcls().GetItems() {
 			if _, ok := validMethodName[method]; !ok {
 				return fmt.Errorf("%s is not a valid method name (%v): %w", method, validMethodName, errors.ErrInvalidArgument)
@@ -141,9 +141,7 @@ func ValidateModelUpdate(previous, change *pb.Model, saxCell string) error {
 	if previous.GetModelPath() != change.GetModelPath() {
 		return fmt.Errorf("model path can't be changed: %w", errors.ErrInvalidArgument)
 	}
-	if previous.GetCheckpointPath() != change.GetCheckpointPath() {
-		return fmt.Errorf("checkpoint path can't be changed: %w", errors.ErrInvalidArgument)
-	}
+
 	return nil
 }
 

@@ -317,7 +317,8 @@ func (s *State) act(a *action) {
 	case update:
 		log.V(0).Infof("Updating model %v onto server %v", a.fullName, s.Addr)
 		req := &mpb.UpdateLoadedRequest{
-			ModelKey: a.fullName.ModelFullName(),
+			ModelKey:       a.fullName.ModelFullName(),
+			CheckpointPath: a.model.Checkpoint,
 			Acls: &cpb.AccessControlLists{
 				Items: a.model.Acls,
 			},

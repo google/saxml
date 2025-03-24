@@ -50,6 +50,9 @@ message UpdateLoadedRequest {
 
   // ACLs protecting data methods supported by this model.
   AccessControlLists acls = 2;
+
+  // Checkpoint path.
+  string checkpoint_path = 3;
 }
 
 message UpdateLoadedResponse {}

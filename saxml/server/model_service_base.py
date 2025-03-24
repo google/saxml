@@ -780,6 +780,9 @@ class LoadedModelManager:
         model_path=model_path,
         acls=acls,
         overrides=copy.deepcopy(overrides),
+        prng_key=prng_key,
+        params=params,
+        register_methods_callback=register_methods_callback,
     )
     self._models[key] = loaded
     logging.info('Successfully loaded model for key: %s', key)
@@ -789,9 +792,12 @@ class LoadedModelManager:
     """Updates a model's metadata. E.g., ACLs."""
     model = self.maybe_get_model(key)
     if model:
-      model.set_acls(acls)
       meta = self._model_metadata.get(key, None)
-      if meta:
+      if not meta:
+        logging.error('No metadata for key=%s.', key)
+        return
+      if acls:
+        model.set_acls(acls)
         meta['acls'] = acls
 
   def unload(self, key: str) -> None:
@@ -840,6 +846,11 @@ class LoadedModelManager:
 
   def get_model_metadata(self, key: str) -> Mapping[str, Any]:
     return self._model_metadata[key]
+
+  def maybe_get_model_metadata(self, key: str) -> Mapping[str, Any]| None:
+    if key in self._model_metadata:
+      return self._model_metadata[key]
+    return None
 
   def maybe_get_model(self, key: str) -> Optional[servable_model.ServableModel]:
     return self._models.get(key)
@@ -1257,10 +1268,9 @@ class ModeletService:
     if not req.model_key:
       done_with_status(utils.invalid_arg('model_key is not specified.'))
       return
-    if self._keep_statically_loaded_models:
-      done_with_status(utils.unavailable('modelet doesn\'t support updates'))
-      return
-    self._loader.update(req.model_key, dict(req.acls.items))
+    self._loader.update(
+        req.model_key, dict(req.acls.items),
+    )
     done_with_status(utils.ok())
 
   def unload(
@@ -1273,9 +1283,6 @@ class ModeletService:
     """Unloads a model."""
     if not req.model_key:
       done_with_status(utils.invalid_arg('model_key is not specified.'))
-      return
-    if self._keep_statically_loaded_models:
-      done_with_status(utils.unavailable('modelet doesn\'t support unloads'))
       return
     with self._unload_lock:
       if req.model_key in self._models_being_unloaded:
@@ -1432,6 +1439,50 @@ class ModeletServiceGRPC(ModeletService, modelet_pb2_grpc.ModeletServicer):
     return resp
 
   async def UpdateLoaded(self, request, context):
+    if request.checkpoint_path:
+      start_time = time.time()
+      # For checkpoint changes, unload & reload the model with other parameters
+      # unchanged.
+      model = self._loader.maybe_get_model(request.model_key)
+      if not model:
+        context.set_code(grpc.StatusCode.NOT_FOUND)
+        context.set_details(f'Model {request.model_key} not found.')
+        return modelet_pb2.UpdateLoadedResponse()
+      meta = self._loader.maybe_get_model_metadata(request.model_key)
+      if not meta:
+        logging.error('No metadata for "%s", cannot update.', request.model_key)
+        context.set_code(grpc.StatusCode.NOT_FOUND)
+        context.set_details(
+            f'No metadata for "{request.model_key}" cannot update.'
+        )
+        return modelet_pb2.UpdateLoadedResponse()
+      else:
+        overrides = copy.deepcopy(meta['overrides'])
+        model_path = copy.deepcopy(meta['model_path'])
+        acls = copy.deepcopy(meta['acls'])
+      unload_resp = modelet_pb2.UnloadResponse()
+      unload_fut, unload_done = self._future_and_done_cb(context)
+      self.unload(
+          utils.RPCContextGRPC(context), request, unload_resp, unload_done
+      )
+
+      await unload_fut
+
+      await self.Load(
+          modelet_pb2.LoadRequest(
+              model_key=request.model_key,
+              model_path=model_path,
+              checkpoint_path=request.checkpoint_path,
+              acls=request.acls if request.acls else acls,
+              overrides=overrides,
+          ),
+          context,
+      )
+      context.set_code(grpc.StatusCode.OK)
+      logging.info('Checkpoint update took %s [sec].', time.time() - start_time)
+      return modelet_pb2.UpdateLoadedResponse()
+
+    # If the checkpoint is unchanged just update acls via the `update` method.
     resp = modelet_pb2.UpdateLoadedResponse()
     fut, done = self._future_and_done_cb(context)
     self.update(request, done)
@@ -1440,6 +1491,14 @@ class ModeletServiceGRPC(ModeletService, modelet_pb2_grpc.ModeletServicer):
 
   async def Unload(self, request, context):
     resp = modelet_pb2.UnloadResponse()
+    # Reject Unload requests at this level so ModeletService.unload can be used
+    # for checkpoint updates.
+    if self._keep_statically_loaded_models:
+      context.set_code(grpc.StatusCode.UNAVAILABLE)
+      context.set_details(
+          'Unloads not supported as keep_statically_loaded_models is set.'
+      )
+      return resp
     fut, done = self._future_and_done_cb(context)
     self.unload(utils.RPCContextGRPC(context), request, resp, done)
     await fut
