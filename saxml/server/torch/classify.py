@@ -12,12 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Image classification models."""
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 import numpy as np
 from paxml.tasks.vision import resnet_preprocessing
-from saxml.server import servable_model_params
 from saxml.server import servable_model_registry
-from saxml.server import utils
 from saxml.server.pax.vision import imagenet_metadata
 from saxml.server.services import vision_service
 from saxml.server.torch import servable_model
@@ -33,7 +31,7 @@ VisionMethodName = vision_service.VisionMethodName
 
 
 @servable_model_registry.register
-class ResNetModel(servable_model_params.ServableModelParams):
+class ResNetModel(servable_model.ServableModelParams):
   """Model params for a torchvision resnet50.
 
   Available checkpoints:
@@ -55,23 +53,6 @@ class ResNetModel(servable_model_params.ServableModelParams):
         torch.hub.load_state_dict_from_url(checkpoint_path, progress=True)
     )
     return ServableModel(model, self.methods(), device="cuda")
-
-  @classmethod
-  def get_supported_device_mesh(
-      cls,
-  ) -> Tuple[utils.Status, Optional[np.ndarray]]:
-    """Returns OK status and the supported device mesh, non-OK if this model is not supported."""
-    if torch.cuda.is_available():
-      return utils.ok(), None
-    else:
-      return utils.unimplemented("CUDA is not available!"), None
-
-  @classmethod
-  def check_serving_platform(cls) -> utils.Status:
-    if torch.cuda.is_available():
-      return utils.ok()
-    else:
-      return utils.unimplemented("CUDA is not available!")
 
   def methods(self) -> Dict[str, servable_model.ServableMethodParams]:
     return {

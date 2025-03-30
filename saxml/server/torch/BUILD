@@ -12,6 +12,7 @@ create_server_binary(
     imports_targets = [
         ":classify",
         ":detect",
+        ":lm",
     ],
 )
 
@@ -21,6 +22,7 @@ pytype_strict_library(
     deps = [
         "//saxml/server:servable_model",
         "//saxml/server:servable_model_params",
+        "//saxml/server:utils",
         "//third_party/py/numpy",
         "//third_party/py/torch:pytorch",
     ],
@@ -31,9 +33,7 @@ pytype_strict_library(
     srcs = ["classify.py"],
     deps = [
         ":servable_model",
-        "//saxml/server:servable_model_params",
         "//saxml/server:servable_model_registry",
-        "//saxml/server:utils",
         "//saxml/server/pax/vision:imagenet_metadata",
         "//saxml/server/services:vision_service",
         "//third_party/py/numpy",
@@ -62,9 +62,7 @@ pytype_strict_library(
     srcs = ["detect.py"],
     deps = [
         ":servable_model",
-        "//saxml/server:servable_model_params",
         "//saxml/server:servable_model_registry",
-        "//saxml/server:utils",
         "//saxml/server/services:vision_service",
         "//third_party/py/detectron2",
         "//third_party/py/numpy",
@@ -84,6 +82,46 @@ py_strict_test(
         "//third_party/py/detectron2",
         # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
         "//third_party/py/praxis:py_utils",
+        "//third_party/py/tensorflow:tensorflow_no_contrib",
+    ],
+)
+
+pytype_strict_library(
+    name = "lm",
+    srcs = ["lm.py"],
+    deps = [
+        ":servable_model",
+        "//saxml/protobuf:multimodal_py_pb2",
+        "//saxml/server:servable_model_registry",
+        "//saxml/server/services:lm_service",
+        "//saxml/server/services:multimodal_service",
+        "//third_party/open_models_release/gemma_pytorch/gemma:config",
+        "//third_party/open_models_release/gemma_pytorch/gemma:gemma3_model",
+        "//third_party/py/PIL:pil",
+        "//third_party/py/torch:pytorch",
+    ],
+)
+
+filegroup(
+    name = "testdata",
+    testonly = 1,
+    srcs = glob(["testdata/*"]),
+)
+
+py_strict_test(
+    name = "lm_test",
+    srcs = ["lm_test.py"],
+    data = [
+        ":testdata",
+    ],
+    deps = [
+        ":lm",
+        ":servable_model",
+        "//third_party/py/absl-py/testing:absltest",
+        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
+        "//saxml/protobuf:multimodal_py_pb2",
+        "//saxml/server/services:lm_service",
+        "//saxml/server/services:multimodal_service",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )

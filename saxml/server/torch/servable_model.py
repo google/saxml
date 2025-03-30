@@ -15,12 +15,12 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 from saxml.server import servable_model
 from saxml.server import servable_model_params
-
+from saxml.server import utils
 import torch
 from torch import nn
 import torch.utils._pytree as pytree
@@ -150,6 +150,27 @@ class ServableMethodParams(servable_model_params.ServableMethodParams):
 
   def get_batching_wait_secs(self) -> Optional[float]:
     return None
+
+
+class ServableModelParams(servable_model_params.ServableModelParams):
+  """Base class for a pytorch model."""
+
+  @classmethod
+  def get_supported_device_mesh(
+      cls,
+  ) -> Tuple[utils.Status, Optional[np.ndarray]]:
+    """Returns OK status and the supported device mesh, non-OK if this model is not supported."""
+    if torch.cuda.is_available():
+      return utils.ok(), None
+    else:
+      return utils.unimplemented("CUDA is not available!"), None
+
+  @classmethod
+  def check_serving_platform(cls) -> utils.Status:
+    if torch.cuda.is_available():
+      return utils.ok()
+    else:
+      return utils.unimplemented("CUDA is not available!")
 
 
 class ServableModel(servable_model.ServableModel):
