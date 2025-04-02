@@ -1,4 +1,4 @@
-load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_library")
+load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_binary", "pytype_strict_library")
 load("//saxml/server:build_defs.bzl", "create_server_binary")
 
 licenses(["notice"])
@@ -13,6 +13,40 @@ create_server_binary(
         ":classify",
         ":detect",
         ":lm",
+    ],
+)
+
+pytype_strict_binary(
+    name = "vllm_server",
+    srcs = [
+        "model_service_main.py",
+        "vllm.py",
+    ],
+    main = "model_service_main.py",
+    tags = [
+        # This binary is designed for external use.
+        "manual",
+        "nobuilder",
+        "nopresubmit",
+        "norapid",
+        "notap",
+    ],
+    deps = [
+        "//net/grpc/python:loas2",
+        "//saxml/protobuf:modelet_py_pb2",
+        "//saxml/protobuf:modelet_py_pb2_grpc",
+        "//saxml/server:model_service_base",
+        "//saxml/server:servable_model",
+        "//saxml/server:servable_model_registry",
+        "//saxml/server:spmd_backend",
+        "//saxml/server:utils",
+        "//saxml/server/services:lm_service",
+        "//third_party/py/absl-py:app",
+        "//third_party/py/absl-py/flags",
+        "//third_party/py/absl-py/logging",
+        "//third_party/py/grpcio",
+        "//third_party/py/numpy",
+        "//third_party/py/tensorflow:tensorflow_no_contrib",
     ],
 )
 
@@ -95,9 +129,6 @@ pytype_strict_library(
         "//saxml/server:servable_model_registry",
         "//saxml/server/services:lm_service",
         "//saxml/server/services:multimodal_service",
-        "//third_party/open_models_release/gemma_pytorch/gemma:config",
-        "//third_party/open_models_release/gemma_pytorch/gemma:gemma3_model",
-        "//third_party/py/PIL:pil",
         "//third_party/py/torch:pytorch",
     ],
 )
@@ -110,6 +141,7 @@ filegroup(
 
 py_strict_test(
     name = "lm_test",
+    size = "large",
     srcs = ["lm_test.py"],
     data = [
         ":testdata",

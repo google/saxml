@@ -19,19 +19,8 @@ licenses(["notice"])
 # listing your team. Your model params and implementation should be in
 # that directory. If the above suggestion is not actionable for you,
 # please schedule a meeting talking to zhifengc@.
-package_group(
-    name = "friends",
-    packages = [
-        "//ads/adsml/heinzelmaennchen/...",
-        "//cloud/ai/platform/prediction/oss_lm/...",
-        "//learning/bulk_inference/jax_on_beam/...",
-        # //waymo/... is siloed.
-        "//waymo/ml/...",
-        "//waymo/planner/...",
-        "//waymo/research/...",
-        "//wireless/android/apps/pixel/agent/ml/serving/sax/...",
-    ],
-)
+# Please also update the copybara file to exclude the new directory.
+package_group(name = "friends")
 
 bzl_library(
     name = "build_defs_bzl",
@@ -290,10 +279,10 @@ pytype_strict_library(
     srcs = ["model_service_main.py"],
     visibility = default_visibility + ["//saxml/server:friends"],
     deps = [
+        "# Unused internal json_flag",
         ":model_service_base",
         ":servable_model_registry",
         ":spmd_backend",
-        "//pyglib/flags/contrib:json_flag",
         "//saxml/protobuf:modelet_py_pb2",
         "//saxml/protobuf:modelet_py_pb2_grpc",
         "//saxml/server/jax:jax_spmd_backend",

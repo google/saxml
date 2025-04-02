@@ -1,0 +1,13 @@
+importlib-metadata
+absl-py
+blobfile
+grpcio
+grpcio-reflection==1.48.2  # lower protobuf version requirement for paxml
+libtpu
+portpicker
+jax
+jaxtyping
+numpy
+pillow
+transformers
+vllm

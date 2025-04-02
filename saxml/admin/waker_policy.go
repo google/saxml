@@ -54,6 +54,13 @@ func NewWakerPolicy() *WakerPolicy {
 	}
 }
 
+func maxString(str1, str2 serverAddr) serverAddr {
+	if str1 > str2 {
+		return str1
+	}
+	return str2
+}
+
 // AddServerStatus adds a model server status to the policy module for consideration.
 func (w *WakerPolicy) AddServerStatus(server string, statusFeeder ServerStatusFeeder) {
 	addr := serverAddr(server)
@@ -66,7 +73,7 @@ func (w *WakerPolicy) AddServerStatus(server string, statusFeeder ServerStatusFe
 		stats.totalServerCount++
 		if lastReported.IsDormant {
 			stats.dormantServerCount++
-			stats.candidateToWakeUp = max(stats.candidateToWakeUp, addr)
+			stats.candidateToWakeUp = maxString(stats.candidateToWakeUp, addr)
 			hist := lastReported.EarlyRejectionErrorsPerSecond
 			stats.sumErrorsRateChange = hist[0] - hist[1]
 		}
