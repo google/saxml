@@ -32,11 +32,11 @@ pytype_strict_binary(
         "notap",
     ],
     deps = [
-        "//net/grpc/python:loas2",
         "//saxml/protobuf:modelet_py_pb2",
         "//saxml/protobuf:modelet_py_pb2_grpc",
         "//saxml/server:model_service_base",
         "//saxml/server:servable_model",
+        "//saxml/server:servable_model_params",
         "//saxml/server:servable_model_registry",
         "//saxml/server:spmd_backend",
         "//saxml/server:utils",
@@ -46,7 +46,7 @@ pytype_strict_binary(
         "//third_party/py/absl-py/logging",
         "//third_party/py/grpcio",
         "//third_party/py/numpy",
-        "//third_party/py/tensorflow:tensorflow_no_contrib",
+        "//third_party/py/vllm",
     ],
 )
 

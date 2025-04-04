@@ -15,7 +15,7 @@
 
 import abc
 import json
-from typing import Any, Dict, List, Optional, Self, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from absl import logging
 import numpy as np
@@ -143,7 +143,7 @@ class ServableModelParams(abc.ABC):
   @classmethod
   def apply_model_overrides(
       cls, overrides: Dict[str, Any]
-  ) -> type[Self]:
+  ) -> type['ServableModelParams']:
     """Applies model config overrides received from Publish.
 
     The default handling of overrides is as follows:

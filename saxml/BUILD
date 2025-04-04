@@ -11,11 +11,7 @@ exports_files(["LICENSE"])
 
 package_group(
     name = "internal",
-    packages = [
-        "//gdm/sys/gammaray/...",
-        "//gdm/sys/sax/...",
-        "//saxml/...",
-    ],
+    packages = ["//saxml/..."],
 )
 
 bzl_library(

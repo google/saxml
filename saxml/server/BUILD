@@ -279,7 +279,6 @@ pytype_strict_library(
     srcs = ["model_service_main.py"],
     visibility = default_visibility + ["//saxml/server:friends"],
     deps = [
-        "# Unused internal json_flag",
         ":model_service_base",
         ":servable_model_registry",
         ":spmd_backend",

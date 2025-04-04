@@ -259,7 +259,7 @@ func (a *Admin) getSaxCellACL(ctx context.Context, saxCell string) (string, erro
 		log.ErrorContextf(ctx, "Failed to load config: %v", err)
 		return "", err
 	}
-	log.Printf("Current config definition:\n%v", cfg)
+	// log.InfoContextf(ctx, "Current config definition:\n%v", cfg)
 
 	return cfg.GetAdminAcl(), nil
 }
@@ -271,11 +271,11 @@ func (a *Admin) setSaxCellACL(ctx context.Context, saxCell string, acl string) e
 		log.ErrorContextf(ctx, "Failed to load config: %v", err)
 		return err
 	}
-	log.Printf("Current config definition:\n%v", cfg)
+	// log.InfoContextf(ctx, "Current config definition:\n%v", cfg)
 
 	change := proto.Clone(cfg).(*pb.Config)
 	change.AdminAcl = acl
-	log.Printf("Updated config definition:\n%v", change)
+	// log.InfoContextf(ctx, "Updated config definition:\n%v", change)
 
 	if err := validator.ValidateConfigUpdate(cfg, change); err != nil {
 		log.ErrorContextf(ctx, "Invalid config update: %v", err)
@@ -297,7 +297,7 @@ func (a *Admin) getSaxModelACL(ctx context.Context, modelName string) (string, e
 		return "", err
 	}
 	model := publishedModel.GetModel()
-	log.Printf("Current model definition:\n%v", model)
+	// log.InfoContextf(ctx, "Current model definition:\n%v", model)
 
 	return model.GetAdminAcl(), nil
 }
@@ -311,12 +311,12 @@ func (a *Admin) setSaxModelACL(ctx context.Context, modelName string, acl string
 		return err
 	}
 	model := publishedModel.GetModel()
-	log.Printf("Current model definition:\n%v", model)
+	// log.InfoContextf(ctx, "Current model definition:\n%v", model)
 
 	// Set model admin method ACLs.
 	model.AdminAcl = acl
 
-	log.Printf("Updated model definition:\n%v", model)
+	// log.InfoContextf(ctx, "Updated model definition:\n%v", model)
 	if err := a.Update(ctx, model); err != nil {
 		log.ErrorContextf(ctx, "Failed to update model: %v", err)
 		return err
@@ -338,7 +338,7 @@ func (a *Admin) GetSaxModelDataMethodACLs(ctx context.Context, modelName string)
 		return nil, err
 	}
 	model := publishedModel.GetModel()
-	log.Printf("Current model definition:\n%v", model)
+	// log.InfoContextf(ctx, "Current model definition:\n%v", model)
 
 	// Get model data method ACLs.
 	return model.GetAcls(), nil
@@ -358,7 +358,7 @@ func (a *Admin) SetSaxModelDataMethodACL(ctx context.Context, modelName string, 
 		return err
 	}
 	model := publishedModel.GetModel()
-	log.Printf("Current model definition:\n%v", model)
+	// log.InfoContextf(ctx, "Current model definition:\n%v", model)
 
 	// Set model data method ACLs.
 	acls := model.GetAcls()
@@ -377,7 +377,7 @@ func (a *Admin) SetSaxModelDataMethodACL(ctx context.Context, modelName string, 
 		items[method] = acl
 	}
 
-	log.Printf("Updated model definition:\n%v", model)
+	// log.InfoContextf(ctx, "Updated model definition:\n%v", model)
 	if err := a.Update(ctx, model); err != nil {
 		log.ErrorContextf(ctx, "Failed to update model: %v", err)
 		return err

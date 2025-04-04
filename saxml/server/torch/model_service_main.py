@@ -158,7 +158,7 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
         _MODEL_KEYS.value
     ), '--keep_statically_loaded_models requires --model_keys to be set.'
   seed = 1234 if _DETERMINISTIC_RNG.value else None
-  is_primary = _HOST_ORDINAL.value == 0
+  is_primary = _HOST_ORDINAL.value is None or _HOST_ORDINAL.value == 0
   spmd_bknd = spmd_backend.SingleHostBackend()
 
   runner = model_service_base.ModelServicesRunner(
@@ -202,7 +202,12 @@ def run(channel_creds: Optional[grpc.ChannelCredentials]) -> None:
 
 def main(argv: Sequence[str]) -> None:
   del argv
-  # TODO(sax-dev): Add secure channel for OSS.
+  if '_import_modules' in globals():
+    # pytype: disable=name-error
+    # pylint: disable=undefined-variable
+    _import_modules()
+    # pylint: enable=undefined-variable
+    # pytype: enable=name-error
   run(None)
 
 

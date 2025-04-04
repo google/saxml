@@ -1,3 +1,4 @@
+--find-links https://storage.googleapis.com/jax-releases/jax_nightly_releases.html
 --find-links https://storage.googleapis.com/jax-releases/libtpu_releases.html
 
 importlib-metadata

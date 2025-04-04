@@ -13,10 +13,12 @@
 # limitations under the License.
 """vLLM (https://github.com/vllm-project/vllm) integration with SAX."""
 
-from typing import Any, Dict, List, Optional, Tuple
+import dataclasses
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 from saxml.server import servable_model
+from saxml.server import servable_model_params
 from saxml.server import servable_model_registry
 from saxml.server import utils
 from saxml.server.services import lm_service
@@ -27,14 +29,47 @@ HostTensors = Any
 InputShapeInfo = servable_model.InputShapeInfo
 
 
+@dataclasses.dataclass
+class ServableMethodParams(servable_model_params.ServableMethodParams):
+  """A base param class for a torch method.
+
+  Attributes:
+    method_cls: the class name to construct the ServableMethod instance.
+    method_attrs: extra attributes to assign to the ServableMethod.
+  """
+
+  method_cls: Type[servable_model.ServableMethod]
+  method_attrs: Dict[str, Any] = dataclasses.field(default_factory=dict)
+
+  batch_size: Union[int, List[int]] = 1
+  max_live_batches: int = 4
+  extra_inputs: Optional[Dict[str, float]] = None
+  extra_inputs_dtypes: Optional[Dict[str, np.dtype]] = None
+
+  def get_batch_size(self) -> Union[int, List[int]]:
+    return self.batch_size
+
+  def get_max_live_batches(self) -> int:
+    return self.max_live_batches
+
+  def get_default_extra_inputs(self) -> Optional[Dict[str, float]]:
+    return self.extra_inputs
+
+  def get_extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype]]:
+    return self.extra_inputs_dtypes
+
+  def get_batching_wait_secs(self) -> Optional[float]:
+    return None
+
+
 # Base class might be simplified as vLLM handles more internally
 class TextSampleMethod(servable_model.ServableMethod):
   """Base class for lm.generate method using a vLLM backend."""
 
   def __init__(
       self,
-      llm: vllm.LLM,  # Pass the vLLM llm instance
-      method_params: servable_model.ServableMethodParams,
+      llm: Any,  # Pass the vLLM llm instance
+      method_params: ServableMethodParams,
       device: str,  # Keep device info if needed, though vLLM manages it
   ):
     """Constructor.
@@ -110,8 +145,8 @@ class VLLMSaxServableModel(servable_model.ServableModel):
 
   def __init__(
       self,
-      llm: vllm.LLM,  # Pass the llm instance
-      method_params: Dict[str, servable_model.ServableMethodParams],
+      llm: Any,  # Pass the llm instance
+      method_params: Dict[str, ServableMethodParams],
       device: str,
   ):
     super().__init__()  # Call grand-parent init if necessary
@@ -130,7 +165,7 @@ class VLLMSaxServableModel(servable_model.ServableModel):
 
 
 # --- Servable Model Parameter Definition ---
-class VLLMServableModel(servable_model.ServableModelParams):
+class VLLMServableModel(servable_model_params.ServableModelParams):
   """ServableModelParams for Gemma models served via vLLM."""
 
   # --- Configuration Flags ---
@@ -196,7 +231,7 @@ class VLLMServableModel(servable_model.ServableModelParams):
         device=self.DEVICE,
     )
 
-  def methods(self) -> Dict[str, servable_model.ServableMethodParams]:
+  def methods(self) -> Dict[str, ServableMethodParams]:
     """Defines the servable methods for this model."""
     # Define default sampling parameters for vLLM via method_attrs
     vllm_sampling_attrs = {
@@ -208,7 +243,7 @@ class VLLMServableModel(servable_model.ServableModelParams):
     }
 
     return {
-        lm_service.LMMethodName.GENERATE: servable_model.ServableMethodParams(
+        lm_service.LMMethodName.GENERATE: ServableMethodParams(
             method_cls=TextSampleMethod,  # Use the vLLM method class
             method_attrs=vllm_sampling_attrs,
             batch_size=32,

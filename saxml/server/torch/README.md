@@ -73,7 +73,6 @@ as described below.
 ```
 cp requirements-torch.txt requirements.txt
 
-pip install -r requirements.txt
 ```
 
 ### Start the Sax admin server

@@ -524,14 +524,14 @@ func (c *UpdateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 		return subcommands.ExitFailure
 	}
 	model := publishedModel.GetModel()
-	log.Printf("Current model definition:\n%v", model)
+	// log.InfoContextf(ctx, "Current model definition:\n%v", model)
 
 	if c.numReplicas < 0 {
 		log.ErrorContextf(ctx, "Num replicas must be non-negative.")
 		return subcommands.ExitFailure
 	}
 	model.RequestedNumReplicas = int32(c.numReplicas)
-	log.Printf("Updated model definition:\n%v", model)
+	// log.InfoContextf(ctx, "Updated model definition:\n%v", model)
 
 	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
@@ -748,7 +748,7 @@ func (c *WatchCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 			case watchable.Del:
 				fmt.Printf("- %v\n", m.Val)
 			default:
-				log.V(1).Printf("Unexpected Kind: %v", m.Kind)
+				log.Warnf("Unexpected Kind: %v", m.Kind)
 			}
 		}
 	}
@@ -795,10 +795,10 @@ func (c *UpdateCheckpointCmd) Execute(ctx context.Context, f *flag.FlagSet, args
 		return subcommands.ExitFailure
 	}
 	model := publishedModel.GetModel()
-	log.Printf("Current model definition:\n%v", model)
+	// log.InfoContextf(ctx, "Current model definition:\n%v", model)
 
 	model.CheckpointPath = f.Args()[1]
-	log.Printf("Updated model definition:\n%v", model)
+	// log.InfoContextf(ctx, "Updated model definition:\n%v", model)
 
 	ctx, cancel := context.WithTimeout(ctx, *cmdTimeout)
 	defer cancel()
