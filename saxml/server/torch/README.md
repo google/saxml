@@ -123,15 +123,14 @@ Install the [Nvidia GPU driver](https://www.nvidia.com/download/index.aspx),
 [CUDA](https://developer.nvidia.com/cuda-downloads), and
 [cuDNN](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html).
 
-Find your libcudnn.so.9 and libcupti.so.12, for example, in
-/usr/local/lib/python3.11/dist-packages/nvidia/,
+Find your libcupti.so.12, for example, in
+/opt/conda/lib/python3.10/site-packages/nvidia/cuda_cupti/lib,
 then add then to LD_LIBRARY_PATH
 
 ```
-sudo find / -type f -name libcudnn.so.9
-sudo find / -type f -name libcupti.so.12
+sudo find / -name libcupti.so.12
 
-export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cuda_cupti/lib/:/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib/:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=/opt/conda/lib/python3.10/site-packages/nvidia/cuda_cupti/lib:/opt/conda/lib/python3.10/site-packages/nvidia/nccl/lib/:$LD_LIBRARY_PATH
 ```
 
 Inside the VM instance, clone the Sax repo and initialize the environment:
@@ -186,8 +185,8 @@ and using the model with a dummy checkpoint.
 
 ```
 saxutil publish \
-  /sax/test/gemma4b \
-  saxml.server.torch.vllm.Gemma4B \
+  /sax/test/QWen1P5B \
+  saxml.server.torch.vllm_params.QWen1P5B \
   None \
   1
 ```
@@ -196,27 +195,13 @@ Check if the model is loaded by looking at the "selected replica address"
 column of this command's output:
 
 ```
-saxutil ls /sax/test/gemma4b
+saxutil ls /sax/test/QWen1P5B
 ```
 
 When the model is loaded, issue a query:
 
 ```
-saxutil lm.generate /sax/test/gemma4b "Who is Harry Porter's mother?"
+saxutil lm.generate /sax/test/QWen1P5B "Who is Harry Porter's mother?"
 ```
 
 The result will be printed in the terminal.
-
-To use a real checkpoint with the model, follow the
-[Paxml tutorial](https://github.com/google/paxml) to generate a checkpoint. The
-model can then be published in Sax like this:
-
-```
-saxutil publish \
-  /sax/test/gemma4b \
-  saxml.server.torch.vllm.Gemma4b \
-  gs://${GSBUCKET}/ckpts/gemma4b-it.ckpt \
-  1
-```
-
-Use the same `saxutil lm.generate` command as above to query the model.

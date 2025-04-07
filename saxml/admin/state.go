@@ -244,10 +244,10 @@ func (s *State) Load(ctx context.Context, fullName naming.ModelFullName, spec *a
 		}
 	}
 
-	// log.V(2).InfoContextf(ctx, "Loading model %v with %v", fullName, spec)
+	log.V(2).Infof("Info: Loading model %v with %v", fullName, spec)
 	model := newModel(spec)
 	s.wanted[fullName] = model
-	// log.InfoContextf(ctx, "Enqueuing action %v of model %v on state %p, queue size %d", load, fullName, s, s.queue.Size())
+	log.Infof("Info: Enqueuing action %v of model %v on state %p, queue size %d", load, fullName, s, s.queue.Size())
 	s.queue.Put(&action{load, ctx, fullName, model.clone(), waiter})
 	return nil
 }
@@ -274,9 +274,9 @@ func (s *State) Unload(ctx context.Context, fullName naming.ModelFullName, waite
 
 	for existing, model := range s.wanted {
 		if existing == fullName {
-			// log.V(2).InfoContextf(ctx, "Unloading model %v", fullName)
+			log.V(2).Infof("Info: Unloading model %v", fullName)
 			delete(s.wanted, fullName)
-			// log.InfoContextf(ctx, "Enqueuing action %v of model %v on state %p, queue size %d", unload, fullName, s, s.queue.Size())
+			log.Infof("Info: Enqueuing action %v of model %v on state %p, queue size %d", unload, fullName, s, s.queue.Size())
 			s.queue.Put(&action{unload, ctx, fullName, model, waiter})
 			return nil
 		}
@@ -354,7 +354,7 @@ func (s *State) act(a *action) {
 		ctx, cancel := context.WithTimeout(a.ctx, wakeUpTimeout)
 		defer cancel()
 		if _, err := s.client.WakeUp(ctx, &mpb.WakeUpRequest{}); err != nil {
-			log.Warnf("Failed to wake up server %v (%v)", s.Addr, err)
+			log.Infof("Warning: Failed to wake up server %v (%v)", s.Addr, err)
 		}
 	default:
 		log.Warningf("Unknown action type %T", a)
@@ -433,7 +433,7 @@ func (s *State) initialize(ctx context.Context, modelFinder ModelFinder) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// log.V(3).InfoContextf(ctx, "The server sees %v", seen)
+	log.V(3).Infof("Info: The server sees %v", seen)
 
 	for fullName, info := range seen {
 		status := info.Status

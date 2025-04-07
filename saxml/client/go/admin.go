@@ -256,10 +256,10 @@ func (a *Admin) Stats(ctx context.Context, modelID string) (*pb.StatsResponse, e
 func (a *Admin) getSaxCellACL(ctx context.Context, saxCell string) (string, error) {
 	cfg, err := config.Load(ctx, saxCell)
 	if err != nil {
-		log.ErrorContextf(ctx, "Failed to load config: %v", err)
+		log.Errorf("Error: Failed to load config: %v", err)
 		return "", err
 	}
-	// log.InfoContextf(ctx, "Current config definition:\n%v", cfg)
+	log.Infof("Info: Current config definition:\n%v", cfg)
 
 	return cfg.GetAdminAcl(), nil
 }
@@ -268,21 +268,21 @@ func (a *Admin) getSaxCellACL(ctx context.Context, saxCell string) (string, erro
 func (a *Admin) setSaxCellACL(ctx context.Context, saxCell string, acl string) error {
 	cfg, err := config.Load(ctx, saxCell)
 	if err != nil {
-		log.ErrorContextf(ctx, "Failed to load config: %v", err)
+		log.Errorf("Error: Failed to load config: %v", err)
 		return err
 	}
-	// log.InfoContextf(ctx, "Current config definition:\n%v", cfg)
+	log.Infof("Info: Current config definition:\n%v", cfg)
 
 	change := proto.Clone(cfg).(*pb.Config)
 	change.AdminAcl = acl
-	// log.InfoContextf(ctx, "Updated config definition:\n%v", change)
+	log.Infof("Info: Updated config definition:\n%v", change)
 
 	if err := validator.ValidateConfigUpdate(cfg, change); err != nil {
-		log.ErrorContextf(ctx, "Invalid config update: %v", err)
+		log.Errorf("Error: Invalid config update: %v", err)
 		return err
 	}
 	if err := config.Save(ctx, change, saxCell, acl); err != nil {
-		log.ErrorContextf(ctx, "Failed to save config: %v", err)
+		log.Errorf("Error: Failed to save config: %v", err)
 		return err
 	}
 	return nil
@@ -293,11 +293,11 @@ func (a *Admin) getSaxModelACL(ctx context.Context, modelName string) (string, e
 	// Read the current model definition in proto.
 	publishedModel, err := a.List(ctx, modelName)
 	if err != nil || publishedModel == nil {
-		log.ErrorContextf(ctx, "Failed to list model: %v", err)
+		log.Errorf("Error: Failed to list model: %v", err)
 		return "", err
 	}
 	model := publishedModel.GetModel()
-	// log.InfoContextf(ctx, "Current model definition:\n%v", model)
+	log.Infof("Info: Current model definition:\n%v", model)
 
 	return model.GetAdminAcl(), nil
 }
@@ -307,18 +307,18 @@ func (a *Admin) setSaxModelACL(ctx context.Context, modelName string, acl string
 	// Read the current model definition in proto.
 	publishedModel, err := a.List(ctx, modelName)
 	if err != nil || publishedModel == nil {
-		log.ErrorContextf(ctx, "Failed to list model: %v", err)
+		log.Errorf("Error: Failed to list model: %v", err)
 		return err
 	}
 	model := publishedModel.GetModel()
-	// log.InfoContextf(ctx, "Current model definition:\n%v", model)
+	log.Infof("Info: Current model definition:\n%v", model)
 
 	// Set model admin method ACLs.
 	model.AdminAcl = acl
 
-	// log.InfoContextf(ctx, "Updated model definition:\n%v", model)
+	log.Infof("Info: Updated model definition:\n%v", model)
 	if err := a.Update(ctx, model); err != nil {
-		log.ErrorContextf(ctx, "Failed to update model: %v", err)
+		log.Errorf("Error: Failed to update model: %v", err)
 		return err
 	}
 	return nil
@@ -327,18 +327,18 @@ func (a *Admin) setSaxModelACL(ctx context.Context, modelName string, acl string
 // GetSaxModelDataMethodACLs returns the ACLs for all the sax model's data methods.
 func (a *Admin) GetSaxModelDataMethodACLs(ctx context.Context, modelName string) (*cpb.AccessControlLists, error) {
 	if _, err := naming.NewModelFullName(modelName); err != nil {
-		log.ErrorContextf(ctx, "Invalid model: %v", err)
+		log.Errorf("Error: Invalid model: %v", err)
 		return nil, err
 	}
 
 	// Read the current model definition in proto.
 	publishedModel, err := a.List(ctx, modelName)
 	if err != nil || publishedModel == nil {
-		log.ErrorContextf(ctx, "Failed to list model: %v", err)
+		log.Errorf("Error: Failed to list model: %v", err)
 		return nil, err
 	}
 	model := publishedModel.GetModel()
-	// log.InfoContextf(ctx, "Current model definition:\n%v", model)
+	log.Infof("Info: Current model definition:\n%v", model)
 
 	// Get model data method ACLs.
 	return model.GetAcls(), nil
@@ -347,18 +347,18 @@ func (a *Admin) GetSaxModelDataMethodACLs(ctx context.Context, modelName string)
 // SetSaxModelDataMethodACL sets the ACL for a sax model's data method.
 func (a *Admin) SetSaxModelDataMethodACL(ctx context.Context, modelName string, method string, acl string) error {
 	if _, err := naming.NewModelFullName(modelName); err != nil {
-		log.ErrorContextf(ctx, "Invalid model: %v", err)
+		log.Errorf("Error: Invalid model: %v", err)
 		return err
 	}
 
 	// Read the current model definition in proto.
 	publishedModel, err := a.List(ctx, modelName)
 	if err != nil || publishedModel == nil {
-		log.ErrorContextf(ctx, "Failed to list model: %v", err)
+		log.Errorf("Error: Failed to list model: %v", err)
 		return err
 	}
 	model := publishedModel.GetModel()
-	// log.InfoContextf(ctx, "Current model definition:\n%v", model)
+	log.Infof("Info: Current model definition:\n%v", model)
 
 	// Set model data method ACLs.
 	acls := model.GetAcls()
@@ -377,9 +377,9 @@ func (a *Admin) SetSaxModelDataMethodACL(ctx context.Context, modelName string, 
 		items[method] = acl
 	}
 
-	// log.InfoContextf(ctx, "Updated model definition:\n%v", model)
+	log.Infof("Info: Updated model definition:\n%v", model)
 	if err := a.Update(ctx, model); err != nil {
-		log.ErrorContextf(ctx, "Failed to update model: %v", err)
+		log.Errorf("Error: Failed to update model: %v", err)
 		return err
 	}
 	return nil

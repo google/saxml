@@ -62,7 +62,6 @@ go_library(
         "//saxml/common:watchable",
         "//saxml/common/platform:env",
         "//saxml/protobuf:admin_go_proto_grpc",
-        "//third_party/golang/go_exp/maps",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_google_subcommands//:go_default_library",
         "@com_github_olekukonko_tablewriter//:go_default_library",

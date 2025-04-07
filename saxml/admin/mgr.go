@@ -916,7 +916,7 @@ func (m *Mgr) Refresh(ctx context.Context) {
 
 	m.mu.RLock()
 	for _, addr := range candidates {
-		// log.InfoContextf(ctx, "Waking up server %v", addr)
+		log.Infof("Info: Waking up server %v", addr)
 		m.modelets[modeletAddr(addr)].WakeUp(ctx)
 	}
 	m.mu.RUnlock()

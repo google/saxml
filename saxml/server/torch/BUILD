@@ -20,7 +20,7 @@ pytype_strict_binary(
     name = "vllm_server",
     srcs = [
         "model_service_main.py",
-        "vllm.py",
+        "vllm_params.py",
     ],
     main = "model_service_main.py",
     tags = [

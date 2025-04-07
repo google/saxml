@@ -26,7 +26,7 @@ from saxml.protobuf import modelet_pb2_grpc
 from saxml.server import model_service_base
 from saxml.server import servable_model_registry
 from saxml.server import spmd_backend
-from saxml.server.torch import vllm  # pylint: disable=unused-import
+from saxml.server.torch import vllm_params  # pylint: disable=unused-import
 
 _SAX_CELL = flags.DEFINE_string(
     'sax_cell',

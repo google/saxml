@@ -16,6 +16,7 @@
 import dataclasses
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
+from absl import logging
 import numpy as np
 from saxml.server import servable_model
 from saxml.server import servable_model_params
@@ -104,9 +105,9 @@ class TextSampleMethod(servable_model.ServableMethod):
 
   def device_compute(
       self,
-      input_batch: List[str],  # Renamed for clarity, receives prompts directly
-      padded_shape: InputShapeInfo,  # Less relevant for vLLM's dynamic batching
-  ) -> List[str]:  # Returns list of generated texts
+      input_batch: List[str],
+      padded_shape: InputShapeInfo,
+  ) -> List[Tuple[List[str], List[float]]]:
     """Executes the generation using the vLLM engine."""
 
     # vLLM handles batching, inference, and decoding internally
@@ -115,28 +116,68 @@ class TextSampleMethod(servable_model.ServableMethod):
     )
 
     # Extract the generated text from each output
-    generated_texts = []
+    responses = []
     for output in request_outputs:
-      if output.outputs:
-        generated_texts.append(output.outputs[0].text)
+      generated_texts = []
+      scores = []
+      for generated_output in output.outputs:
+        score = 0.0
+        if generated_output.cumulative_logprob is not None:
+          score = output.outputs[0].cumulative_logprob
+        generated_texts.append(generated_output.text)
+        scores.append(score)
       else:
         # Handle cases where generation might fail or produce no output
-        generated_texts.append("")  # Or log an error, return a specific marker
-
-    return generated_texts
+        generated_texts.append("")
+        scores.append(0.0)
+      responses.append((generated_texts, scores))
+    return responses
 
   def output_to_host(
       self,
-      output_tensors: List[str],
+      output_tensors: List[Tuple[List[str], List[float]]],
       unpadded_batch_size: int,  # output_tensors is actually List[str]
-  ) -> List[str]:
-    """vLLM generate already returns host data (strings)."""
+  ) -> List[Tuple[List[str], List[float]]]:
+    """vLLM generate already returns host data (strings, scores)."""
     # No explicit device-to-host transfer needed
     return output_tensors
 
-  def post_processing(self, outputs: List[str]) -> List[str]:
+  def post_processing(self,
+                      outputs: List[Tuple[List[str], List[float]]]
+                      ) -> List[Tuple[List[str], List[float]]]:
     """Outputs are already the final generated strings."""
     return outputs
+
+  def unload(self) -> None:
+    """Clears references held by this model."""
+    del self._model
+
+  def remove_batch_padding(
+      self, host_tensors: HostTensors, unpadded_batch_size: int
+  ) -> HostTensors:
+    """Removes batch padding."""
+    return host_tensors
+
+  def update_extra_inputs(
+      self,
+      input_batch: HostTensors,
+      batch_size: int,
+      extra_inputs: Optional[List[Any]] = None,
+  ) -> HostTensors:
+    if extra_inputs and extra_inputs[0]:
+      raise ValueError(
+          f"extra_inputs is not supported by this method! Got {extra_inputs}."
+      )
+    return input_batch
+
+  @property
+  def streamable_output(self) -> bool:
+    return False
+
+  def device_compute_with_dummy_data(
+      self, padded_shape: InputShapeInfo
+  ) -> DeviceTensors:
+    raise NotImplementedError
 
 
 # --- vLLM SAX Model Wrapper ---
@@ -163,14 +204,17 @@ class VLLMSaxServableModel(servable_model.ServableModel):
       )
       self.add_method(name, method_instance)
 
+  def supports_dummy_compute_on_primary(self) -> bool:
+    return False
+
 
 # --- Servable Model Parameter Definition ---
 class VLLMServableModel(servable_model_params.ServableModelParams):
-  """ServableModelParams for Gemma models served via vLLM."""
+  """ServableModelParams for models served via vLLM."""
 
   # --- Configuration Flags ---
   # The name or path of a HuggingFace Transformers model.
-  HF_MODEL_PATH: str = "google/gemma-2b"
+  HF_MODEL_PATH: str = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
   DEVICE: str = "cuda"  # vLLM primarily targets CUDA
 
   TENSOR_PARALLEL_SIZE: int = 1  # Default for single SAX process managing GPUs
@@ -181,7 +225,7 @@ class VLLMServableModel(servable_model_params.ServableModelParams):
   TEMPERATURE: float = 0.7
   TOP_P: float = 1.0  # vLLM default is 1.0
   TOP_K: int = -1  # vLLM default is -1 (disabled)
-  MAX_TOKENS: int = 128  # Max *new* tokens to generate
+  MAX_TOKENS: int = 1024  # Max *new* tokens to generate
 
   # --- SAX Interface Methods ---
 
@@ -192,7 +236,7 @@ class VLLMServableModel(servable_model_params.ServableModelParams):
       primary_process_id: int,
       prng_key: int,
   ) -> VLLMSaxServableModel:  # Return our custom wrapper
-    """Loads the Gemma model using the vLLM engine."""
+    """Loads the model using the vLLM engine."""
 
     # Use provided checkpoint_path if valid, otherwise use class default
     model_load_path = (
@@ -201,13 +245,16 @@ class VLLMServableModel(servable_model_params.ServableModelParams):
         else self.HF_MODEL_PATH
     )
 
-    print(
-        f"Loading Gemma model via vLLM from: {model_load_path} on device:"
-        f" {self.DEVICE}"
+    logging.info(
+        "Loading model via vLLM from: %s on device: %s",
+        model_load_path,
+        self.DEVICE,
     )
-    print(
-        f"vLLM Config: TP={self.TENSOR_PARALLEL_SIZE}, GPU"
-        f" Mem={self.GPU_MEMORY_UTILIZATION}, dtype={self.DTYPE}"
+    logging.info(
+        "vLLM Config: TP=%s, GPU Mem=%s, dtype=%s",
+        self.TENSOR_PARALLEL_SIZE,
+        self.GPU_MEMORY_UTILIZATION,
+        self.DTYPE,
     )
 
     try:
@@ -216,10 +263,10 @@ class VLLMServableModel(servable_model_params.ServableModelParams):
           tensor_parallel_size=self.TENSOR_PARALLEL_SIZE,
           gpu_memory_utilization=self.GPU_MEMORY_UTILIZATION,
           dtype=self.DTYPE,
-          seed=prng_key if prng_key else 0,
       )
     except Exception as e:
-      print(f"Error initializing vLLM engine for {model_load_path}: {e}")
+      logging.exception(
+          "Error initializing vLLM engine for %s: %s", model_load_path, e)
       raise
 
     method_params = self.methods()
@@ -264,6 +311,11 @@ class VLLMServableModel(servable_model_params.ServableModelParams):
 
 
 # --- Registration ---
+@servable_model_registry.register
+class QWen1P5B(VLLMServableModel):
+  HF_MODEL_PATH = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+
+
 @servable_model_registry.register
 class Gemma4B(VLLMServableModel):
   HF_MODEL_PATH = "google/gemma-3-4b-it"
