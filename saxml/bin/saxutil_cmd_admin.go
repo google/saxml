@@ -22,7 +22,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"// slices"
+	// slices
 	"sort"
 	"strconv"
 	"strings"
@@ -30,7 +30,7 @@ import (
 	"flag"
 	log "github.com/golang/glog"
 	// Internal storage imports
-	"// maps"
+	// maps
 	"google.golang.org/protobuf/proto"
 	"github.com/google/subcommands"
 	"github.com/olekukonko/tablewriter"
@@ -162,7 +162,7 @@ func (c *DeleteCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) s
 	}
 	input = strings.ToLower(input)
 	if input != "y" && input != "yes" {
-		log.ErrorContext(ctx, "Deletion canceled")
+		log.Errorf("Error:  Deletion canceled")
 		return subcommands.ExitFailure
 	}
 

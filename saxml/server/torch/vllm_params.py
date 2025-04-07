@@ -84,6 +84,7 @@ class TextSampleMethod(servable_model.ServableMethod):
     super().__init__(method_params)
     self._model = llm
     self._device = device  # Store if needed, maybe for compatibility checks
+    self._sampling_params = vllm.SamplingParams(**method_params.method_attrs)
 
   @classmethod
   def service_id(cls) -> str:
@@ -112,7 +113,8 @@ class TextSampleMethod(servable_model.ServableMethod):
 
     # vLLM handles batching, inference, and decoding internally
     request_outputs: List[vllm.RequestOutput] = self._model.generate(
-        prompts=input_batch
+        prompts=input_batch,
+        sampling_params=self._sampling_params,
     )
 
     # Extract the generated text from each output
@@ -293,7 +295,7 @@ class VLLMServableModel(servable_model_params.ServableModelParams):
         lm_service.LMMethodName.GENERATE: ServableMethodParams(
             method_cls=TextSampleMethod,  # Use the vLLM method class
             method_attrs=vllm_sampling_attrs,
-            batch_size=32,
+            batch_size=1,
             max_live_batches=4,  # SAX queue control
         ),
     }
