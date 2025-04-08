@@ -83,6 +83,11 @@ PYBIND11_MODULE(sax, m) {
           py::arg("audio_bytes"), py::arg("options") = nullptr);
 
   py::class_<sax::client::pybind::CustomModel>(m, "CustomModel")
+      .def("CustomNoException",
+           pybind11::google::DoNotThrowStatus(
+               &sax::client::pybind::CustomModel::Custom),
+           py::arg("request"), py::arg("method_name"),
+           py::arg("options") = nullptr)
       .def("Custom", &sax::client::pybind::CustomModel::Custom,
            py::arg("request"), py::arg("method_name"),
            py::arg("options") = nullptr)
