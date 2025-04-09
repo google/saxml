@@ -79,11 +79,13 @@ py_strict_test(
     ],
 )
 
+# This test is marked notap because it runs 0 test targets. This test will stop working after April 16, 2025, running 0 tests are no longer allowed. Tracking bug: b/313509915.
 py_strict_test(
     name = "gemma_test",
     timeout = "long",
     srcs = ["gemma_test.py"],
     shard_count = 2,
+    tags = ["notap"],
     deps = [
         "//saxml/server/pax/lm:transformer_models",
         "//third_party/py/absl-py/testing:absltest",
