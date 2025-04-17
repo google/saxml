@@ -321,6 +321,15 @@ class ServableMethod(abc.ABC):
   def max_decode_steps(self) -> int:
     raise NotImplementedError('max_decode_steps not implemented')
 
+  @property
+  def max_prompt_length(self) -> int:
+    raise NotImplementedError('max_prompt_length not implemented')
+
+  @property
+  def per_token_expert_choice_shape(self) -> tuple[int, int] | None:
+    """Returns the per-token shape of expert choices, or None if not logged."""
+    return None
+
   def prefill(
       self, inputs: DeviceTensors
   ) -> tuple[DeviceTensors, DeviceTensors, DeviceTensors]:

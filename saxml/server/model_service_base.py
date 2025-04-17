@@ -317,6 +317,10 @@ class ContinuousBatchingState:
   recent_waiting_prefills: Deque[int]
   recent_slots_in_use: Deque[int]
 
+  prefill_lengths: Int[Array, 'B']
+  # Per-token and per-layer expert choices.
+  expert_choices: Int[Array, 'B T N K'] | None = None
+
   def __init__(
       self,
       method: servable_model.ServableMethod,
@@ -327,6 +331,7 @@ class ContinuousBatchingState:
       max_decode_step: int,
       prefill_fn: Callable[..., None],
       generate_fn: Callable[..., None],
+      expert_choices_shape: tuple[int, ...] | None = None,
   ):
     self.method = method
     self.model_key = model_key
@@ -364,6 +369,9 @@ class ContinuousBatchingState:
     )
     self.scores = np.zeros((num_cache_slots,))
     self.per_token_scores = np.zeros((num_cache_slots, max_decode_step))
+    self.prefill_lengths = np.zeros((num_cache_slots,), dtype=np.int32)
+    if expert_choices_shape is not None:
+      self.expert_choices = np.zeros(expert_choices_shape, dtype=np.int8)
     self.steps = np.zeros((num_cache_slots,), dtype=np.int32)
     self.slots_in_use = np.zeros((num_cache_slots,), dtype=np.int32)
 
@@ -1917,6 +1925,14 @@ class ModelServicesRunner:
 
     for method_name, method_obj in model.methods.items():
       if method_obj.continuous_batching:
+        if method_obj.per_token_expert_choice_shape is not None:
+          expert_choices_shape = (
+              method_obj.num_cache_slots,
+              method_obj.max_prompt_length + method_obj.max_decode_steps,
+              *method_obj.per_token_expert_choice_shape,
+          )
+        else:
+          expert_choices_shape = None
         state = ContinuousBatchingState(
             method_obj,
             model_key=model_key,
@@ -1926,6 +1942,7 @@ class ModelServicesRunner:
             max_decode_step=method_obj.max_decode_steps,
             prefill_fn=self._run_prefill_insert_loop,
             generate_fn=self._run_generation_loop,
+            expert_choices_shape=expert_choices_shape,
         )
         self._continuous_batching_state[(model_key, method_name)] = state
         state.prefill_thread.start()
