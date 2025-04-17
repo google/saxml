@@ -79,24 +79,6 @@ py_strict_test(
     ],
 )
 
-# This test is marked notap because it runs 0 test targets. This test will stop working after April 16, 2025, running 0 tests are no longer allowed. Tracking bug: b/313509915.
-py_strict_test(
-    name = "gemma_test",
-    timeout = "long",
-    srcs = ["gemma_test.py"],
-    shard_count = 2,
-    tags = ["notap"],
-    deps = [
-        "//saxml/server/pax/lm:transformer_models",
-        "//third_party/py/absl-py/testing:absltest",
-        "//third_party/py/flax:core",
-        "//third_party/py/gemma/deprecated:legacy_api",
-        "//third_party/py/jax",
-        "//third_party/py/numpy",
-        "//third_party/py/praxis:test_utils",
-    ],
-)
-
 pytype_strict_library(
     name = "lm_cloud",
     srcs = ["lm_cloud.py"],
