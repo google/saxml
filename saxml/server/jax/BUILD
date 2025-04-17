@@ -1,6 +1,6 @@
 # JAX-specific code.
 
-load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_library")
+load("//saxml:saxml.bzl", "pytype_strict_library")
 
 licenses(["notice"])
 
@@ -17,30 +17,6 @@ pytype_strict_library(
         "//third_party/py/absl-py/logging",
         "//third_party/py/jax",
         "//third_party/py/jax:mesh_utils",
-        "//third_party/py/numpy",
-    ],
-)
-
-pytype_strict_library(
-    name = "serialize",
-    srcs = ["serialize.py"],
-    visibility = [
-        "//saxml:internal",
-    ],
-    deps = [
-        "//third_party/py/jax",
-    ],
-)
-
-py_strict_test(
-    name = "serialize_test",
-    srcs = ["serialize_test.py"],
-    tags = ["manual"],
-    deps = [
-        ":serialize",
-        "//third_party/py/absl-py/testing:absltest",
-        # Unused internal protobuf deps,  # Automatically added go/proto_python_upb_flip
-        "//third_party/py/jax",
         "//third_party/py/numpy",
     ],
 )
