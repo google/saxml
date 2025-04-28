@@ -1,4 +1,4 @@
---find-links https://storage.googleapis.com/jax-releases/jax_nightly_releases.html
+--extra-index-url https://us-python.pkg.dev/ml-oss-artifacts-published/jax-public-nightly-artifacts-registry/simple/
 --find-links https://storage.googleapis.com/jax-releases/libtpu_releases.html
 
 importlib-metadata
