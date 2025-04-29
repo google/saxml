@@ -59,6 +59,7 @@ def parse_known_args(argv):
           'gemma2b',
           'gemma7b',
           'llama2-70b-weight-linear-only-int8',
+          'gptfp8',
       ],
       help='Quantization Config.',
   )
