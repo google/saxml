@@ -800,7 +800,7 @@ class LMDecodeMethod(ServableLMMethod):
       paddings = [[0, 0], [0, self.get_maxlen() - seqlen]]
       for key in {'paddings', 'weights', 'ids'}:
         if key in sub_result:
-          sub_result[key] = jnp.pad(sub_result[key], paddings)
+          sub_result[key] = jnp.pad(sub_result[key], paddings)  # pytype: disable=unsupported-operands
       return sub_result
 
     return tuple([_pad_fn(sub_result) for sub_result in result])
