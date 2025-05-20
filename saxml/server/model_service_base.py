@@ -1897,6 +1897,7 @@ class ModelServicesRunner:
           if method.service_id() != 'custom' and method_name not in [
               'lm.generate',
               'lm.generate_stream',
+              'mm.generate',
           ]:
             raise ValueError(
                 f'Continuous batching is not supported for {method_name}'
@@ -2682,6 +2683,13 @@ class ModelServicesRunner:
               'scores': np.expand_dims(scrs, 0),
               'per_token_scores': np.expand_dims(pt_scrs, 0),
           })[0]
+        elif state.method.service_id() == 'mm':
+          SamplingOutput = collections.namedtuple(
+              'SamplingOutput', ['tokens', 'scores']
+          )
+
+          outputs = state.method.post_processing(
+              SamplingOutput(tokens=seqs, scores=scrs))[0]
         else:
           outputs = state.method.detokenize(seqs), scrs
         if state.method.streamable_output:
