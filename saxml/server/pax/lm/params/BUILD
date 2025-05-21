@@ -61,6 +61,7 @@ py_strict_test(
     timeout = "long",
     srcs = ["gptj_test.py"],
     shard_count = 2,
+    tags = ["norapid"],
     deps = [
         "//third_party/py/absl-py/testing:absltest",
         "//third_party/py/flax:core",
