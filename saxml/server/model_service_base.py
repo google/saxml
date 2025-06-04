@@ -1210,7 +1210,7 @@ class ModeletService:
           continue
         status = v.can_serve_on(self._platform_chip, self._platform_topology)
         if not status.ok():
-          logging.info('Skipping unsupported model %s, %s', k, status.details)
+          logging.error('Skipping unsupported model %s, %s', k, status.details)
           continue
         logging.info('Servable model %s', k)
         self._loadable_model_paths.append(k)
