@@ -20,7 +20,10 @@ licenses(["notice"])
 # that directory. If the above suggestion is not actionable for you,
 # please schedule a meeting talking to zhifengc@.
 # Please also update the copybara file to exclude the new directory.
-package_group(name = "friends")
+package_group(
+    name = "friends",
+    packages = ["//learning/deepmind/research/montreal/gdm_academy/code_factuality/..."],
+)
 
 bzl_library(
     name = "build_defs_bzl",
