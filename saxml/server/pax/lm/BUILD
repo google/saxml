@@ -228,6 +228,10 @@ py_strict_test(
 pytype_strict_library(
     name = "transformer_models",
     srcs = ["transformer_models.py"],
+    visibility = [
+        "//saxml:internal",
+        "//saxml/server:friends",
+    ],
     deps = [
         ":layers",
         "//third_party/py/praxis:pax_fiddle",
