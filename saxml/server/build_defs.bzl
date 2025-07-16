@@ -23,6 +23,7 @@ def create_binary(
         name = "",
         main = "",
         tags = [],
+        linking_mode = "static",
         **kwargs):
     """Macro to define a binary with selected imports.
 
@@ -58,6 +59,7 @@ def create_binary(
         # Unused internal exec_properties
         tags = tags,
         # delayed_import = True
+        linking_mode = linking_mode,
         **kwargs
     )
 
@@ -67,7 +69,8 @@ def create_server_binary(
         name = "server",
         main = "//saxml/server:model_service_main.py",
         default_deps = ["//saxml/server:server_deps"],
-        use_tpu = False):
+        use_tpu = False,
+        linking_mode = "static"):
     """Macro to define a server binary with selected imports.
 
     Args:
@@ -84,4 +87,5 @@ def create_server_binary(
         extra_deps = extra_deps + default_deps,
         name = name,
         main = main,
+        linking_mode = linking_mode,
     )
