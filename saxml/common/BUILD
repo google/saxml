@@ -1,6 +1,8 @@
 # Sax components used by the client, admin server, and model server.
 
 load("//saxml:saxml.bzl", "go_binary", "go_library", "go_test", "py_strict_test", "pybind_extension", "pytype_strict_library")
+load("//third_party/bazel_rules/rules_cc/cc:cc_library.bzl", "cc_library")
+load("//third_party/bazel_rules/rules_cc/cc:cc_test.bzl", "cc_test")
 
 package(
     default_visibility = ["//saxml:internal"],

@@ -1,6 +1,7 @@
 # TensorFlow-related code.
 
 load("//saxml:saxml.bzl", "py_strict_test", "pybind_extension", "pytype_strict_library")
+load("//third_party/bazel_rules/rules_cc/cc:cc_library.bzl", "cc_library")
 
 licenses(["notice"])
 
