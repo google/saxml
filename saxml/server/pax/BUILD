@@ -52,7 +52,7 @@ pytype_strict_library(
         "//saxml/server:utils",
         "//third_party/py/absl-py/logging",
         "//third_party/py/jax",
-        "//third_party/py/jax:mesh_utils",
+        "//third_party/py/jax/experimental:mesh_utils",
         "//third_party/py/numpy",
         "//third_party/py/paxml:base_experiment",
         "//third_party/py/paxml:checkpoints",

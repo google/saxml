@@ -113,7 +113,7 @@ pytype_strict_library(
         "//saxml/server/services:lm_service",
         "//third_party/py/absl-py/logging",
         "//third_party/py/jax",
-        "//third_party/py/jax:experimental",
+        "//third_party/py/jax/experimental:host_callback",
         "//third_party/py/numpy",
         "//third_party/py/orbax-export",
         "//third_party/py/praxis:base_layer",

@@ -16,7 +16,7 @@ pytype_strict_library(
         "//saxml/server:utils",
         "//third_party/py/absl-py/logging",
         "//third_party/py/jax",
-        "//third_party/py/jax:mesh_utils",
+        "//third_party/py/jax/experimental:mesh_utils",
         "//third_party/py/numpy",
     ],
 )
@@ -30,7 +30,7 @@ pytype_strict_library(
         "//saxml/server:servable_model_params",
         "//third_party/py/absl-py/logging",
         "//third_party/py/jax",
-        "//third_party/py/jax:experimental",
+        "//third_party/py/jax/experimental:host_callback",
         "//third_party/py/jaxtyping",
         "//third_party/py/numpy",
         "//third_party/py/paxml:host_callback",
