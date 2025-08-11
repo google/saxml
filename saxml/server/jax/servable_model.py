@@ -812,6 +812,10 @@ class ServableMethod(servable_model.ServableMethod):
     del self._dummy_input_sample
     del self._prng_key
 
+  def dummy_input_sample(self) -> Any | None:
+    """Returns a sample of dummy inputs, or None if unload() was called."""
+    return self._dummy_input_sample
+
 
 class ServableModel(servable_model.ServableModel):
 
