@@ -30,6 +30,7 @@ pytype_strict_library(
     name = "lm_tokenizer",
     srcs = ["lm_tokenizer.py"],
     visibility = [
+        "//learning/embedding/gembench/oss:__pkg__",
         "//saxml:internal",
         "//saxml/server:friends",
     ],
