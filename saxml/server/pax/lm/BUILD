@@ -200,6 +200,7 @@ pytype_strict_library(
     srcs = ["vocabularies.py"],
     visibility = [
         "//cloud/ai/nl/llm/shared/llama3_tokenizer/python:__subpackages__",
+        "//cloud/ai/platform/prediction/oss_lm:__subpackages__",
         "//saxml:internal",
     ],
     deps = [
