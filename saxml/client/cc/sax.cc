@@ -167,7 +167,7 @@ absl::Status AudioModel::Recognize(const ModelOptions& options,
 
   AsrResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : output.hyps()) {
@@ -208,7 +208,7 @@ absl::Status CustomModel::Custom(const ModelOptions& options,
 
   CustomResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
 
@@ -257,7 +257,7 @@ absl::Status LanguageModel::Score(const ModelOptions& options,
   ScoreResponse result;
   log_p->clear();
   if (outputStr != nullptr) {
-    result.ParseFromArray(outputStr, outputSize);
+    result.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : result.logp()) {
@@ -293,7 +293,7 @@ absl::Status LanguageModel::Generate(const ModelOptions& options,
 
   GenerateResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : output.texts()) {
@@ -393,7 +393,7 @@ absl::Status LanguageModel::Embed(const ModelOptions& options,
 
   LmEmbedResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& value : output.embedding()) {
@@ -442,7 +442,7 @@ absl::Status LanguageModel::Gradient(
   score->clear();
   gradients->clear();
   if (outputStr != nullptr) {
-    result.ParseFromArray(outputStr, outputSize);
+    result.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : result.score()) {
@@ -489,7 +489,7 @@ absl::Status MultimodalModel::Generate(
   }
 
   if (outputStr != nullptr) {
-    response->ParseFromArray(outputStr, outputSize);
+    response->ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   return absl::OkStatus();
@@ -526,7 +526,7 @@ absl::Status MultimodalModel::Score(
   }
 
   if (outputStr != nullptr) {
-    response->ParseFromArray(outputStr, outputSize);
+    response->ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   return absl::OkStatus();
@@ -563,7 +563,7 @@ absl::Status MultimodalModel::Embed(
   }
 
   if (outputStr != nullptr) {
-    response->ParseFromArray(outputStr, outputSize);
+    response->ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   return absl::OkStatus();
@@ -598,7 +598,7 @@ absl::Status VisionModel::Classify(const ModelOptions& options,
 
   ClassifyResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : output.texts()) {
@@ -633,7 +633,7 @@ absl::Status VisionModel::TextToImage(
 
   TextToImageResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : output.images()) {
@@ -671,7 +671,7 @@ absl::Status VisionModel::TextAndImageToImage(
 
   TextAndImageToImageResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : output.images()) {
@@ -707,7 +707,7 @@ absl::Status VisionModel::Embed(const ModelOptions& options,
 
   VmEmbedResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& value : output.embedding()) {
@@ -781,7 +781,7 @@ absl::Status VisionModel::Detect(const ModelOptions& options,
   // Proto of repeated bounding boxes.
   DetectResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : output.bounding_boxes()) {
@@ -823,7 +823,7 @@ absl::Status VisionModel::ImageToText(const ModelOptions& options,
 
   ImageToTextResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : output.texts()) {
@@ -860,7 +860,7 @@ absl::Status VisionModel::ImageToImage(
 
   ImageToImageResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : output.images()) {
@@ -906,7 +906,7 @@ absl::Status VisionModel::VideoToText(
 
   VideoToTextResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& res : output.texts()) {
@@ -951,7 +951,7 @@ absl::Status VisionModel::VideoToToken(
   }
   VideoToTokenResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   for (const auto& token : output.tokens()) {
@@ -987,7 +987,7 @@ absl::Status VisionModel::TokenToVideo(
   }
   TokenToVideoResponse output;
   if (outputStr != nullptr) {
-    output.ParseFromArray(outputStr, outputSize);
+    output.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   image_frames->reserve(output.image_frames_size());
@@ -1159,7 +1159,7 @@ absl::Status List(const AdminOptions& options, absl::string_view id,
   }
   sax::PublishedModel pub_model;
   if (outputStr != nullptr) {
-    pub_model.ParseFromArray(outputStr, outputSize);
+    pub_model.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
   auto one_model = pub_model.model();
@@ -1193,7 +1193,7 @@ absl::Status ListAll(const AdminOptions& options, absl::string_view id,
 
   sax::ListResponse resp;
   if (outputStr != nullptr) {
-    resp.ParseFromArray(outputStr, outputSize);
+    resp.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
 
@@ -1242,7 +1242,7 @@ absl::Status Stats(const AdminOptions& options, absl::string_view id,
 
   sax::StatsResponse resp;
   if (outputStr != nullptr) {
-    resp.ParseFromArray(outputStr, outputSize);
+    resp.ParseFromString(absl::string_view(outputStr, outputSize));
     free(outputStr);
   }
 
@@ -1273,7 +1273,7 @@ absl::Status GetACL(const AdminOptions& options,
     }
 
     sax::AccessControlLists acls;
-    acls.ParseFromArray(outputStr, outputSize);
+    acls.ParseFromString(absl::string_view(outputStr, outputSize));
     if (acls.items().contains(method_id)) {
       *acl = acls.items().at(method_id);
     } else {
@@ -1309,7 +1309,7 @@ absl::Status GetACL(
     return CreateErrorAndFree(errCode, errMsgStr);
   }
 
-  acls->ParseFromArray(outputStr, outputSize);
+  acls->ParseFromString(absl::string_view(outputStr, outputSize));
   free(outputStr);
   return absl::OkStatus();
 }
