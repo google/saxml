@@ -307,7 +307,7 @@ class ServableLMModelContinuousBatchingTest(test_utils.TestCase):
     )
     # Insert input1 KV cache.
     method_with_continuous_batching.insert(prefix_state, slot)
-    decoded_tokens[slot][0] = np.array(token.addressable_data(0))
+    decoded_tokens[slot][0] = np.squeeze(np.array(token.addressable_data(0)))
 
     # Run one time generate for input1.
     logging.info('1st generate for input1')
