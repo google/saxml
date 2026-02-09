@@ -21,7 +21,7 @@ You can download `google/gemma/pax/2b-it/1` and `google/gemma/pax/7b-it/1` model
 pip install kaggle --break-system-packages
 mkdir -p /data/gemma_2b-it &&\
 kaggle models instances versions download google/gemma/pax/2b-it/1 --untar -p /data/gemma_2b-it
-gsutil -m cp -R /data/gemma_2b-it/* gs://${BUCKET_NAME}/gemma_2b-it/
+gcloud storage cp --recursive /data/gemma_2b-it/* gs://${BUCKET_NAME}/gemma_2b-it/
 ```
 
 ### LLama2

@@ -52,6 +52,6 @@ You will also need the other directories such as `metadata` and `descriptor`,
 and the `commit_success.txt` files. To do this, you can do.
 
 ```
-gsutil cp -r gs://mybucket/fp32/checkpoint_00000000 gs://mybucket/int8/
-gsutil cp -r path/to/output/checkpoint/checkpoint_00000000/state gs://mybucket/int8/checkpoint_00000000
+gcloud storage cp --recursive gs://mybucket/fp32/checkpoint_00000000 gs://mybucket/int8/
+gcloud storage cp --recursive path/to/output/checkpoint/checkpoint_00000000/state gs://mybucket/int8/checkpoint_00000000
 ```
