@@ -75,7 +75,7 @@ git clone https://github.com/google/saxml.git
 cd saxml/saxml/tools/benchmarks
 
 # Download the SAX client.
-gsutil cp -r gs://cloud-tpu-inference-public/benchmark/sax_client .
+gcloud storage cp --recursive gs://cloud-tpu-inference-public/benchmark/sax_client .
 export PYTHONPATH=${PYTHONPATH}:${PWD}/sax_client
 
 # Install deps:
