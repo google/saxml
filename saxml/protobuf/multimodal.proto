@@ -49,7 +49,21 @@ message DataItem {
     // 'video' is up to the specific model to interpret. E.g., it can be the
     // content of a mpeg4 file.
     bytes video = 5;
+    MediaPath media_path = 8;
   }
+}
+
+message MediaPath {
+  string media_path = 1;
+
+  enum MediaType {
+    UNSPECIFIED = 0;
+    IMAGE = 1;
+    AUDIO = 2;
+    VIDEO = 3;
+  }
+
+  MediaType media_type = 3;
 }
 
 message ScoreRequest {
