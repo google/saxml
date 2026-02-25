@@ -18,6 +18,7 @@ import quantization_configs
 
 NAME_TO_CONFIG = {
     'gptj': quantization_configs.QuantizationConfigsGPTJ(),
+    'gpt5b': quantization_configs.QuantizationConfigsGPT5B(),
     'gemma2b': quantization_configs.QuantizationConfigsGemma2B(),
     'gemma7b': quantization_configs.QuantizationConfigsGemma7B(),
     'llama2-70b-weight-linear-only-int8': (
