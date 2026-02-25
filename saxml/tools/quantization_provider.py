@@ -23,6 +23,7 @@ NAME_TO_CONFIG = {
     'llama2-70b-weight-linear-only-int8': (
         quantization_configs.QuantizationConfigsLLaMA70BWeightLinearOnlyInt8()
     ),
+    'gptfp8': quantization_configs.QuantizationConfigsFP8(),
 }
 
 NAME_TO_CONFIG_STACKED = {
