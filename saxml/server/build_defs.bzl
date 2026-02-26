@@ -49,6 +49,10 @@ def create_binary(
         deps = imports_targets,
     )
 
+    ep = {"mem": "24g", "cpp_link.mem": "24g"}
+    if "exec_properties" in kwargs:
+        ep.update(kwargs.pop("exec_properties"))
+
     export_binary(
         name = name,
         main = main,
@@ -70,7 +74,8 @@ def create_server_binary(
         main = "//saxml/server:model_service_main.py",
         default_deps = ["//saxml/server:server_deps"],
         use_tpu = False,
-        linking_mode = "static"):
+        linking_mode = "static",
+        **kwargs):
     """Macro to define a server binary with selected imports.
 
     Args:
@@ -88,4 +93,5 @@ def create_server_binary(
         name = name,
         main = main,
         linking_mode = linking_mode,
+        **kwargs
     )
