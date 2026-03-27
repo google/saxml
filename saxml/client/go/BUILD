@@ -3,6 +3,7 @@
 load("//saxml:saxml.bzl", "go_library", "go_test")
 
 package(
+    # unused internal package attribute
     default_visibility = ["//saxml:internal"],
 )
 
