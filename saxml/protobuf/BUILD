@@ -354,7 +354,7 @@ kt_jvm_stubby_library(
 kt_jvm_grpc_library(
     name = "lm_kt_proto_grpc",
     srcs = [":lm_proto"],
-    visibility = ["//java/com/google/wireless/android/devtools/studio/ml/eval/auto:__subpackages__"],
+    visibility = ["//visibility:private"],
     deps = [":lm_kt_proto"],
 )
 
