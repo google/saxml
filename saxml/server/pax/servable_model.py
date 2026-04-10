@@ -256,10 +256,11 @@ class ServableMethod(servable_model.ServableMethod):
         # DECODE_CACHE are not read by caller. But they can be large. Tell XLA
         # to remove it from output. Note MLP decoder don't have DECODE_CACHE.
         updated_vars = outputs[1]
-        if base_layer.DECODE_CACHE in updated_vars:
-          del updated_vars[base_layer.DECODE_CACHE]
-        if base_layer.PREFIX_DECODE_CACHE in updated_vars:
-          del updated_vars[base_layer.PREFIX_DECODE_CACHE]
+        if not isinstance(updated_vars, jax.Array):
+          if base_layer.DECODE_CACHE in updated_vars:
+            del updated_vars[base_layer.DECODE_CACHE]
+          if base_layer.PREFIX_DECODE_CACHE in updated_vars:
+            del updated_vars[base_layer.PREFIX_DECODE_CACHE]
         return outputs
 
       if isinstance(non_batched_inputs, tuple) and not non_batched_inputs:
