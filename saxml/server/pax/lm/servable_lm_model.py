@@ -714,7 +714,9 @@ class LMDecodeMethod(ServableLMMethod):
           callback_fn,
           None,
           ordered=True,
-          sharding=jax.sharding.SingleDeviceSharding(self.callback_device),
+          sharding=jax.sharding.make_single_device_sharding(
+              self.callback_device
+          ),
       )
       kwargs['result_callback'] = decoder_utils.StreamingResultCallback(
           host_callback,

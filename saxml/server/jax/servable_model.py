@@ -753,7 +753,9 @@ class ServableMethod(servable_model.ServableMethod):
             self.mark_stream_output_done,
             None,
             ordered=True,
-            sharding=jax.sharding.SingleDeviceSharding(self.callback_device),
+            sharding=jax.sharding.make_single_device_sharding(
+                self.callback_device
+            ),
         )
         # Unused final outputs. Return something to make output_to_host
         # blocking.
