@@ -772,7 +772,7 @@ class ServableMethod(servable_model.ServableMethod):
       assert not self._mutable
       return pjit.pjit(
           _wrapped_fn_stateless,
-          in_shardings=(pjit.AUTO(self.model_state.global_mesh), input_pspecs),
+          in_shardings=(None, input_pspecs),
           out_shardings=None,
       )
     else:
