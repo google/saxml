@@ -1,5 +1,6 @@
-load("//saxml:saxml.bzl", "py_strict_test", "pytype_strict_binary", "pytype_strict_library")
+load("//saxml:saxml.bzl", "pytype_strict_binary", "pytype_strict_library")
 load("//saxml/server:build_defs.bzl", "create_server_binary")
+load("//third_party/bazel_rules/rules_python/python:py_test.bzl", "py_test")
 
 licenses(["notice"])
 
@@ -78,7 +79,7 @@ pytype_strict_library(
     ],
 )
 
-py_strict_test(
+py_test(
     name = "classify_test",
     srcs = ["classify_test.py"],
     deps = [
@@ -107,7 +108,7 @@ pytype_strict_library(
     ],
 )
 
-py_strict_test(
+py_test(
     name = "detect_test",
     srcs = ["detect_test.py"],
     deps = [
@@ -140,7 +141,7 @@ filegroup(
     srcs = glob(["testdata/*"]),
 )
 
-py_strict_test(
+py_test(
     name = "lm_test",
     size = "large",
     srcs = ["lm_test.py"],
