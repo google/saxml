@@ -84,8 +84,8 @@ type modelState struct {
 // modeletState synchronizes state with the model server.
 type modeletState = state.State
 
-// modelStats contains usage statistics for a model.
-type modelStats struct {
+// ModelStats contains usage statistics for a model.
+type ModelStats struct {
 	SuccessesPerSecond   float32
 	MeanLatencyInSeconds float32
 }
@@ -209,12 +209,27 @@ func (m *Mgr) Unpublish(fullName modelFullName) error {
 
 func (m *Mgr) makePublishedModelLocked(fullName modelFullName, model *apb.Model) *apb.PublishedModel {
 	addrs := []string{}
+	methods := make(map[string]bool)
 	for _, addr := range m.assignment[fullName] {
 		addrs = append(addrs, string(addr))
+		if modelet, ok := m.modelets[addr]; ok {
+			if modelWithStatus, ok := modelet.SeenModels()[fullName]; ok {
+				for method := range modelWithStatus.Info.Stats {
+					methods[method] = true
+				}
+			}
+		}
 	}
+	methodList := []string{}
+	for m := range methods {
+		methodList = append(methodList, m)
+	}
+	sort.Strings(methodList)
+
 	cloned := proto.Clone(model).(*apb.Model)
 	// Clean Uuid field to not expose it to users.
 	cloned.Uuid = nil
+	cloned.MethodNames = methodList
 	return &apb.PublishedModel{
 		Model:            cloned,
 		ModeletAddresses: addrs,
@@ -263,11 +278,11 @@ func (m *Mgr) ListAll() []*apb.PublishedModel {
 
 // GetStatsPerModel returns a map from model fullnames to model's
 // stats (ops/second) aggregated over servers specified by 'addrs'.
-func (m *Mgr) GetStatsPerModel(addrs map[string]bool) map[naming.ModelFullName]modelStats {
+func (m *Mgr) GetStatsPerModel(addrs map[string]bool) map[naming.ModelFullName]ModelStats {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	ret := make(map[naming.ModelFullName]modelStats)
+	ret := make(map[naming.ModelFullName]ModelStats)
 	for addr, modelet := range m.modelets {
 		if _, ok := addrs[string(addr)]; ok {
 			for fullName, seenModel := range modelet.SeenModels() {
@@ -380,13 +395,13 @@ func (m *Mgr) Join(ctx context.Context, addr, debugAddr, dataAddr string, specs 
 	existing, ok := m.modelets[maddr]
 	var same bool // only valid when ok
 	if !ok {
-		log.V(4).Infof("Modelet %s, %v has joined", addr, specs)
+		log.V(4).InfoContextf(ctx, "Modelet %s, %v has joined", addr, specs)
 	} else {
 		same = existing.Specs.Equal(specs)
 		if same {
-			log.V(4).Infof("Modelet %s, %v is healthy", addr, existing.Specs)
+			log.V(4).InfoContextf(ctx, "Modelet %s, %v is healthy", addr, existing.Specs)
 		} else {
-			log.V(4).Infof("Modelet %s, %v has replaced %v", addr, specs, existing.Specs)
+			log.V(4).InfoContextf(ctx, "Modelet %s, %v has replaced %v", addr, specs, existing.Specs)
 			delete(m.modelets, maddr)
 		}
 	}
@@ -747,12 +762,12 @@ func (m *Mgr) loadModels(ctx context.Context, newlyAssigned []assigner.Action) {
 	for _, item := range newlyAssigned {
 		addr := modeletAddr(item.Addr)
 		fullName := item.Model
-		log.V(2).Infof("Loading model %v onto model server %v", fullName, addr)
+		log.V(2).Infof("Info: Loading model %v onto model server %v", fullName, addr)
 		go func(fullName modelFullName, addr modeletAddr) {
 			if err := load(ctx, fullName, modeletAddr(addr)); err != nil {
-				log.Errorf("Failed to load model %v onto model server %v: %v", fullName, addr, err)
+				log.Errorf("Error: Failed to load model %v onto model server %v: %v", fullName, addr, err)
 			} else {
-				log.V(2).Infof("Loaded model %v onto model server %v", fullName, addr)
+				log.V(2).Infof("Info: Loaded model %v onto model server %v", fullName, addr)
 			}
 		}(fullName, addr)
 	}
@@ -790,12 +805,12 @@ func (m *Mgr) unloadModels(ctx context.Context, newlyUnassigned []assigner.Actio
 	for _, item := range newlyUnassigned {
 		addr := modeletAddr(item.Addr)
 		fullName := item.Model
-		log.V(2).Infof("Unloading model %v from model server %v", fullName, addr)
+		log.V(2).Infof("Info: Unloading model %v from model server %v", fullName, addr)
 		go func(fullName modelFullName, addr modeletAddr, dataAddr string) {
 			if err := unload(ctx, fullName, modeletAddr(addr), dataAddr); err != nil {
-				log.Errorf("Failed to unload model %v from model server %v: %v", fullName, addr, err)
+				log.Errorf("Error: Failed to unload model %v from model server %v: %v", fullName, addr, err)
 			} else {
-				log.V(2).Infof("Unloaded model %v from model server %v", fullName, addr)
+				log.V(2).Infof("Info: Unloaded model %v from model server %v", fullName, addr)
 			}
 		}(fullName, addr, dataAddress[addr])
 	}
@@ -969,10 +984,10 @@ func (m *Mgr) Start(ctx context.Context) error {
 	if err := m.Restore(ctx); err != nil {
 		return err
 	}
-	log.Infof("Loaded manager state")
+	log.Infof("Info: Loaded manager state")
 
 	// Start a goroutine that calls refresh periodically, stopping when m.Close is called.
-	log.Infof("Refreshing manager state every %v", refreshPeriod)
+	log.Infof("Info: Refreshing manager state every %v", refreshPeriod)
 	m.ticker = time.NewTicker(refreshPeriod)
 	m.tickerStop = make(chan bool)
 	go func() {

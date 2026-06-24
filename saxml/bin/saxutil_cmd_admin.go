@@ -280,7 +280,7 @@ func (c *ListCmd) handleSax(ctx context.Context) subcommands.ExitStatus {
 	return subcommands.ExitSuccess
 }
 
-func (c *ListCmd) handleSaxCell(ctx context.Context, cellFullName naming.CellFullName) subcommands.ExitStatus {
+func (c *ListCmd) handleSaxCell(ctx context.Context, cellFullName naming.CellFullName, detailsExplicitlySet bool) subcommands.ExitStatus {
 	admin := saxadmin.Open(cellFullName.CellFullName())
 
 	listResp, err := admin.ListAll(ctx)
@@ -290,10 +290,19 @@ func (c *ListCmd) handleSaxCell(ctx context.Context, cellFullName naming.CellFul
 	}
 	models := listResp.GetPublishedModels()
 	table := NewResultRenderer(os.Stdout, c.outputCsv)
-	table.SetHeader([]string{"#", "Model ID"})
+	if c.modelDetails && detailsExplicitlySet {
+		table.SetHeader([]string{"#", "Model ID", "Methods"})
+	} else {
+		table.SetHeader([]string{"#", "Model ID"})
+	}
 	sort.Slice(models, func(i, j int) bool { return models[i].GetModel().GetModelId() < models[j].GetModel().GetModelId() })
 	for idx, model := range models {
-		table.Append([]string{strconv.Itoa(idx), model.GetModel().GetModelId()[len(cellFullName.CellFullName())+1:]})
+		if c.modelDetails && detailsExplicitlySet {
+			methods := strings.Join(model.GetModel().GetMethodNames(), ", ")
+			table.Append([]string{strconv.Itoa(idx), model.GetModel().GetModelId()[len(cellFullName.CellFullName())+1:], methods})
+		} else {
+			table.Append([]string{strconv.Itoa(idx), model.GetModel().GetModelId()[len(cellFullName.CellFullName())+1:]})
+		}
 	}
 	table.Render()
 	return subcommands.ExitSuccess
@@ -319,8 +328,9 @@ func (c *ListCmd) handleSaxModel(ctx context.Context, modelFullName naming.Model
 		// Extra logic: display one random address if there are multiple.
 		randomSelectedAddress := randomSelectAddress(publishedModel.GetModeletAddresses())
 		table := NewResultRenderer(os.Stdout, c.outputCsv)
-		table.SetHeader([]string{"Model", "Model Path", "Checkpoint Path", "# of Replicas", "(Selected) ReplicaAddress"})
-		table.Append([]string{modelFullName.ModelName(), model.GetModelPath(), model.GetCheckpointPath(), strconv.Itoa(len(publishedModel.GetModeletAddresses())), randomSelectedAddress})
+		methods := strings.Join(model.GetMethodNames(), ", ")
+		table.SetHeader([]string{"Model", "Model Path", "Checkpoint Path", "# of Replicas", "(Selected) ReplicaAddress", "Methods"})
+		table.Append([]string{modelFullName.ModelName(), model.GetModelPath(), model.GetCheckpointPath(), strconv.Itoa(len(publishedModel.GetModeletAddresses())), randomSelectedAddress, methods})
 		table.Render()
 	}
 
@@ -357,7 +367,13 @@ func (c *ListCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) sub
 	}
 
 	if cellFullName, err := naming.NewCellFullName(arg0); err == nil {
-		return c.handleSaxCell(ctx, cellFullName)
+		detailsExplicitlySet := false
+		f.Visit(func(flagVar *flag.Flag) {
+			if flagVar.Name == detailsFlag {
+				detailsExplicitlySet = true
+			}
+		})
+		return c.handleSaxCell(ctx, cellFullName, detailsExplicitlySet)
 	}
 
 	if modelFullName, err := naming.NewModelFullName(arg0); err == nil {

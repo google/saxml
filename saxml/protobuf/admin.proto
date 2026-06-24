@@ -92,6 +92,9 @@ message Model {
   // of the model from publish to unpublish.
   // It's a random 128-bit number represented as an array of bytes.
   bytes uuid = 8;
+
+  // Names of supported methods.
+  repeated string method_names = 9;
 }
 
 // The state of a published model.

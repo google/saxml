@@ -97,6 +97,9 @@ type stubAdminServer struct {
 }
 
 func (s *stubAdminServer) Publish(ctx context.Context, in *apb.PublishRequest) (*apb.PublishResponse, error) {
+	s.model = &apb.PublishedModel{
+		Model: in.GetModel(),
+	}
 	return &apb.PublishResponse{}, nil
 }
 
@@ -111,8 +114,22 @@ func (s *stubAdminServer) Unpublish(ctx context.Context, in *apb.UnpublishReques
 
 func (s *stubAdminServer) List(ctx context.Context, in *apb.ListRequest) (*apb.ListResponse, error) {
 	addresses := s.modelAddressesList(ctx)
+
+	populateMethods := func(m *apb.Model) {
+		if len(m.MethodNames) == 0 {
+			m.MethodNames = []string{"lm.generate", "lm.score"}
+		}
+	}
+
 	if in.GetModelId() == "" {
 		// This is "listall".
+		if s.model != nil {
+			s.model.ModeletAddresses = addresses
+			populateMethods(s.model.Model)
+			return &apb.ListResponse{
+				PublishedModels: []*apb.PublishedModel{s.model},
+			}, nil
+		}
 		return &apb.ListResponse{}, nil
 	}
 	// This is "list". Echo the queried model name.
@@ -136,6 +153,7 @@ func (s *stubAdminServer) List(ctx context.Context, in *apb.ListRequest) (*apb.L
 			ModeletAddresses: []string{addresses[0]},
 		}
 	}
+	populateMethods(s.model.Model)
 
 	out := &apb.ListResponse{
 		PublishedModels: []*apb.PublishedModel{s.model},
@@ -146,7 +164,7 @@ func (s *stubAdminServer) List(ctx context.Context, in *apb.ListRequest) (*apb.L
 func (s *stubAdminServer) modelAddressesList(ctx context.Context) []string {
 	result, err := s.modelAddresses.Watch(ctx, 0)
 	if err != nil {
-		log.Fatalf("Unexpected modelAddressesList error: %v", err)
+		log.FatalContextf(ctx, "Unexpected modelAddressesList error: %v", err)
 	}
 	dataset := result.Data
 	if dataset == nil {

@@ -32,7 +32,7 @@ namespace client {
 
 // Options contains options for creating sax client.
 struct Options {
-  int num_conn = 37;  // Perferred number of connections to sax backend.
+  int num_conn = 37;  // Preferred number of connections to sax backend.
   std::string proxy_addr = "";  // Optional proxy address.
   // Whether the model should fail fast instead of waiting for servers to be
   // available.
@@ -606,10 +606,13 @@ absl::Status Update(const AdminOptions& options, absl::string_view id,
 
 struct ModelDetail {
   std::string model;
+  std::string model_id;
   std::string ckpt;
   int max_replicas;
   int active_replicas;
   std::map<std::string, std::string> overrides;
+  std::map<std::string, std::string> acls;
+  std::vector<std::string> method_names;
 };
 
 // List a model to get details such checkpoint path and model path.
@@ -625,6 +628,14 @@ absl::Status List(const AdminOptions& options, absl::string_view id,
 absl::Status ListAll(absl::string_view id, std::vector<std::string>* models);
 absl::Status ListAll(const AdminOptions& options, absl::string_view id,
                      std::vector<std::string>* models);
+
+// List all models in a sax cell to get full details.
+//
+// On success, returns OK; Otherwise, returns an error.
+absl::Status ListAllDetails(absl::string_view id,
+                            std::vector<ModelDetail>* models);
+absl::Status ListAllDetails(const AdminOptions& options, absl::string_view id,
+                            std::vector<ModelDetail>* models);
 
 // Wait until at least a certain number of replicas are ready.
 //

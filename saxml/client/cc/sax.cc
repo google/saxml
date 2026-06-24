@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "saxml/client/cc/saxwrapper.h"
@@ -1164,12 +1165,16 @@ absl::Status List(const AdminOptions& options, absl::string_view id,
   }
   auto one_model = pub_model.model();
   model->model = one_model.model_path();
+  model->model_id = one_model.model_id();
   model->ckpt = one_model.checkpoint_path();
   model->max_replicas = one_model.requested_num_replicas();
   model->active_replicas = pub_model.modelet_addresses_size();
   model->overrides = std::map<std::string, std::string>(
       one_model.overrides().begin(), one_model.overrides().end());
-
+  model->acls = std::map<std::string, std::string>(
+      one_model.acls().items().begin(), one_model.acls().items().end());
+  model->method_names = std::vector<std::string>(
+      one_model.method_names().begin(), one_model.method_names().end());
   return absl::OkStatus();
 }
 
@@ -1199,6 +1204,51 @@ absl::Status ListAll(const AdminOptions& options, absl::string_view id,
 
   for (const auto& res : resp.published_models()) {
     models->push_back(res.model().model_id());
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status ListAllDetails(absl::string_view id,
+                            std::vector<ModelDetail>* models) {
+  return ListAllDetails(AdminOptions(), id, models);
+}
+
+absl::Status ListAllDetails(const AdminOptions& options, absl::string_view id,
+                            std::vector<ModelDetail>* models) {
+  std::string content;
+
+  char* outputStr = nullptr;
+  int outputSize = 0;
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  go_list_all(const_cast<char*>(id.data()), id.size(), options.timeout,
+              &outputStr, &outputSize, &errMsgStr, &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
+
+  sax::ListResponse resp;
+  if (outputStr != nullptr) {
+    resp.ParseFromString(absl::string_view(outputStr, outputSize));
+    free(outputStr);
+  }
+
+  for (const auto& res : resp.published_models()) {
+    ModelDetail detail;
+    auto one_model = res.model();
+    detail.model = one_model.model_path();
+    detail.model_id = one_model.model_id();
+    detail.ckpt = one_model.checkpoint_path();
+    detail.max_replicas = one_model.requested_num_replicas();
+    detail.active_replicas = res.modelet_addresses_size();
+    detail.overrides = std::map<std::string, std::string>(
+        one_model.overrides().begin(), one_model.overrides().end());
+    detail.acls = std::map<std::string, std::string>(
+        one_model.acls().items().begin(), one_model.acls().items().end());
+    detail.method_names = std::vector<std::string>(
+        one_model.method_names().begin(), one_model.method_names().end());
+    models->push_back(detail);
   }
 
   return absl::OkStatus();
