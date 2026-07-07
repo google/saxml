@@ -98,7 +98,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
   def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     return []
 
-  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:  # pyrefly: ignore[bad-override]
     """Returns the task parameters."""
     task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='xformer_task')
     if self.NUM_CACHE_SLOTS > 0:
@@ -152,7 +152,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
 
       transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
           gpu_fast_attention.GpuTritonFusedMultiQueryDotProductAttention,
-          num_kv_heads=self.NUM_KV_HEADS,
+          num_kv_heads=self.NUM_KV_HEADS,  # pyrefly: ignore[missing-attribute]
           chunked_attn_num_seq_split=self.ATTEN_NUM_SEQ_SPLITS,
           use_flash_decoding=True,
       )
@@ -160,14 +160,14 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     elif self.USE_MQA and self.QUANTIZE_KV:
       transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
           sax_layers.QuantizedKVMQA,
-          num_kv_heads=self.NUM_KV_HEADS,
+          num_kv_heads=self.NUM_KV_HEADS,  # pyrefly: ignore[missing-attribute]
           chunked_attn_num_seq_split=self.ATTEN_NUM_SEQ_SPLITS,
       )
       transformer_layer_p.tr_atten_tpl.combine_qkv = False
     elif self.USE_MQA:
       transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
           multi_query_attention.MultiQueryDotProductAttention,
-          num_kv_heads=self.NUM_KV_HEADS,
+          num_kv_heads=self.NUM_KV_HEADS,  # pyrefly: ignore[missing-attribute]
           chunked_attn_num_seq_split=self.ATTEN_NUM_SEQ_SPLITS,
       )
       transformer_layer_p.tr_atten_tpl.combine_qkv = False
@@ -857,7 +857,7 @@ class BaseNeoX(base_experiment.BaseExperiment):
   def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     return []
 
-  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:  # pyrefly: ignore[bad-override]
     """Returns the task parameters."""
     task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='xformer_task')
     task_p.model = pax_fiddle.Config(layers.LanguageModel, name='xformer_lm')

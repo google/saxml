@@ -66,7 +66,7 @@ class ServableMethod(abc.ABC):
   @property
   def sorted_batch_sizes(self) -> List[int]:
     """A list of sorted supported (ascending order) batch sizes."""
-    return self._sorted_batch_sizes
+    return self._sorted_batch_sizes  # pyrefly: ignore[bad-return]
 
   @property
   def default_extra_inputs(self) -> Optional[ExtraInput]:

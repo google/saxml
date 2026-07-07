@@ -161,7 +161,7 @@ class ServableModelParams(abc.ABC):
         A new ServableMethodParams instance with overrides applied.
     """
 
-    class NewClass(cls):
+    class NewClass(cls):  # pyrefly: ignore[invalid-inheritance]
       pass
 
     for k, v_raw in overrides.items():

@@ -192,7 +192,7 @@ class ServableMethod(servable_model.ServableMethod):
 
   def get_sorted_input_shapes(self) -> List[InputShapeInfo]:
     result = []
-    for batch_size in self._sorted_batch_sizes:
+    for batch_size in self._sorted_batch_sizes:  # pyrefly: ignore[not-iterable]
       result.append(InputShapeInfo(batch_size))
     return result
 
@@ -341,7 +341,7 @@ class ServableMethod(servable_model.ServableMethod):
     batched_host_dummy = self.update_extra_inputs(
         batched_host_dummy,
         input_shape.batch_size,
-        [self.default_extra_inputs] * input_shape.batch_size,
+        [self.default_extra_inputs] * input_shape.batch_size,  # pyrefly: ignore[bad-argument-type]
     )
 
     def _assert_type(x):
@@ -631,7 +631,7 @@ class ServableMethod(servable_model.ServableMethod):
           # Map string to int.
           # Downstream usage will look up the string with the repository.
           value = paxml_hcb.repository(input_key).add(value)
-          extra_input_dtypes[input_key] = np.int32
+          extra_input_dtypes[input_key] = np.int32  # pyrefly: ignore[unsupported-operation]
         input_value.append(value)
 
       # Some extra inputs such as per_example_max_decode_steps are ints
@@ -645,7 +645,7 @@ class ServableMethod(servable_model.ServableMethod):
   ) -> DeviceTensors:
     """Executes the device computation."""
     with self.model_state.global_mesh:
-      output_batch = self._per_bs_infos[padded_shape].device_fn(
+      output_batch = self._per_bs_infos[padded_shape].device_fn(  # pyrefly: ignore[not-callable]
           self.model_state.mdl_vars, input_batch
       )
       return output_batch

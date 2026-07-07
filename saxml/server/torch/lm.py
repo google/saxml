@@ -152,7 +152,7 @@ class GemmaServableModel(servable_model.ServableModelParams):
   """A generic ServableModel for pytorch models."""
 
   MODEL_VARIANT: str = '4b'  # 4b, 12b, 27b_v3
-  TEST_TOKENIZER_PATH: str = None
+  TEST_TOKENIZER_PATH: str = None  # pyrefly: ignore[bad-assignment]
   DEVICE: str = 'cuda'  # 'cpu' or 'cuda'
 
   MAX_DECODED_STEPS: int = 128
@@ -183,7 +183,7 @@ class GemmaServableModel(servable_model.ServableModelParams):
     methods = self.methods()
     return servable_model.ServableModel(model, methods, device=self.DEVICE)
 
-  def methods(self) -> Dict[str, servable_model.ServableMethodParams]:
+  def methods(self) -> Dict[str, servable_model.ServableMethodParams]:  # pyrefly: ignore[bad-override]
     return {
         lm_service.LMMethodName.GENERATE: servable_model.ServableMethodParams(
             method_cls=GemmaTextSampleMethod,

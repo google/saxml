@@ -25,5 +25,5 @@ from saxml.server.pax.lm.params import gemma
 # Specify the registry root.
 from saxml.server import servable_model_registry
 
-servable_model_registry.REGISTRY_ROOT = 'saxml.server.pax.lm.params'
+servable_model_registry.REGISTRY_ROOT = 'saxml.server.pax.lm.params'  # pyrefly: ignore[bad-assignment]
 # pylint: enable=unused-import,g-bad-import-order

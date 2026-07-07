@@ -48,9 +48,9 @@ class PredictHandler(tornado.web.RequestHandler):
   """HTTP handler for prediction requests."""
 
   # Informs pytype of type info otherwise it will throw attribute error.
-  model_key: str = ...
-  prediction_timeout_seconds: int = ...
-  executor: concurrent.futures.ThreadPoolExecutor = ...
+  model_key: str = ...  # pyrefly: ignore[bad-assignment]
+  prediction_timeout_seconds: int = ...  # pyrefly: ignore[bad-assignment]
+  executor: concurrent.futures.ThreadPoolExecutor = ...  # pyrefly: ignore[bad-assignment]
 
   def initialize(
       self,
@@ -67,7 +67,7 @@ class PredictHandler(tornado.web.RequestHandler):
         self.executor, lm.Generate, lm_request_text, option
     )
 
-  async def post(self):
+  async def post(self):  # pyrefly: ignore[bad-override]
     logging.debug("got prediction request")
     try:
       req = json.loads(self.request.body.decode())
@@ -110,14 +110,14 @@ class HealthHandler(tornado.web.RequestHandler):
   """Health handler for SAX."""
 
   # Informs pytype of type info otherwise it will throw attribute error.
-  admin_server_address: str = ...
-  model_key: str = ...
+  admin_server_address: str = ...  # pyrefly: ignore[bad-assignment]
+  model_key: str = ...  # pyrefly: ignore[bad-assignment]
 
-  def initialize(self, admin_server_address: str, model_key: str = ""):
+  def initialize(self, admin_server_address: str, model_key: str = ""):  # pyrefly: ignore[bad-override]
     self.model_key = model_key
     self.admin_server_address = admin_server_address
 
-  def get(self):
+  def get(self):  # pyrefly: ignore[bad-override]
     global _HEALTH_CHECK_SUCCESS_REPORTED
     logging.debug("got health request")
     # If model loading time takes more than Vertex Prediction timeout,

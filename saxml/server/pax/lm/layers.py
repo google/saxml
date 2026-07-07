@@ -165,7 +165,7 @@ class FakeLayerNorm(layers.LayerNorm):
 
 
 class TransformerMLP(layers.TransformerFeedForward):
-  ln_tpl: LayerTpl = template_field(FakeLayerNorm)
+  ln_tpl: LayerTpl = template_field(FakeLayerNorm)  # pyrefly: ignore[bad-assignment]
 
 
 # TODO(huangyp): adapt the more efficient lingvo implementation.
@@ -175,7 +175,7 @@ class ParallelTransformer(layers.Transformer):
   norm_policy = 'pre'  # Use primer_hybrid for GPT-Neo
   residual_droppath_prob = 0.0
   use_cross_attention = False
-  tr_fflayer_tpl: LayerTpl = template_field(TransformerMLP)
+  tr_fflayer_tpl: LayerTpl = template_field(TransformerMLP)  # pyrefly: ignore[bad-assignment]
 
   def ffn_norm(self, inputs: JTensor, inputs_normalized: JTensor) -> JTensor:
     # Apply FFN layer
@@ -444,7 +444,7 @@ class QuantizedKVMQA(multi_query_attention.MultiQueryDotProductAttention):
       extend_value = value
     qvalue, qscale = reduce_last_dim_for_quantization(extend_value)
     indices = [0] * qvalue.ndim
-    indices[time_dim] = time_step.astype(jnp.int32)
+    indices[time_dim] = time_step.astype(jnp.int32)  # pyrefly: ignore[unsupported-operation]
     state = self.get_variable(DECODE_CACHE, name)
     assert state is not None
     scale = self.get_variable(DECODE_CACHE, name + CACHE_SCALE_SUFFIX)
@@ -617,7 +617,7 @@ class ChunkedMQA(QuantizedKVMQA):
       dynamic_qkv_fns.append(functools.partial(_dynamic_qkv, num_chunks=c + 1))
 
     start_chunk = 0
-    num_chunks = time_step // w - start_chunk + 1
+    num_chunks = time_step // w - start_chunk + 1  # pyrefly: ignore[unsupported-operation]
     encoded = jax.lax.switch(
         num_chunks - 1,
         dynamic_qkv_fns,
@@ -745,7 +745,7 @@ class ChunkedMHA(layers.DotProductAttention):
       dynamic_qkv_fns.append(functools.partial(_dynamic_qkv, num_chunks=c + 1))
 
     start_chunk = 0
-    num_chunks = time_step // w - start_chunk + 1
+    num_chunks = time_step // w - start_chunk + 1  # pyrefly: ignore[unsupported-operation]
     encoded = jax.lax.switch(
         num_chunks - 1,
         dynamic_qkv_fns,

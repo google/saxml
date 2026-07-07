@@ -79,7 +79,7 @@ def ValidateRequestForExtraInputs(
       return utils.invalid_arg(
           f'Extra inputs `{key}` is a list but the default value is not.'
       )
-    if len(list(tensor.values)) != len(extra_inputs[key]):
+    if len(list(tensor.values)) != len(extra_inputs[key]):  # pyrefly: ignore[bad-argument-type]
       return utils.invalid_arg(
           f'Extra inputs `{key}` does not have the same size as the default.'
       )

@@ -21,5 +21,5 @@ from saxml.server.pax.vision.params import resnet
 # Specify the registry root.
 from saxml.server import servable_model_registry
 
-servable_model_registry.REGISTRY_ROOT = 'saxml.server.pax.vision.params'
+servable_model_registry.REGISTRY_ROOT = 'saxml.server.pax.vision.params'  # pyrefly: ignore[bad-assignment]
 # pylint: enable=unused-import,g-bad-import-order

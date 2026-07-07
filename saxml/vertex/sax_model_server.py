@@ -92,7 +92,7 @@ class SAXRunOpts:
     elif self.is_platform_chip_tpu():
       return self._get_tpu_cmd_list()
     else:
-      raise ValueError("Platform is not supported: " + self.platform_chip)
+      raise ValueError("Platform is not supported: " + self.platform_chip)  # pyrefly: ignore[unsupported-operation]
 
   def _get_common_cmd_args(self) -> Sequence[str]:
     """Builds a command to start SAX Model Server binary.
@@ -182,7 +182,7 @@ class SAXModelServer:
       self._popen = sax_process.proc
       logging.info("SAX Model Server pid=%d", self._popen.pid)
       sax_process.set_exit_callback(self._shutdown_callback)
-    return self._popen
+    return self._popen  # pyrefly: ignore[bad-return]
 
   def wait(self) -> int:
     """Wait for server to terminate.

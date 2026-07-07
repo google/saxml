@@ -328,7 +328,7 @@ def _get_prediction_service_ports():
   http_port = (
       _PORT.value
       if not os.environ.get("AIP_HTTP_PORT", "")
-      else int(os.environ.get("AIP_HTTP_PORT"))
+      else int(os.environ.get("AIP_HTTP_PORT"))  # pyrefly: ignore[bad-argument-type]
   )
 
   # AIP_GRPC_PORT specify the grpc port used by Vertex Prediction.
@@ -336,7 +336,7 @@ def _get_prediction_service_ports():
   grpc_port = (
       _GRPC_PREDICTION_PORT.value
       if not os.environ.get("AIP_GRPC_PORT", "")
-      else int(os.environ.get("AIP_GRPC_PORT"))
+      else int(os.environ.get("AIP_GRPC_PORT"))  # pyrefly: ignore[bad-argument-type]
   )
 
   if not http_port and not grpc_port:
@@ -387,7 +387,7 @@ async def main():
 
     if _is_primary():
       # Only publish model using SAX client on primary node.
-      if not publish_model(_MODEL_KEY.value, _MODEL_PATH.value):
+      if not publish_model(_MODEL_KEY.value, _MODEL_PATH.value):  # pyrefly: ignore[bad-argument-type]
         logging.error("Failed to publish model %s from %s",
                       _MODEL_KEY.value, _MODEL_PATH.value)
         os._exit(-1)  # pylint: disable=protected-access

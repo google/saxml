@@ -60,7 +60,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
 
   prepend_sos: bool = True
   append_eos: bool = True
-  spm_model: str = None
+  spm_model: str = None  # pyrefly: ignore[bad-assignment]
   target_sos_id: int = 0
   target_eos_id: int = 1
   slice_left: bool = True
@@ -68,8 +68,8 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
   tokenized_input: bool = False
   tokenized_output: bool = False
   eos_padding_and_no_sos: bool = False
-  vocabulary_class: str = None
-  vocabulary_path: str = None
+  vocabulary_class: str = None  # pyrefly: ignore[bad-assignment]
+  vocabulary_path: str = None  # pyrefly: ignore[bad-assignment]
   extra_ids: int = 0
   reverse_extra_ids: bool = True
   fail_on_input_truncation: bool = False
@@ -80,7 +80,7 @@ class LMTokenizer(base_hyperparams.FiddleBaseParameterizable):
     assert self.append_eos
     if self.vocabulary_class is None:
       assert self.spm_model is not None
-      self._vocab = vocabularies.SentencePieceVocabulary(
+      self._vocab = vocabularies.SentencePieceVocabulary(  # pyrefly: ignore[bad-assignment]
           self.hparams.spm_model,
           extra_ids=self.extra_ids,
           reverse_extra_ids=self.reverse_extra_ids,

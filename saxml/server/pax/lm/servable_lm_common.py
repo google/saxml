@@ -457,7 +457,7 @@ def decode_get_mean_entropy(result: NestedMap,
                             host=False):
   """Get mean of entropy from decoding results."""
   np_op = np if host else jnp
-  output_length = decode_lengths - np_op.expand_dims(prefix_lengths, axis=-1)
+  output_length = decode_lengths - np_op.expand_dims(prefix_lengths, axis=-1)  # pyrefly: ignore[bad-argument-type, no-matching-overload, unsupported-operation]
   output_length = np_op.where(output_length > 0, output_length, 1)
   return np_op.sum(result.entropy, axis=-1) / output_length
 
@@ -494,7 +494,7 @@ def decode_fetch_output(
     fetch_prefix_length_from_inputs: bool = False,
 ) -> NestedJTensor:
   """Fetch output for decode."""
-  assert len(model_fn_outputs[0]) == 3
+  assert len(model_fn_outputs[0]) == 3  # pyrefly: ignore[bad-index]
   # Extract the per example outputs and discard weighted scalars and metrics.
   _, result, _ = model_fn_outputs[0]
   output_ids = result.output_ids  # [batch_size, num_samples, seqlen].
@@ -521,7 +521,7 @@ def decode_fetch_output(
   )
   if hasattr(result, 'entropy'):
     ret.mean_entropy = decode_get_mean_entropy(
-        result, decode_lengths, prefix_lengths)
+        result, decode_lengths, prefix_lengths)  # pyrefly: ignore[bad-argument-type]
   if (not t5_model) and hasattr(model_fn_inputs, 'num_per_token_logprobs'):
     fetch_per_token_logprobs_related_outputs(model_fn_inputs, result, ret)
   return ret

@@ -54,7 +54,7 @@ class UnionModelParams(
   def serving_mesh_shape(cls) -> List[int]:
     return cls.children()[0].serving_mesh_shape()
 
-  def methods(self) -> Dict[str, servable_model_params.ServableMethodParams]:
+  def methods(self) -> Dict[str, servable_model_params.ServableMethodParams]:  # pyrefly: ignore[bad-override]
     raise NotImplementedError('should not be called')
 
   def create_model(self, primary_process_id: int) -> 'UnionModel':
@@ -108,7 +108,7 @@ class UnionModel(servable_model.ServableModel):
     for child in children:
       child = child.apply_model_overrides(union_config.overrides)
       child_inst = child()
-      self._models.append(child_inst.create_model(self.primary_process_id))
+      self._models.append(child_inst.create_model(self.primary_process_id))  # pyrefly: ignore[missing-attribute]
     return self._models[0].load_state(checkpoint_path, prng_key, precompile)
 
   def load_methods(

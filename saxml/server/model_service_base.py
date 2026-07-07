@@ -94,8 +94,8 @@ def _maybe_all_cancelled(
 
   def _notify():
     for t in rpc_tasks:
-      t.release_device_resource()
-      t.done(utils.cancelled())
+      t.release_device_resource()  # pyrefly: ignore[not-callable]
+      t.done(utils.cancelled())  # pyrefly: ignore[not-callable]
 
   if all(_cancelled(t.rpc) for t in rpc_tasks):
     logging.info('RPCs in batch cancelled. %s', log_msg)
@@ -245,7 +245,7 @@ class Batch:
   def finish(self):
     assert self.done is not None
     self.done()
-    self.done = None
+    self.done = None  # pyrefly: ignore[bad-assignment]
 
   def __enter__(self):
     return self
@@ -364,16 +364,16 @@ class ContinuousBatchingState:
       self.available_slots.put(i)
     self.pending_insert = False
 
-    self.decoded_tokens = np.zeros(
+    self.decoded_tokens = np.zeros(  # pyrefly: ignore[bad-assignment]
         (num_cache_slots, max_decode_step), dtype=np.int32
     )
-    self.scores = np.zeros((num_cache_slots,))
-    self.per_token_scores = np.zeros((num_cache_slots, max_decode_step))
-    self.prefill_lengths = np.zeros((num_cache_slots,), dtype=np.int32)
+    self.scores = np.zeros((num_cache_slots,))  # pyrefly: ignore[bad-assignment]
+    self.per_token_scores = np.zeros((num_cache_slots, max_decode_step))  # pyrefly: ignore[bad-assignment]
+    self.prefill_lengths = np.zeros((num_cache_slots,), dtype=np.int32)  # pyrefly: ignore[bad-assignment]
     if expert_choices_shape is not None:
-      self.expert_choices = np.zeros(expert_choices_shape, dtype=np.int8)
-    self.steps = np.zeros((num_cache_slots,), dtype=np.int32)
-    self.slots_in_use = np.zeros((num_cache_slots,), dtype=np.int32)
+      self.expert_choices = np.zeros(expert_choices_shape, dtype=np.int8)  # pyrefly: ignore[bad-assignment]
+    self.steps = np.zeros((num_cache_slots,), dtype=np.int32)  # pyrefly: ignore[bad-assignment]
+    self.slots_in_use = np.zeros((num_cache_slots,), dtype=np.int32)  # pyrefly: ignore[bad-assignment]
 
     self.prefill_wait_time = utils.RequestStats(timespan_sec=np.float64(60.0))
     self.insert_wait_time = utils.RequestStats(timespan_sec=np.float64(60.0))
@@ -388,7 +388,7 @@ class ContinuousBatchingState:
     self.recent_waiting_prefills.append(self.prefill_queue.qsize())
     if len(self.recent_waiting_prefills) > 10:
       self.recent_waiting_prefills.popleft()
-    self.recent_slots_in_use.append(np.count_nonzero(self.slots_in_use))
+    self.recent_slots_in_use.append(np.count_nonzero(self.slots_in_use))  # pyrefly: ignore[bad-argument-type]
     if len(self.recent_slots_in_use) > 10:
       self.recent_slots_in_use.popleft()
 
@@ -467,7 +467,7 @@ class PerMethodBatcher:
         if key.name == MethodName.BATCHED_LM_GENERATE:
           # Make sure total slots in batch <= max available slots.
           assert model is not None
-          cache_slots = model.method(key.model_method).num_cache_slots
+          cache_slots = model.method(key.model_method).num_cache_slots  # pyrefly: ignore[bad-argument-type]
           rpc_tasks = []
           total_slots = 0
           for t in next_rpc_tasks:
@@ -529,8 +529,8 @@ class PerMethodBatcher:
             error_msg = f'Preprocessing error: {e}\n{traceback.format_exc()}'
             logging.error(error_msg)
             for rpc_task in rpc_tasks:
-              rpc_task.release_device_resource()
-              rpc_task.done(utils.internal_error(error_msg))
+              rpc_task.release_device_resource()  # pyrefly: ignore[not-callable]
+              rpc_task.done(utils.internal_error(error_msg))  # pyrefly: ignore[not-callable]
             if not presync:
               _finish_batch()
             continue
@@ -643,7 +643,7 @@ class PerMethodBatcher:
           model_method_name
       )
       validate_status = validate.ValidateRequestForExtraInputs(
-          req, servable_method.default_extra_inputs
+          req, servable_method.default_extra_inputs  # pyrefly: ignore[bad-argument-type]
       )
       if not validate_status.ok():
         return done(validate_status)
@@ -1400,7 +1400,7 @@ class ModeletService:
       ) in self._batcher.get_method_stats():
         if (
             key.service_id
-            and (model := model_by_key.get(key.model_key)) is not None
+            and (model := model_by_key.get(key.model_key)) is not None  # pyrefly: ignore[bad-argument-type]
         ):
           stats = model.method_stats.add(
               method=key.method_name(),
@@ -1988,7 +1988,7 @@ class ModelServicesRunner:
         if not pre_process_failure:
           logging.info('Processing final results.')
         try:
-          method_obj = model.method(batch.method.model_method)
+          method_obj = model.method(batch.method.model_method)  # pyrefly: ignore[bad-argument-type]
           utils.traceprint_all(
               batch.rpc_tasks, f'in _postprocess_async: {batch.method}'
           )
@@ -2007,7 +2007,7 @@ class ModelServicesRunner:
               batch.rpc_tasks, f'After output_to_host: {batch.method}'
           )
           for task in batch.rpc_tasks:
-            task.release_device_resource()
+            task.release_device_resource()  # pyrefly: ignore[not-callable]
         except Exception as e:  # pylint: disable=broad-except
           logging.fatal('Error during waiting for device result %s', e)
         try:
@@ -2015,7 +2015,7 @@ class ModelServicesRunner:
             # No more result for streaming.
             if streaming_done is not None:
               for task in batch.rpc_tasks:
-                task.done(utils.ok(), resp=None, query_cost=tpu_ms)
+                task.done(utils.ok(), resp=None, query_cost=tpu_ms)  # pyrefly: ignore[not-callable]
               return
             # TODO(zhifengc): Might make more sense to split this phase into
             # two. One calls output_to_host and the other calls post_processing.
@@ -2032,7 +2032,7 @@ class ModelServicesRunner:
               self._model_services[batch.method.service_id].FillRPCResponse(
                   batch.method.model_method, out, task.response
               )
-              task.done(utils.ok(), query_cost=tpu_ms)
+              task.done(utils.ok(), query_cost=tpu_ms)  # pyrefly: ignore[not-callable]
               done_rpcs += 1
         except Exception as e:  # pylint: disable=broad-except
           # TODO: b/341321308 - Remove when root cause is identified and fixed.
@@ -2059,7 +2059,7 @@ class ModelServicesRunner:
             )
             error_msg = f'Postprocessing error: {e}\n{traceback.format_exc()}'
             for task in batch.rpc_tasks[done_rpcs:]:
-              task.done(utils.internal_error(error_msg))
+              task.done(utils.internal_error(error_msg))  # pyrefly: ignore[not-callable]
 
     self._postprocess_pool.run(_postprocess)
 
@@ -2078,7 +2078,7 @@ class ModelServicesRunner:
       stream_state = None
       while not done:
         b = len(batch.rpc_tasks)
-        method_obj = model.method(batch.method.model_method)
+        method_obj = model.method(batch.method.model_method)  # pyrefly: ignore[bad-argument-type]
         host_tensors = method_obj.dequeue_stream_output()
         if host_tensors is None:
           # Done with streaming.
@@ -2110,7 +2110,7 @@ class ModelServicesRunner:
               self._model_services[batch.method.service_id].FillRPCResponse(
                   batch.method.model_method, out, resp
               )
-              task.done(utils.ok(), resp=resp, query_cost=query_cost)
+              task.done(utils.ok(), resp=resp, query_cost=query_cost)  # pyrefly: ignore[not-callable]
               done_rpcs += 1
           except Exception as e:  # pylint: disable=broad-except
             self._log_exception(
@@ -2121,7 +2121,7 @@ class ModelServicesRunner:
             )
             error_msg = f'Postprocessing error: {e}\n{traceback.format_exc()}'
             for task in batch.rpc_tasks[done_rpcs:]:
-              task.done(utils.internal_error(error_msg))
+              task.done(utils.internal_error(error_msg))  # pyrefly: ignore[not-callable]
             postprocess_error = True
 
       streaming_done.notify()
@@ -2161,8 +2161,8 @@ class ModelServicesRunner:
                     dict(request.overrides),
                     prng_seed,
                 )
-              task.release_device_resource()
-              task.done(utils.ok())
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(utils.ok())  # pyrefly: ignore[not-callable]
             except ValueError as e:
               self._log_exception(
                   (
@@ -2173,8 +2173,8 @@ class ModelServicesRunner:
                   request.model_path,
                   e,
               )
-              task.release_device_resource()
-              task.done(utils.invalid_arg(f'{e}'))
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(utils.invalid_arg(f'{e}'))  # pyrefly: ignore[not-callable]
             except Exception as e:  # pylint: disable=broad-except
               self._log_exception(
                   (
@@ -2185,8 +2185,8 @@ class ModelServicesRunner:
                   request.model_path,
                   e,
               )
-              task.release_device_resource()
-              task.done(utils.internal_error(f'Loading error: {e}'))
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(utils.internal_error(f'Loading error: {e}'))  # pyrefly: ignore[not-callable]
         case MethodName.UNLOAD:
           with batch:
             assert len(batch.rpc_tasks) == 1
@@ -2200,24 +2200,24 @@ class ModelServicesRunner:
               with self._device_compute_mutex:
                 self._inform_secondary_hosts(batch.method.name, model_key)
                 self._loaded_models.unload(model_key)
-              task.release_device_resource()
-              task.done(utils.ok())
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(utils.ok())  # pyrefly: ignore[not-callable]
             except ValueError as e:
               logging.exception(
                   'Invalid unload request. model_key %s, error: %s',
                   model_key,
                   e,
               )
-              task.release_device_resource()
-              task.done(utils.invalid_arg(f'Unloading error: {e}'))
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(utils.invalid_arg(f'Unloading error: {e}'))  # pyrefly: ignore[not-callable]
             except Exception as e:  # pylint: disable=broad-except
               self._log_exception(
                   'Internal error during unloading. model_key: %s, error: %s',
                   model_key,
                   e,
               )
-              task.release_device_resource()
-              task.done(utils.internal_error(f'Unloading error: {e}'))
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(utils.internal_error(f'Unloading error: {e}'))  # pyrefly: ignore[not-callable]
         case MethodName.EXPORT:
           with batch:
             assert len(batch.rpc_tasks) == 1
@@ -2238,8 +2238,8 @@ class ModelServicesRunner:
                 self._worker_thread_exception = e
                 break
               exporter.finalize_export(*export_args)
-              task.release_device_resource()
-              task.done(utils.ok())
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(utils.ok())  # pyrefly: ignore[not-callable]
             except Exception as e:  # pylint: disable=broad-except
               self._log_exception(
                   (
@@ -2252,8 +2252,8 @@ class ModelServicesRunner:
                   request.export_path,
                   e,
               )
-              task.release_device_resource()
-              task.done(exporter.export_error_to_status(e))
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(exporter.export_error_to_status(e))  # pyrefly: ignore[not-callable]
         case MethodName.SAVE:
           with batch:
             assert len(batch.rpc_tasks) == 1
@@ -2267,16 +2267,16 @@ class ModelServicesRunner:
                     request.checkpoint_path,
                 )
                 self._save_model(request.model_key, request.checkpoint_path)
-              task.release_device_resource()
-              task.done(utils.ok())
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(utils.ok())  # pyrefly: ignore[not-callable]
             except ValueError as e:
               self._log_exception(
                   'Invalid save request. model_key %s, error: %s, ',
                   request.model_key,
                   e,
               )
-              task.release_device_resource()
-              task.done(utils.invalid_arg(f'Save checkpoint error: {e}'))
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(utils.invalid_arg(f'Save checkpoint error: {e}'))  # pyrefly: ignore[not-callable]
             except Exception as e:  # pylint: disable=broad-except
               self._log_exception(
                   (
@@ -2286,8 +2286,8 @@ class ModelServicesRunner:
                   request.model_key,
                   e,
               )
-              task.release_device_resource()
-              task.done(utils.internal_error(f'Saving checkpoint error: {e}'))
+              task.release_device_resource()  # pyrefly: ignore[not-callable]
+              task.done(utils.internal_error(f'Saving checkpoint error: {e}'))  # pyrefly: ignore[not-callable]
         case MethodName.TERMINATE:
           with batch:
             assert batch.method.model_key is None
@@ -2307,16 +2307,16 @@ class ModelServicesRunner:
             with self._device_compute_mutex:
               self._inform_secondary_hosts(
                   batch.method.name,
-                  batch.method.model_key,
-                  batch.method.model_method,
+                  batch.method.model_key,  # pyrefly: ignore[bad-argument-type]
+                  batch.method.model_method,  # pyrefly: ignore[bad-argument-type]
                   str(batch.unpadded_shape),
                   str(batch.padded_shape),
                   skip_host_sync=batch.skip_host_sync,
               )
-              model = self._loaded_models.get_model(batch.method.model_key)
+              model = self._loaded_models.get_model(batch.method.model_key)  # pyrefly: ignore[bad-argument-type]
               batch.wait_for_ready()
 
-              method_obj = model.method(batch.method.model_method)
+              method_obj = model.method(batch.method.model_method)  # pyrefly: ignore[bad-argument-type]
               enable_token_streaming = method_obj.streamable_output
               streaming_done = (
                   utils.Notification() if enable_token_streaming else None
@@ -2330,7 +2330,7 @@ class ModelServicesRunner:
                   # otherwise device_compute may block the consumption of
                   # streaming queue until it finishes.
                   if enable_token_streaming:
-                    self._postprocess_stream_async(model, batch, streaming_done)
+                    self._postprocess_stream_async(model, batch, streaming_done)  # pyrefly: ignore[bad-argument-type]
                   assert batch.unpadded_shape is not None
                   assert batch.padded_shape is None
                   padded_shape = method_obj.get_padded_input_shape(
@@ -2346,7 +2346,7 @@ class ModelServicesRunner:
                 # Successful pre-processing. Compute on device using the padded
                 # shape picked by pre-processing.
                 if enable_token_streaming:
-                  self._postprocess_stream_async(model, batch, streaming_done)
+                  self._postprocess_stream_async(model, batch, streaming_done)  # pyrefly: ignore[bad-argument-type]
                 assert batch.unpadded_shape is None
                 assert batch.padded_shape is not None
                 result = method_obj.device_compute(

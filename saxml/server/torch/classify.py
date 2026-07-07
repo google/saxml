@@ -54,7 +54,7 @@ class ResNetModel(servable_model.ServableModelParams):
     )
     return ServableModel(model, self.methods(), device="cuda")
 
-  def methods(self) -> Dict[str, servable_model.ServableMethodParams]:
+  def methods(self) -> Dict[str, servable_model.ServableMethodParams]:  # pyrefly: ignore[bad-override]
     return {
         VisionMethodName.CLASSIFY: ServableMethodParams(
             method_cls=ClassifyMethod,

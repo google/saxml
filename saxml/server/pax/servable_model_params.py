@@ -95,7 +95,7 @@ class ServableModelParams(
     for mesh_shape in mesh_shapes:
       try:
         # If mesh_shape is supported, create_device_mesh should succeed.
-        device_mesh = mesh_utils.create_device_mesh(mesh_shape)
+        device_mesh = mesh_utils.create_device_mesh(mesh_shape)  # pyrefly: ignore[bad-argument-type]
         return utils.ok(), device_mesh
       except Exception as e:  # pylint: disable=broad-except
         errmsg += f' {e}'
@@ -197,7 +197,7 @@ class ServableMethodParams(servable_model_params.ServableMethodParams):
   def get_max_live_batches(self) -> int:
     return self.max_live_batches
 
-  def get_default_extra_inputs(self) -> Optional[Dict[str, float]]:
+  def get_default_extra_inputs(self) -> Optional[Dict[str, float]]:  # pyrefly: ignore[bad-override]
     return self.extra_inputs
 
   def get_extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype]]:

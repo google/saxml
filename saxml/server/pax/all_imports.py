@@ -22,5 +22,5 @@ from saxml.server.pax.vision import all_imports as _
 # Specify the registry root.
 from saxml.server import servable_model_registry
 
-servable_model_registry.REGISTRY_ROOT = 'saxml.server.pax'
+servable_model_registry.REGISTRY_ROOT = 'saxml.server.pax'  # pyrefly: ignore[bad-assignment]
 # pylint: enable=unused-import,g-bad-import-order

@@ -147,7 +147,7 @@ class RpcQueue:
             release_device_resource,
             done,
             tc,
-            aux=aux,
+            aux=aux,  # pyrefly: ignore[bad-argument-type]
         )
     )
 

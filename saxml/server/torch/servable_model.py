@@ -142,7 +142,7 @@ class ServableMethodParams(servable_model_params.ServableMethodParams):
   def get_max_live_batches(self) -> int:
     return self.max_live_batches
 
-  def get_default_extra_inputs(self) -> Optional[Dict[str, float]]:
+  def get_default_extra_inputs(self) -> Optional[Dict[str, float]]:  # pyrefly: ignore[bad-override]
     return self.extra_inputs
 
   def get_extra_inputs_dtypes(self) -> Optional[Dict[str, np.dtype]]:

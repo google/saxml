@@ -156,7 +156,7 @@ class ServableCustomModelParams(
 ):
   """A base class that each custom model config needs to implement for serving."""
 
-  def methods(self) -> Dict[str, CustomCallHParams]:
+  def methods(self) -> Dict[str, CustomCallHParams]:  # pyrefly: ignore[bad-override]
     return {}
 
   def create_model(self, primary_process_id: int) -> 'ServableCustomModel':
@@ -207,21 +207,21 @@ class ServableCustomMethod(servable_model.ServableMethod):
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
   ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
-    return self._method_hparams.fetch_output_fn(
+    return self._method_hparams.fetch_output_fn(  # pyrefly: ignore[not-callable]
         model_fn_outputs, model_fn_inputs
     )
 
   def pre_processing(self, raw_inputs: List[bytes]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
     if self._state is not None:
-      return self._method_hparams.pre_process_fn(raw_inputs, self._state)
-    return self._method_hparams.pre_process_fn(raw_inputs)
+      return self._method_hparams.pre_process_fn(raw_inputs, self._state)  # pyrefly: ignore[not-callable]
+    return self._method_hparams.pre_process_fn(raw_inputs)  # pyrefly: ignore[not-callable]
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[bytes]:
     """Postprocesses the output numpy arrays to final host output."""
     if self._state is not None:
-      return self._method_hparams.post_process_fn(compute_outputs, self._state)
-    return self._method_hparams.post_process_fn(compute_outputs)
+      return self._method_hparams.post_process_fn(compute_outputs, self._state)  # pyrefly: ignore[not-callable]
+    return self._method_hparams.post_process_fn(compute_outputs)  # pyrefly: ignore[not-callable]
 
   def call_model_function(
       self, inputs: NestedJTensor, mdl_vars: NestedJTensor, prng_key: PRNGKey
@@ -253,21 +253,21 @@ class ServableCustomMethod(servable_model.ServableMethod):
     return self._method_hparams.tf_post_process_fn(compute_outputs)
 
   def input_signature(self, batch_size) -> Optional[NestedTfTensorSpec]:
-    return self._method_hparams.tf_input_signature(batch_size)
+    return self._method_hparams.tf_input_signature(batch_size)  # pyrefly: ignore[not-callable]
 
   @property
   def tf_trackable_resources(self) -> Optional[NestedTfTrackable]:
     return self._method_hparams.tf_trackable_resources
 
   @property
-  def model_fn_input_polymorphic_shape(self) -> Optional[NestedPolyShape]:
+  def model_fn_input_polymorphic_shape(self) -> Optional[NestedPolyShape]:  # pyrefly: ignore[bad-override]
     return self._method_hparams.model_fn_input_polymorphic_shape
 
   def get_sorted_input_shapes(self) -> List[InputShapeInfo]:
     get_sorted_input_shapes_fn = self._method_hparams.get_sorted_input_shapes_fn
     if get_sorted_input_shapes_fn:
       return get_sorted_input_shapes_fn(
-          self._sorted_batch_sizes, self._bucket_keys
+          self._sorted_batch_sizes, self._bucket_keys  # pyrefly: ignore[bad-argument-type]
       )
     return super().get_sorted_input_shapes()
 

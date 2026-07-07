@@ -46,7 +46,7 @@ class BranchSelector(object):
     return len(self._keys) > 1
 
   def get_branch_index(self, key: int) -> int:
-    return min(np.searchsorted(self._keys, key), len(self._keys) - 1)
+    return min(np.searchsorted(self._keys, key), len(self._keys) - 1)  # pyrefly: ignore[bad-return]
 
   def get_branch_index_tf(self, key: tf.Tensor) -> tf.Tensor:
     return tf.math.minimum(

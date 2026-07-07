@@ -222,7 +222,7 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
     """The static batch size to use for serving."""
     raise NotImplementedError()
 
-  def methods(self) -> Dict[str, servable_model_params.ServableMethodParams]:
+  def methods(self) -> Dict[str, servable_model_params.ServableMethodParams]:  # pyrefly: ignore[bad-override]
     methods = {}
 
     # pylint: disable=assignment-from-none
@@ -259,7 +259,7 @@ class VisionModelParamsBase(servable_model_params.ServableModelParams):
     return methods
 
   def task(self) -> pax_fiddle.Config[base_task.BaseTask]:
-    p = super().task()
+    p = super().task()  # pyrefly: ignore[missing-attribute]
     # We do this because p looks like a BaseParameterizable, not a BaseModel
     # that has a model attribute.
     model = getattr(p, 'model', None)
@@ -369,7 +369,7 @@ class ImageBytesToLabelScorePairs(servable_model.ServableMethod):
   ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
     return NestedMap(
-        logp=model_fn_outputs[0]['logp'],
+        logp=model_fn_outputs[0]['logp'],  # pyrefly: ignore[bad-index]
     )
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
@@ -388,7 +388,7 @@ class ImageBytesToLabelScorePairs(servable_model.ServableMethod):
     """Postprocesses the output numpy arrays to final host output."""
     # Convert scores to top_k class_list.
     top_k = self._model_config.classify().top_k
-    scores = compute_outputs['logp']
+    scores = compute_outputs['logp']  # pyrefly: ignore[bad-index]
 
     # Find indices of topK scores.
     #
@@ -466,10 +466,10 @@ class TextToImageMethod(servable_model.ServableMethod):
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
   ) -> NestedJTensor:
     # Fetech useful information from output.
-    images = model_fn_outputs[0]['generated_images']
+    images = model_fn_outputs[0]['generated_images']  # pyrefly: ignore[bad-index]
     # TODO(jianlijianli): check model output contract.
     assert images.dtype == jnp.uint8, images.dtype
-    return NestedMap(images=images, scores=model_fn_outputs[0]['scores'])
+    return NestedMap(images=images, scores=model_fn_outputs[0]['scores'])  # pyrefly: ignore[bad-index]
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     if self._text_preprocessor is not None:
@@ -486,8 +486,8 @@ class TextToImageMethod(servable_model.ServableMethod):
       compute_outputs: Union[NestedNpTensor, NestedTfTensor],
       tf_mode=False,
   ) -> Tuple[Any, Any]:
-    images = compute_outputs['images']
-    scores = compute_outputs['scores']
+    images = compute_outputs['images']  # pyrefly: ignore[bad-index]
+    scores = compute_outputs['scores']  # pyrefly: ignore[bad-index]
 
     # Assumes images are [b, n, h, w, c] and scores are [b, n]
     # TODO(jianlijianli): consider supporting other input shapes, if needed.
@@ -515,11 +515,11 @@ class TextToImageMethod(servable_model.ServableMethod):
   def tf_pre_processing(self, inputs: NestedTfTensorSpec) -> NestedTfTensorSpec:
     # TODO(dinghua): Consider moving this to the prediction method.
     if self._tf_input_tokenized:
-      ids = inputs['token_ids']
-      paddings = inputs['paddings']
+      ids = inputs['token_ids']  # pyrefly: ignore[bad-index]
+      paddings = inputs['paddings']  # pyrefly: ignore[bad-index]
     else:
       if self._text_preprocessor is not None:
-        inputs = self._tf_text_preprocessor(inputs)
+        inputs = self._tf_text_preprocessor(inputs)  # pyrefly: ignore[bad-argument-type, not-callable]
       ids, _, paddings = self._tokenizer.StringsToIds(
           inputs, max_length=self._max_length
       )
@@ -532,7 +532,7 @@ class TextToImageMethod(servable_model.ServableMethod):
   ) -> NestedTfTensor:
     image_bytes, scores = self._sort_and_encode(compute_outputs)
     if self._image_postprocessor is not None:
-      image_bytes = self._tf_image_postprocessor(image_bytes)
+      image_bytes = self._tf_image_postprocessor(image_bytes)  # pyrefly: ignore[not-callable]
     return {'images': image_bytes, 'scores': scores}
 
   def input_signature(
@@ -600,7 +600,7 @@ class TextAndImageToImageMethod(TextToImageMethod):
       images = [self._image_preprocessor(image) for image in images]
     # Construct result.
     ret = NestedMap(ids=np.array(ids), paddings=np.array(paddings))
-    ret[self._inut_image_field_name] = np.array(images)
+    ret[self._inut_image_field_name] = np.array(images)  # pyrefly: ignore[unsupported-operation]
     return ret
 
 
@@ -662,7 +662,7 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
 
   @tf.function
   def tf_pre_processing(self, image_bytes_batch: tf.Tensor) -> NestedTfTensor:
-    if self._method_params.fn_output_signature is None:
+    if self._method_params.fn_output_signature is None:  # pyrefly: ignore[missing-attribute]
       return NestedMap(
           image=tf.map_fn(
               self._image_preprocessor, image_bytes_batch, dtype=tf.float32
@@ -678,7 +678,7 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
   def tf_post_processing(
       self, compute_outputs: NestedTfTensor
   ) -> NestedTfTensor:
-    image_embedding = compute_outputs['image_embedding']
+    image_embedding = compute_outputs['image_embedding']  # pyrefly: ignore[bad-index]
     if image_embedding.dtype not in [tf.float32, tf.float64]:
       image_embedding = tf.cast(image_embedding, tf.float32)
     return {'image_embedding': image_embedding}
@@ -686,7 +686,7 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
   @property
   def tf_trackable_resources(self) -> NestedTfTrackable | None:
     if isinstance(self._image_preprocessor, tf.Module):
-      return self._image_preprocessor
+      return self._image_preprocessor  # pyrefly: ignore[bad-return]
     return None
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
@@ -699,7 +699,7 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
 
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
-    image_embedding = compute_outputs['image_embedding']
+    image_embedding = compute_outputs['image_embedding']  # pyrefly: ignore[bad-index]
     if image_embedding.dtype not in [np.float32, np.float64]:
       image_embedding = image_embedding.astype(np.float32)
     return list(image_embedding)
@@ -788,7 +788,7 @@ class ImageBytesToText(servable_model.ServableMethod):
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
   ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
-    _, results = model_fn_outputs[0]
+    _, results = model_fn_outputs[0]  # pyrefly: ignore[bad-index]
     logprobs = results['logprobs']  # [batch, num_hyps, max_len]
     # Sum valid log probs for each hyp to produce a score.
     valid = (logprobs != 1.0) * 1.0
@@ -813,9 +813,9 @@ class ImageBytesToText(servable_model.ServableMethod):
       # TODO(weihan,sax-dev): wrap this loop with tf.function.
       for inp in raw_inputs:
         image_data = self._preprocess_images(inp)
-        images.append(image_data['image'])
+        images.append(image_data['image'])  # pyrefly: ignore[bad-index]
         if 'image_info' in image_data:
-          image_info.append(image_data['image_info'])
+          image_info.append(image_data['image_info'])  # pyrefly: ignore[bad-index]
         texts += [inp['text']]
 
     images = np.stack(images)
@@ -854,9 +854,9 @@ class ImageBytesToText(servable_model.ServableMethod):
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
     # Take output ids and convert back to strings using tokenizer.
-    hyps = compute_outputs['hyps']  # [batch, num_hyps, max_len]
-    hyplen = compute_outputs['hyplen']  # [batch, num_hyps]
-    logprobs = compute_outputs['logprobs']  # [batch, num_hyps]
+    hyps = compute_outputs['hyps']  # [batch, num_hyps, max_len]  # pyrefly: ignore[bad-index]
+    hyplen = compute_outputs['hyplen']  # [batch, num_hyps]  # pyrefly: ignore[bad-index]
+    logprobs = compute_outputs['logprobs']  # [batch, num_hyps]  # pyrefly: ignore[bad-index]
     batch_size = len(hyps)
     output_text = []
     for i in range(batch_size):
@@ -919,7 +919,7 @@ class VideoToToken(servable_model.ServableMethod):
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
   ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
-    return NestedMap(tokens=model_fn_outputs[0])
+    return NestedMap(tokens=model_fn_outputs[0])  # pyrefly: ignore[bad-index]
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
@@ -937,7 +937,7 @@ class VideoToToken(servable_model.ServableMethod):
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
     # Take output ids and convert them to float dtype.
-    tokens = compute_outputs['tokens']  # [batch, t, h, w]
+    tokens = compute_outputs['tokens']  # [batch, t, h, w]  # pyrefly: ignore[bad-index]
     if tokens.dtype not in [np.float32, np.float64]:
       tokens = tokens.astype(np.float64)
     return list(tokens)
@@ -983,7 +983,7 @@ class TokenToVideo(servable_model.ServableMethod):
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
   ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
-    return NestedMap(video=model_fn_outputs[0])
+    return NestedMap(video=model_fn_outputs[0])  # pyrefly: ignore[bad-index]
 
   def pre_processing(self, raw_inputs: List[Any]) -> NestedNpTensor:
     """Preprocesses an unpadded batch of data into host numpy arrays."""
@@ -998,7 +998,7 @@ class TokenToVideo(servable_model.ServableMethod):
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
     with self._cluster:
-      videos = compute_outputs['video']  # [batch, t, h, w, c]
+      videos = compute_outputs['video']  # [batch, t, h, w, c]  # pyrefly: ignore[bad-index]
       batched_video_bytes = []
       for video in videos:
         video_bytes: list[bytes] = []

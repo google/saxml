@@ -95,7 +95,7 @@ class MultiHostSyncService(internal_pb2_grpc.MultiHostSyncService):
   def __init__(self, rb: MessageRingBuffer):
     self._rb = rb
 
-  async def Sync(
+  async def Sync(  # pyrefly: ignore[bad-override]
       self, request: internal_pb2.SyncRequest, context: grpc.ServicerContext
   ):
     if not self._rb.push(request.seqno, request.text, blocking=False):
@@ -243,7 +243,7 @@ class MultiHostSync:
       self._rb.push(seqno, message, blocking=True)
 
     self._spmd_backend.receive_via_device_async(
-        self._device_receive_thread_pool, _done
+        self._device_receive_thread_pool, _done  # pyrefly: ignore[bad-argument-type]
     )
     self._device_receive_seqno += 1
     return self._rb.pop()

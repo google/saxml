@@ -32,7 +32,7 @@ def MyIPAddr() -> str:
       addr = addrs[0][4][0]
       ip = ipaddress.ip_address(addr)
       if not ip.is_link_local and (ip.is_private or ip.is_global):
-        return addr
+        return addr  # pyrefly: ignore[bad-return]
   except socket.error:
     pass
 
@@ -42,7 +42,7 @@ def MyIPAddr() -> str:
       addr = addrs[0][4][0]
       ip = ipaddress.ip_address(addr)
       if not ip.is_link_local and (ip.is_private or ip.is_global):
-        return addr
+        return addr  # pyrefly: ignore[bad-return]
   except socket.error:
     pass
 

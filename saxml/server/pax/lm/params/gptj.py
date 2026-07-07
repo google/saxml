@@ -89,7 +89,7 @@ class GPTJ(base_experiment.BaseExperiment):
   def datasets(self) -> List[pax_fiddle.Config[base_input.BaseInput]]:
     return []
 
-  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:  # pyrefly: ignore[bad-override]
     """Returns the task parameters."""
     task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='xformer_task')
     task_p.model = pax_fiddle.Config(layers.LanguageModel, name='xformer_lm')

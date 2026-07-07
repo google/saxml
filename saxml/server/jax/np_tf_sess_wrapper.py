@@ -17,7 +17,7 @@ from jax import tree_util
 from saxml.server.tf import np_tf_sess_wrapper
 
 # nested -> sequence.
-np_tf_sess_wrapper.tree_flatten = tree_util.tree_flatten
+np_tf_sess_wrapper.tree_flatten = tree_util.tree_flatten  # pyrefly: ignore[bad-assignment]
 # tree, sequence -> nested.
 np_tf_sess_wrapper.tree_unflatten = tree_util.tree_unflatten
 # function, tree -> tree.

@@ -64,14 +64,14 @@ class Detectron2Model(servable_model.ServableModelParams):
       model.cuda()
       checkpoint.DetectionCheckpointer(model).load(cfg.train.init_checkpoint)
       input_format = cfg.model.input_format
-    if input_format not in ["RGB", "BGR"]:
+    if input_format not in ["RGB", "BGR"]:  # pyrefly: ignore[unbound-name]
       raise ValueError("Expects config to have either RGB or BGR input format.")
     methods = self.methods()
     for _, method_params in methods.items():
       method_params.method_attrs["input_format"] = input_format
-    return ServableModel(model, methods, device="cuda")
+    return ServableModel(model, methods, device="cuda")  # pyrefly: ignore[unbound-name]
 
-  def methods(self) -> Dict[str, servable_model.ServableMethodParams]:
+  def methods(self) -> Dict[str, servable_model.ServableMethodParams]:  # pyrefly: ignore[bad-override]
     return {
         VisionMethodName.DETECT: ServableMethodParams(method_cls=DetectMethod)
     }

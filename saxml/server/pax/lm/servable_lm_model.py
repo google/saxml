@@ -162,7 +162,7 @@ class ServableLMModelParams(
   def serving_tokenizer(self) -> pax_fiddle.Config[lm_tokenizer.LMTokenizer]:
     """Tokenizer params used by serving."""
 
-  def methods(self) -> Dict[str, servable_model_params.ServableMethodParams]:
+  def methods(self) -> Dict[str, servable_model_params.ServableMethodParams]:  # pyrefly: ignore[bad-override]
     methods = {}
     score = self.score()  # pylint: disable=assignment-from-none
     if score is not None:
@@ -224,9 +224,9 @@ class ServableLMMethod(servable_model.ServableMethod):
     """A list of sorted supported (ascending order) sequence lengths."""
     return sorted(self._bucket_keys) if self._bucket_keys else [-1]
 
-  def get_sorted_input_shapes(self) -> List[InputShapeInfo]:
+  def get_sorted_input_shapes(self) -> List[InputShapeInfo]:  # pyrefly: ignore[bad-override]
     result = []
-    for batch_size in self._sorted_batch_sizes:
+    for batch_size in self._sorted_batch_sizes:  # pyrefly: ignore[not-iterable]
       for seq_len in self.sorted_seq_lens:
         result.append(InputShapeInfo(batch_size, seq_len))
     return result
@@ -247,7 +247,7 @@ class ServableLMMethod(servable_model.ServableMethod):
         ),
     )
 
-  def get_padded_input_shape(
+  def get_padded_input_shape(  # pyrefly: ignore[bad-override]
       self, unpadded_shape: InputShapeInfo
   ) -> InputShapeInfo:
     """Get padded input shape.
@@ -269,7 +269,7 @@ class ServableLMMethod(servable_model.ServableMethod):
     )
     return InputShapeInfo(padded_shape.batch_size, padded_seq_len)
 
-  def get_dummy_inputs(self, input_shape: InputShapeInfo) -> HostTensors:
+  def get_dummy_inputs(self, input_shape: InputShapeInfo) -> HostTensors:  # pyrefly: ignore[bad-override]
     """Returns host tensors with dummy data at a batch size."""
     batched_input = self.pre_processing(
         [self._dummy_input_sample] * input_shape.batch_size
@@ -279,7 +279,7 @@ class ServableLMMethod(servable_model.ServableMethod):
         batched_input, input_shape
     )
 
-  def resize_host_array(
+  def resize_host_array(  # pyrefly: ignore[bad-override]
       self,
       x: np.ndarray,
       global_input_shape_dtype: ShapeDType,
@@ -308,11 +308,11 @@ class ServableLMMethod(servable_model.ServableMethod):
   def _get_longest_seqlen(self, inputs: NestedNpTensor) -> int:
     """Gets the longest sequence length in a batch."""
     if 'paddings' in inputs:
-      prefix_lengths = np.sum(1.0 - inputs['paddings'], axis=-1).astype(
+      prefix_lengths = np.sum(1.0 - inputs['paddings'], axis=-1).astype(  # pyrefly: ignore[bad-index]
           np.int32
       )  # pytype: disable=attribute-error
       return np.max(prefix_lengths).item()
-    return inputs['ids'].shape[1]
+    return inputs['ids'].shape[1]  # pyrefly: ignore[bad-index]
 
   def get_unpadded_branch_key(self, inputs: NestedNpTensor) -> int:
     return self._get_longest_seqlen(inputs)
@@ -378,10 +378,10 @@ class ServableLMMethod(servable_model.ServableMethod):
     maxlen = self.get_maxlen()
     result, state = outputs
     padded_result = self.pad_result(
-        result, maxlen - seqlen, self.output_seq_dim()
+        result, maxlen - seqlen, self.output_seq_dim()  # pyrefly: ignore[bad-argument-type]
     )
     padded_result = self.extra_pad_result(padded_result, branch_key)
-    padded_state = self.pad_result(state, maxlen - seqlen, 1)
+    padded_state = self.pad_result(state, maxlen - seqlen, 1)  # pyrefly: ignore[bad-argument-type]
     return padded_result, padded_state
 
   @property
@@ -391,7 +391,7 @@ class ServableLMMethod(servable_model.ServableMethod):
     batched_host_dummy = self.update_extra_inputs(
         batched_host_dummy,
         self.batch_size,
-        [self.default_extra_inputs] * self.batch_size,
+        [self.default_extra_inputs] * self.batch_size,  # pyrefly: ignore[bad-argument-type]
     )
 
     batch_pattern = 'b' if len(self.sorted_batch_sizes) > 1 else '_'
@@ -463,13 +463,13 @@ class LMScoreMethod(ServableLMMethod):
         dummy_input_sample,
         exportable=exportable,
         enable_auto_sharding=enable_auto_sharding,
-        compiler_options=compiler_options,
+        compiler_options=compiler_options,  # pyrefly: ignore[bad-argument-type]
     )
 
   def fetch_output(
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
   ) -> NestedJTensor:
-    if 'scores' in model_fn_outputs[0]:
+    if 'scores' in model_fn_outputs[0]:  # pyrefly: ignore[bad-index]
       # Custom scores.
       return model_fn_outputs[0]['scores']
     # per_token_xent or per_example_xnent is -logprobs. We return the negative
@@ -573,8 +573,8 @@ class LMScoreMethod(ServableLMMethod):
       A NestedMap of preprocessed tensors.
     """
     preprocessed = servable_lm_common.tf_tokenize_inputs(
-        prefixes,
-        suffixes,
+        prefixes,  # pyrefly: ignore[bad-argument-type]
+        suffixes,  # pyrefly: ignore[bad-argument-type]
         self._tokenizer,
         self._score_params.max_input_seq_len,
         self._score_params.max_suffix_seq_len,
@@ -584,7 +584,7 @@ class LMScoreMethod(ServableLMMethod):
 
     if bucketize_inputs:
       preprocessed = servable_lm_common.bucketize_tokenized_inputs(
-          self.sorted_seq_lens, preprocessed, branch_index
+          self.sorted_seq_lens, preprocessed, branch_index  # pyrefly: ignore[bad-argument-type]
       )
 
     if extra_inputs:
@@ -696,7 +696,7 @@ class LMDecodeMethod(ServableLMMethod):
         exportable=exportable,
         load=load,
         enable_auto_sharding=enable_auto_sharding,
-        compiler_options=compiler_options,
+        compiler_options=compiler_options,  # pyrefly: ignore[bad-argument-type]
     )
 
   def call_model_function(self, inputs, mdl_vars, prng_key):
@@ -879,14 +879,14 @@ class LMDecodeMethod(ServableLMMethod):
       scores = np.zeros(batch_decoded.shape)
     elif stream_state is None:
       batch_decoded, stream_state = self._tf_sess_first_stream_step(
-          compute_outputs['output_ids']
+          compute_outputs['output_ids']  # pyrefly: ignore[bad-index]
       )
-      scores = compute_outputs['scores']
+      scores = compute_outputs['scores']  # pyrefly: ignore[bad-index]
     else:
       batch_decoded, stream_state = self._tf_sess_stream_step(
-          compute_outputs['output_ids'], stream_state
+          compute_outputs['output_ids'], stream_state  # pyrefly: ignore[bad-index]
       )
-      scores = compute_outputs['scores']
+      scores = compute_outputs['scores']  # pyrefly: ignore[bad-index]
 
     return [(d, s) for (d, s) in zip(batch_decoded, scores)], stream_state
 
@@ -918,7 +918,7 @@ class LMDecodeMethod(ServableLMMethod):
     """
     ids, paddings, prefix_lengths, weights = (
         servable_lm_common.decode_tf_tokenize_inputs(
-            texts,
+            texts,  # pyrefly: ignore[bad-argument-type]
             self._tokenizer,
             self._method_hparams.max_input_seq_len,
             self._method_hparams.t5_model,
@@ -961,7 +961,7 @@ class LMDecodeMethod(ServableLMMethod):
       preprocessed = servable_lm_common.bucketize_tokenized_inputs(
           self.sorted_seq_lens,
           preprocessed,
-          branch_index,
+          branch_index,  # pyrefly: ignore[bad-argument-type]
       )
 
     if extra_inputs:
@@ -1076,7 +1076,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     max_decode_steps = self._method_params.decoder.max_decode_steps
     if isinstance(max_decode_steps, int):
       max_decode_steps = [max_decode_steps]
-    return max(max_decode_steps)
+    return max(max_decode_steps)  # pyrefly: ignore[bad-argument-type]
 
   @property
   def input_sequence_len(self) -> int:
@@ -1187,7 +1187,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       else:
         kv_state_sharding = (None, None, None, None)
     kv_state_spec = base_layer.to_partition_spec(
-        kv_state_sharding, self._model.mesh_axis_names
+        kv_state_sharding, self._model.mesh_axis_names  # pyrefly: ignore[bad-argument-type]
     )
     transformer_decode_partition_spec = {}
     for i in range(num_layers):
@@ -1295,7 +1295,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     self._dummy_input_for_prefill = self.update_extra_inputs(
         self._dummy_input_for_prefill,
         prefill_input_shape.batch_size,
-        [self.default_extra_inputs] * prefill_input_shape.batch_size,
+        [self.default_extra_inputs] * prefill_input_shape.batch_size,  # pyrefly: ignore[bad-argument-type]
     )
     self._dummy_input_for_prefill = self.input_to_device(
         self._dummy_input_for_prefill,
@@ -1600,7 +1600,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     slots = [slot] if np.isscalar(slot) else slot
     with self.model_state.global_mesh:
       decode_state = self.decode_state
-      for prefix_slot, slot in enumerate(slots):
+      for prefix_slot, slot in enumerate(slots):  # pyrefly: ignore[bad-argument-type]
         decode_state, decode_cache = self._insert_device_fn(
             self.model_state.mdl_vars,
             prefix_decode_state,
@@ -1657,7 +1657,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     bytes_strs = np.array(decode((tokens, decode_lengths)))
     if isinstance(bytes_strs, bytes):
       bytes_strs = np.array([bytes_strs])
-    return np.char.decode(bytes_strs.astype(np.bytes_), 'UTF-8')
+    return np.char.decode(bytes_strs.astype(np.bytes_), 'UTF-8')  # pyrefly: ignore[bad-return]
 
   def resize_host_array(
       self,
@@ -1704,7 +1704,7 @@ class TextToEmbedding(servable_model.ServableMethod):
         prng_key,
         dummy_input_sample,
         enable_auto_sharding=enable_auto_sharding,
-        compiler_options=compiler_options,
+        compiler_options=compiler_options,  # pyrefly: ignore[bad-argument-type]
     )
 
   @classmethod
@@ -1717,16 +1717,16 @@ class TextToEmbedding(servable_model.ServableMethod):
     """Fetches useful output tensors from the model function outputs."""
     if not self._text_to_embedding_hparams.output_padding_name:
       return py_utils.NestedMap(
-          text_embedding=model_fn_outputs[0][
+          text_embedding=model_fn_outputs[0][  # pyrefly: ignore[bad-index]
               self._text_to_embedding_hparams.output_embedding_name
           ],
       )
     else:
       return py_utils.NestedMap(
-          text_embedding=model_fn_outputs[0][
+          text_embedding=model_fn_outputs[0][  # pyrefly: ignore[bad-index]
               self._text_to_embedding_hparams.output_embedding_name
           ],
-          padding=model_fn_outputs[0][
+          padding=model_fn_outputs[0][  # pyrefly: ignore[bad-index]
               self._text_to_embedding_hparams.output_padding_name
           ],
       )
@@ -1769,8 +1769,8 @@ class TextToEmbedding(servable_model.ServableMethod):
       A NestedMap of preprocessed tensors.
     """
     result = servable_lm_common.tf_tokenize_inputs(
-        prefixes,
-        suffixes,
+        prefixes,  # pyrefly: ignore[bad-argument-type]
+        suffixes,  # pyrefly: ignore[bad-argument-type]
         self._tokenizer,
         self._text_to_embedding_hparams.max_input_seq_len,
         self._text_to_embedding_hparams.max_suffix_seq_len,
@@ -1790,14 +1790,14 @@ class TextToEmbedding(servable_model.ServableMethod):
   def post_processing(self, compute_outputs: NestedNpTensor) -> List[Any]:
     """Postprocesses the output numpy arrays to final host output."""
     if self._text_to_embedding_hparams.output_padding_name:
-      paddings = compute_outputs['padding']  # [batch==1, max_seq_len]
+      paddings = compute_outputs['padding']  # [batch==1, max_seq_len]  # pyrefly: ignore[bad-index]
       assert paddings.shape[0] == 1  # only supports batch_size == 1
-      emb = compute_outputs['text_embedding']  # [batch==1, max_seq_len, dim]
+      emb = compute_outputs['text_embedding']  # [batch==1, max_seq_len, dim]  # pyrefly: ignore[bad-index]
       lengths = np.sum(1 - paddings, dtype=jnp.int32)  # Assume 1 is for pad
       emb_no_pad = emb[0, :lengths, :]  # [actual_seq_len, dim]
       return [emb_no_pad]
     else:
-      return list(compute_outputs['text_embedding'])
+      return list(compute_outputs['text_embedding'])  # pyrefly: ignore[bad-index]
 
 
 class LMGradientMethod(ServableLMMethod):
@@ -1844,7 +1844,7 @@ class LMGradientMethod(ServableLMMethod):
         dummy_input_sample,
         exportable=exportable,
         enable_auto_sharding=enable_auto_sharding,
-        compiler_options=compiler_options,
+        compiler_options=compiler_options,  # pyrefly: ignore[bad-argument-type]
     )
 
   def call_model_function(
@@ -1908,7 +1908,7 @@ class LMGradientMethod(ServableLMMethod):
       for k, v in tensors_to_take_gradients['mdl_vars'].items():
         insert(mdl_vars_no_grad, split_mdl_vars_tensor_names[k], v)
       outputs = call_fn(inputs_no_grad, mdl_vars_no_grad, prng_key)
-      return outputs[0][0]['total_loss'][0], outputs
+      return outputs[0][0]['total_loss'][0], outputs  # pyrefly: ignore[bad-index]
 
     compute_gradient_fn = jax.value_and_grad(
         forward_fn, has_aux=True, allow_int=True
@@ -1930,8 +1930,8 @@ class LMGradientMethod(ServableLMMethod):
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
   ) -> NestedJTensor:
     # fetch loss and gradients from the model output
-    metrics, per_example_output = model_fn_outputs[0]
-    batch_pad_size = model_fn_inputs['ids'].shape[0] - 1
+    metrics, per_example_output = model_fn_outputs[0]  # pyrefly: ignore[bad-index]
+    batch_pad_size = model_fn_inputs['ids'].shape[0] - 1  # pyrefly: ignore[bad-index]
     output = dict(
         # LMScore's fetch_output uses only the 0-th element of output.
         # per_example_output contains a 'scores' field by default from the loss
@@ -1939,7 +1939,7 @@ class LMGradientMethod(ServableLMMethod):
         # Models can retrieve intermediate per_token_xent from the forward pass
         # for fetch_output to mask out paddings.
         scores=LMScoreMethod.fetch_output(
-            self, [per_example_output], model_fn_inputs
+            self, [per_example_output], model_fn_inputs  # pyrefly: ignore[bad-argument-type]
         ),
         # Pad total_loss with 0s to the shape (batch_size,)
         total_loss=jnp.pad(
@@ -2019,8 +2019,8 @@ class LMGradientMethod(ServableLMMethod):
       A NestedMap of preprocessed tensors.
     """
     preprocessed = servable_lm_common.tf_tokenize_inputs(
-        prefixes,
-        suffixes,
+        prefixes,  # pyrefly: ignore[bad-argument-type]
+        suffixes,  # pyrefly: ignore[bad-argument-type]
         self._tokenizer,
         self._gradient_params.max_input_seq_len,
         self._gradient_params.max_suffix_seq_len,
@@ -2032,7 +2032,7 @@ class LMGradientMethod(ServableLMMethod):
       preprocessed = servable_lm_common.bucketize_tokenized_inputs(
           self.sorted_seq_lens,
           preprocessed,
-          branch_index,
+          branch_index,  # pyrefly: ignore[bad-argument-type]
       )
 
     if extra_inputs:
