@@ -42,8 +42,7 @@ class GPT2BPEVocabularyTest(tf.test.TestCase):
     # The test vocab.json is a modified version of the vocab.json.
     # The HuggingFace Tokenizer vocab_size does not include the `added_tokens`
     # and is equivalent to Seqio Vocabulary _base_vocab_size.
-    self.assertEqual(vocab.tokenizer.vocab_size, vocab._base_vocab_size)
-    self.assertEqual(vocab.tokenizer.vocab_size, 3)
+    self.assertEqual(vocab._base_vocab_size, 3)
     # The HF number of added_tokens are equivalent to Seqio extra_ids.
     # Seqio vocab_size includes the _base_vocab_size and extra_ids.
     self.assertEqual(vocab.vocab_size, 6)

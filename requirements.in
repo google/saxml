@@ -14,4 +14,4 @@ praxis @ git+https://github.com/google/praxis
 seqio
 orbax-export==0.0.3
 tiktoken
-transformers
+tokenizers

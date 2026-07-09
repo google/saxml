@@ -13,8 +13,10 @@
 # limitations under the License.
 """Custom tokenizer for language models."""
 
+import json
+import os
 import pathlib
-from typing import cast, Dict, Iterator, List, Sequence
+from typing import Dict, Iterator, List, Optional, Sequence, cast
 
 from absl import logging
 import seqio
@@ -48,60 +50,67 @@ class SentencePieceVocabulary(Vocabulary, seqio.SentencePieceVocabulary):
 
 
 class GPT2BPEVocabulary(Vocabulary):
-  """The HuggingFace GPT2Tokenizer Vocabulary Class.
+  """The HuggingFace GPT2BPEVocabulary Class.
 
-  The class wraps the HuggingFace GPT2Tokenizer.
+  The class wraps the HuggingFace `tokenizers` Tokenizer.
+
+  Special tokens (bos, eos, unk, pad) are read from `tokenizer_config.json`
+  in the same directory as `tokenizer.json`.
   """
 
   def __init__(self, tokenizer_name_or_path: str):
     """Vocabulary constructor.
 
     Args:
-      tokenizer_name_or_path: (`str` or `os.PathLike`): Can be either: - A
-        string, the *model id* of a predefined tokenizer hosted inside a model
-        repo on huggingface.co. See more in `from_pretrained` of class
-        `AutoTokenizer` from https://github.com/huggingface/transformers/blob/
-        main/src/transformers/models/auto/tokenization_auto.py.  **This option
-        may only work in OSS.  - A path to a *directory* containing vocabulary
-        files required by the tokenizer, e.g., `./my_model_directory/`.
-
-    ** If your `special_tokens_map.json` including below special token example:
-      `{
-        "bos_token": {
-            "content": "<|endoftext|>",
-            "single_word": false,
-            "lstrip": false,
-            "rstrip": false,
-            "normalized": true
-        },
-        ...
-      }`
-      and your `_bos_token` value is `{"content": "<|endoftext|>", ...}` instead
-      of `<|endoftext|>` and NA `_bos_token_id`, update your config to:
-      `{
-        "bos_token": "<|endoftext|>",
-        ...
-      }`
+      tokenizer_name_or_path: Can be either: a path to a directory containing
+        a `tokenizer.json`, or a model id hosted on huggingface.co (OSS only).
     """
-    super(GPT2BPEVocabulary, self).__init__()
+    super().__init__()
 
     # pylint: disable=g-import-not-at-top
-    from transformers.models.gpt2 import tokenization_gpt2
+    from tokenizers import Tokenizer
 
-    self._tokenizer = tokenization_gpt2.GPT2Tokenizer.from_pretrained(
-        pretrained_model_name_or_path=tokenizer_name_or_path
-    )
+    if os.path.isdir(tokenizer_name_or_path):
+      tokenizer_path = os.path.join(tokenizer_name_or_path, "tokenizer.json")
+      self._tokenizer = Tokenizer.from_file(tokenizer_path)
+    else:
+      self._tokenizer = Tokenizer.from_pretrained(tokenizer_name_or_path)
+      tokenizer_path = None
     self._vocab = self._tokenizer.get_vocab()
 
-    self._bos_token = self._tokenizer.bos_token
-    self._eos_token = self._tokenizer.eos_token
-    self._unk_token = self._tokenizer.unk_token
-    self._pad_token = self._tokenizer.pad_token
+    # Read special token names from tokenizer_config.json.
+    config_path = os.path.join(tokenizer_name_or_path, "tokenizer_config.json")
+    config = {}
+    if os.path.isfile(config_path):
+      with open(config_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
 
-    self._bos_token_id = self._tokenizer.bos_token_id
-    self._eos_token_id = self._tokenizer.eos_token_id
-    self._unk_token_id = self._tokenizer.unk_token_id
-    self._pad_token_id = self._tokenizer.pad_token_id
+    def _get_special(key: str) -> Optional[str]:
+      val = config.get(key)
+      if val is None:
+        return None
+      if isinstance(val, str):
+        return val
+      if isinstance(val, dict):
+        return val.get("content")
+      return None
+
+    self._bos_token = _get_special("bos_token") or "<|endoftext|>"
+    self._eos_token = _get_special("eos_token") or "<|endoftext|>"
+    self._unk_token = _get_special("unk_token") or "<|endoftext|>"
+    self._pad_token = _get_special("pad_token")
+
+    def _token_id(
+        token: Optional[str],
+    ) -> Optional[int]:
+      if token is None:
+        return None
+      return self._tokenizer.token_to_id(token)
+
+    self._bos_token_id = _token_id(self._bos_token)
+    self._eos_token_id = _token_id(self._eos_token)
+    self._unk_token_id = _token_id(self._unk_token)
+    self._pad_token_id = _token_id(self._pad_token)
 
   @property
   def vocab_size(self) -> int:
@@ -117,7 +126,7 @@ class GPT2BPEVocabulary(Vocabulary):
     Returns:
       a list of integers
     """
-    return self._tokenizer.encode(text=s)
+    return self._tokenizer.encode(s).ids
 
   def _decode(self, ids: Sequence[int]) -> str:
     """Decode a list of integers to a python string.
@@ -128,7 +137,7 @@ class GPT2BPEVocabulary(Vocabulary):
     Returns:
       a string
     """
-    return self._tokenizer.decode(token_ids=ids, skip_special_tokens=True)
+    return self._tokenizer.decode(list(ids), skip_special_tokens=True)
 
   def _encode_tf(self, s: tf.Tensor) -> tf.Tensor:
     """Encode a string tf.Tensor.
@@ -143,7 +152,7 @@ class GPT2BPEVocabulary(Vocabulary):
 
     def _encode_py_func(text) -> Sequence[int]:
       text = tf.compat.as_text(text.numpy().decode("UTF-8"))
-      result = self._tokenizer.encode(text=text)
+      result = self._tokenizer.encode(text).ids
       result = tf.expand_dims(result, 0)
       return tf.cast(result, tf.int32)
 
@@ -157,8 +166,8 @@ class GPT2BPEVocabulary(Vocabulary):
       texts = []
       for s in strs.numpy():
         texts.append(tf.compat.as_text(s.decode("UTF-8")))
-      results = self._tokenizer.batch_encode_plus(texts, padding=False)
-      input_ids = results.input_ids
+      encodings = self._tokenizer.encode_batch(texts)
+      input_ids = [enc.ids for enc in encodings]
       return tf.ragged.constant(input_ids, dtype=tf.int32)
 
     def _batch_encode_func():
@@ -184,9 +193,7 @@ class GPT2BPEVocabulary(Vocabulary):
     """
 
     def _decode_py_func(token_ids: Sequence[int]) -> str:
-      result = self._tokenizer.decode(
-          token_ids=token_ids, skip_special_tokens=True
-      )
+      result = self._tokenizer.decode(list(token_ids), skip_special_tokens=True)
       return result
 
     def _decode_func():
@@ -194,8 +201,8 @@ class GPT2BPEVocabulary(Vocabulary):
       return result
 
     def _batch_decode_py_func(token_ids) -> str:
-      result = self._tokenizer.batch_decode(
-          sequences=token_ids, skip_special_tokens=True
+      result = self._tokenizer.decode_batch(
+          [list(seq) for seq in token_ids.numpy()], skip_special_tokens=True
       )
       result = tf.expand_dims(result, 0)
       return result
@@ -241,29 +248,29 @@ class GPT2BPEVocabulary(Vocabulary):
     return self._eos_token
 
   @property
-  def pad(self) -> str:
+  def pad(self) -> Optional[str]:
     return self._pad_token
 
   @property
-  def unk_id(self) -> int:
+  def unk_id(self) -> Optional[int]:
     return self._unk_token_id
 
   @property
-  def bos_id(self) -> int:
+  def bos_id(self) -> Optional[int]:
     return self._bos_token_id
 
   @property
-  def eos_id(self) -> int:
+  def eos_id(self) -> Optional[int]:
     return self._eos_token_id
 
   @property
-  def pad_id(self) -> int:
+  def pad_id(self) -> Optional[int]:
     return self._pad_token_id
 
   @property
   def _base_vocab_size(self) -> int:
     """Vocabulary size, excluding extra ids but including BOS/EOS/UNK/PAD."""
-    return self._tokenizer.vocab_size
+    return self._tokenizer.get_vocab_size(with_added_tokens=False)
 
   def __eq__(self, other):
     if not isinstance(other, GPT2BPEVocabulary):

@@ -209,7 +209,7 @@ pytype_strict_library(
         "//third_party/py/seqio",
         "//third_party/py/tensorflow:tensorflow_no_contrib",
         "//third_party/py/tiktoken",
-        "//third_party/py/transformers",
+        "//third_party/py/tokenizers",
     ],
 )
 
