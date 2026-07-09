@@ -148,15 +148,7 @@ class BaseLLaMA(base_experiment.BaseExperiment):
     transformer_layer_p.ln_tpl = ln_tpl.clone()
 
     if self.USE_MQA and self.GPU_FLASH_DECODING:
-      from praxis.layers import gpu_fast_attention  # pylint: disable=g-import-not-at-top
-
-      transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
-          gpu_fast_attention.GpuTritonFusedMultiQueryDotProductAttention,
-          num_kv_heads=self.NUM_KV_HEADS,  # pyrefly: ignore[missing-attribute]
-          chunked_attn_num_seq_split=self.ATTEN_NUM_SEQ_SPLITS,
-          use_flash_decoding=True,
-      )
-      transformer_layer_p.tr_atten_tpl.combine_qkv = False
+      raise NotImplementedError('Flash decoding is deprecated.')
     elif self.USE_MQA and self.QUANTIZE_KV:
       transformer_layer_p.tr_atten_tpl = pax_fiddle.Config(
           sax_layers.QuantizedKVMQA,
