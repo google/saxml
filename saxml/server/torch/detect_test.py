@@ -39,6 +39,11 @@ class DetectMethodTest(absltest.TestCase):
     self.assertLen(result, 1)
     self.assertLen(result[0], 3)
 
+  def test_load_py_config_disabled(self):
+    model_params = detect.Detectron2Model()
+    with self.assertRaisesRegex(ValueError, "Loading Python .* disabled"):
+      model_params.load("key", "/path/to/evil.py", 0, 0)
+
 
 if __name__ == "__main__":
   absltest.main()

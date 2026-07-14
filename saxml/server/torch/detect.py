@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Object detection models from detectron2."""
+
 from typing import Any, Dict, List
 from detectron2 import checkpoint
 from detectron2 import config
@@ -59,11 +60,15 @@ class Detectron2Model(servable_model.ServableModelParams):
       checkpoint.DetectionCheckpointer(model).load(cfg.MODEL.WEIGHTS)
       input_format = cfg.INPUT.FORMAT
     elif config_path.endswith(".py"):
-      cfg = config.LazyConfig.load(config_path)
-      model = config.instantiate(cfg.model)
-      model.cuda()
-      checkpoint.DetectionCheckpointer(model).load(cfg.train.init_checkpoint)
-      input_format = cfg.model.input_format
+      raise ValueError(
+          "Loading Python (.py) configuration files is disabled for security"
+          " reasons."
+      )
+    else:
+      raise ValueError(
+          f"Unsupported config_path format: '{config_path}'. Only .yaml config"
+          " files are allowed."
+      )
     if input_format not in ["RGB", "BGR"]:  # pyrefly: ignore[unbound-name]
       raise ValueError("Expects config to have either RGB or BGR input format.")
     methods = self.methods()
