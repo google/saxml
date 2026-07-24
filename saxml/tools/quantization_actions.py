@@ -36,6 +36,7 @@ class OptAction:
   quantize_axis: Optional[list[int]] = None
   quantize_factor: float = 1.0
   transpose_embedding: bool = False
+  transpose_cast_fp8: bool = False
   number_bit: int = 8
   pack_dim: int = 0
   use_optimization: bool = False
@@ -170,6 +171,7 @@ def create_actions(
       axis = None
       var_dtype = 'bfloat16'
       transpose_embedding = False
+      transpose_cast_fp8 = False
       quantize_factor = 1.0
       pack_dim = 0
       curr_config = config.get_quantize_axis_and_factor(source_name)
@@ -249,6 +251,21 @@ def create_actions(
           var_dtype = 'int8'
           axis = [1]  # we are quantizing embedding along the outer axis here
           quantize_factor = config.factor  # pytype: disable=attribute-error
+      
+      # fp8 weights cast and transpose
+ #     print(source_name)
+      if source_name in ('mdl_vars.params.lm.transformer.x_layers_0.ff_layer.ffn_layer1.linear.w',
+                         'mdl_vars.params.lm.transformer.x_layers_0.ff_layer.ffn_layer2.linear.w',
+                         'mdl_vars.params.lm.transformer.x_layers_1.ff_layer.ffn_layer2.linear.w'
+                         'mdl_vars.params.lm.transformer.x_layers_1.ff_layer.ffn_layer2.linear.w'
+                         'mdl_vars.params.lm.transformer.x_layers_2.ff_layer.ffn_layer2.linear.w'
+                         'mdl_vars.params.lm.transformer.x_layers_2.ff_layer.ffn_layer2.linear.w'
+                         'mdl_vars.params.lm.transformer.x_layers_3.ff_layer.ffn_layer2.linear.w'
+                         'mdl_vars.params.lm.transformer.x_layers_3.ff_layer.ffn_layer2.linear.w'):
+        if use_fp and number_bit == 8:
+          axis = [-1]
+          transpose_cast_fp8 = True
+          target_name = source_name
 
       # Setting quantization configs back to non-quantize when the source name
       # matches the skip pattern.
@@ -278,6 +295,7 @@ def create_actions(
               quantize_axis=axis,
               quantize_factor=quantize_factor,
               transpose_embedding=transpose_embedding,
+              transpose_cast_fp8=transpose_cast_fp8,
               number_bit=layer_wise_num_bits,
               pack_dim=pack_dim,
               use_optimization=use_optimization,
