@@ -239,7 +239,7 @@ def tf_post_processing_per_token_logprobs(
   else:
     output_logprobs = tf.map_fn(
         remove_prefix,
-        (outputs.logprobs, outputs.prefix_lengths),
+        (outputs.logprobs, outputs.prefix_lengths),  # pyrefly: ignore[missing-attribute]
         fn_output_signature=tf.float32,
     )
 

@@ -264,7 +264,7 @@ class GPT2BPEVocabulary(Vocabulary):
     return self._eos_token_id
 
   @property
-  def pad_id(self) -> Optional[int]:
+  def pad_id(self) -> Optional[int]:  # pyrefly: ignore[bad-override]
     return self._pad_token_id
 
   @property
