@@ -56,6 +56,7 @@ def parse_known_args(argv):
       default='gptj',
       choices=[
           'gptj',
+          'gpt5b',
           'gemma2b',
           'gemma7b',
           'llama2-70b-weight-linear-only-int8',
@@ -73,6 +74,12 @@ def parse_known_args(argv):
       default=False,
       type=lambda x: bool(str(x).lower() == 'true'),
       help='Transpose embedding to reduce latency.',
+  )
+  parser.add_argument(
+      '--transpose_cast_fp8',
+      default=False,
+      type=lambda x: bool(str(x).lower() == 'true'),
+      help='Transpose and cast fp8 weights.',
   )
   parser.add_argument(
       '--quantize_embedding',

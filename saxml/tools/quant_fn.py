@@ -108,6 +108,10 @@ class QuantFn(beam.DoFn):
     if action.transpose_embedding:
       target_var = jnp.transpose(target_var)
 
+    if action.transpose_cast_fp8:
+      print(action.target_name)
+      target_var = jnp.transpose(target_var)
+
     if action.quantize_axis:
       quantize_axis = action.quantize_axis
       quantize_factor = action.quantize_factor
@@ -124,6 +128,8 @@ class QuantFn(beam.DoFn):
         p_value = action.optimization_p_value
         per_channel = True
 
+      print('here in quantize')
+      print(action.target_name)
       if self._symmetric:
         target_var, scale = quantization_configs.quantize_tensor(
             target_var,
