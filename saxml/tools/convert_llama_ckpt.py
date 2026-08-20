@@ -31,6 +31,7 @@ import pathlib
 
 import jax
 from jax.experimental import pjit
+import ml_dtypes
 import numpy as np
 
 from paxml import checkpoints
@@ -115,6 +116,20 @@ MODEL_PARAMS_DICT = {
 }
 
 
+def _to_numpy(tensor):
+  """Converts a torch tensor to a numpy array, preserving its dtype.
+
+  numpy has no native bfloat16 dtype, so bfloat16 tensors (used by Llama 3
+  checkpoints) are re-interpreted through ml_dtypes, which is the bfloat16
+  implementation used by JAX. Other dtypes are converted directly. This avoids
+  the precision loss caused by the previous explicit downcast to float16.
+  """
+  tensor = tensor.detach().cpu().contiguous()
+  if tensor.dtype == torch.bfloat16:
+    return np.asarray(tensor.view(torch.uint16).numpy()).view(ml_dtypes.bfloat16)
+  return tensor.numpy()
+
+
 def convert(base_model_path, pax_model_path, model_size):
   """Convert from vicuna to pax."""
   model_params = MODEL_PARAMS_DICT[model_size]
@@ -140,26 +155,26 @@ def convert(base_model_path, pax_model_path, model_size):
   jax_weights = {
       'lm': {
           'embedding_lookup': {
-              'emb_var': np.concatenate([var['tok_embeddings.weight'].type(torch.float16).numpy() for var in pytorch_vars], axis=emb_var_axis)[:vocab,:]
+              'emb_var': np.concatenate([_to_numpy(var['tok_embeddings.weight']) for var in pytorch_vars], axis=emb_var_axis)[:vocab,:]
               },
           'softmax': {
               'logits_ffn': {
                   'linear': {
-                      'w': np.concatenate([var['output.weight'].type(torch.float16).numpy() for var in pytorch_vars], axis=0).transpose()[:, :vocab]
+                      'w': np.concatenate([_to_numpy(var['output.weight']) for var in pytorch_vars], axis=0).transpose()[:, :vocab]
                       }
                   }
               },
           'final_ln': {
-              'scale': pytorch_vars[0]['norm.weight'].type(torch.float16).numpy()
+              'scale': _to_numpy(pytorch_vars[0]['norm.weight'])
               },
           'transformer': {}
           }
       }
 
   for layer_idx in range(num_layers):
-    wq = np.concatenate([var['layers.%d.attention.wq.weight' % (layer_idx)].type(torch.float16).numpy() for var in pytorch_vars], axis=0).transpose()
-    wk = np.concatenate([var['layers.%d.attention.wk.weight' % (layer_idx)].type(torch.float16).numpy() for var in pytorch_vars], axis=0).transpose()
-    wv = np.concatenate([var['layers.%d.attention.wv.weight' % (layer_idx)].type(torch.float16).numpy() for var in pytorch_vars], axis=0).transpose()
+    wq = np.concatenate([_to_numpy(var['layers.%d.attention.wq.weight' % (layer_idx)]) for var in pytorch_vars], axis=0).transpose()
+    wk = np.concatenate([_to_numpy(var['layers.%d.attention.wk.weight' % (layer_idx)]) for var in pytorch_vars], axis=0).transpose()
+    wv = np.concatenate([_to_numpy(var['layers.%d.attention.wv.weight' % (layer_idx)]) for var in pytorch_vars], axis=0).transpose()
     if combined_qkv:
       wc = np.stack([wq, wk, wv], axis=0)
       wc = np.reshape(wc, [3, num_heads * dims_per_head, num_heads, dims_per_head])
@@ -170,7 +185,7 @@ def convert(base_model_path, pax_model_path, model_size):
 
     w_post = np.concatenate(
         [
-            var['layers.%d.attention.wo.weight' % (layer_idx)].type(torch.float16).numpy()
+            _to_numpy(var['layers.%d.attention.wo.weight' % (layer_idx)])
             for var in pytorch_vars
         ],
         axis=1,
@@ -195,25 +210,25 @@ def convert(base_model_path, pax_model_path, model_size):
         'ff_layer': {
             'ffn_layer1_gate': {
                 'linear': {
-                    'w': np.concatenate([var['layers.%d.feed_forward.w1.weight' % (layer_idx)].type(torch.float16).numpy() for var in pytorch_vars], axis=0).transpose()
+                    'w': np.concatenate([_to_numpy(var['layers.%d.feed_forward.w1.weight' % (layer_idx)]) for var in pytorch_vars], axis=0).transpose()
                     }
                 },
             'ffn_layer1': {
                 'linear': {
-                    'w': np.concatenate([var['layers.%d.feed_forward.w3.weight' % (layer_idx)].type(torch.float16).numpy() for var in pytorch_vars], axis=0).transpose()
+                    'w': np.concatenate([_to_numpy(var['layers.%d.feed_forward.w3.weight' % (layer_idx)]) for var in pytorch_vars], axis=0).transpose()
                     }
                 },
             'ffn_layer2': {
                 'linear': {
-                    'w': np.concatenate([var['layers.%d.feed_forward.w2.weight' % (layer_idx)].type(torch.float16).numpy() for var in pytorch_vars], axis=1).transpose()
+                    'w': np.concatenate([_to_numpy(var['layers.%d.feed_forward.w2.weight' % (layer_idx)]) for var in pytorch_vars], axis=1).transpose()
                     }
                 },
             'layer_norm': {
-                'scale': pytorch_vars[0]['layers.%d.ffn_norm.weight' % (layer_idx)].type(torch.float16).numpy()
+                'scale': _to_numpy(pytorch_vars[0]['layers.%d.ffn_norm.weight' % (layer_idx)])
                 }
             },
         'layer_norm': {
-            'scale': pytorch_vars[0]['layers.%d.attention_norm.weight' % (layer_idx)].type(torch.float16).numpy()
+            'scale': _to_numpy(pytorch_vars[0]['layers.%d.attention_norm.weight' % (layer_idx)])
             }
         }
     layer_weight.update(attention_weights)
