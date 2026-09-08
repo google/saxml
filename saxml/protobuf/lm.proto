@@ -18,6 +18,8 @@ syntax = "proto3";
 
 package sax.server.lm;
 
+option py_legacy_stubby_symbols = true;
+
 import "saxml/protobuf/common.proto";
 
 // Usage:
