@@ -1600,7 +1600,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     slots = [slot] if np.isscalar(slot) else slot
     with self.model_state.global_mesh:
       decode_state = self.decode_state
-      for prefix_slot, slot in enumerate(slots):  # pyrefly: ignore[bad-argument-type]
+      for prefix_slot, slot in enumerate(slots):  # pyrefly: ignore[bad-argument-type, bad-assignment, not-iterable]
         decode_state, decode_cache = self._insert_device_fn(
             self.model_state.mdl_vars,
             prefix_decode_state,

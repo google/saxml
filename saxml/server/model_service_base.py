@@ -2647,7 +2647,7 @@ class ModelServicesRunner:
     for slot in slots:
       rpc_task = rpc_tasks[slot]
       assert rpc_task is not None
-      rpc_task.release_device_resource()
+      rpc_task.release_device_resource()  # pyrefly: ignore[not-callable]
       state.rpc_tasks[slot] = None
 
     def _postprocess():
@@ -2665,7 +2665,7 @@ class ModelServicesRunner:
           continue
         if rpc_task.rpc and rpc_task.rpc.should_cancel():
           logging.info('request cancelled.')
-          rpc_task.done(utils.cancelled())
+          rpc_task.done(utils.cancelled())  # pyrefly: ignore[not-callable]
           continue
         # [num_samples, ...]
         seqs = np.stack(
@@ -2699,7 +2699,7 @@ class ModelServicesRunner:
               state.model_method, outputs, resp
           )
           try:
-            rpc_task.done(utils.ok(), resp=resp)
+            rpc_task.done(utils.ok(), resp=resp)  # pyrefly: ignore[not-callable]
           except Exception as e:  # pylint: disable=broad-except
             self._log_exception(
                 'Error occurred: %s, error: %s', state.model_key, e
@@ -2707,7 +2707,7 @@ class ModelServicesRunner:
 
           # send response done back to generate_stream
           try:
-            rpc_task.done(utils.ok())
+            rpc_task.done(utils.ok())  # pyrefly: ignore[not-callable]
           except Exception as e:  # pylint: disable=broad-except
             self._log_exception(
                 'Error occurred: %s, error: %s', state.model_key, e
@@ -2718,7 +2718,7 @@ class ModelServicesRunner:
               state.model_method, outputs, rpc_task.response
           )
           try:
-            rpc_task.done(utils.ok())
+            rpc_task.done(utils.ok())  # pyrefly: ignore[not-callable]
           except Exception as e:  # pylint: disable=broad-except
             self._log_exception(
                 'Error occurred: %s, error: %s', state.model_key, e
