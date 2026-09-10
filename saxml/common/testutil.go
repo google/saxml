@@ -681,6 +681,18 @@ func (s *stubCustomModelServer) Custom(ctx context.Context, in *cmpb.CustomReque
 	}, nil
 }
 
+func (s *stubCustomModelServer) CustomStream(in *cmpb.CustomRequest, stream cmgrpc.CustomService_CustomStreamServer) error {
+	text := in.GetRequest()
+	for i := 1; i <= 2; i++ {
+		if err := stream.Send(&cmpb.CustomResponse{
+			Response: append(append([]byte{}, text...), []byte(fmt.Sprintf("_%d", i))...),
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type stubMultimodalModelServer struct{}
 
 func (m *stubMultimodalModelServer) Generate(ctx context.Context, in *mmpb.GenerateRpcRequest) (*mmpb.GenerateRpcResponse, error) {

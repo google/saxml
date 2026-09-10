@@ -100,6 +100,15 @@ PYBIND11_MODULE(sax, m) {
             return cm.Custom(request, method_name, options);
           },
           py::arg("request"), py::arg("method_name"),
+          py::arg("options") = nullptr)
+      .def(
+          "CustomStream",
+          [](sax::client::pybind::CustomModel& cm, py::bytes request,
+             absl::string_view method_name, py::function py_callback,
+             const sax::client::ModelOptions* options) -> absl::Status {
+            return cm.CustomStream(request, method_name, py_callback, options);
+          },
+          py::arg("request"), py::arg("method_name"), py::arg("callback"),
           py::arg("options") = nullptr);
 
   py::class_<sax::client::pybind::LanguageModel>(m, "LanguageModel")

@@ -171,6 +171,16 @@ class CustomModel {
   absl::Status Custom(const ModelOptions& options, absl::string_view request,
                       absl::string_view method_name, std::string* result) const;
 
+  using CustomStreamCallback =
+      std::function<void(bool last, absl::string_view response)>;
+  absl::Status CustomStream(absl::string_view request,
+                            absl::string_view method_name,
+                            CustomStreamCallback cb) const;
+  absl::Status CustomStream(const ModelOptions& options,
+                            absl::string_view request,
+                            absl::string_view method_name,
+                            CustomStreamCallback cb) const;
+
  private:
   explicit CustomModel(int64_t model_handle) : model_handle_(model_handle) {}
   friend class Model;

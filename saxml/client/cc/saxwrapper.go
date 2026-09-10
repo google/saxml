@@ -23,6 +23,12 @@ typedef void (*generate_callback)(void* cbCtx, void* outData, int outSize);
 static inline void generate_callback_bridge(generate_callback cb, void* cbCtx, void* outData, int outSize) {
 	cb(cbCtx, outData, outSize);
 }
+
+typedef void (*custom_callback)(void* cbCtx, void* outData, int outSize);
+
+static inline void custom_callback_bridge(custom_callback cb, void* cbCtx, void* outData, int outSize) {
+	cb(cbCtx, outData, outSize);
+}
 */
 import "C"
 
@@ -1461,6 +1467,58 @@ func go_custom(ptr C.long, timeout C.float, requestData unsafe.Pointer, requestS
 		return
 	}
 	buildReturnValues(outData, outSize, errMsg, errCode, &content, nil)
+}
+
+//export go_custom_stream
+func go_custom_stream(ptr C.long, timeout C.float, requestData unsafe.Pointer, requestSize C.int, methodNameData *C.char, methodNameSize C.int, optionsData *C.char, optionsSize C.int, cb C.custom_callback, cbCtx unsafe.Pointer, queryCostTpuMs *C.int, errMsg **C.char, errCode *C.int) {
+	custom := rcgo.Handle(ptr).Value().(*sax.CustomModel)
+	if custom == nil {
+		log.Fatalf("streaming custom() called on nil custom model.")
+	}
+
+	optionsByte := C.GoBytes(unsafe.Pointer(optionsData), optionsSize)
+	options := &cpb.ExtraInputs{}
+	if err := proto.Unmarshal(optionsByte, options); err != nil {
+		buildReturnError(errMsg, errCode, err)
+		return
+	}
+
+	ctx, cancel := createContextWithTimeout(timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	request := C.GoBytes(requestData, requestSize)
+	methodName := C.GoStringN(methodNameData, methodNameSize)
+	setters := protoOptionToSetter(options)
+	queryCost := sax.QueryCost{}
+	setters = append(setters, sax.WithQueryCost(&queryCost))
+	ch := custom.CustomStream(ctx, request, methodName, setters...)
+
+	for res := range ch {
+		err := res.Err
+		switch err {
+		case nil:
+			ret := &cmpb.CustomResponse{}
+			ret.Response = res.Response
+			content, err := proto.Marshal(ret)
+			if err != nil {
+				log.Fatal("streaming custom() fails to serialize return value")
+			}
+			outData := C.CBytes(content) // freed by C caller
+			C.custom_callback_bridge(cb, cbCtx, outData, C.int(len(content)))
+		case io.EOF:
+			C.custom_callback_bridge(cb, cbCtx, nil, 0)
+		default:
+			buildReturnError(errMsg, errCode, err)
+			return
+		}
+	}
+
+	if queryCostTpuMs != nil {
+		*queryCostTpuMs = C.int(queryCost.TpuMs)
+	}
+	buildReturnError(errMsg, errCode, nil)
 }
 
 //////////////////////////////////////////////////////////////////////////

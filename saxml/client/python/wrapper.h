@@ -78,6 +78,12 @@ class CustomModel {
       pybind11::bytes request, absl::string_view method_name,
       const ModelOptions* options = nullptr) const;
 
+  typedef std::function<void(bool, pybind11::bytes)> CustomCallback;
+  absl::Status CustomStream(pybind11::bytes request,
+                            absl::string_view method_name,
+                            CustomCallback callback,
+                            const ModelOptions* options = nullptr) const;
+
  private:
   explicit CustomModel(::sax::client::Model* base, const absl::Status& status);
   ::sax::client::Model* base_ = nullptr;

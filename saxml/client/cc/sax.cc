@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "saxml/client/cc/saxwrapper.h"
@@ -214,6 +215,53 @@ absl::Status CustomModel::Custom(const ModelOptions& options,
   }
 
   *result = output.response();
+  return absl::OkStatus();
+}
+
+namespace {
+
+static void CustomCallbackWrapper(void* cbCtx, void* outData, int outSize) {
+  auto cb = reinterpret_cast<CustomModel::CustomStreamCallback*>(cbCtx);
+  if (outData == nullptr) {
+    return (*cb)(/*last=*/true, "");
+  }
+  CustomResponse out;
+  if (!out.ParseFromArray(outData, outSize)) {
+    LOG(ERROR) << "Failed to parse CustomResponse in stream callback.";
+  }
+  free(outData);
+  return (*cb)(/*last=*/false, out.response());
+}
+
+}  // namespace
+
+absl::Status CustomModel::CustomStream(absl::string_view request,
+                                       absl::string_view method_name,
+                                       CustomStreamCallback cb) const {
+  return CustomModel::CustomStream(ModelOptions(), request, method_name, cb);
+}
+
+absl::Status CustomModel::CustomStream(const ModelOptions& options,
+                                       absl::string_view request,
+                                       absl::string_view method_name,
+                                       CustomStreamCallback cb) const {
+  ExtraInputs extra;
+  options.ToProto(&extra);
+  std::string extraStr = "";
+  extra.SerializeToString(&extraStr);
+
+  auto cbCtx = reinterpret_cast<void*>(&cb);
+  char* errMsgStr = nullptr;
+  int errCode = 0;
+  go_custom_stream(model_handle_, options.GetTimeout(),
+                   const_cast<char*>(request.data()), request.size(),
+                   const_cast<char*>(method_name.data()), method_name.size(),
+                   const_cast<char*>(extraStr.data()), extraStr.size(),
+                   CustomCallbackWrapper, cbCtx, GetQueryCostTpuMs(options),
+                   &errMsgStr, &errCode);
+  if (errCode != 0) {
+    return CreateErrorAndFree(errCode, errMsgStr);
+  }
   return absl::OkStatus();
 }
 

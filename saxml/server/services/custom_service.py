@@ -56,3 +56,18 @@ class CustomServiceGRPC(
         request.method_name, request.model_key, context, request, resp
     )
     return resp
+
+  async def CustomStream(self, request, context):
+    empty_resp = custom_pb2.CustomResponse()
+    q = self.EnqueueStreamRequest(
+        request.method_name,
+        request.model_key,
+        context,
+        request,
+        empty_resp,
+    )
+    while True:
+      msg = await q.get()
+      if msg is None:
+        break
+      yield msg

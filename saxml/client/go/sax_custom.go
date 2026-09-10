@@ -16,8 +16,12 @@ package sax
 
 import (
 	"context"
+	"io"
 
+	log "github.com/golang/glog"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	"saxml/common/retrier"
 
 	pb "saxml/protobuf/custom_go_proto_grpc"
 	pbgrpc "saxml/protobuf/custom_go_proto_grpc"
@@ -49,4 +53,58 @@ func (m *CustomModel) Custom(ctx context.Context, request []byte, methodName str
 		return []byte{}, err
 	}
 	return resp.Response, nil
+}
+
+// CustomStreamResult represents one response or error in streaming custom call.
+type CustomStreamResult struct {
+	Err      error
+	Response []byte
+}
+
+// CustomStream performs streaming custom call against a Custom model.
+func (m *CustomModel) CustomStream(ctx context.Context, request []byte, methodName string, options ...ModelOptionSetter) chan CustomStreamResult {
+	opts := NewModelOptions(options...)
+	req := &pb.CustomRequest{
+		ModelKey:    m.model.modelID,
+		Request:     request,
+		ExtraInputs: opts.ExtraInputs(),
+		MethodName:  methodName,
+	}
+
+	res := make(chan CustomStreamResult)
+	go func() {
+		var trailer metadata.MD
+		err := m.model.run(ctx, "customStream", func(conn *grpc.ClientConn) error {
+			client := pbgrpc.NewCustomServiceClient(conn)
+			stream, err := client.CustomStream(ctx, req, grpc.Trailer(&trailer))
+			if err != nil {
+				return err
+			}
+			if err := opts.ExtractQueryCost(&trailer); err != nil {
+				log.Errorf("ExtractQueryCost: %v", err)
+			}
+			first := true
+			for {
+				resp, err := stream.Recv()
+				if err == nil {
+					res <- CustomStreamResult{Response: resp.GetResponse()}
+					first = false
+					continue
+				}
+				if err == io.EOF {
+					res <- CustomStreamResult{Err: err}
+					return nil
+				}
+				if first {
+					return err
+				}
+				return retrier.CreatePermanentError(err)
+			}
+		})
+		if err != nil {
+			res <- CustomStreamResult{Err: err}
+		}
+		close(res)
+	}()
+	return res
 }

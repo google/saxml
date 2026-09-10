@@ -44,4 +44,7 @@ message CustomResponse {
 service CustomService {
   // Returns result of CustomRequest.
   rpc Custom(CustomRequest) returns (CustomResponse);
+
+  // Returns a stream of results of CustomRequest.
+  rpc CustomStream(CustomRequest) returns (stream CustomResponse);
 }

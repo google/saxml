@@ -14,6 +14,7 @@
 
 #include "saxml/client/python/wrapper.h"
 
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <optional>
@@ -24,6 +25,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -122,6 +124,32 @@ absl::StatusOr<pybind11::bytes> CustomModel::Custom(
   // NOTE: pybind11::bytes must be called within GIL.
   // TODO(changlan): Avoid memcpy here.
   return pybind11::bytes(result);
+}
+
+absl::Status CustomModel::CustomStream(pybind11::bytes request,
+                                       absl::string_view method_name,
+                                       CustomCallback callback,
+                                       const ModelOptions* options) const {
+  if (!status_.ok()) return status_;
+
+  auto fn = std::make_shared<CustomCallback>(std::move(callback));
+  std::string request_str = request;
+  pybind11::gil_scoped_release release;
+  auto callback_wrapper = [fn](bool last, absl::string_view response) {
+    pybind11::gil_scoped_acquire acquire;
+    if (last) {
+      (*fn)(true, pybind11::bytes(""));
+      return;
+    }
+    (*fn)(false, pybind11::bytes(response.data(), response.size()));
+  };
+
+  if (options == nullptr) {
+    return model_->CustomStream(request_str, method_name,
+                                std::move(callback_wrapper));
+  }
+  return model_->CustomStream(*options, request_str, method_name,
+                              std::move(callback_wrapper));
 }
 
 // Construct LanguageModel with sax::client::Model. LanguageModel does not take
