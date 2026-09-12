@@ -411,7 +411,7 @@ nest-asyncio==1.6.0
     # via
     #   ipykernel
     #   orbax-checkpoint
-nltk==3.9.1
+nltk==3.10.3
     # via
     #   rouge-score
     #   t5
