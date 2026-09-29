@@ -97,5 +97,5 @@ def count_physical_chips(topology_str: Optional[str]) -> Optional[int]:
   if topology == admin_pb2.ModelServer.ChipTopology.CHIP_TOPOLOGY_UNKNOWN:
     return None
   topology_str = admin_pb2.ModelServer.ChipTopology.Name(topology)
-  numbers = topology_str.split('_')[-1].split('X')
+  numbers = topology_str.split('_')[-1].split('X')  # pyrefly: ignore[missing-attribute]
   return math.prod((int(n) for n in numbers))
