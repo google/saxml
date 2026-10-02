@@ -17,10 +17,13 @@ from typing import Any, Iterable, Optional
 
 import apache_beam as beam
 from jax import numpy as jnp
+from jax import lax
 import numpy as np
 import quantization_actions
 import quantization_configs
 import tensorstore_util
+
+from flax.linen import fp8_ops
 
 
 def _split_with_shard(
@@ -83,6 +86,7 @@ class QuantFn(beam.DoFn):
       zp: np.ndarray | None,
       suffix: str = '',
       sharding_indices: Optional[list[int]] = None,
+      scale_act: np.ndarray | None = None,
   ) -> None:
     if number_bit == 4 and action.use_int4_packed_weights:
       # Extra pack needed for 4 bit.
@@ -99,6 +103,8 @@ class QuantFn(beam.DoFn):
     if zp:
       zp_name = action.target_name + '_quantized_zp' + suffix
       self._writer.write_variable(zp_name, zp)
+    scale_act_name = action.target_name + '_quantized_act_scale' + suffix
+    self._writer.write_variable(scale_act_name, scale_act)
 
   def process(self, action: quantization_actions.OptAction):
     target_var = self._readers[action.input_dir].read_variable(
@@ -115,6 +121,7 @@ class QuantFn(beam.DoFn):
       optimization_on_bound = False
       p_value = 1.0
       per_channel = False
+      scale_act = None
       if action.number_bit == 4 and action.use_optimization:
         optimization_on_bound = True
         p_value = action.optimization_p_value
@@ -125,18 +132,33 @@ class QuantFn(beam.DoFn):
         per_channel = True
 
       if self._symmetric:
-        target_var, scale = quantization_configs.quantize_tensor(
-            target_var,
-            quantize_axis,
-            quantize_factor,
-            True,
-            number_of_bits,
-            use_fp=action.use_fp,
-            add_scale_eps=action.add_scale_eps,
-            optimization_on_bound=optimization_on_bound,
-            p_value=p_value,
-            per_channel=per_channel,
-        )
+        if action.use_fp and number_of_bits == 8:
+          assert per_channel == False, f'fp8 only supports per-tensor quantization.'
+          scale_act_name = action.source_name[:-1] + 'einsum.input_scale'
+          scale_kernel_name = action.source_name[:-1] + 'einsum.kernel_scale'
+          scale_act = self._readers[action.input_dir].read_variable(
+            scale_act_name, action.layer_id, action.num_layers
+          )
+          scale = self._readers[action.input_dir].read_variable(
+            scale_kernel_name, action.layer_id, action.num_layers
+          )
+          compute_dtype = target_var.dtype
+          target_var = fp8_ops.quantize(target_var, jnp.float8_e4m3fn, scale, compute_dtype)
+          # This is needed since fp8 cannot be saved.
+          target_var = lax.bitcast_convert_type(target_var, new_dtype=jnp.int8)
+        else:
+          target_var, scale = quantization_configs.quantize_tensor(
+              target_var,
+              quantize_axis,
+              quantize_factor,
+              True,
+              number_of_bits,
+              use_fp=action.use_fp,
+              add_scale_eps=action.add_scale_eps,
+              optimization_on_bound=optimization_on_bound,
+              p_value=p_value,
+              per_channel=per_channel,
+          )
         zp = None
       else:
         target_var, scale, zp = quantization_configs.quantize_tensor(
@@ -158,6 +180,7 @@ class QuantFn(beam.DoFn):
           scale,
           zp,
           sharding_indices=action.sharding_indices,
+          scale_act = scale_act,
       )
     else:
       # no quantization.
