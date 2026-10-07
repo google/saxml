@@ -469,13 +469,13 @@ class LMScoreMethod(ServableLMMethod):
   def fetch_output(
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
   ) -> NestedJTensor:
-    if 'scores' in model_fn_outputs[0]:  # pyrefly: ignore[bad-index]
+    if 'scores' in model_fn_outputs[0]:  # pyrefly: ignore[bad-index, unsupported-operation]
       # Custom scores.
       return model_fn_outputs[0]['scores']
     # per_token_xent or per_example_xnent is -logprobs. We return the negative
     # value so that higher score is better.
-    if 'per_token_xent' not in model_fn_outputs[0]:
-      assert 'per_example_xent' in model_fn_outputs[0]
+    if 'per_token_xent' not in model_fn_outputs[0]:  # pyrefly: ignore[unsupported-operation]
+      assert 'per_example_xent' in model_fn_outputs[0]  # pyrefly: ignore[unsupported-operation]
       assert model_fn_outputs[0].per_example_xent.ndim == 1  # pytype: disable=attribute-error  # jax-ndarray
       return -model_fn_outputs[0].per_example_xent  # pytype: disable=attribute-error  # jax-ndarray
     assert len(model_fn_outputs[0].per_token_xent.shape) > 1  # pytype: disable=attribute-error  # jax-ndarray
@@ -1948,7 +1948,7 @@ class LMGradientMethod(ServableLMMethod):
         ),
     )
 
-    for grads_type, grads_dict in metrics['gradients'].items():
+    for grads_type, grads_dict in metrics['gradients'].items():  # pyrefly: ignore[missing-attribute]
       for tensor_name, grads in grads_dict.items():
         output[f'gradients/{grads_type}/{tensor_name}'] = jnp.pad(
             # Provide a fake batch dim to mdl_vars to be consistent with inputs

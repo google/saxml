@@ -497,21 +497,21 @@ def decode_fetch_output(
   assert len(model_fn_outputs[0]) == 3  # pyrefly: ignore[bad-index]
   # Extract the per example outputs and discard weighted scalars and metrics.
   _, result, _ = model_fn_outputs[0]
-  output_ids = result.output_ids  # [batch_size, num_samples, seqlen].
-  scores = decode_get_scores(result, t5_model)
+  output_ids = result.output_ids  # [batch_size, num_samples, seqlen].  # pyrefly: ignore[missing-attribute]
+  scores = decode_get_scores(result, t5_model)  # pyrefly: ignore[bad-argument-type]
 
   if t5_model:
     decode_lengths = None
     prefix_lengths = None
   else:
     # [batch_size, num_samples]
-    decode_lengths = result.decode_lengths
+    decode_lengths = result.decode_lengths  # pyrefly: ignore[missing-attribute]
     # [batch_size]
     if fetch_prefix_length_from_inputs:
       # Special handle google3/learning/multipod/pax/core/flaxformer_models.py
       prefix_lengths = model_fn_inputs.prefix_lengths  # pytype: disable=attribute-error  # jax-ndarray
     else:
-      prefix_lengths = result.prefix_lengths
+      prefix_lengths = result.prefix_lengths  # pyrefly: ignore[missing-attribute]
 
   ret = NestedMap(
       output_ids=output_ids,
