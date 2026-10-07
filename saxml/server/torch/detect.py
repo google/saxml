@@ -69,12 +69,12 @@ class Detectron2Model(servable_model.ServableModelParams):
           f"Unsupported config_path format: '{config_path}'. Only .yaml config"
           " files are allowed."
       )
-    if input_format not in ["RGB", "BGR"]:  # pyrefly: ignore[unbound-name]
+    if input_format not in ["RGB", "BGR"]:
       raise ValueError("Expects config to have either RGB or BGR input format.")
     methods = self.methods()
     for _, method_params in methods.items():
       method_params.method_attrs["input_format"] = input_format
-    return ServableModel(model, methods, device="cuda")  # pyrefly: ignore[unbound-name]
+    return ServableModel(model, methods, device="cuda")
 
   def methods(self) -> Dict[str, servable_model.ServableMethodParams]:  # pyrefly: ignore[bad-override]
     return {

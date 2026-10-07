@@ -84,7 +84,7 @@ class LLaMARotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
         lower_wavelen_cond, lower_wavelen, bigger_or_equal_wavelen, freq)
 
   def __call__(
-      self,  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
+      self,
       inputs: JTensor,
       position: Optional[JTensor] = None,
   ) -> JTensor:
@@ -246,7 +246,7 @@ class ParallelTransformer(layers.Transformer):
     ffn_inputs = self.ffn_norm(inputs, inputs_normalized)
     ffn_output = self.ff_layer(ffn_inputs, paddings=paddings)
     output = atten_output + ffn_output + inputs
-    return output, atten_probs  # pytype: disable=bad-return-type  # jax-ndarray
+    return output, atten_probs  # pyrefly: ignore[bad-return]
 
   def extend_step(
       self,
@@ -363,7 +363,7 @@ class GPTJRotaryEmbedding(embedding_softmax.RotaryPositionalEmbedding):
     return (tensor * cos_pos) + (self.rotate_every_two(tensor) * sin_pos)
 
   def __call__(
-      self,  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
+      self,
       inputs: JTensor,
       position: Optional[JTensor] = None,
   ) -> JTensor:
@@ -628,7 +628,7 @@ class ChunkedMQA(QuantizedKVMQA):
         start_chunk,
     )
 
-    return encoded, jnp.zeros((0,))  # pytype: disable=bad-return-type  # jax-ndarray
+    return encoded, jnp.zeros((0,))
 
 
 class ChunkedMHA(layers.DotProductAttention):
@@ -765,7 +765,7 @@ class ChunkedMHA(layers.DotProductAttention):
       encoded *= 1 - fully_masked
 
     encoded = self._shard_bnh(encoded)
-    return encoded, jnp.zeros((0,))  # pytype: disable=bad-return-type  # jax-ndarray
+    return encoded, jnp.zeros((0,))
 
 
 class MXUDotProductAttention(layers.DotProductAttention):

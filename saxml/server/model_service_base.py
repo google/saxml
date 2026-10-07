@@ -195,10 +195,8 @@ class Method:
     self.max_live_batches = max_live_batches
     self.queue = utils.RpcQueue(batching_wait_secs=batching_wait_secs)
     self.admissioner = utils.Admissioner(limit=self.limit())
-    # pytype: disable=wrong-arg-types  # numpy-scalars
-    self.ok_stats = utils.RequestStats(timespan_sec=60.0)
-    self.err_stats = utils.RequestStats(timespan_sec=60.0)
-    # pytype: enable=wrong-arg-types  # numpy-scalars
+    self.ok_stats = utils.RequestStats(timespan_sec=60.0)  # pyrefly: ignore[bad-argument-type]
+    self.err_stats = utils.RequestStats(timespan_sec=60.0)  # pyrefly: ignore[bad-argument-type]
     self.recent_batch_sizes = collections.deque()
 
   def record_batch_size(self, size: int):
@@ -760,13 +758,11 @@ class LoadedModelManager:
         )
       if not issubclass(model_class, servable_model_params.ServableModelParams):
         raise ValueError(f'{model_path} is not a ServableModelParams')
-      # pytype: disable=not-instantiable
       model_class = model_class.apply_model_overrides(overrides)
       model_class = model_class.adapt_serving_platform(
           self._platform_chip, self._platform_topology)
       params = model_class()
       loaded = params.load(key, ckpt_path, self._primary_process_id, prng_key)
-      # pytype: enable=not-instantiable
       loaded.set_acls(acls)
     except Exception as e:  # pylint: disable=broad-except
       self._status[key] = common_pb2.ModelStatus.FAILED
@@ -973,7 +969,7 @@ class ModelService(metaclass=abc.ABCMeta):
     self._bouncer = bouncer
     self._service_id = service_id
     # Forward arguments to other parent classes.
-    super().__init__(*args, **kwargs)  # pytype: disable=invalid-directive,wrong-keyword-args
+    super().__init__(*args, **kwargs)
 
   @classmethod
   def global_service_registry(cls) -> Mapping[str, List[Any]]:

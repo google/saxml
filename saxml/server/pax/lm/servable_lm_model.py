@@ -310,7 +310,7 @@ class ServableLMMethod(servable_model.ServableMethod):
     if 'paddings' in inputs:
       prefix_lengths = np.sum(1.0 - inputs['paddings'], axis=-1).astype(  # pyrefly: ignore[bad-index]
           np.int32
-      )  # pytype: disable=attribute-error
+      )
       return np.max(prefix_lengths).item()
     return inputs['ids'].shape[1]  # pyrefly: ignore[bad-index]
 
@@ -463,7 +463,7 @@ class LMScoreMethod(ServableLMMethod):
         dummy_input_sample,
         exportable=exportable,
         enable_auto_sharding=enable_auto_sharding,
-        compiler_options=compiler_options,  # pyrefly: ignore[bad-argument-type]
+        compiler_options=compiler_options,
     )
 
   def fetch_output(
@@ -476,13 +476,13 @@ class LMScoreMethod(ServableLMMethod):
     # value so that higher score is better.
     if 'per_token_xent' not in model_fn_outputs[0]:  # pyrefly: ignore[unsupported-operation]
       assert 'per_example_xent' in model_fn_outputs[0]  # pyrefly: ignore[unsupported-operation]
-      assert model_fn_outputs[0].per_example_xent.ndim == 1  # pytype: disable=attribute-error  # jax-ndarray
-      return -model_fn_outputs[0].per_example_xent  # pytype: disable=attribute-error  # jax-ndarray
-    assert len(model_fn_outputs[0].per_token_xent.shape) > 1  # pytype: disable=attribute-error  # jax-ndarray
-    xnent_len = model_fn_outputs[0].per_token_xent.shape[1]  # pytype: disable=attribute-error  # jax-ndarray
-    assert xnent_len == model_fn_inputs.ids.shape[1]  # pytype: disable=attribute-error  # jax-ndarray
-    per_token_logprobs = -model_fn_outputs[0].per_token_xent  # pytype: disable=attribute-error  # jax-ndarray
-    non_paddings = 1.0 - model_fn_inputs.paddings  # pytype: disable=attribute-error  # jax-ndarray
+      assert model_fn_outputs[0].per_example_xent.ndim == 1  # pyrefly: ignore[missing-attribute]
+      return -model_fn_outputs[0].per_example_xent  # pyrefly: ignore[missing-attribute]
+    assert len(model_fn_outputs[0].per_token_xent.shape) > 1  # pyrefly: ignore[missing-attribute]
+    xnent_len = model_fn_outputs[0].per_token_xent.shape[1]  # pyrefly: ignore[missing-attribute]
+    assert xnent_len == model_fn_inputs.ids.shape[1]  # pyrefly: ignore[missing-attribute]
+    per_token_logprobs = -model_fn_outputs[0].per_token_xent  # pyrefly: ignore[missing-attribute]
+    non_paddings = 1.0 - model_fn_inputs.paddings  # pyrefly: ignore[missing-attribute]
     if not self._score_params.include_eos_score and self._tokenizer.append_eos:
       non_paddings = jnp.pad(
           # TODO(b/263808957): change back to non_paddings[:, 1:] once the bug
@@ -493,13 +493,13 @@ class LMScoreMethod(ServableLMMethod):
           [[0, 0], [0, 1]],
       )
     sum_per_token_logprobs = jnp.sum(
-        per_token_logprobs * model_fn_inputs.score_masks * non_paddings,  # pytype: disable=attribute-error  # jax-ndarray
+        per_token_logprobs * model_fn_inputs.score_masks * non_paddings,  # pyrefly: ignore[missing-attribute]
         axis=-1,
         keepdims=True,
     )
     if self._score_params.output_geometric_mean_prob_score:
       num_output_tokens = jnp.sum(
-          model_fn_inputs.score_masks * non_paddings,  # pytype: disable=attribute-error  # jax-ndarray
+          model_fn_inputs.score_masks * non_paddings,  # pyrefly: ignore[missing-attribute]
           axis=-1,
           keepdims=True,
       )
@@ -696,7 +696,7 @@ class LMDecodeMethod(ServableLMMethod):
         exportable=exportable,
         load=load,
         enable_auto_sharding=enable_auto_sharding,
-        compiler_options=compiler_options,  # pyrefly: ignore[bad-argument-type]
+        compiler_options=compiler_options,
     )
 
   def call_model_function(self, inputs, mdl_vars, prng_key):
@@ -802,7 +802,7 @@ class LMDecodeMethod(ServableLMMethod):
       paddings = [[0, 0], [0, self.get_maxlen() - seqlen]]
       for key in {'paddings', 'weights', 'ids'}:
         if key in sub_result:
-          sub_result[key] = jnp.pad(sub_result[key], paddings)  # pytype: disable=unsupported-operands
+          sub_result[key] = jnp.pad(sub_result[key], paddings)
       return sub_result
 
     return tuple([_pad_fn(sub_result) for sub_result in result])
@@ -1331,7 +1331,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
         def _model_fn(decode_state, align_decode_state):
           outputs = self.call_model_function_generate(
               decode_state, align_decode_state, mdl_vars, [k1, k2]
-          )  # pytype: disable=wrong-arg-types  # jax-ndarray
+          )
           return outputs
 
         decode_state, decode_cache = _model_fn(decode_state, align_decode_state)
@@ -1408,7 +1408,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
               slot,
               mdl_vars,
               [k1, k2],
-          )  # pytype: disable=wrong-arg-types  # jax-ndarray
+          )
 
           return outputs
 
@@ -1505,7 +1505,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
       with base_layer.JaxContext.new_context(hparams=context_p):
 
         def _model_fn(inputs):
-          outputs = self.call_model_function_prefill(inputs, mdl_vars, [k1, k2])  # pytype: disable=wrong-arg-types  # jax-ndarray
+          outputs = self.call_model_function_prefill(inputs, mdl_vars, [k1, k2])
           return outputs
 
         decode_state, decode_cache = _model_fn(batched_inputs)
@@ -1600,7 +1600,7 @@ class LMDecodeMethodContinuousBatching(LMDecodeMethod):
     slots = [slot] if np.isscalar(slot) else slot
     with self.model_state.global_mesh:
       decode_state = self.decode_state
-      for prefix_slot, slot in enumerate(slots):  # pyrefly: ignore[bad-argument-type, bad-assignment, not-iterable]
+      for prefix_slot, slot in enumerate(slots):  # pyrefly: ignore[bad-assignment, not-iterable]
         decode_state, decode_cache = self._insert_device_fn(
             self.model_state.mdl_vars,
             prefix_decode_state,
@@ -1704,7 +1704,7 @@ class TextToEmbedding(servable_model.ServableMethod):
         prng_key,
         dummy_input_sample,
         enable_auto_sharding=enable_auto_sharding,
-        compiler_options=compiler_options,  # pyrefly: ignore[bad-argument-type]
+        compiler_options=compiler_options,
     )
 
   @classmethod
@@ -1844,7 +1844,7 @@ class LMGradientMethod(ServableLMMethod):
         dummy_input_sample,
         exportable=exportable,
         enable_auto_sharding=enable_auto_sharding,
-        compiler_options=compiler_options,  # pyrefly: ignore[bad-argument-type]
+        compiler_options=compiler_options,
     )
 
   def call_model_function(

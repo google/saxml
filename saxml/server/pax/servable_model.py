@@ -40,7 +40,6 @@ from saxml.server.jax import servable_model
 from saxml.server.pax import branch_selection
 from saxml.server.pax import servable_model_params
 
-# pytype: disable=attribute-error
 
 ServableModelState = servable_model.ServableModelState
 StepCounter = servable_model.StepCounter
@@ -252,10 +251,10 @@ class ServableMethod(servable_model.ServableMethod):
     with base_layer.JaxContext.new_context(hparams=context_p):
 
       def _model_fn(inputs):
-        outputs = self.call_model_function(inputs, mdl_vars, [k1, k2])  # pytype: disable=wrong-arg-types  # jax-ndarray
+        outputs = self.call_model_function(inputs, mdl_vars, [k1, k2])  # pyrefly: ignore[bad-argument-type]
         # DECODE_CACHE are not read by caller. But they can be large. Tell XLA
         # to remove it from output. Note MLP decoder don't have DECODE_CACHE.
-        updated_vars = outputs[1]
+        updated_vars = outputs[1]  # pyrefly: ignore[bad-index]
         if not isinstance(updated_vars, jax.Array):
           if base_layer.DECODE_CACHE in updated_vars:
             del updated_vars[base_layer.DECODE_CACHE]
@@ -300,7 +299,7 @@ class ServableMethod(servable_model.ServableMethod):
 
   def unload(self) -> None:
     super().unload()
-    self._model = None
+    self._model = None  # pyrefly: ignore[bad-assignment]
 
   def fetch_output(
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
@@ -338,7 +337,7 @@ class ServableMethod(servable_model.ServableMethod):
           self.model_state.mdl_var_pspecs,
       )
       inputs, seed = inputs_with_rng_seed
-      prng_key = jax.random.PRNGKey(seed)  # pytype: disable=wrong-arg-types  # jax-ndarray
+      prng_key = jax.random.PRNGKey(seed)
       return self.jax_func(mdl_vars, prng_key, inputs, ())
 
     # pjit-ed function.
@@ -356,7 +355,7 @@ class ServableMethod(servable_model.ServableMethod):
     batched_host_dummy = self.update_extra_inputs(
         batched_host_dummy,
         self.batch_size,
-        [self.default_extra_inputs] * self.batch_size,
+        [self.default_extra_inputs] * self.batch_size,  # pyrefly: ignore[bad-argument-type]
     )
     batch_pattern = 'b, ...' if len(self.sorted_batch_sizes) > 1 else None
     return jax.tree_util.tree_map(lambda _: batch_pattern, batched_host_dummy)
@@ -415,12 +414,12 @@ class ServableModel(servable_model.ServableModel):
     self.load_methods(model, model_state, prng_key)
 
   def save(self, checkpoint_path: Optional[str]) -> None:
-    model_state = list(self.methods.values())[0].model_state
+    model_state = list(self.methods.values())[0].model_state  # pyrefly: ignore[missing-attribute]
     # TODO(b/262297404): Handles padded shapes.
-    train_state = train_states.TrainState(  # pytype: disable=wrong-arg-types  # dataclass_transform
+    train_state = train_states.TrainState(
         step=jnp.asarray(model_state.step),
         mdl_vars=model_state.mdl_vars,
-        opt_states={},
+        opt_states={},  # pyrefly: ignore[bad-argument-type]
     )
 
     if jax.process_count() > 1:
@@ -428,7 +427,7 @@ class ServableModel(servable_model.ServableModel):
       # be the same as PAX.
       gdam = GlobalAsyncCheckpointManager(timeout_secs=50)
       flax_checkpoints.save_checkpoint_multiprocess(
-          checkpoint_path,
+          checkpoint_path,  # pyrefly: ignore[bad-argument-type]
           train_state,
           model_state.step,
           prefix='checkpoint_',
@@ -441,7 +440,7 @@ class ServableModel(servable_model.ServableModel):
     else:
       checkpoints.save_checkpoint(
           train_state,
-          checkpoint_path,
+          checkpoint_path,  # pyrefly: ignore[bad-argument-type]
           overwrite=True,
           checkpoint_type=self._ckpt_type,
       )
@@ -455,7 +454,7 @@ class ServableModel(servable_model.ServableModel):
     """Initializes the model state."""
     task_p = self._model_config.task()
     jax_task = task_p.Instantiate()
-    model_p = task_p.model  # pytype: disable=attribute-error  # enable-nested-classes
+    model_p = task_p.model
 
     prng_key, init_key = jax.random.split(prng_key)
 
@@ -464,7 +463,7 @@ class ServableModel(servable_model.ServableModel):
       raise ValueError(status.details)
 
     logging.info('device_mesh: %s', device_mesh)
-    global_mesh = jax.sharding.Mesh(device_mesh, model_p.mesh_axis_names)
+    global_mesh = jax.sharding.Mesh(device_mesh, model_p.mesh_axis_names)  # pyrefly: ignore[bad-argument-type]
     self._global_mesh = global_mesh
 
     # TODO(zhangqiaorjc, yuanzx): Retrieve unpadded var shapes from checkpoint.
@@ -493,14 +492,14 @@ class ServableModel(servable_model.ServableModel):
           vars_weight_params, discard_opt_states=discard_opt_states
       )
       if checkpoint_path is not None:
-        checkpoint_path = epath.Path(checkpoint_path)
-        if not checkpoint_path.is_dir():
+        checkpoint_path = epath.Path(checkpoint_path)  # pyrefly: ignore[bad-assignment]
+        if not checkpoint_path.is_dir():  # pyrefly: ignore[missing-attribute]
           raise ValueError(
               f'Invalid checkpoint path {checkpoint_path}. Must be a directory.'
           )
         try:
-          step = CKPT_MODULE.get_step_from_checkpoint_asset(checkpoint_path)
-          checkpoint_path = checkpoint_path.parent
+          step = CKPT_MODULE.get_step_from_checkpoint_asset(checkpoint_path)  # pyrefly: ignore[bad-argument-type]
+          checkpoint_path = checkpoint_path.parent  # pyrefly: ignore[missing-attribute]
         except Exception as e:
           raise ValueError(
               f'Invalid checkpoint path {checkpoint_path}. Expected a step '
@@ -508,7 +507,7 @@ class ServableModel(servable_model.ServableModel):
           ) from e
         partitioned_train_state = CKPT_MODULE.restore_checkpoint(
             train_state_global_shapes,
-            checkpoint_path,
+            checkpoint_path,  # pyrefly: ignore[bad-argument-type]
             global_mesh=global_mesh,
             checkpoint_type=self._ckpt_type,
             state_specs=partition_specs,

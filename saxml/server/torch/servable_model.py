@@ -192,7 +192,7 @@ class ServableModel(servable_model.ServableModel):
     super().__init__()
     model.eval()  # Use evaluation mode (for dropout, etc.).
     for k, v in method_params.items():
-      self.add_method(k, v.method_cls(model, v, device))  # pytype: disable=not-instantiable # b/183649930
+      self.add_method(k, v.method_cls(model, v, device))
 
   def supports_dummy_compute_on_primary(self) -> bool:
     return False

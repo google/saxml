@@ -36,8 +36,6 @@ import tensorflow as tf
 
 LayerTpl = pax_fiddle.Config[base_layer.BaseLayer]
 
-# pytype: disable=attribute-error
-
 
 class CommonServingTemplate:
   """Common Serving template for language models."""
@@ -81,7 +79,7 @@ class CommonServingTemplate:
   EXTRA_INPUTS = {'temperature': 0.1}
   EXTRA_INPUTS_DTYPES = {}
   SCORE_EXTRA_INPUTS = {}
-  BUCKET_KEYS: list[int] = None
+  BUCKET_KEYS: list[int] = None  # pyrefly: ignore[bad-assignment]
   INCLUDE_PREFIX_IN_RESULT = False
   MAX_LIVE_BATCHES = 4
   ENABLE_GENERATE = True
@@ -152,7 +150,7 @@ class ServingTemplate(
       spm_model = (
           self.SPM_MODEL
           if self.SPM_MODEL is not None
-          else self._dataset_train().input.tokenizer.spm_model
+          else self._dataset_train().input.tokenizer.spm_model  # pyrefly: ignore[missing-attribute]
       )
     else:
       spm_model = None
@@ -416,7 +414,7 @@ class EmbeddingServingTemplate(
       spm_model = (
           self.SPM_MODEL
           if self.SPM_MODEL is not None
-          else self._dataset_train().input.tokenizer.spm_model
+          else self._dataset_train().input.tokenizer.spm_model  # pyrefly: ignore[missing-attribute]
       )
     else:
       spm_model = None
@@ -512,7 +510,7 @@ class ServingWithGradientTemplate(ServingTemplate):
 
 def set_lazy_prefix_broadcast_params(lm_tpl: LayerTpl) -> None:
   """Set params to enable lazy prefix broadcast for attention."""
-  xformer = lm_tpl.stacked_transformer_tpl  # pytype: disable=attribute-error  # enable-nested-classes
+  xformer = lm_tpl.stacked_transformer_tpl
   if xformer.cls == transformers.StackedTransformerRepeated:
     xformer = xformer.block
   layer_ps = xformer.transformer_layer_params_tpl
@@ -576,7 +574,7 @@ def make_servable(servable_class=ServingTemplate):
     # "wraps" only unhides the module-class path, assign () to "updated" to
     # leave the attributes (items in "__dict__") intact.
     @functools.wraps(pax_exp_class, updated=())
-    class Wrapped(pax_exp_class, servable_class):
+    class Wrapped(pax_exp_class, servable_class):  # pyrefly: ignore[invalid-inheritance]
       """A wrapper that uses the template and overrides some common LM configs."""
 
       @classmethod
@@ -618,11 +616,11 @@ def make_servable(servable_class=ServingTemplate):
                     decode_params.decoder, decoder_hparams.BeamSearchHParams
                 )
                 and decode_params.decoder.beam_size > 1
-            )  # pytype: disable=attribute-error
+            )
             lazy_prefix_broadcast = True
 
         if lazy_prefix_broadcast:
-          self.lpb_params_setter(task_p.model.lm_tpl)  # pytype: disable=attribute-error  # enable-nested-classes
+          self.lpb_params_setter(task_p.model.lm_tpl)
         return task_p
 
     return Wrapped

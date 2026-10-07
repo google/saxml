@@ -642,7 +642,7 @@ class ImageBytesToEmbedding(servable_model.ServableMethod):
       self, model_fn_outputs: NestedJTensor, model_fn_inputs: NestedJTensor
   ) -> NestedJTensor:
     """Fetches useful output tensors from the model function outputs."""
-    image_embedding = model_fn_outputs[0].GetItem(self._embedding_name)  # pytype: disable=attribute-error  # jax-ndarray
+    image_embedding = model_fn_outputs[0].GetItem(self._embedding_name)  # pyrefly: ignore[bad-index, missing-attribute]
     return NestedMap(image_embedding=image_embedding)
 
   def input_signature(self, batch_size: int | None) -> List[NestedTfTensorSpec]:

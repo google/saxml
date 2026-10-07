@@ -509,7 +509,7 @@ def decode_fetch_output(
     # [batch_size]
     if fetch_prefix_length_from_inputs:
       # Special handle google3/learning/multipod/pax/core/flaxformer_models.py
-      prefix_lengths = model_fn_inputs.prefix_lengths  # pytype: disable=attribute-error  # jax-ndarray
+      prefix_lengths = model_fn_inputs.prefix_lengths  # pyrefly: ignore[missing-attribute]
     else:
       prefix_lengths = result.prefix_lengths  # pyrefly: ignore[missing-attribute]
 

@@ -126,15 +126,15 @@ class ServableModelParams(
     """
 
   def get_quant_configs(self) -> Tuple[QuantizationType, QuantizationMode]:
-    return self.quantization_type, self.quant_mode  # pytype: disable=attribute-error
+    return self.quantization_type, self.quant_mode
 
   def set_quantization_type(self, quantization_type: QuantizationType) -> None:
     self.quantization_type = (
-        quantization_type  # pytype: disable=attribute-error
+        quantization_type
     )
 
   def set_quant_mode(self, mode: QuantizationMode) -> None:
-    self.quant_mode = mode  # pytype: disable=attribute-error
+    self.quant_mode = mode
 
   @classmethod
   def get_checkpoint_type(cls) -> checkpoints.CheckpointType:
