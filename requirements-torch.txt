@@ -8,9 +8,9 @@ absl-py==2.2.2
     # via -r requirements-torch.in
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.11.16
+aiohttp==3.12.14
     # via vllm
-aiosignal==1.3.2
+aiosignal==1.4.0
     # via
     #   aiohttp
     #   ray
@@ -442,6 +442,7 @@ typer==0.15.2
     # via fastapi-cli
 typing-extensions==4.13.1
     # via
+    #   aiosignal
     #   anyio
     #   fastapi
     #   huggingface-hub
