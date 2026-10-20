@@ -586,7 +586,7 @@ def make_servable(servable_class=ServingTemplate):
         return None
 
       def task(self) -> pax_fiddle.Config[base_task.BaseTask]:
-        task_p = super().task()
+        task_p = super().task()  # pyrefly: ignore[missing-attribute]
 
         if not hasattr(task_p, 'model'):
           return task_p
