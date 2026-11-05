@@ -12,12 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for classification models."""
+import pickle
 from absl.testing import absltest
 from praxis import py_utils
 from saxml.server.torch import classify
 from saxml.server.torch import servable_model
 import tensorflow as tf
 from torchvision.models import resnet
+
+
+class _MaliciousPayload:
+
+  def __reduce__(self):
+    return (eval, ("1 + 1",))
 
 
 class ClassifyMethodTest(absltest.TestCase):
@@ -38,6 +45,19 @@ class ClassifyMethodTest(absltest.TestCase):
     labels, scores = result[0]
     self.assertLen(labels, 10)
     self.assertLen(scores, 10)
+
+  def test_load_url_checkpoint_disabled(self):
+    model_params = classify.ResNetModel()
+    with self.assertRaisesRegex(
+        ValueError, "Loading checkpoints from URLs is disabled"
+    ):
+      model_params.load("key", "http://attacker.com/malicious.pkl", 0, 0)
+
+  def test_load_unsafe_pickle_checkpoint_rejected(self):
+    bad_ckpt = self.create_tempfile(content=pickle.dumps(_MaliciousPayload()))
+    model_params = classify.ResNetModel()
+    with self.assertRaises(pickle.UnpicklingError):
+      model_params.load("key", bad_ckpt.full_path, 0, 0)
 
 
 if __name__ == "__main__":

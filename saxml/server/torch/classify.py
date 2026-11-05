@@ -13,6 +13,7 @@
 # limitations under the License.
 """Image classification models."""
 from typing import Any, Dict, List
+import urllib.parse
 import numpy as np
 from paxml.tasks.vision import resnet_preprocessing
 from saxml.server import servable_model_registry
@@ -48,10 +49,15 @@ class ResNetModel(servable_model.ServableModelParams):
       primary_process_id: int,
       prng_key: int,
   ) -> Any:
-    model = resnet.resnet50().cuda()
-    model.load_state_dict(
-        torch.hub.load_state_dict_from_url(checkpoint_path, progress=True)
+    if urllib.parse.urlparse(checkpoint_path).scheme:
+      raise ValueError(
+          "Loading checkpoints from URLs is disabled for security reasons."
+      )
+    state_dict = torch.load(
+        checkpoint_path, map_location="cpu", weights_only=True
     )
+    model = resnet.resnet50().cuda()
+    model.load_state_dict(state_dict)
     return ServableModel(model, self.methods(), device="cuda")
 
   def methods(self) -> Dict[str, servable_model.ServableMethodParams]:  # pyrefly: ignore[bad-override]
