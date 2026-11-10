@@ -1,6 +1,6 @@
 # Public interface of LM inference service.
 
-load("//devtools/python/blaze:pytype.bzl", "pytype_strict_library")
+load("//third_party/bazel_rules/rules_python/python:py_library.bzl", "py_library")
 
 package(
     # unused internal package attribute
@@ -9,9 +9,10 @@ package(
 
 licenses(["notice"])
 
-pytype_strict_library(
+py_library(
     name = "common",
     srcs = ["common.py"],
+    type_checking = True,
     visibility = ["//visibility:public"],
     deps = [
         "//saxml/server/pax/lm:lm_tokenizer",
