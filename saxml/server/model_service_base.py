@@ -1594,6 +1594,7 @@ class ModelServicesRunner:
       gc_freeze_loaded_models: bool = False,
   ):
     self._is_primary = is_primary_process
+    self._keep_statically_loaded_models = keep_statically_loaded_models
     # If deterministic_prng_seed is provided, all models will use this as the
     # initial seed.
     self._det_prng_seed = deterministic_prng_seed
@@ -1786,13 +1787,15 @@ class ModelServicesRunner:
 
   def on_initial_models_load_completion(self) -> None:
     """Callback to invoke after all models are loaded."""
+    if self._is_primary and self._keep_statically_loaded_models:
+      self._modelet_service.after_start()
 
   def _run_aio_loop(self) -> None:
     """Runs the aio grpc loop."""
 
     async def _serve():
       await self._grpc_server.start()
-      if self._is_primary:
+      if self._is_primary and not self._keep_statically_loaded_models:
         self._modelet_service.after_start()
       await self._terminate_future
       await self._grpc_server.stop(None)

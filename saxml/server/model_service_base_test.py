@@ -14,6 +14,7 @@
 """Tests for model_service_base."""
 
 import asyncio
+import threading
 from typing import Any, Callable
 from unittest import mock
 
@@ -365,6 +366,70 @@ class DormantModelServiceTest(absltest.TestCase):
     )
     self.assertEqual(context.code(), grpc.StatusCode.UNAVAILABLE)
     self.assertIn('dormant', context.details())
+
+
+class ModelServicesRunnerJoinTimingTest(absltest.TestCase):
+
+  def test_delays_after_start_when_keeping_statically_loaded_models(self):
+    port = portpicker.pick_unused_port()
+    with mock.patch.object(
+        model_service_base.ModeletService, 'after_start'
+    ) as mock_after_start:
+      runner = model_service_base.ModelServicesRunner(
+          is_primary_process=True,
+          port=port,
+          sax_cell='/sax/foo',
+          keep_statically_loaded_models=True,
+      )
+      orig_grpc_start = runner._grpc_server.start
+      grpc_started = threading.Event()
+
+      async def _start_and_signal():
+        await orig_grpc_start()
+        grpc_started.set()
+
+      with mock.patch.object(
+          runner._grpc_server, 'start', side_effect=_start_and_signal
+      ):
+        runner.start()
+        try:
+          self.assertTrue(grpc_started.wait(timeout=10))
+          # Flush the event loop so _serve() advances past after_start().
+          asyncio.run_coroutine_threadsafe(
+              asyncio.sleep(0), runner._aio_loop
+          ).result(timeout=10)
+          mock_after_start.assert_not_called()
+
+          runner.on_initial_models_load_completion()
+          mock_after_start.assert_called_once()
+        finally:
+          runner.stop()
+          runner.wait()
+
+  def test_calls_after_start_on_start_without_static_models(self):
+    port = portpicker.pick_unused_port()
+    joined = threading.Event()
+    with mock.patch.object(
+        model_service_base.ModeletService,
+        'after_start',
+        side_effect=joined.set,
+    ) as mock_after_start:
+      runner = model_service_base.ModelServicesRunner(
+          is_primary_process=True,
+          port=port,
+          sax_cell='/sax/foo',
+          keep_statically_loaded_models=False,
+      )
+      runner.start()
+      try:
+        self.assertTrue(joined.wait(timeout=10))
+        mock_after_start.assert_called_once()
+
+        runner.on_initial_models_load_completion()
+        mock_after_start.assert_called_once()
+      finally:
+        runner.stop()
+        runner.wait()
 
 
 if __name__ == '__main__':
