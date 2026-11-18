@@ -184,6 +184,8 @@ class RpcQueue:
         break
 
       if task.rpc is not None and task.rpc.should_cancel():
+        if task.release_device_resource is not None:
+          task.release_device_resource()
         if task.done is not None:
           task.done(cancelled())
         continue

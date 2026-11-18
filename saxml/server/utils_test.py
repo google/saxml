@@ -82,5 +82,82 @@ class RequestStatsTest(absltest.TestCase):
     np.testing.assert_allclose(1.0 / tick, result.rate())
 
 
+class _FakeRPCContext(utils.RPCContext):
+
+  def __init__(self, cancelled: bool):
+    self._cancelled = cancelled
+
+  def username(self) -> str | None:
+    return None
+
+  def should_cancel(self) -> bool:
+    return self._cancelled
+
+
+class RpcQueueTest(absltest.TestCase):
+
+  def testCancelledTaskReleasesDeviceResource(self):
+    rpc_queue = utils.RpcQueue()
+    admissioner = utils.Admissioner(limit=1)
+    acquired, active = admissioner.acquire(blocking=False)
+    self.assertTrue(acquired)
+    self.assertTrue(active)
+
+    events = []
+    done_statuses = []
+
+    def _release():
+      events.append('release')
+      admissioner.release()
+
+    def _done(status):
+      events.append('done')
+      done_statuses.append(status)
+
+    rpc_queue.send(
+        _FakeRPCContext(cancelled=True),
+        None,
+        None,
+        _release,
+        _done,
+    )
+    active_rpc = _FakeRPCContext(cancelled=False)
+    rpc_queue.send(active_rpc, None, None, None, None)
+
+    batch = rpc_queue.take_batch(batch_size=1)
+
+    self.assertLen(batch, 1)
+    self.assertIs(batch[0].rpc, active_rpc)
+    self.assertEqual(events, ['release', 'done'])
+    self.assertLen(done_statuses, 1)
+    self.assertEqual(done_statuses[0].code, utils.cancelled().code)
+
+    # Verify the admission slot was returned and can be acquired again.
+    reacquired, active = admissioner.acquire(blocking=False)
+    self.assertTrue(reacquired)
+    self.assertTrue(active)
+
+  def testCancelledTaskWithoutReleaseCallback(self):
+    rpc_queue = utils.RpcQueue()
+    done_statuses = []
+
+    rpc_queue.send(
+        _FakeRPCContext(cancelled=True),
+        None,
+        None,
+        None,
+        done_statuses.append,
+    )
+    active_rpc = _FakeRPCContext(cancelled=False)
+    rpc_queue.send(active_rpc, None, None, None, None)
+
+    batch = rpc_queue.take_batch(batch_size=1)
+
+    self.assertLen(batch, 1)
+    self.assertIs(batch[0].rpc, active_rpc)
+    self.assertLen(done_statuses, 1)
+    self.assertEqual(done_statuses[0].code, utils.cancelled().code)
+
+
 if __name__ == '__main__':
   absltest.main()
