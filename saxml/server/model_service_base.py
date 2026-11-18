@@ -1464,27 +1464,39 @@ class ModeletServiceGRPC(ModeletService, modelet_pb2_grpc.ModeletServicer):
         overrides = copy.deepcopy(meta['overrides'])
         model_path = copy.deepcopy(meta['model_path'])
         acls = copy.deepcopy(meta['acls'])
-      unload_resp = modelet_pb2.UnloadResponse()
-      unload_fut, unload_done = self._future_and_done_cb(context)
-      self.unload(
-          utils.RPCContextGRPC(context), request, unload_resp, unload_done
-      )
+      if request.checkpoint_path == meta.get('checkpoint_path'):
+        # The requested checkpoint is already loaded (e.g. the admin re-sends
+        # the published checkpoint when a statically loaded server joins), so
+        # skip the unload & reload and only update the ACLs below.
+        logging.info(
+            'Checkpoint %s already loaded for %s; skipping reload.',
+            request.checkpoint_path,
+            request.model_key,
+        )
+      else:
+        unload_resp = modelet_pb2.UnloadResponse()
+        unload_fut, unload_done = self._future_and_done_cb(context)
+        self.unload(
+            utils.RPCContextGRPC(context), request, unload_resp, unload_done
+        )
 
-      await unload_fut
+        await unload_fut
 
-      await self.Load(
-          modelet_pb2.LoadRequest(
-              model_key=request.model_key,
-              model_path=model_path,
-              checkpoint_path=request.checkpoint_path,
-              acls=request.acls if request.acls else acls,
-              overrides=overrides,
-          ),
-          context,
-      )
-      context.set_code(grpc.StatusCode.OK)
-      logging.info('Checkpoint update took %s [sec].', time.time() - start_time)
-      return modelet_pb2.UpdateLoadedResponse()
+        await self.Load(
+            modelet_pb2.LoadRequest(
+                model_key=request.model_key,
+                model_path=model_path,
+                checkpoint_path=request.checkpoint_path,
+                acls=request.acls if request.acls else acls,
+                overrides=overrides,
+            ),
+            context,
+        )
+        context.set_code(grpc.StatusCode.OK)
+        logging.info(
+            'Checkpoint update took %s [sec].', time.time() - start_time
+        )
+        return modelet_pb2.UpdateLoadedResponse()
 
     # If the checkpoint is unchanged just update acls via the `update` method.
     resp = modelet_pb2.UpdateLoadedResponse()

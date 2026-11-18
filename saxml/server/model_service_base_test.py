@@ -432,5 +432,81 @@ class ModelServicesRunnerJoinTimingTest(absltest.TestCase):
         runner.wait()
 
 
+class UpdateLoadedTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self._service = model_service_base.ModeletServiceGRPC(
+        service_port=portpicker.pick_unused_port(),
+        debug_port=None,
+        batcher=model_service_base.PerMethodBatcher(),
+        loader=model_service_base.LoadedModelManager(0),
+        bouncer=model_service_base.DormantServerBouncer(
+            is_backend_dormant=lambda: False,
+            wake_up_backend=lambda: None,
+            enable_early_rejection=False,
+        ),
+        sax_cell='/sax/foo',
+        admin_port=portpicker.pick_unused_port(),
+        platform_chip='cpu',
+        platform_topology='1',
+        tags=[],
+    )
+    mock_loader = self.enter_context(
+        mock.patch.object(self._service, '_loader', autospec=True)
+    )
+    mock_loader.maybe_get_model.return_value = mock.Mock()
+    mock_loader.maybe_get_model_metadata.return_value = dict(
+        checkpoint_path='/ckpt/step_0',
+        model_path='test.Model',
+        acls={},
+        overrides={},
+    )
+    self._mock_unload = self.enter_context(
+        mock.patch.object(
+            self._service,
+            'unload',
+            side_effect=lambda rpc, req, resp, done: done(utils.ok()),
+        )
+    )
+    self._mock_load = self.enter_context(
+        mock.patch.object(self._service, 'Load', new_callable=mock.AsyncMock)
+    )
+    self._mock_update = self.enter_context(
+        mock.patch.object(
+            self._service,
+            'update',
+            side_effect=lambda req, done: done(utils.ok()),
+        )
+    )
+
+  def _update_loaded(self, checkpoint_path: str) -> None:
+    asyncio.run(
+        self._service.UpdateLoaded(
+            modelet_pb2.UpdateLoadedRequest(
+                model_key='/sax/foo/bar', checkpoint_path=checkpoint_path
+            ),
+            mock.create_autospec(grpc.ServicerContext, instance=True),
+        )
+    )
+
+  def test_skips_reload_when_checkpoint_already_loaded(self):
+    self._update_loaded('/ckpt/step_0')
+
+    self._mock_unload.assert_not_called()
+    self._mock_load.assert_not_called()
+    self._mock_update.assert_called_once()
+
+  def test_reloads_when_checkpoint_changes(self):
+    self._update_loaded('/ckpt/step_80')
+
+    self._mock_unload.assert_called_once()
+    self._mock_load.assert_awaited_once()
+    self.assertEqual(
+        self._mock_load.await_args.args[0].checkpoint_path, '/ckpt/step_80'
+    )
+    self._mock_update.assert_not_called()
+
+
 if __name__ == '__main__':
   absltest.main()
