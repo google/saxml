@@ -106,6 +106,7 @@ pytype_strict_library(
 pytype_strict_library(
     name = "c4",
     srcs = ["c4.py"],
+    data = [":test_model"],
     deps = [
         ":template",
         "//saxml/server:servable_model_registry",

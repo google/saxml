@@ -13,6 +13,8 @@
 # limitations under the License.
 """Language Model configurations on the T5/C4 dataset."""
 
+import os
+
 from paxml.tasks.lm.params import c4
 from saxml.server import servable_model_registry
 from saxml.server.pax.lm.params import template
@@ -24,8 +26,14 @@ class C4SpmdGpt3AdamOrgHP(c4.C4SpmdGpt3AdamOrgHP):
   """175B GPT-3 Servable config on 1x1x64."""
 
   # tokenization
-  TOKENIZED = True
-  SPM_MODEL = "gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model"
+  # MLPerf loadgen sends and receives token IDs, so the SentencePiece model is
+  # only needed to satisfy Sax's tokenizer setup. Use the placeholder model
+  # bundled with this package rather than an external bucket. To serve text
+  # instead, set TOKENIZED_INPUT/TOKENIZED_OUTPUT to False and point SPM_MODEL
+  # at a trusted copy of the C4 SentencePiece model.
+  TOKENIZED_INPUT = True
+  TOKENIZED_OUTPUT = True
+  SPM_MODEL = os.path.join(os.path.dirname(__file__), "test_model.model")
 
   ICI_MESH_SHAPE = [1, 1, 64]
   FPROP_FOR_PREFIX = True
